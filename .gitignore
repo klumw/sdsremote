@@ -57,6 +57,6 @@ app.*.map.json
 /android/app/release
 
 #generated images
-*.png
+#*.png
 *.bmp
 
