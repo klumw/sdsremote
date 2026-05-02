@@ -1,0 +1,14 @@
+flutter_app:
+  command: sdsremote
+  arch: x64
+  parent: /usr/local/lib
+  nonInteractive: true
+
+control:
+  Package: sdsremote
+  Version: 0.1.1
+  Architecture: amd64
+  Priority: optional
+  Depends: libgtk-3-0 | libgtk-3-0t64, libblkid1, liblzma5
+  Maintainer: sdsremote@outlook.com
+  Description: Siglent SDS oscilloscope remote viewer
