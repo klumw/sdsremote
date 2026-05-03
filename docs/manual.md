@@ -271,7 +271,7 @@ The **Profiles** feature allows you to save and restore the configuration of you
 ## 9. Support and Feedback
 
 * Review the troubleshooting section  
-* Check logs at `/tmp/sds/logging/sds.log`  
+* Check logs at `/tmp/sds/logging/sds.log` (Linux) or `%TEMP%\sds\logging\sds.log` (Windows)  
 * Submit issues or feature requests via the [sdsremote](https://github.com/klumw/sdsremote) GitHub repository Issues section  
 
 ---

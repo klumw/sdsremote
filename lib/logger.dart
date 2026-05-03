@@ -6,8 +6,8 @@ class AppLogger {
   factory AppLogger() => _instance;
   AppLogger._internal();
 
-  static const String _logDir = '/tmp/sds/logging';
-  static const String _logFile = '$_logDir/sds.log';
+  static String get _logDir => '${Directory.systemTemp.path}/sds/logging';
+  static String get _logFile => '$_logDir/sds.log';
   static const int _maxLogSize = 1024 * 1024; // 1MB
 
   final DateFormat _dateFormat = DateFormat('yyyy-MM-dd HH:mm:ss.SSS');

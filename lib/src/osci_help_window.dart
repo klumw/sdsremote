@@ -79,7 +79,8 @@ class _HelpWindowState extends State<HelpWindow> {
                           code: TextStyle(
                             backgroundColor: Colors.black54,
                             color: Colors.greenAccent[100],
-                            fontFamily: 'monospace',
+                            fontFamily: 'Roboto Mono',
+                            fontFamilyFallback: const ['Consolas', 'Courier New', 'monospace'],
                           ),
                           codeblockDecoration: const BoxDecoration(
                             color: Colors.transparent,
@@ -134,7 +135,8 @@ class InlineCodeElementBuilder extends MarkdownElementBuilder {
         element.textContent,
         style: TextStyle(
           color: Colors.greenAccent[100],
-          fontFamily: 'monospace',
+          fontFamily: 'Roboto Mono',
+          fontFamilyFallback: const ['Consolas', 'Courier New', 'monospace'],
         ),
       ),
     );
@@ -165,7 +167,8 @@ class CodeBlockElementBuilder extends MarkdownElementBuilder {
                     text,
                     style: TextStyle(
                       color: Colors.greenAccent[100],
-                      fontFamily: 'monospace',
+                      fontFamily: 'Roboto Mono',
+                      fontFamilyFallback: const ['Consolas', 'Courier New', 'monospace'],
                       fontSize: 18,
                     ),
                   ),

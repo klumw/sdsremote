@@ -1550,12 +1550,8 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
         await Process.run('docker', ['rm', '-f', 'sds-ai-server']);
       }
 
-      final serviceResult = await Process.run('systemctl', [
-        'is-active',
-        'docker',
-      ]);
-      final isServiceRunning =
-          serviceResult.stdout.toString().trim() == 'active';
+      final serviceResult = await Process.run('docker', ['info']);
+      final isServiceRunning = serviceResult.exitCode == 0;
 
       if (!isServiceRunning) {
         AppLogger().log('Docker service is not running.');
