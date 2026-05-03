@@ -88,5 +88,5 @@ This software is released under the terms and conditions of the [Apache 2.0 Lice
 
 **Feedback and Support**  
 - Review the in-app help manual for detailed troubleshooting.
-- Check the application logs at `/tmp/sds/logging/sds.log`.
+- Check the application logs at `/tmp/sds/logging/sds.log` (Linux) or `%TEMP%\sds\logging\sds.log` (Windows).
 - Submit issues or feature requests via the [sdsremote GitHub repository Issues section](https://github.com/klumw/sdsremote/issues).
