@@ -12,6 +12,7 @@ Remote control and AI enhanced operation of Siglent SDS1202X-E, SDS1104X-E, SDS1
   
   ![Waveform Acquisition](docs/sdsremote_wf.png)
 - **Remote Control Panel**: Acquire and view the oscilloscope display. Remote control your oscilloscope with a virtual front panel.
+- **Device Parameter Monitoring**: View real-time parameters such as timebase, sample rate, and voltage settings. Cursor-based measurements are supported.
   
   ![Remote Control Panel](docs/sdsremote_cp.png)
 
@@ -22,8 +23,6 @@ Remote control and AI enhanced operation of Siglent SDS1202X-E, SDS1104X-E, SDS1
 - **Device Profile Management**: Save and restore oscilloscope configurations as local files (.lss) for quick setup.
   
   ![Device Profile Management](docs/sdsremote_dp.png)
-
-- **Device Parameter Monitoring**: View real-time parameters such as timebase, sample rate, and voltage settings. Cursor-based measurements are supported.
 
 ---
 
