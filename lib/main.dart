@@ -27,6 +27,45 @@ import 'src/osci_device_params_panel.dart';
 import 'src/osci_settings_panel.dart';
 import 'src/osci_profiles_panel.dart';
 
+// ===========================================================================
+// Provider Configuration Table
+// ===========================================================================
+
+/// Configuration for an AI provider.
+///
+/// Maps a [providerName] (shown in the UI dropdown) to its [modelPrefix]
+/// (used to construct the model string like "openai:gpt-4o") and its
+/// [apiKeyName] (the environment variable name like "OPENAI_API_KEY").
+class ProviderConfig {
+  final String modelPrefix;
+  final String providerName;
+  final String apiKeyName;
+
+  const ProviderConfig({
+    required this.modelPrefix,
+    required this.providerName,
+    required this.apiKeyName,
+  });
+}
+
+/// The canonical list of supported AI providers.
+///
+/// Each entry defines:
+/// - [ProviderConfig.modelPrefix]: used to prefix the model name (e.g. "openai:gpt-4o")
+/// - [ProviderConfig.providerName]: displayed in the UI dropdown
+/// - [ProviderConfig.apiKeyName]: the environment variable name for the API key
+const List<ProviderConfig> providerConfigs = [
+  ProviderConfig(modelPrefix: 'deepseek',  providerName: 'DeepSeek',  apiKeyName: 'DEEPSEEK_API_KEY'),
+  ProviderConfig(modelPrefix: 'openai',    providerName: 'OpenAI',    apiKeyName: 'OPENAI_API_KEY'),
+  ProviderConfig(modelPrefix: 'anthropic', providerName: 'Anthropic', apiKeyName: 'ANTHROPIC_API_KEY'),
+  ProviderConfig(modelPrefix: 'google',    providerName: 'Google',    apiKeyName: 'GOOGLE_API_KEY'),
+  ProviderConfig(modelPrefix: 'mistral',   providerName: 'Mistral',   apiKeyName: 'MISTRAL_API_KEY'),
+  ProviderConfig(modelPrefix: 'cohere',    providerName: 'Cohere',    apiKeyName: 'COHERE_API_KEY'),
+  ProviderConfig(modelPrefix: 'edenai',    providerName: 'EdenAI',    apiKeyName: 'EDENAI_API_KEY'),
+  ProviderConfig(modelPrefix: 'openrouter',providerName: 'OpenRouter',apiKeyName: 'OPENROUTER_API_KEY'),
+  ProviderConfig(modelPrefix: 'xai',       providerName: 'xAI',       apiKeyName: 'XAI_API_KEY'),
+];
+
 enum ActivePanel { none, help, chat, profiles }
 
 // ===========================================================================
@@ -158,11 +197,11 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   Vxi11Instrument? _instrument;
 
   // AI
-  String _aiApiKey = '';
+  String _aiProvider = '';
   String _aiApiToken = '';
   String _llmModel = '';
   bool get _isAiEnabled =>
-      _aiApiKey.trim().length >= 8 &&
+      _aiProvider.isNotEmpty &&
       _aiApiToken.trim().length >= 8;
 
   // Acquisition
@@ -1116,23 +1155,24 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     return SettingsPanel(
       offset: _settingsOffset,
       ipAddress: _ipAddress,
-      aiApiKey: _aiApiKey,
+      providerNames: providerConfigs.map((c) => c.providerName).toList(),
+      selectedProvider: _aiProvider,
       aiApiToken: _aiApiToken,
       llmModel: _llmModel,
       saveWithParams: _saveWithParams,
       isRunningDiagnostic: _isRunningDiagnostic,
       diagnosticResults: _diagnosticResults,
       callbacks: SettingsPanelCallbacks(
-        onSave: (newIp, newKey, newToken, newModel) {
+        onSave: (newIp, newProvider, newToken, newModel) {
           bool criticalConfigChanged =
               _ipAddress != newIp ||
-              _aiApiKey != newKey ||
+              _aiProvider != newProvider ||
               _aiApiToken != newToken ||
               _llmModel != newModel;
 
           setState(() {
             _ipAddress = newIp;
-            _aiApiKey = newKey;
+            _aiProvider = newProvider;
             _aiApiToken = newToken;
             _llmModel = newModel;
             _deviceName = null;
@@ -1141,7 +1181,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
           _saveConfig();
           _startPingTimer();
 
-          if (_aiApiKey.trim().length >= 8 && _aiApiToken.trim().length >= 8) {
+          if (_aiProvider.isNotEmpty && _aiApiToken.trim().length >= 8) {
             _configureAiService();
           }
         },
@@ -1456,7 +1496,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     _startPingTimer();
     // Configure AI agent on startup if keys are already set/valid
     bool keysValid =
-        _aiApiKey.trim().length >= 8 && _aiApiToken.trim().length >= 8;
+        _aiProvider.isNotEmpty && _aiApiToken.trim().length >= 8;
     if (keysValid) {
       _configureAiService();
     }
@@ -1466,7 +1506,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _ipAddress = prefs.getString('osci_ip') ?? '192.168.1.100';
-      _aiApiKey = prefs.getString('ai_api_key') ?? '';
+      _aiProvider = prefs.getString('ai_provider') ?? '';
       _aiApiToken = prefs.getString('ai_api_token') ?? '';
       _llmModel = prefs.getString('llm_model') ?? '';
       _saveWithParams = prefs.getBool('save_with_params') ?? false;
@@ -1476,7 +1516,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   Future<void> _saveConfig() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('osci_ip', _ipAddress);
-    await prefs.setString('ai_api_key', _aiApiKey);
+    await prefs.setString('ai_provider', _aiProvider);
     await prefs.setString('ai_api_token', _aiApiToken);
     await prefs.setString('llm_model', _llmModel);
   }
@@ -1521,26 +1561,45 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   // AI Operations
   // =========================================================================
 
-  /// Configures the [AiChatService] with the current API keys, model, and
-  /// device IP. This replaces the previous Docker-based backend.
+  /// Configures the [AiChatService] with the current provider, API token,
+  /// model, and device IP.
+  ///
+  /// Looks up the [providerConfigs] table to map the selected provider name
+  /// to the correct API key environment variable name and model prefix.
+  /// The full model string is constructed as `<prefix>:<model>` (e.g.
+  /// `openai:gpt-4o`).
   void _configureAiService() {
-    if (_aiApiKey.trim().length < 8 || _aiApiToken.trim().length < 8) {
+    if (_aiProvider.isEmpty || _aiApiToken.trim().length < 8) {
       AppLogger(agentName: 'main', toolName: '_configureAiService').log(
-        'AI keys not valid, skipping configuration',
+        'AI provider or token not valid, skipping configuration',
       );
       return;
     }
 
+    // Look up the provider configuration from the table.
+    final config = providerConfigs.firstWhere(
+      (c) => c.providerName == _aiProvider,
+      orElse: () => ProviderConfig(
+        modelPrefix: _aiProvider.toLowerCase(),
+        providerName: _aiProvider,
+        apiKeyName: '${_aiProvider.toUpperCase()}_API_KEY',
+      ),
+    );
+
+    final apiKeyName = config.apiKeyName;
+    final modelPrefix = config.modelPrefix;
+    final modelName = _llmModel.isNotEmpty ? _llmModel : 'gpt-4o';
+    final fullModel = '$modelPrefix:$modelName';
+
     AppLogger(agentName: 'main', toolName: '_configureAiService').log(
-      'Configuring AI service: model=$_llmModel, ip=$_ipAddress',
+      'Configuring AI service: provider=$_aiProvider, '
+      'apiKeyName=$apiKeyName, model=$fullModel, ip=$_ipAddress',
     );
 
     _aiChatService.configure(
-      apiKey: _aiApiKey,
+      apiKey: apiKeyName,
       apiToken: _aiApiToken,
-      model: _llmModel.isNotEmpty
-          ? _llmModel
-          : 'deepseek:deepseek-v4-flash',
+      model: fullModel,
       vxi11Host: _ipAddress,
     );
 

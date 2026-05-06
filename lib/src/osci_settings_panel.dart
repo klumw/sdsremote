@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// Callbacks for the settings panel to communicate with the parent state.
 class SettingsPanelCallbacks {
-  final void Function(String ip, String key, String token, String model)
+  final void Function(String ip, String provider, String token, String model)
       onSave;
   final void Function() onClose;
   final void Function(Offset delta) onDrag;
@@ -18,7 +18,8 @@ class SettingsPanelCallbacks {
 class SettingsPanel extends StatefulWidget {
   final Offset offset;
   final String ipAddress;
-  final String aiApiKey;
+  final List<String> providerNames;
+  final String selectedProvider;
   final String aiApiToken;
   final String llmModel;
   final bool saveWithParams;
@@ -32,7 +33,8 @@ class SettingsPanel extends StatefulWidget {
     super.key,
     required this.offset,
     required this.ipAddress,
-    required this.aiApiKey,
+    required this.providerNames,
+    required this.selectedProvider,
     required this.aiApiToken,
     required this.llmModel,
     required this.saveWithParams,
@@ -49,17 +51,19 @@ class SettingsPanel extends StatefulWidget {
 
 class _SettingsPanelState extends State<SettingsPanel> {
   late TextEditingController _ipController;
-  late TextEditingController _aiApiKeyController;
   late TextEditingController _aiApiTokenController;
   late TextEditingController _llmModelController;
+  String? _selectedProvider;
 
   @override
   void initState() {
     super.initState();
     _ipController = TextEditingController(text: widget.ipAddress);
-    _aiApiKeyController = TextEditingController(text: widget.aiApiKey);
     _aiApiTokenController = TextEditingController(text: widget.aiApiToken);
     _llmModelController = TextEditingController(text: widget.llmModel);
+    _selectedProvider = widget.selectedProvider.isNotEmpty
+        ? widget.selectedProvider
+        : null;
   }
 
   @override
@@ -68,21 +72,22 @@ class _SettingsPanelState extends State<SettingsPanel> {
     if (oldWidget.ipAddress != widget.ipAddress) {
       _ipController.text = widget.ipAddress;
     }
-    if (oldWidget.aiApiKey != widget.aiApiKey) {
-      _aiApiKeyController.text = widget.aiApiKey;
-    }
     if (oldWidget.aiApiToken != widget.aiApiToken) {
       _aiApiTokenController.text = widget.aiApiToken;
     }
     if (oldWidget.llmModel != widget.llmModel) {
       _llmModelController.text = widget.llmModel;
     }
+    if (oldWidget.selectedProvider != widget.selectedProvider) {
+      _selectedProvider = widget.selectedProvider.isNotEmpty
+          ? widget.selectedProvider
+          : null;
+    }
   }
 
   @override
   void dispose() {
     _ipController.dispose();
-    _aiApiKeyController.dispose();
     _aiApiTokenController.dispose();
     _llmModelController.dispose();
     super.dispose();
@@ -164,11 +169,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         'Oscilloscope IP Address',
                       ),
                       const SizedBox(height: 16),
-                      _buildSettingsField(
-                        _aiApiKeyController,
-                        'AI API Key Name',
-                        hint: 'e.g. OPENAI_API_KEY',
-                      ),
+                      _buildProviderDropdown(),
                       const SizedBox(height: 16),
                       _buildSettingsField(
                         _aiApiTokenController,
@@ -270,7 +271,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         ),
                         onPressed: () => widget.callbacks.onSave(
                           _ipController.text,
-                          _aiApiKeyController.text,
+                          _selectedProvider ?? '',
                           _aiApiTokenController.text,
                           _llmModelController.text,
                         ),
@@ -287,6 +288,41 @@ class _SettingsPanelState extends State<SettingsPanel> {
           ),
         ),
       ),
+    );
+  }
+
+  Widget _buildProviderDropdown() {
+    return DropdownButtonFormField<String>(
+      initialValue: _selectedProvider,
+      decoration: InputDecoration(
+        labelText: 'AI Provider',
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+        hintText: 'Select AI Provider',
+        hintStyle: const TextStyle(color: Colors.white24, fontSize: 13),
+        labelStyle: const TextStyle(color: Colors.white70, fontSize: 14),
+        enabledBorder: const OutlineInputBorder(
+          borderSide: BorderSide(color: Colors.white24),
+        ),
+        focusedBorder: const OutlineInputBorder(
+          borderSide: BorderSide(color: Colors.cyanAccent),
+        ),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+      ),
+      dropdownColor: const Color(0xFF252525),
+      style: const TextStyle(color: Colors.white, fontSize: 14),
+      iconEnabledColor: Colors.cyanAccent,
+      items: widget.providerNames.map((name) {
+        return DropdownMenuItem<String>(
+          value: name,
+          child: Text(name),
+        );
+      }).toList(),
+      onChanged: (v) {
+        setState(() => _selectedProvider = v);
+      },
     );
   }
 
