@@ -6,7 +6,6 @@ import '../logger.dart';
 import 'agent.dart';
 import 'query_agent.dart';
 import 'systemprompts.dart';
-import 'vxi11_tool.dart';
 
 /// Creates the tool that wraps the VXI-11 instrument agent.
 ///
@@ -168,7 +167,7 @@ class FrontendAgent {
   FrontendAgent({
     String model = 'deepseek:deepseek-v4-flash',
     String? systemPrompt,
-    String? vxi11Host = defaultVxi11Host,
+    String? vxi11Host,
     String knowledgebasePath = 'knowledgebase.md',
     List<Tool>? tools,
     this.maxToolCalls = defaultMaxToolCalls,

@@ -53,7 +53,7 @@ class ChatAgent {
   ChatAgent({
     String model = 'deepseek:deepseek-v4-flash',
     String? systemPrompt,
-    String? vxi11Host = defaultVxi11Host,
+    String? vxi11Host,
     List<Tool>? tools,
     this.maxToolCalls = defaultMaxToolCalls,
   }) : _agent = Agent(

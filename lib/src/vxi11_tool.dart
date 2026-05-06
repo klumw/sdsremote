@@ -3,9 +3,6 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import '../dart_vxi11.dart';
 import '../logger.dart';
 
-/// Default IP address of the VXI-11 instrument.
-const String defaultVxi11Host = '192.168.178.95';
-
 /// Creates a VXI-11 tool that allows the AI agent to send SCPI commands
 /// and queries to a remote instrument.
 ///
@@ -17,7 +14,7 @@ const String defaultVxi11Host = '192.168.178.95';
 /// - "Send the command C1:TRA OFF to the device"
 /// - "Query the device identification with *IDN?"
 Tool<Map<String, dynamic>> createVxi11Tool({
-  String host = defaultVxi11Host,
+  required String host,
   String agentName = 'unknown',
 }) {
   return Tool<Map<String, dynamic>>(
@@ -26,7 +23,7 @@ Tool<Map<String, dynamic>> createVxi11Tool({
         'Send SCPI commands and queries to a VXI-11 instrument. '
         'Use "write" to send a command (no response), '
         'or "query" to send a query and get a response. '
-        'The default device IP is $defaultVxi11Host.',
+        'The configured device IP is $host.',
     inputSchema: Schema.fromMap({
       'type': 'object',
       'properties': {
@@ -45,7 +42,7 @@ Tool<Map<String, dynamic>> createVxi11Tool({
         'host': {
           'type': 'string',
           'description':
-              'The IP address of the instrument. Defaults to $defaultVxi11Host.',
+              'The IP address of the instrument. Defaults to $host.',
         },
       },
       'required': ['operation', 'command'],
@@ -53,14 +50,14 @@ Tool<Map<String, dynamic>> createVxi11Tool({
     onCall: (args) async {
       final operation = args['operation'] as String;
       final command = args['command'] as String;
-      final host = (args['host'] as String?) ?? defaultVxi11Host;
+      final effectiveHost = (args['host'] as String?) ?? host;
 
       final logger = AppLogger(
         agentName: agentName,
         toolName: 'vxi11',
       );
 
-      final instrument = Vxi11Instrument(host, sourceLabel: 'AI-tool($agentName)');
+      final instrument = Vxi11Instrument(effectiveHost, sourceLabel: 'AI-tool($agentName)');
 
       try {
         await instrument.open(timeoutSeconds: 10.0);
@@ -74,7 +71,7 @@ Tool<Map<String, dynamic>> createVxi11Tool({
               'operation': 'write',
               'command': command,
               'response': null,
-              'host': host,
+              'host': effectiveHost,
             };
 
           case 'query':
@@ -85,7 +82,7 @@ Tool<Map<String, dynamic>> createVxi11Tool({
               'operation': 'query',
               'command': command,
               'response': response,
-              'host': host,
+              'host': effectiveHost,
             };
 
           default:
@@ -100,7 +97,7 @@ Tool<Map<String, dynamic>> createVxi11Tool({
           'operation': operation,
           'command': command,
           'error': e.toString(),
-          'host': host,
+          'host': effectiveHost,
         };
         logger.logToolCall(input: args, output: errorResult);
         return errorResult;
