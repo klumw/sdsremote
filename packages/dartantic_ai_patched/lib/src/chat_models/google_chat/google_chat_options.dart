@@ -1,0 +1,331 @@
+import 'package:dartantic_interface/dartantic_interface.dart';
+import 'package:meta/meta.dart';
+
+import 'google_server_side_tools.dart' show GoogleServerSideTool;
+
+/// Options to pass into the Google Generative AI Chat Model.
+///
+/// You can find a list of available models
+/// [here](https://ai.google.dev/models).
+@immutable
+class GoogleChatModelOptions extends ChatModelOptions {
+  /// Creates a new chat google generative ai options instance.
+  const GoogleChatModelOptions({
+    this.model,
+    this.temperature,
+    this.topP,
+    this.topK,
+    this.candidateCount,
+    this.maxOutputTokens,
+    this.stopSequences,
+    this.responseMimeType,
+    this.responseSchema,
+    this.safetySettings,
+    this.thinkingBudgetTokens,
+    this.serverSideTools,
+    this.functionCallingMode,
+    this.allowedFunctionNames,
+    this.thinkingLevel,
+    this.fileSearch,
+    this.mapsGrounding,
+  });
+
+  /// The model to use (e.g. 'gemini-1.5-pro').
+  final String? model;
+
+  /// The temperature to use.
+  final double? temperature;
+
+  /// The top P value to use.
+  final double? topP;
+
+  /// The top K value to use.
+  final int? topK;
+
+  /// Number of generated responses to return. This value must be between
+  /// 1 and 8, inclusive. If unset, this will default to 1.
+  final int? candidateCount;
+
+  /// The maximum number of tokens to include in a candidate. If unset,
+  /// this will default to `output_token_limit` specified in the `Model`
+  /// specification.
+  final int? maxOutputTokens;
+
+  /// The set of character sequences (up to 5) that will stop output generation.
+  /// If specified, the API will stop at the first appearance of a stop
+  /// sequence. The stop sequence will not be included as part of the response.
+  final List<String>? stopSequences;
+
+  /// Output response mimetype of the generated candidate text.
+  ///
+  /// Supported mimetype:
+  /// - `text/plain`: (default) Text output.
+  /// - `application/json`: JSON response in the candidates.
+  final String? responseMimeType;
+
+  /// Output response schema of the generated candidate text.
+  /// Following the [JSON Schema specification](https://json-schema.org).
+  ///
+  /// - Note: This only applies when the specified ``responseMIMEType`` supports
+  ///   a schema; currently this is limited to `application/json`.
+  ///
+  /// Example:
+  /// ```json
+  /// {
+  ///   'type': 'object',
+  ///   'properties': {
+  ///     'answer': {
+  ///       'type': 'string',
+  ///       'description': 'The answer to the question being asked',
+  ///     },
+  ///     'sources': {
+  ///       'type': 'array',
+  ///       'items': {'type': 'string'},
+  ///       'description': 'The sources used to answer the question',
+  ///     },
+  ///   },
+  ///   'required': ['answer', 'sources'],
+  /// },
+  /// ```
+  final Map<String, dynamic>? responseSchema;
+
+  /// A list of unique [ChatGoogleGenerativeAISafetySetting] instances for
+  /// blocking unsafe content.
+  ///
+  /// This will be enforced on the generated output. There should not be more
+  /// than one setting for each type. The API will block any contents and
+  /// responses that fail to meet the thresholds set by these settings.
+  ///
+  /// This list overrides the default settings for each category specified. If
+  /// there is no safety setting for a given category provided in the list, the
+  /// API will use the default safety setting for that category.
+  final List<ChatGoogleGenerativeAISafetySetting>? safetySettings;
+
+  /// Optional token budget for thinking.
+  ///
+  /// Only applies when thinking is enabled at the Agent level via
+  /// `Agent(model, enableThinking: true)`.
+  ///
+  /// Controls how many tokens Gemini can use for its internal reasoning.
+  /// The range varies by model:
+  /// - Gemini 2.5 Pro: 128-32768 (default: dynamic)
+  /// - Gemini 2.5 Flash: 0-24576 (default: dynamic)
+  /// - Gemini 2.5 Flash-Lite: 512-24576 (no default)
+  ///
+  /// Set to -1 for dynamic thinking (model decides budget based on complexity).
+  /// If not specified when thinking is enabled, uses dynamic thinking (-1).
+  ///
+  /// Example:
+  /// ```dart
+  /// Agent(
+  ///   'google:gemini-2.5-flash',
+  ///   enableThinking: true,
+  ///   chatModelOptions: GoogleChatModelOptions(
+  ///     thinkingBudgetTokens: 8192,  // Override default dynamic budget
+  ///   ),
+  /// )
+  /// ```
+  final int? thinkingBudgetTokens;
+
+  /// Optional thinking depth for models that use thinking levels (e.g. Gemini
+  /// 3+).
+  ///
+  /// This is sent to the API whenever set; it does not require
+  /// `Agent(..., enableThinking: true)`. Set `enableThinking: true` as well
+  /// if you want thought summaries (`ThinkingPart`) in addition to level
+  /// control.
+  ///
+  /// Do not set [thinkingBudgetTokens] when this is set; the API rejects using
+  /// both together.
+  final GoogleThinkingLevel? thinkingLevel;
+
+  /// Enables the Gemini File Search tool against the given file search stores.
+  ///
+  /// Omit or set to null to disable. When set,
+  /// [GoogleFileSearchToolConfig] must list at least one store name (e.g.
+  /// `fileSearchStores/my-store-id`).
+  ///
+  /// Like other server-side tools, this is omitted when a typed output schema
+  /// is used in the same request (double-agent phase handles that separately).
+  final GoogleFileSearchToolConfig? fileSearch;
+
+  /// Enables Google Maps grounding for geospatial context in responses.
+  ///
+  /// Omit or set to null to disable. A non-null value enables the tool; use
+  /// [GoogleMapsGroundingOptions.enableWidget] to request widget context
+  /// tokens in grounding metadata when supported.
+  final GoogleMapsGroundingOptions? mapsGrounding;
+
+  /// The server-side tools to enable.
+  final Set<GoogleServerSideTool>? serverSideTools;
+
+  /// Controls how the model decides when to call functions.
+  ///
+  /// - [GoogleFunctionCallingMode.auto] (default): Model decides whether to
+  ///   call a function or give a natural language response.
+  /// - [GoogleFunctionCallingMode.any]: Model is constrained to always predict
+  ///   a function call. Use with [allowedFunctionNames] to limit which
+  ///   functions can be called.
+  /// - [GoogleFunctionCallingMode.none]: Model will not predict any function
+  ///   calls, behaves as if no functions were provided.
+  /// - [GoogleFunctionCallingMode.validated]: Like auto but validates function
+  ///   calls with constrained decoding.
+  ///
+  /// Example:
+  /// ```dart
+  /// GoogleChatModelOptions(
+  ///   functionCallingMode: GoogleFunctionCallingMode.any,
+  ///   allowedFunctionNames: ['get_weather', 'get_forecast'],
+  /// )
+  /// ```
+  final GoogleFunctionCallingMode? functionCallingMode;
+
+  /// A set of function names that limits which functions the model can call.
+  ///
+  /// This should only be set when [functionCallingMode] is
+  /// [GoogleFunctionCallingMode.any] or [GoogleFunctionCallingMode.validated].
+  /// Function names should match the names of functions provided to the model.
+  ///
+  /// When set, model will only predict function calls from the allowed names.
+  final List<String>? allowedFunctionNames;
+}
+
+/// {@template chat_google_generative_ai_safety_setting}
+/// Safety setting, affecting the safety-blocking behavior.
+/// Passing a safety setting for a category changes the allowed probability that
+/// content is blocked.
+/// {@endtemplate}
+class ChatGoogleGenerativeAISafetySetting {
+  /// {@macro chat_google_generative_ai_safety_setting}
+  const ChatGoogleGenerativeAISafetySetting({
+    required this.category,
+    required this.threshold,
+  });
+
+  /// The category for this setting.
+  final ChatGoogleGenerativeAISafetySettingCategory category;
+
+  /// Controls the probability threshold at which harm is blocked.
+  final ChatGoogleGenerativeAISafetySettingThreshold threshold;
+}
+
+/// Safety settings categorizes.
+///
+/// Docs: https://ai.google.dev/docs/safety_setting_gemini
+enum ChatGoogleGenerativeAISafetySettingCategory {
+  /// The harm category is unspecified.
+  unspecified,
+
+  /// The harm category is harassment.
+  harassment,
+
+  /// The harm category is hate speech.
+  hateSpeech,
+
+  /// The harm category is sexually explicit content.
+  sexuallyExplicit,
+
+  /// The harm category is dangerous content.
+  dangerousContent,
+}
+
+/// Controls the probability threshold at which harm is blocked.
+///
+/// Docs: https://ai.google.dev/docs/safety_setting_gemini
+enum ChatGoogleGenerativeAISafetySettingThreshold {
+  /// Threshold is unspecified, block using default threshold.
+  unspecified,
+
+  /// 	Block when low, medium or high probability of unsafe content.
+  blockLowAndAbove,
+
+  /// Block when medium or high probability of unsafe content.
+  blockMediumAndAbove,
+
+  /// Block when high probability of unsafe content.
+  blockOnlyHigh,
+
+  /// Always show regardless of probability of unsafe content.
+  blockNone,
+}
+
+/// Controls how the model decides when to call functions.
+///
+/// See [Google's function calling guide](https://ai.google.dev/gemini-api/docs/function-calling#function_calling_mode)
+/// for more details.
+enum GoogleFunctionCallingMode {
+  /// Default model behavior. Model decides whether to predict a function call
+  /// or a natural language response.
+  auto,
+
+  /// Model is constrained to always predict a function call.
+  ///
+  /// If `allowedFunctionNames` are set, the predicted function call will be
+  /// limited to those functions. Otherwise, any provided function may be
+  /// called.
+  any,
+
+  /// Model will not predict any function calls.
+  ///
+  /// Model behavior is the same as when not passing any function declarations.
+  none,
+
+  /// Model decides whether to predict a function call or natural language
+  /// response, but validates function calls with constrained decoding.
+  ///
+  /// If `allowedFunctionNames` are set, the predicted function call will be
+  /// limited to those functions. Otherwise, any provided function may be
+  /// called.
+  validated,
+}
+
+/// Reasoning depth for Gemini models that support thinking levels (e.g. Gemini
+/// 3).
+///
+/// See Gemini API documentation for model-specific support.
+enum GoogleThinkingLevel {
+  /// Minimal thinking tokens (e.g. Gemini 3 Flash).
+  minimal,
+
+  /// Lower latency and cost; simple tasks.
+  low,
+
+  /// Balanced (e.g. Gemini 3 Flash).
+  medium,
+
+  /// Deeper reasoning; default for many Gemini 3 models.
+  high,
+}
+
+/// Configuration for Gemini File Search (semantic retrieval from file stores).
+@immutable
+class GoogleFileSearchToolConfig {
+  /// Creates file search tool configuration.
+  ///
+  /// [fileSearchStoreNames] must be non-empty when passed to the API.
+  const GoogleFileSearchToolConfig({
+    required this.fileSearchStoreNames,
+    this.topK,
+    this.metadataFilter,
+  });
+
+  /// Resource names of file search stores to query.
+  final List<String> fileSearchStoreNames;
+
+  /// Optional number of semantic chunks to retrieve.
+  final int? topK;
+
+  /// Optional metadata filter expression for documents and chunks.
+  final String? metadataFilter;
+}
+
+/// Options for Google Maps grounding on Gemini.
+@immutable
+class GoogleMapsGroundingOptions {
+  /// Creates Maps grounding options.
+  const GoogleMapsGroundingOptions({this.enableWidget});
+
+  /// When true, responses may include a widget context token in grounding
+  /// metadata for rendering a Maps widget.
+  final bool? enableWidget;
+}

@@ -1,103 +1,91 @@
-import 'dart:convert';
-import 'dart:io';
 import 'dart:async';
 
-class AiChatService {
-  Process? _dockerProcess;
-  StreamSubscription<String>? _stdoutSub;
-  StreamController<String>? _currentResponseController;
+import 'package:dartantic_ai/dartantic_ai.dart';
 
+import 'src/frontend_agent.dart';
+import 'logger.dart';
+
+/// Service that wraps a [FrontendAgent] instance and provides a streaming
+/// chat interface for the UI.
+///
+/// This replaces the previous Docker-based backend with a direct in-process
+/// AI agent using the dartantic_ai framework.
+class AiChatService {
+  FrontendAgent? _agent;
   bool _isDisposed = false;
 
-  Future<void> _initProcess() async {
-    if (_dockerProcess != null || _isDisposed) return;
+  /// The underlying [FrontendAgent] instance, if created.
+  FrontendAgent? get agent => _agent;
 
-    _stdoutSub?.cancel();
+  /// Whether the service has been initialized with an agent.
+  bool get isInitialized => _agent != null;
 
-    // Use 'docker exec -i' to start a new process in the container.
-    // This ensures that when the process finishes its response, we get a real EOF.
-    // We use the entrypoint command found via inspect.
-    _dockerProcess = await Process.start('docker', [
-      'exec',
-      '-i',
-      'sds-ai-server',
-      '/bin/bash',
-      '-c',
-      'exec \${APP_SOURCE}/neuro_san/deploy/start_services.sh'
-    ]);
+  /// Creates or recreates the [FrontendAgent] with the given configuration.
+  ///
+  /// Call this method when the user changes API keys, model, or device IP.
+  /// The previous agent (if any) is discarded.
+  ///
+  /// The [apiKey] is the environment variable name for the API key
+  /// (e.g., "DEEPSEEK_API_KEY", "OPENAI_API_KEY"). The [apiToken] is the
+  /// actual API token value (e.g., "sk-...").
+  void configure({
+    required String apiKey,
+    required String apiToken,
+    String model = 'deepseek:deepseek-v4-flash',
+    String? vxi11Host,
+  }) {
+    if (_isDisposed) return;
 
-    // Drain stderr but don't do anything with it to prevent the process from hanging
-    // if the buffer fills up, while ensuring we only "read" (process) data from stdout.
-    _dockerProcess!.stderr.listen((_) {});
+    // Discard the old agent; it will be garbage-collected.
+    _agent = null;
 
-    _stdoutSub = _dockerProcess!.stdout.transform(utf8.decoder).listen(
-      (data) {
-        if (_currentResponseController != null &&
-            !_currentResponseController!.isClosed) {
-          _currentResponseController!.add(data);
-        }
-      },
-      onDone: () {
-        if (_currentResponseController != null &&
-            !_currentResponseController!.isClosed) {
-          _currentResponseController!.close();
-          _currentResponseController = null;
-        }
-      },
-      onError: (e) {
-        if (_currentResponseController != null &&
-            !_currentResponseController!.isClosed) {
-          _currentResponseController!.add("\nStream Error: $e\n");
-          _currentResponseController!.close();
-          _currentResponseController = null;
-        }
-      },
+    AppLogger(agentName: 'AiChatService', toolName: 'configure').log(
+      'Configuring FrontendAgent: model=$model, vxi11Host=$vxi11Host',
+    );
+
+    // The dartantic_ai Agent reads API keys from Agent.environment (a static
+    // mutable map that takes priority over Platform.environment).
+    // The [apiKey] parameter is the env var NAME (e.g. "DEEPSEEK_API_KEY"),
+    // and [apiToken] is the actual token VALUE.
+    Agent.environment[apiKey] = apiToken;
+
+    _agent = FrontendAgent(
+      model: model,
+      vxi11Host: vxi11Host,
     );
   }
 
-  /// Sends a message to the AI server over stdio and returns a stream of response chunks.
+  /// Sends a message to the AI agent and returns a stream of response chunks.
+  ///
+  /// The [text] is the user's message. The response is streamed as chunks
+  /// arrive from the agent.
+  ///
+  /// Throws if the service has not been configured or is disposed.
   Stream<String> sendMessageStream({
     required String text,
     String agentName = 'sds',
   }) async* {
-    if (_isDisposed) throw Exception("Service is disposed");
-
-    _currentResponseController = StreamController<String>();
+    if (_isDisposed) throw Exception('Service is disposed');
+    if (_agent == null) {
+      yield 'Error: AI agent not configured. Please configure API keys in Settings.';
+      return;
+    }
 
     try {
-      await _initProcess();
+      await for (final chunk in _agent!.sendStream(text)) {
+        yield chunk;
+      }
     } catch (e) {
-      yield "Error: Failed to start AI process ($e)";
-      return;
+      AppLogger(agentName: 'AiChatService', toolName: 'sendMessageStream').log(
+        'Error during AI streaming: $e',
+      );
+      yield 'Error: AI request failed ($e)';
     }
-
-    if (_dockerProcess == null) {
-      yield "Error: Not connected to docker container.";
-      return;
-    }
-
-    // 1. Send the request text followed by an empty line to signal completion
-    _dockerProcess!.stdin.write('$text\n\n');
-    await _dockerProcess!.stdin.flush();
-    
-    // 2. Close stdin to signal EOF to the server for the request
-    await _dockerProcess!.stdin.close();
-
-    // 3. Wait for the response until EOF (onDone of the stdout stream)
-    await for (final chunk in _currentResponseController!.stream) {
-      yield chunk;
-    }
-
-    // Cleanup for next message
-    _dockerProcess = null;
   }
 
+  /// Disposes the service and releases the agent.
   void dispose() {
     _isDisposed = true;
-    _currentResponseController?.close();
-    _stdoutSub?.cancel();
-    _dockerProcess?.stdin.close(); // Detach from the container without killing it
-    _dockerProcess = null;
+    _agent = null;
   }
 }
-

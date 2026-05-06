@@ -1,0 +1,765 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:dartantic_interface/dartantic_interface.dart';
+import 'package:logging/logging.dart';
+
+import '../chat_models/google_chat/google_chat_options.dart';
+import '../chat_models/openai_chat/openai_chat_model.dart';
+import '../logging_options.dart';
+import '../platform/platform.dart';
+import '../providers/anthropic_provider.dart';
+import '../providers/chat_orchestrator_provider.dart';
+import '../providers/cohere_provider.dart';
+import '../providers/edenai_provider.dart';
+import '../providers/google_provider.dart';
+import '../providers/mistral_provider.dart';
+import '../providers/ollama_provider.dart';
+import '../providers/openai_provider.dart';
+import '../providers/openai_responses_provider.dart';
+import '../providers/xai_provider.dart';
+import '../providers/xai_responses_provider.dart';
+import 'agent_response_accumulator.dart';
+import 'media_response_accumulator.dart';
+import 'model_string_parser.dart';
+import 'orchestrators/default_streaming_orchestrator.dart';
+import 'streaming_state.dart';
+
+/// An agent that manages chat models and provides tool execution and message
+/// collection capabilities.
+///
+/// The Agent handles:
+/// - Provider and model creation from string specification
+/// - Tool call ID assignment for providers that don't provide them
+/// - Automatic tool execution with error handling
+/// - Message collection and streaming UX enhancement
+/// - Model caching and lifecycle management
+class Agent {
+  /// Creates an agent with the specified model.
+  ///
+  /// The [model] parameter should be in the format "providerName",
+  /// "providerName:modelName", or "providerName/modelName". For example:
+  /// "openai", "openai:gpt-4o", "openai/gpt-4o", "anthropic",
+  /// "anthropic:claude-3-sonnet", etc.
+  ///
+  /// Optional parameters:
+  /// - [tools]: List of tools the agent can use
+  /// - [temperature]: Model temperature (0.0 to 1.0)
+  /// - [enableThinking]: Enable extended thinking/reasoning (default: false)
+  /// - [chatModelOptions]: Provider-specific chat model configuration
+  /// - [embeddingsModelOptions]: Provider-specific embeddings configuration
+  /// - [mediaModelOptions]: Provider-specific media generation configuration
+  Agent(
+    String model, {
+    List<Tool>? tools,
+    double? temperature,
+    bool enableThinking = false,
+    String? displayName,
+    this.chatModelOptions,
+    this.embeddingsModelOptions,
+    this.mediaModelOptions,
+  }) {
+    _checkLoggingEnvironment();
+
+    // parse the model string into a provider name, chat model name, and
+    // embeddings model name
+    final parser = ModelStringParser.parse(model);
+    final providerName = parser.providerName;
+    final chatModelName = parser.chatModelName;
+    final embeddingsModelName = parser.embeddingsModelName;
+    final mediaModelName = parser.mediaModelName;
+
+    _logger.info(
+      'Creating agent with model: $model (provider: $providerName, '
+      'chat model: $chatModelName, '
+      'embeddings model: $embeddingsModelName, '
+      'media model: $mediaModelName)',
+    );
+
+    // cache the provider name from the input; it could be an alias
+    _providerName = providerName;
+    _displayName = displayName;
+
+    // Store provider and model parameters
+    _provider = Agent.getProvider(providerName);
+
+    _chatModelName = chatModelName;
+    _embeddingsModelName = embeddingsModelName;
+    _mediaModelName = mediaModelName;
+
+    _tools = tools;
+    _temperature = temperature;
+    _enableThinking = enableThinking;
+
+    _logger.fine(
+      'Agent created successfully with ${tools?.length ?? 0} tools, '
+      'temperature: $temperature, enableThinking: $enableThinking',
+    );
+  }
+
+  /// Creates an agent from a provider
+  Agent.forProvider(
+    Provider provider, {
+    String? chatModelName,
+    String? embeddingsModelName,
+    String? mediaModelName,
+    List<Tool>? tools,
+    double? temperature,
+    bool enableThinking = false,
+    String? displayName,
+    this.chatModelOptions,
+    this.embeddingsModelOptions,
+    this.mediaModelOptions,
+  }) {
+    _checkLoggingEnvironment();
+
+    _logger.info(
+      'Creating agent from provider: ${provider.name}, '
+      'chat model: $chatModelName, '
+      'embeddings model: $embeddingsModelName, '
+      'media model: $mediaModelName',
+    );
+
+    _providerName = provider.name;
+    _displayName = displayName;
+
+    // Store provider and model parameters
+    _provider = provider;
+
+    _chatModelName = chatModelName;
+    _embeddingsModelName = embeddingsModelName;
+    _mediaModelName = mediaModelName;
+
+    _tools = tools;
+    _temperature = temperature;
+    _enableThinking = enableThinking;
+
+    _logger.fine(
+      'Agent created from provider with ${tools?.length ?? 0} tools, '
+      'temperature: $temperature, enableThinking: $enableThinking',
+    );
+  }
+
+  /// Gets the provider name.
+  String get providerName => _providerName;
+
+  /// Gets the chat model name.
+  String? get chatModelName => _chatModelName;
+
+  /// Gets the embeddings model name.
+  String? get embeddingsModelName => _embeddingsModelName;
+
+  /// Gets the media model name.
+  String? get mediaModelName => _mediaModelName;
+
+  /// Gets the fully qualified model name.
+  String get model => ModelStringParser(
+    providerName,
+    chatModelName:
+        chatModelName ??
+        (_provider.defaultModelNames.containsKey(ModelKind.chat)
+            ? _provider.defaultModelNames[ModelKind.chat]
+            : null),
+    embeddingsModelName:
+        embeddingsModelName ??
+        (_provider.defaultModelNames.containsKey(ModelKind.embeddings)
+            ? _provider.defaultModelNames[ModelKind.embeddings]
+            : null),
+    mediaModelName:
+        mediaModelName ??
+        (_provider.defaultModelNames.containsKey(ModelKind.media)
+            ? _provider.defaultModelNames[ModelKind.media]
+            : null),
+  ).toString();
+
+  /// Gets the display name.
+  String get displayName => _displayName ?? _provider.displayName;
+
+  /// Gets the chat model options.
+  final ChatModelOptions? chatModelOptions;
+
+  /// Gets the embeddings model options.
+  final EmbeddingsModelOptions? embeddingsModelOptions;
+
+  /// Gets the media model options.
+  final MediaGenerationModelOptions? mediaModelOptions;
+
+  late final String _providerName;
+  late final Provider _provider;
+  late final String? _chatModelName;
+  late final String? _embeddingsModelName;
+  late final String? _mediaModelName;
+  late final List<Tool>? _tools;
+  late final double? _temperature;
+  late final bool _enableThinking;
+  late final String? _displayName;
+
+  static final Logger _logger = Logger('dartantic.chat_agent');
+
+  /// Invokes the agent with the given prompt and returns the final result.
+  ///
+  /// This method internally uses [sendStream] and accumulates all results.
+  Future<ChatResult<String>> send(
+    String prompt, {
+    Iterable<ChatMessage> history = const [],
+    List<Part> attachments = const [],
+    Schema? outputSchema,
+  }) async {
+    _logger.info(
+      'Running agent [$displayName] with prompt and '
+      '${history.length} history messages',
+    );
+
+    final accumulator = AgentResponseAccumulator();
+
+    await sendStream(
+      prompt,
+      history: history,
+      attachments: attachments,
+      outputSchema: outputSchema,
+    ).forEach(accumulator.add);
+
+    final finalResult = accumulator.buildFinal();
+
+    _logger.info(
+      'Agent run completed with ${finalResult.messages.length} new messages, '
+      'finish reason: ${finalResult.finishReason}',
+    );
+
+    return finalResult;
+  }
+
+  /// Sends the given [prompt] and [attachments] to the agent and returns a
+  /// typed response.
+  ///
+  /// Returns an [ChatResult<TOutput>] containing the output converted to type
+  /// [TOutput]. Uses [outputFromJson] to convert the JSON response if provided,
+  /// otherwise returns the decoded JSON.
+  Future<ChatResult<TOutput>> sendFor<TOutput extends Object>(
+    String prompt, {
+    required Schema outputSchema,
+    dynamic Function(Map<String, dynamic> json)? outputFromJson,
+    Iterable<ChatMessage> history = const [],
+    List<Part> attachments = const [],
+  }) async {
+    final response = await send(
+      prompt,
+      outputSchema: outputSchema,
+      history: history,
+      attachments: attachments,
+    );
+
+    // Since runStream now normalizes output, JSON is always in response.output
+    final jsonString = response.output;
+    if (jsonString.isEmpty) {
+      throw const FormatException(
+        'No JSON output found in response. Expected JSON in response.output.',
+      );
+    }
+
+    final outputJson = jsonDecode(jsonString);
+    final typedOutput = outputFromJson?.call(outputJson) ?? outputJson;
+    return ChatResult<TOutput>(
+      id: response.id,
+      output: typedOutput,
+      messages: response.messages,
+      finishReason: response.finishReason,
+      metadata: response.metadata,
+      usage: response.usage,
+    );
+  }
+
+  /// Streams responses from the agent, handling tool execution automatically.
+  ///
+  /// Returns a stream of [ChatResult] where:
+  /// - [ChatResult.output] contains streaming text chunks
+  /// - [ChatResult.messages] contains new messages since the last result
+  Stream<ChatResult<String>> sendStream(
+    String prompt, {
+    Iterable<ChatMessage> history = const [],
+    List<Part> attachments = const [],
+    Schema? outputSchema,
+  }) async* {
+    _logger.info(
+      'Starting agent stream [$displayName] with prompt and '
+      '${history.length} history messages',
+    );
+
+    // Detect if server-side tools are configured (e.g., Google Search)
+    final hasServerSideTools = switch (chatModelOptions) {
+      final GoogleChatModelOptions opts =>
+        (opts.serverSideTools?.isNotEmpty ?? false) ||
+            opts.fileSearch != null ||
+            opts.mapsGrounding != null,
+      _ => false,
+    };
+
+    final (orchestrator, toolsToUse) = (_provider is ChatOrchestratorProvider
+        ? (_provider as ChatOrchestratorProvider).getChatOrchestratorAndTools(
+            outputSchema: outputSchema,
+            tools: _tools,
+            hasServerSideTools: hasServerSideTools,
+          )
+        : (const DefaultStreamingOrchestrator(), _tools));
+
+    // Create model directly from provider
+    final model = _provider.createChatModel(
+      name: _chatModelName,
+      tools: toolsToUse,
+      temperature: _temperature,
+      enableThinking: _enableThinking,
+      options: chatModelOptions,
+    );
+
+    // Set agent name on the model for logging context if supported
+    if (model is OpenAIChatModel) {
+      model.agentName = displayName;
+    }
+
+    try {
+      // Create user message
+      final newUserMessage = ChatMessage.user(prompt, parts: attachments);
+      _assertNoMultipleTextParts([newUserMessage]);
+
+      // Initialize state BEFORE yielding to prevent race conditions
+      final conversationHistory = [...history, newUserMessage];
+
+      // Now yield the user message
+      yield ChatResult<String>(
+        id: '',
+        output: '',
+        messages: [newUserMessage],
+        finishReason: FinishReason.unspecified,
+        metadata: const <String, dynamic>{},
+        usage: null,
+      );
+
+      final state = StreamingState(
+        conversationHistory: conversationHistory,
+        toolMap: {for (final tool in toolsToUse ?? <Tool>[]) tool.name: tool},
+      );
+
+      orchestrator.initialize(state);
+
+      try {
+        // Main streaming loop
+        while (!state.done) {
+          await for (final result in orchestrator.processIteration(
+            model,
+            state,
+            outputSchema: outputSchema,
+          )) {
+            // Yield streaming text, thinking, or metadata
+            if (result.output.isNotEmpty ||
+                result.thinking != null ||
+                result.metadata.isNotEmpty) {
+              yield ChatResult<String>(
+                id: state.lastResult.id.isEmpty ? '' : state.lastResult.id,
+                output: result.output,
+                thinking: result.thinking,
+                messages: const [],
+                finishReason: result.finishReason,
+                metadata: result.metadata,
+                usage: result.usage,
+              );
+            }
+
+            // Yield messages
+            if (result.messages.isNotEmpty) {
+              for (final message in result.messages) {
+                _assertNoMultipleTextParts([message]);
+              }
+              yield ChatResult<String>(
+                id: state.lastResult.id.isEmpty ? '' : state.lastResult.id,
+                output: '',
+                messages: result.messages,
+                finishReason: result.finishReason,
+                metadata: result.metadata,
+                usage: result.usage,
+              );
+            }
+
+            // Yield final result if it has usage (for completion signal)
+            if (result.usage != null &&
+                result.output.isEmpty &&
+                result.messages.isEmpty &&
+                result.metadata.isEmpty) {
+              yield ChatResult<String>(
+                id: state.lastResult.id.isEmpty ? '' : state.lastResult.id,
+                output: '',
+                messages: const [],
+                finishReason: result.finishReason,
+                metadata: const {},
+                usage: result.usage,
+              );
+            }
+
+            // Check continuation
+            if (!result.shouldContinue) {
+              state.complete();
+            }
+          }
+        }
+      } finally {
+        orchestrator.finalize(state);
+      }
+    } finally {
+      model.dispose();
+    }
+  }
+
+  /// Generates media content and returns the final aggregated result.
+  Future<MediaGenerationResult> generateMedia(
+    String prompt, {
+    required List<String> mimeTypes,
+    Iterable<ChatMessage> history = const [],
+    List<Part> attachments = const [],
+    MediaGenerationModelOptions? options,
+    Schema? outputSchema,
+  }) async {
+    if (mimeTypes.isEmpty) {
+      throw ArgumentError.value(
+        mimeTypes,
+        'mimeTypes',
+        'At least one MIME type must be provided.',
+      );
+    }
+
+    _logger.info(
+      'Running media generation with ${history.length} history messages '
+      'and ${mimeTypes.length} requested MIME types',
+    );
+
+    final accumulator = MediaResponseAccumulator();
+
+    await generateMediaStream(
+      prompt,
+      mimeTypes: mimeTypes,
+      history: history,
+      attachments: attachments,
+      options: options,
+      outputSchema: outputSchema,
+    ).forEach(accumulator.add);
+
+    final finalResult = accumulator.buildFinal();
+
+    _logger.info(
+      'Media generation completed with ${finalResult.assets.length} assets '
+      'and ${finalResult.links.length} links',
+    );
+
+    return finalResult;
+  }
+
+  /// Generates media content and returns a stream of incremental results.
+  Stream<MediaGenerationResult> generateMediaStream(
+    String prompt, {
+    required List<String> mimeTypes,
+    Iterable<ChatMessage> history = const [],
+    List<Part> attachments = const [],
+    MediaGenerationModelOptions? options,
+    Schema? outputSchema,
+  }) async* {
+    if (mimeTypes.isEmpty) {
+      throw ArgumentError.value(
+        mimeTypes,
+        'mimeTypes',
+        'At least one MIME type must be provided.',
+      );
+    }
+
+    _assertNoMultipleTextParts(history);
+
+    final model = _provider.createMediaModel(
+      name: _mediaModelName,
+      tools: _tools,
+      options: mediaModelOptions,
+    );
+
+    try {
+      final newUserMessage = ChatMessage.user(prompt, parts: attachments);
+      _assertNoMultipleTextParts([newUserMessage]);
+
+      yield MediaGenerationResult(messages: [newUserMessage], id: '');
+
+      // Convert history to List for the underlying model interface
+      final historyList = history.toList();
+
+      await for (final chunk in model.generateMediaStream(
+        prompt,
+        mimeTypes: mimeTypes,
+        history: historyList,
+        attachments: attachments,
+        options: options ?? mediaModelOptions,
+        outputSchema: outputSchema,
+      )) {
+        if (chunk.messages.isNotEmpty) {
+          _assertNoMultipleTextParts(chunk.messages);
+        }
+        yield chunk;
+      }
+    } finally {
+      model.dispose();
+    }
+  }
+
+  /// Embed query text and return result with usage data.
+  Future<EmbeddingsResult> embedQuery(String query) async {
+    final model = _provider.createEmbeddingsModel(
+      name: _embeddingsModelName,
+      options: embeddingsModelOptions,
+    );
+    try {
+      final result = await model.embedQuery(query);
+      _logger.info(
+        'Embedding query completed with ${result.output.length} dimensions, '
+        '${result.usage?.totalTokens ?? 0} tokens',
+      );
+      return result;
+    } finally {
+      model.dispose();
+    }
+  }
+
+  /// Embed texts and return results with usage data.
+  Future<BatchEmbeddingsResult> embedDocuments(List<String> texts) async {
+    final model = _provider.createEmbeddingsModel(
+      name: _embeddingsModelName,
+      options: embeddingsModelOptions,
+    );
+    try {
+      final result = await model.embedDocuments(texts);
+      _logger.info(
+        'Embedding documents completed with ${result.output.length} embeddings,'
+        ' ${result.usage?.totalTokens ?? 0} tokens',
+      );
+      return result;
+    } finally {
+      model.dispose();
+    }
+  }
+
+  /// Asserts that no message in the iterable contains more than one TextPart.
+  ///
+  /// This helps catch streaming consolidation issues where text content gets
+  /// split into multiple TextPart objects instead of being properly accumulated
+  /// into a single TextPart.
+  ///
+  /// Throws an AssertionError in debug mode if any message violates this rule.
+  void _assertNoMultipleTextParts(Iterable<ChatMessage> messages) {
+    assert(() {
+      for (final message in messages) {
+        final textParts = message.parts.whereType<TextPart>().toList();
+        if (textParts.length > 1) {
+          throw AssertionError(
+            'Message contains ${textParts.length} TextParts but should have '
+            'at most 1. Message: $message. '
+            'TextParts: ${textParts.map((p) => '"${p.text}"').join(', ')}. '
+            'This indicates a streaming consolidation bug.',
+          );
+        }
+      }
+      return true;
+    }());
+  }
+
+  /// Gets an environment map for the agent.
+  static Map<String, String> environment = {};
+
+  /// Controls whether environment lookups should only use [Agent.environment]
+  /// and ignore Platform.environment. This is useful for testing to ensure
+  /// complete control over environment variables.
+  static bool useAgentEnvironmentOnly = false;
+
+  /// Global logging configuration for all Agent operations.
+  ///
+  /// Controls logging level, filtering, and output handling for all dartantic
+  /// loggers. Setting this property automatically configures the logging system
+  /// with the specified options.
+  ///
+  /// Example usage:
+  /// ```dart
+  /// // Filter to only OpenAI operations
+  /// Agent.loggingOptions = LoggingOptions(filter: 'openai');
+  ///
+  /// // Custom level and handler
+  /// Agent.loggingOptions = LoggingOptions(
+  ///   level: Level.FINE,
+  ///   onRecord: (record) => myLogger.log(record),
+  /// );
+  /// ```
+  ///
+  /// Can also be set from DARTANTIC_LOG_LEVEL environment variable.
+  ///
+  /// Supported environment values: FINE, INFO, WARNING, SEVERE, OFF. By
+  /// default, there is no logging if not set or invalid unless explicitly set.
+  ///
+  /// Example usage:
+  /// ```bash
+  /// DARTANTIC_LOG_LEVEL=FINE dart run example/bin/single_turn_chat.dart
+  /// ```
+  static LoggingOptions get loggingOptions => _loggingOptions;
+  static LoggingOptions _loggingOptions = const LoggingOptions();
+  static StreamSubscription<LogRecord>? _loggingSubscription;
+
+  /// Sets the global logging configuration and applies it immediately.
+  static set loggingOptions(LoggingOptions options) {
+    _loggingOptions = options;
+    _setupLogging();
+  }
+
+  /// Sets up the logging system with the current options.
+  static void _setupLogging() {
+    // Cancel existing subscription if any
+    unawaited(_loggingSubscription?.cancel());
+
+    // Configure root logger level
+    Logger.root.level = _loggingOptions.level;
+
+    // Set up new subscription with filtering
+    _loggingSubscription = Logger.root.onRecord.listen((record) {
+      // Apply level filter (should already be handled by Logger.root.level)
+      if (record.level < _loggingOptions.level) return;
+
+      // Apply name filter - empty string matches all
+      if (_loggingOptions.filter.isNotEmpty &&
+          !record.loggerName.contains(_loggingOptions.filter)) {
+        return;
+      }
+
+      // Call the configured handler
+      _loggingOptions.onRecord(record);
+    });
+  }
+
+  static var _loggingEnvironmentChecked = false;
+  static void _checkLoggingEnvironment() {
+    if (_loggingEnvironmentChecked) return;
+
+    final envValue = tryGetEnv('DARTANTIC_LOG_LEVEL');
+    final level = switch (envValue?.toUpperCase()) {
+      'FINE' => Level.FINE,
+      'INFO' => Level.INFO,
+      'WARNING' => Level.WARNING,
+      'SEVERE' => Level.SEVERE,
+      'OFF' => Level.OFF,
+      _ => null, // Default for missing/invalid values
+    };
+    if (level != null) loggingOptions = LoggingOptions(level: level);
+
+    _loggingEnvironmentChecked = true;
+  }
+
+  // -------------------------------------------------------------------------
+  // Provider Factory Registry
+  // -------------------------------------------------------------------------
+
+  /// Factory functions for creating provider instances.
+  ///
+  /// Maps provider names (and aliases) to factory functions that create fresh
+  /// provider instances. Add custom providers by assigning to this map.
+  ///
+  /// Example:
+  /// ```dart
+  /// Agent.providerFactories['my-provider'] = () => MyProvider();
+  /// final agent = Agent('my-provider:my-model');
+  /// ```
+  static final Map<String, Provider Function()> providerFactories = {
+    // OpenAI
+    'openai': OpenAIProvider.new,
+
+    // OpenAI Responses
+    'openai-responses': OpenAIResponsesProvider.new,
+
+    // Anthropic
+    'anthropic': AnthropicProvider.new,
+    'claude': AnthropicProvider.new,
+
+    // Google
+    'google': GoogleProvider.new,
+    'gemini': GoogleProvider.new,
+    'googleai': GoogleProvider.new,
+    'google-gla': GoogleProvider.new,
+
+    // Mistral
+    'mistral': MistralProvider.new,
+    'mistralai': MistralProvider.new,
+
+    // Cohere
+    'cohere': CohereProvider.new,
+
+    // EdenAI
+    'edenai': EdenAIProvider.new,
+
+    // DeepSeek (OpenAI-compatible)
+    'deepseek': _createDeepSeekProvider,
+
+    // Ollama
+    'ollama': OllamaProvider.new,
+
+    // OpenRouter
+    'openrouter': _createOpenRouterProvider,
+
+    // xAI (OpenAI-compatible Chat Completions)
+    'xai': XAIProvider.new,
+    'grok': XAIProvider.new,
+
+    // xAI Responses
+    'xai-responses': XAIResponsesProvider.new,
+    'grok-responses': XAIResponsesProvider.new,
+  };
+
+  static Provider _createDeepSeekProvider() => OpenAIProvider(
+    name: 'deepseek',
+    displayName: 'DeepSeek',
+    defaultModelNames: {ModelKind.chat: 'deepseek-v4-flash'},
+    baseUrl: Uri.parse('https://api.deepseek.com'),
+    apiKeyName: 'DEEPSEEK_API_KEY',
+  );
+
+  static Provider _createOpenRouterProvider() => OpenAIProvider(
+    name: 'openrouter',
+    displayName: 'OpenRouter',
+    defaultModelNames: {ModelKind.chat: 'google/gemini-2.5-flash'},
+    baseUrl: Uri.parse('https://openrouter.ai/api/v1'),
+    apiKeyName: 'OPENROUTER_API_KEY',
+  );
+
+  /// Creates a new provider instance by name or alias (case-insensitive).
+  ///
+  /// Each call creates a fresh provider instance - providers are not cached.
+  /// Throws [Exception] if the provider name is not found.
+  ///
+  /// Example:
+  /// ```dart
+  /// final openai = Agent.createProvider('openai');
+  /// final anthropic = Agent.createProvider('claude'); // alias
+  /// ```
+  static Provider getProvider(String name) {
+    final providerName = name.toLowerCase();
+    final factory = providerFactories[providerName];
+    if (factory == null) {
+      throw Exception(
+        'Provider "$providerName" not found. '
+        'Available providers: ${providerFactories.keys.join(', ')}',
+      );
+    }
+    return factory();
+  }
+
+  /// Returns a list of all available providers (creates fresh instances).
+  ///
+  /// NOTE: Filters out aliases to avoid duplicate providers in the list.
+  static List<Provider> get allProviders {
+    final seen = <String>{};
+    final providers = <Provider>[];
+    for (final entry in providerFactories.entries) {
+      final provider = entry.value();
+      if (!seen.contains(provider.name)) {
+        seen.add(provider.name);
+        providers.add(provider);
+      }
+    }
+    return providers;
+  }
+}

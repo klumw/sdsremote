@@ -157,19 +157,11 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   String? _deviceName;
   Vxi11Instrument? _instrument;
 
-  // AI / Docker
+  // AI
   String _aiApiKey = '';
   String _aiApiToken = '';
   String _llmModel = '';
-  bool _isDockerRunning = false;
-  bool _isAiImagePresent = false;
-  bool _isAiImageMissingLogged = false;
-  bool _isContainerRunning = false;
-  bool _isShuttingDown = false;
   bool get _isAiEnabled =>
-      _isDockerRunning &&
-      _isAiImagePresent &&
-      _isContainerRunning &&
       _aiApiKey.trim().length >= 8 &&
       _aiApiToken.trim().length >= 8;
 
@@ -201,7 +193,6 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
 
   // Timers
   Timer? _pingTimer;
-  Timer? _dockerStatusTimer;
 
   // Profiles
   List<ProfileInfo> _profileFiles = [];
@@ -299,7 +290,6 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   @override
   void dispose() {
     _pingTimer?.cancel();
-    _dockerStatusTimer?.cancel();
     _refreshTimer?.cancel();
     _closeInstrument();
     _aiChatService.dispose();
@@ -308,24 +298,6 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
 
   @override
   void onWindowClose() async {
-    if (_isDockerRunning && _isContainerRunning) {
-      if (mounted) {
-        setState(() {
-          _isShuttingDown = true;
-        });
-      }
-      await Future.delayed(const Duration(milliseconds: 100));
-      try {
-        await Process.run('docker', [
-          'stop',
-          '-t',
-          '3',
-          'sds-ai-server',
-        ]).timeout(const Duration(seconds: 10));
-      } catch (e) {
-        await AppLogger().log('Error stopping docker on exit: $e');
-      }
-    }
     await AppLogger().log('SDS-Remote: application stopping');
     exit(0);
   }
@@ -506,32 +478,6 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
             ],
           ),
           if (_showSettings) _buildSettingsPanel(),
-          if (_isShuttingDown)
-            Container(
-              color: Colors.black87,
-              child: const Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    CircularProgressIndicator(color: Colors.cyanAccent),
-                    SizedBox(height: 24),
-                    Text(
-                      'Closing down AI Server Instance...',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    SizedBox(height: 8),
-                    Text(
-                      'Please wait...',
-                      style: TextStyle(color: Colors.white70, fontSize: 16),
-                    ),
-                  ],
-                ),
-              ),
-            ),
         ],
       ),
     );
@@ -1148,10 +1094,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
           _startPingTimer();
 
           if (_aiApiKey.trim().length >= 8 && _aiApiToken.trim().length >= 8) {
-            _checkDockerStatus(
-              startIfMissing: criticalConfigChanged || !_isContainerRunning,
-              forceRestart: criticalConfigChanged,
-            );
+            _configureAiService();
           }
         },
         onClose: () => setState(() => _showSettings = false),
@@ -1177,14 +1120,6 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       (_) => _pingDevice(),
     );
     _pingDevice();
-  }
-
-  void _startDockerStatusTimer() {
-    _dockerStatusTimer?.cancel();
-    _dockerStatusTimer = Timer.periodic(
-      const Duration(seconds: 10),
-      (_) => _checkDockerStatus(),
-    );
   }
 
   bool _isPinging = false;
@@ -1220,7 +1155,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
 
   Future<void> _updateWindowTitle() async {
     try {
-      final instr = Vxi11Instrument(_ipAddress);
+      final instr = Vxi11Instrument(_ipAddress, sourceLabel: 'updateWindowTitle');
       await instr.open(timeoutSeconds: 3.0);
       await instr.writeString('*IDN?');
       final idn = (await instr.readString()).trim();
@@ -1471,12 +1406,11 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     await _checkNewsNotification();
     _loadProfileFiles();
     _startPingTimer();
-    _startDockerStatusTimer();
-    // Start docker container on startup if keys are already set/valid
+    // Configure AI agent on startup if keys are already set/valid
     bool keysValid =
         _aiApiKey.trim().length >= 8 && _aiApiToken.trim().length >= 8;
     if (keysValid) {
-      await _checkDockerStatus(startIfMissing: true);
+      _configureAiService();
     }
   }
 
@@ -1536,135 +1470,36 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   }
 
   // =========================================================================
-  // Docker / AI Operations
+  // AI Operations
   // =========================================================================
 
-  Future<void> _checkDockerStatus({
-    bool startIfMissing = false,
-    bool forceRestart = false,
-  }) async {
-    try {
-      if (forceRestart) {
-        AppLogger().log('Force restarting AI Server due to config change...');
-        // Use rm -f to stop and remove the container so it can be recreated with new env vars
-        await Process.run('docker', ['rm', '-f', 'sds-ai-server']);
-      }
+  /// Configures the [AiChatService] with the current API keys, model, and
+  /// device IP. This replaces the previous Docker-based backend.
+  void _configureAiService() {
+    if (_aiApiKey.trim().length < 8 || _aiApiToken.trim().length < 8) {
+      AppLogger(agentName: 'main', toolName: '_configureAiService').log(
+        'AI keys not valid, skipping configuration',
+      );
+      return;
+    }
 
-      final serviceResult = await Process.run('docker', ['info']);
-      final isServiceRunning = serviceResult.exitCode == 0;
+    AppLogger(agentName: 'main', toolName: '_configureAiService').log(
+      'Configuring AI service: model=$_llmModel, ip=$_ipAddress',
+    );
 
-      if (!isServiceRunning) {
-        AppLogger().log('Docker service is not running.');
-      }
+    _aiChatService.configure(
+      apiKey: _aiApiKey,
+      apiToken: _aiApiToken,
+      model: _llmModel.isNotEmpty
+          ? _llmModel
+          : 'deepseek:deepseek-v4-flash',
+      vxi11Host: _ipAddress,
+    );
 
-      bool imagePresent = false;
-      if (isServiceRunning) {
-        final imageResult = await Process.run('docker', [
-          'images',
-          '-q',
-          'klumw/sds:latest',
-        ]);
-        imagePresent = imageResult.stdout.toString().trim().isNotEmpty;
-        if (!imagePresent && !_isAiImageMissingLogged) {
-          AppLogger().log('Docker image klumw/sds:latest is missing.');
-          _isAiImageMissingLogged = true;
-        }
-      }
-
-      bool containerRunning = false;
-      if (imagePresent) {
-        final containerStatus = await Process.run('docker', [
-          'inspect',
-          '-f',
-          '{{.State.Running}}',
-          'sds-ai-server',
-        ]);
-
-        if (containerStatus.stdout.toString().trim() == 'true') {
-          containerRunning = true;
-        } else if (startIfMissing) {
-          // If forced to start (e.g. on config save)
-          if (containerStatus.stderr.toString().toLowerCase().contains(
-            'no such object',
-          )) {
-            final runResult = await Process.run('docker', [
-              'run',
-              '-d',
-              '-i',
-              '--rm',
-              '--name',
-              'sds-ai-server',
-              '--network',
-              'host',
-              '--add-host',
-              'host.docker.internal:host-gateway',
-              '-e',
-              'AI_API_KEY=$_aiApiKey',
-              '-e',
-              'AI_API_TOKEN=$_aiApiToken',
-              '-e',
-              'LLM_MODEL=$_llmModel',
-              '-e',
-              'TARGET_IP_ADDRESS=$_ipAddress',
-              'klumw/sds:latest',
-            ]);
-            if (runResult.exitCode != 0) {
-              AppLogger().log('Docker run error [Exit ${runResult.exitCode}]:');
-              AppLogger().log('stderr: ${runResult.stderr}');
-              AppLogger().log('stdout: ${runResult.stdout}');
-            }
-          } else {
-            final startResult = await Process.run('docker', [
-              'start',
-              'sds-ai-server',
-            ]);
-            if (startResult.exitCode != 0) {
-              AppLogger().log(
-                'Docker start error [Exit ${startResult.exitCode}]:',
-              );
-              AppLogger().log('stderr: ${startResult.stderr}');
-              AppLogger().log('stdout: ${startResult.stdout}');
-            }
-          }
-
-          // If AI chat is activated, log the stderr output from the container
-          if (_activePanel == ActivePanel.chat) {
-            final logsResult = await Process.run('docker', [
-              'logs',
-              'sds-ai-server',
-            ]);
-            AppLogger().log('AI Server stderr logs: ${logsResult.stderr}');
-          }
-
-          // Check again after start
-          final retryStatus = await Process.run('docker', [
-            'inspect',
-            '-f',
-            '{{.State.Running}}',
-            'sds-ai-server',
-          ]);
-          containerRunning = retryStatus.stdout.toString().trim() == 'true';
-        } else {
-          containerRunning = false;
-        }
-      }
-
-      if (mounted) {
-        setState(() {
-          _isDockerRunning = isServiceRunning;
-          _isAiImagePresent = imagePresent;
-          _isContainerRunning = containerRunning;
-        });
-      }
-    } catch (e) {
-      AppLogger().log('Error checking docker/AI status: $e');
-      if (mounted) {
-        setState(() {
-          _isDockerRunning = false;
-          _isAiImagePresent = false;
-          _isContainerRunning = false;
-        });
-      }
+    if (mounted) {
+      setState(() {
+        // Trigger rebuild after AI service is configured
+      });
     }
   }
 
@@ -1701,7 +1536,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     // Test 2: VXI-11 open
     addResult('Testing VXI-11 open...');
     try {
-      final instr = Vxi11Instrument(_ipAddress);
+      final instr = Vxi11Instrument(_ipAddress, sourceLabel: 'diag-open');
       await instr.open(timeoutSeconds: 3.0);
       addResult('SUCCESS: VXI-11 link opened');
       await instr.close();
@@ -1715,7 +1550,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     // Test 3: *IDN?
     addResult('Querying *IDN?...');
     try {
-      final instr = Vxi11Instrument(_ipAddress);
+      final instr = Vxi11Instrument(_ipAddress, sourceLabel: 'diag-idn');
       await instr.open(timeoutSeconds: 3.0);
       await instr.writeString('*IDN?');
       final idn = (await instr.readString()).trim();
@@ -1731,7 +1566,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     // Test 4: Screen dump
     addResult('Testing screen dump...');
     try {
-      final instr = Vxi11Instrument(_ipAddress);
+      final instr = Vxi11Instrument(_ipAddress, sourceLabel: 'diag-screendump');
       await instr.open(timeoutSeconds: 5.0);
       final data = await instr.getScreenDump();
       await instr.close();
@@ -1748,7 +1583,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   Future<Vxi11Instrument?> _getInstrument() async {
     if (_instrument != null) return _instrument;
     try {
-      final instr = Vxi11Instrument(_ipAddress);
+      final instr = Vxi11Instrument(_ipAddress, sourceLabel: 'getInstrument');
       await instr.open(timeoutSeconds: 5.0);
       _instrument = instr;
       return _instrument;

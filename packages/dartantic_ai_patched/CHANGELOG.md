@@ -1,0 +1,1125 @@
+## 3.4.0
+
+### Dependencies
+
+- **Google Generative AI SDK** — Replaced
+  `google_cloud_ai_generativelanguage_v1beta` with
+  [`googleai_dart`](https://pub.dev/packages/googleai_dart) ^5.0.1
+  ([#107](https://github.com/csells/dartantic/pull/107)). Chat, embeddings, and
+  media generation now use this client; user-facing Dartantic APIs are unchanged
+  aside from new options below.
+
+### Added
+
+- **Google (Gemini) — thinking levels** — `GoogleChatModelOptions.thinkingLevel`
+  (`GoogleThinkingLevel`: minimal, low, medium, high) for Gemini 3+ models that
+  support thinking depth. Do not combine with `thinkingBudgetTokens`; the API
+  rejects both. ([#108](https://github.com/csells/dartantic/pull/108))
+- **Google (Gemini) — File Search** — `GoogleChatModelOptions.fileSearch` with
+  `GoogleFileSearchToolConfig` (file search store names, optional `topK` and
+  `metadataFilter`) for semantic retrieval from configured stores.
+  ([#108](https://github.com/csells/dartantic/pull/108))
+- **Google (Gemini) — Maps grounding** — `GoogleChatModelOptions.mapsGrounding`
+  with `GoogleMapsGroundingOptions` (optional `enableWidget` for widget context
+  in grounding metadata when supported).
+  ([#108](https://github.com/csells/dartantic/pull/108))
+- **Google (Gemini) — grounding metadata** — Model messages from Gemini can
+  include `grounding_metadata` in message metadata (JSON from the API’s
+  grounding metadata), including for Maps when enabled.
+  ([#108](https://github.com/csells/dartantic/pull/108))
+- **xAI Responses — `max_turns`** — `XAIResponsesChatModelOptions.maxTurns`
+  maps to the API’s `max_turns` (cap on assistant / server-side tool iterations
+  per request). See xAI’s tool documentation for interaction with client- vs
+  server-side tools. ([#106](https://github.com/csells/dartantic/pull/106))
+
+## 3.3.0
+
+### Dependencies
+
+- **`dartantic_interface` ^4.0.0** — adds `ModelKind.video` for video generation in
+  model discovery. Exhaustive `switch`es on `ModelKind` must handle `video` or use
+  a `default` branch (see the `dartantic_interface` changelog).
+
+### Added
+
+- **Google (Gemini) — URL Context server-side tool** — `GoogleServerSideTool.urlContext`
+  in `GoogleChatModelOptions.serverSideTools` enables Gemini URL context so the
+  model can retrieve and use content from allowed URLs. 
+- **xAI (Grok)** — `xai` provider (alias `grok`) using the OpenAI-compatible chat
+  completions API at `https://api.x.ai/v1`, API key `XAI_API_KEY`. Chat, vision,
+  tools, streaming, and typed output; embeddings and `temperature` are not
+  supported in Dartantic for this provider.
+- **xAI Responses** — `xai-responses` provider (alias `grok-responses`) using
+  xAI’s Responses API with the same base URL and `XAI_API_KEY`. Supports
+  thinking, server-side tools (web search, X search, file search, code
+  interpreter, MCP), and native xAI image/video media generation with defaults
+  `grok-imagine-image` / `grok-imagine-video`.
+
+### Documentation
+
+- Provider and quick-start docs (including xAI), environment setup, README
+  cross-links, and related wiki/docs site updates.
+
+## 3.2.0
+
+### SDK Dependency Upgrades
+
+Migrated all provider SDK dependencies to their latest major versions:
+
+| Dependency                                  | Before | After |
+| ------------------------------------------- | ------ | ----- |
+| `anthropic_sdk_dart`                        | 0.3.x  | 1.2.0 |
+| `mistralai_dart`                            | 0.1.x  | 1.2.0 |
+| `ollama_dart`                               | 0.3.x  | 1.2.0 |
+| `openai_dart`                               | 0.6.x  | 1.1.0 |
+| `google_cloud_ai_generativelanguage_v1beta` | 0.4.0  | 0.5.0 |
+
+### Breaking Changes
+
+- **Google Embeddings Model**: Default embeddings model changed from
+  `text-embedding-004` to `gemini-embedding-001`. The old model was removed
+  from Google's v1beta API.
+
+## 3.1.0
+
+### Fixed: Google Server-Side Tools with Structured Output
+
+Fixed issue [#96](https://github.com/csells/dartantic/issues/96) where combining
+Google server-side tools (Google Search, Code Execution) with typed output would
+fail with "Tool use with a response mime type: 'application/json' is
+unsupported".
+
+Server-side tools now work with typed output using the same two-phase
+`GoogleDoubleAgentOrchestrator` approach as user-defined tools:
+
+- **Phase 1**: Execute server-side tools (no outputSchema)
+- **Phase 2**: Get structured JSON output (no tools)
+
+```dart
+// Now works! Previously failed with API error
+final agent = Agent(
+  'google',
+  chatModelOptions: const GoogleChatModelOptions(
+    serverSideTools: {GoogleServerSideTool.googleSearch},
+  ),
+);
+
+final result = await agent.sendFor<MyOutput>(
+  'Search for current weather and return as JSON',
+  outputSchema: MyOutput.schema,
+  outputFromJson: MyOutput.fromJson,
+);
+```
+
+The fix automatically detects server-side tools and selects the appropriate
+orchestrator, with no code changes required for existing applications.
+
+## 3.0.0
+
+### Streaming Thinking via `chunk.thinking`
+
+Added a dedicated `thinking` field to `ChatResult<String>` for streaming
+thinking content. This provides symmetric access to thinking during streaming,
+matching how `chunk.output` provides streaming text:
+
+```dart
+await for (final chunk in agent.sendStream(prompt)) {
+  if (chunk.thinking != null) {
+    stdout.write(chunk.thinking);  // Real-time thinking display
+  }
+  stdout.write(chunk.output);  // Real-time text display
+  history.addAll(chunk.messages);  // Consolidated messages
+}
+```
+
+This is an additive change - the final consolidated message still contains
+`ThinkingPart` for history storage.
+
+### Breaking Change: Migrated to genai_primitives Types
+
+The core message types have been migrated from custom implementations to the
+standardized `genai_primitives` package. This provides better interoperability
+with other GenAI tooling in the Dart ecosystem.
+
+Types now re-exported from `genai_primitives`:
+
+- `ChatMessage`, `ChatMessageRole`
+- `Part` (alias for `StandardPart`), `TextPart`, `DataPart`, `LinkPart`,
+  `ThinkingPart`
+- `ToolPart`, `ToolPartKind`
+- `ToolDefinition`
+
+Note: `Part` is a typedef alias for `StandardPart` from genai_primitives 0.2.0.
+See dartantic_interface CHANGELOG for details on custom Part implementations.
+
+### Breaking Change: Migrated to json_schema_builder for Schemas
+
+The `Schema` type is now provided by the `json_schema_builder` package instead
+of a custom implementation. This provides a more robust JSON Schema builder with
+better validation.
+
+```dart
+// NEW: Use S.object() for empty schemas, S.* for building schemas
+import 'package:dartantic_ai/dartantic_ai.dart';
+
+final tool = Tool(
+  name: 'my_tool',
+  description: 'Does something',
+  inputSchema: S.object(properties: {
+    'name': S.string(description: 'The name'),
+  }),
+  onCall: (args) => 'Hello ${args['name']}',
+);
+```
+
+### Thinking API
+
+Extended thinking (chain-of-thought reasoning) is accessed via
+`ChatResult.thinking` for both streaming and non-streaming:
+
+```dart
+final agent = Agent('anthropic', enableThinking: true);
+
+// Non-streaming
+final result = await agent.send('Solve this puzzle...');
+print(result.thinking);
+
+// Streaming
+await for (final chunk in agent.sendStream('Solve this puzzle...')) {
+  if (chunk.thinking != null) stdout.write(chunk.thinking);  // Real-time
+}
+```
+
+Thinking is also stored as `ThinkingPart` in message parts for conversation
+history.
+
+### Provider Changes
+
+- **Mistral Default Model**: Changed default from `mistral-small-latest` to
+  `mistral-medium-latest` for more reliable tool calling. The small model was
+  truncating string arguments in certain scenarios.
+
+### Fixes
+
+- **Anthropic Thinking Metadata**: The thinking signature is still stored in
+  metadata while the thinking text is only stored in `ThinkingPart`.
+
+- **ThinkingPart Filtering**: Each provider's message mapper now correctly
+  handles `ThinkingPart` - Anthropic converts it to thinking blocks for the API,
+  while other providers filter it out during mapping since they don't need
+  thinking content sent back.
+
+## 2.2.3
+
+- moved Agent method input params to take Iterable instead of List per
+  [@d-markey's PR](https://github.com/csells/dartantic/pull/90). Thank you,
+  David!
+- Fixed duplicate file downloads in Anthropic media generation. The media gen
+  model now delegates file downloading to the chat model's built-in
+  auto-download functionality, matching the pattern used by Google and OpenAI
+  providers.
+
+## 2.2.2
+
+- Updated mcp_dart dependency to 1.2.1 to fix a null issue.
+
+## 2.2.1
+
+- **Gemini 3 Tool Calling Fix**: Fixed "Function call is missing a
+  thought_signature" error when using tools with Gemini 3 models like
+  `gemini-3-flash-preview`. No code changes required - just upgrade and it
+  works. ([#85](https://github.com/csells/dartantic/issues/85)). Thanks to
+  @ElectricCookie for [the PR](https://github.com/csells/dartantic/pull/86)!
+
+## 2.2.0
+
+- **Mistral Tool Calling Support**: Enhanced Mistral provider with robust tool
+  calling capabilities:
+  - Updated `mistralai_dart` dependency to 0.1.1+1 which fixes streaming tool
+    call issues
+  - Improved message mappers with null-safe tool call handling
+  - Added filtering for incomplete tool calls in streaming responses
+  - Enabled `multiToolCalls` capability for Mistral provider
+  - Updated tests to verify tool calling works correctly with streaming
+- **Enhanced Cohere & Ollama Capabilities**: Both providers now support
+  `multiToolCalls` capability for parallel tool execution
+- Added OCR (Optical Character Recognition) example to `multimedia_input.dart`
+  demonstrating text extraction from images using Gemini's vision capabilities
+
+## 2.1.1
+
+- Added custom dimensions support for Mistral embeddings:
+  - `MistralEmbeddingsModel` now passes `outputDimension` and `encodingFormat`
+    parameters to the Mistral API
+  - Leverages `outputDimension` parameter added in `mistralai_dart` PR #886
+  - Updated tests to use `codestral-embed-2505` for custom dimensions testing
+    (default `mistral-embed` model doesn't support custom dimensions)
+- Updated default Mistral chat model from `open-mistral-7b` to
+  `mistral-small-latest` for better overall capabilities
+
+## 2.1.0
+
+- Added image editing support to media generation across all providers
+  - Fixed `GoogleMediaGenerationModel` to accept attachments with image requests
+  - Attachments (DataPart, LinkPart, TextPart) are now properly converted to
+    Google API format (inlineData, fileData, text)
+  - Enables image editing use cases: colorization, style transfer, inpainting
+  - Added e2e tests for image editing with attachments for Google, OpenAI, and
+    Anthropic providers
+  - Updated all media generation examples to include image editing
+    demonstrations
+  - Refactored Google Part mapping to use shared `mapPartsToGoogle()` helper
+- Refactored provider `listModels()` implementations to use SDK methods instead
+  of raw HTTP:
+  - Anthropic: Uses `client.listModels()` from `anthropic_sdk_dart`
+  - Ollama: Uses `client.listModels()` from `ollama_dart`
+  - Mistral: Uses `client.listModels()` from `mistralai_dart`
+- Removed Anthropic `signature_delta` work-around (fixed in `anthropic_sdk_dart`
+  0.3.1)
+
+## 2.0.3
+
+- Updated Anthropic SDK compatibility for `anthropic_sdk_dart` 0.3.1:
+  - `ImageBlockSource` now uses sealed class API with `base64ImageSource()`
+    factory
+  - Added support for new block types: `DocumentBlock`, `RedactedThinkingBlock`,
+    `ServerToolUseBlock`, `WebSearchToolResultBlock`, `MCPToolUseBlock`
+  - Added support for new delta types: `SignatureBlockDelta`,
+    `CitationsBlockDelta`
+  - Added `pauseTurn` and `refusal` stop reasons
+- Updated Mistral SDK compatibility for `mistralai_dart` 0.1.1:
+  - Fixed ambiguous imports for `JsonSchema` and `Tool`
+  - Added `error` and `toolCalls` finish reasons
+
+## 2.0.2
+
+- updated dependencies
+
+## 2.0.1
+
+- updated dependencies
+
+## 2.0.0
+
+### Breaking Change: Exposing dartantic_interface directly from dartantic_ai
+
+It's no longer necessary to manually include the dartantic_interface package.
+
+```dart
+// OLD - had to import both packages
+import 'package:dartantic_ai/dartantic_ai.dart';
+import 'package:dartantic_interface/dartantic_interface.dart';
+
+// NEW - one import does it all
+import 'package:dartantic_ai/dartantic_ai.dart';
+```
+
+### Breaking Change: Provider Factory Registry
+
+Provider lookup has been moved from the `Providers` class to `Agent` static
+methods. Providers are now created via factory functions not cached instances.
+
+```dart
+// OLD
+final provider = Providers.get('openai');
+final allProviders = Providers.all;
+Providers.providerMap['custom'] = MyProvider();
+final provider2 = Providers.openai;
+
+// NEW
+final provider = Agent.getProvider('openai');
+final allProviders = Agent.allProviders;
+Agent.providerFactories['custom'] = MyProvider.new;
+final provider2 = OpenAIProvider();
+```
+
+### Breaking Change: Moved OpenAI-compat providers to example (except OpenRouter)
+
+Removed the following intrinsic providers from dartantic to the
+`openai_compat.dart` example:
+
+- `google-openai`
+- `together`
+- `ollama-openai`
+
+The `openrouter` OpenAI-compatible provider remains as an intrinsic provider.
+
+### Breaking Changes: Simplified Thinking API
+
+Extended thinking (chain-of-thought reasoning) is now a first-class feature in
+Dartantic with a simplified, unified API across all providers that support
+thinking:
+
+```dart
+// OLD
+final agent = Agent(
+  'openai-responses:gpt5',
+  chatModelOptions: OpenAIResponsesChatModelOptions(
+    reasoningSummary: OpenAIReasoningSummary.detailed,
+  ),
+);
+final thinking = result.metadata['thinking'] as String?;
+
+// NEW
+final agent = Agent('openai-responses:gpt5', enableThinking: true);
+final thinking = result.thinking;
+```
+
+- Provider-specific fine-tuning options remain for advanced use cases:
+  - `GoogleChatModelOptions.thinkingBudgetTokens`
+  - `AnthropicChatOptions.thinkingBudgetTokens`
+  - `OpenAIResponsesChatModelOptions.reasoningSummary`
+
+### Breaking Change: Removed `ProviderCaps`
+
+The `ProviderCaps` type was removed from the provider implementation and moved
+to a helper function in the tests.
+
+```dart
+// OLD
+final visionProviders = Providers.allWith({ProviderCaps.chatVision});
+
+// NEW
+// use Provider.listModels() and choose via ModelInfo instead
+```
+
+### New: Custom Headers for Enterprise
+
+All providers now support custom HTTP headers for enterprise scenarios like
+authentication proxies, request tracing, or compliance logging:
+
+```dart
+final provider = GoogleProvider(
+  apiKey: apiKey,
+  headers: {
+    'X-Request-ID': requestId,
+    'X-Tenant-ID': tenantId,
+  },
+);
+```
+
+### Updated: Google Native JSON Schema Support
+
+Google's Gemini API now uses native JSON Schema support for both:
+
+- **Typed output** via `responseJsonSchema` - for structured responses
+- **Tool parameters** via `parametersJsonSchema` - for function calling
+
+This replaces the previous custom `Schema` object conversion, enabling better
+support for complex schemas including `anyOf`, `$ref`, and other JSON Schema
+features that were previously rejected.
+
+This is an internal change with no API surface changes for you except that now
+you can pass more complex JSON schemas to Google models for both typed output
+and tool definitions.
+
+### New: Google Function Calling Mode
+
+Added `functionCallingMode` and `allowedFunctionNames` options to
+`GoogleChatModelOptions` for controlling tool/function calling behavior:
+
+```dart
+final agent = Agent(
+  'google',
+  chatModelOptions: GoogleChatModelOptions(
+    functionCallingMode: GoogleFunctionCallingMode.any, // Force tool calls
+    allowedFunctionNames: ['get_weather'], // Limit to specific functions
+  ),
+);
+```
+
+Available modes:
+
+- `auto` (default): Model decides when to call functions
+- `any`: Model always calls a function
+- `none`: Model never calls functions
+- `validated`: Like auto but validates calls with constrained decoding
+
+### New Model Type: Media Generation
+
+```dart
+final agent = Agent('google');
+
+// Image generation - uses Nano Banana by default (gemini-2.5-flash-image)
+final imageResult = await agent.generateMedia(
+  'Create a minimalist robot mascot for a developer conference.',
+  mimeTypes: const ['image/png'],
+);
+
+// Or specify the model explicitly (like Nano Banana Pro)
+final agent = Agent('google?media=gemini-3-pro-image-preview');
+```
+
+- Added media generation APIs to `Agent` (`generateMedia` and
+  `generateMediaStream`) with streaming aggregation helpers.
+
+- Added media generation support for the `OpenAIResponsesProvider`,
+  `GoogleProvider` and `AnthropicProvider` implementations `createMediaModel`.
+  All three of them support generating media with a prompt and a mime type,
+  using a combination of their intrinsic image generation and their server-side
+  code execution environments to generate files of all types.
+
+- Extended `ModelStringParser` with `media=` selectors and added media-specific
+  defaults in the provider registry.
+
+Check out the new media-gen examples to see them in action.
+
+### New: Server-Side Tools Across Providers
+
+Server-side tools are now supported across multiple providers:
+
+| Provider             | Tools Available                                             |
+| -------------------- | ----------------------------------------------------------- |
+| **OpenAI Responses** | Web Search, File Search, Image Generation, Code Interpreter |
+| **Google**           | Google Search (Grounding), Code Execution                   |
+| **Anthropic**        | Web Search, Web Fetch, Code Interpreter                     |
+
+```dart
+// Google server-side tools
+final agent = Agent(
+  'google',
+  chatModelOptions: const GoogleChatModelOptions(
+    serverSideTools: {GoogleServerSideTool.googleSearch},
+  ),
+);
+
+// Anthropic server-side tools
+final agent = Agent(
+  'anthropic',
+  chatModelOptions: const AnthropicChatOptions(
+    serverSideTools: {AnthropicServerSideTool.webSearch},
+  ),
+);
+```
+
+You can see how they all work in the new set of server-side tooling examples.
+
+## 1.3.0
+
+- **Anthropic Extended Thinking Support**: Added support for Anthropic's
+  extended thinking (chain-of-thought reasoning) exposed in the same way as the
+  OpenAI Responses provider does, so you can write your code to look for
+  thinking output regardless of the provider.
+- **Ollama Typed Output Support**: Ollama now supports JSON schema natively
+  through the updated `ollama_dart` package.
+- **Mistral Usage Tracking**: The updated `mistralai_dart` package now includes
+  the usage field natively in `ChatCompletionStreamResponse`, providing accurate
+  token counts for prompt, response, and totals.
+- **Cohere Multi-Tool Calling Disabled**: Removed `ProviderCaps.multiToolCalls`
+  from Cohere due to a bug in their OpenAI-compatible API wrt to toolcall IDs.
+
+## 1.2.0
+
+Another big release!
+
+- Migrated Google provider from deprecated `google_generative_ai` to generated
+  `google_cloud_ai_generativelanguage_v1beta` package. This is an internal
+  implementation change with no API surface changes for users. However, it does
+  fix some response formatting issues the deprecated package was having as the
+  underlying API changed; it's so nice to be using the Google-supported package
+  again!
+- Internal chat orchestration rearchitecture to simplify Agent and chat model
+  implementations and to focus per-provider orchestration on individual
+  providers.
+  - Added Anthropic orchestration provider to handle the toolcall-based method
+    of typed output it requires.
+  - Added Google "double agent" orchestrator to support typed output with tools
+    simultaneously. Google's API doesn't support tools and `outputSchema` in a
+    single call, so the orchestrator transparently executes a two-phase
+    workflow: Phase 1 executes tools, Phase 2 requests structured output. This
+    makes Google functionally equivalent to OpenAI and Anthropic for typed
+    output + tools use cases.
+- Restored support for the web! A rogue AI coding agent wrote docs that pulled
+  in `dart:io`, disabling web support. dartantic_ai fully supports the web and
+  if it ever says it doesn't, that's a bug.
+- Used the updated `openai_core` package to refactor `OpenAIResponsesChatModel`
+  to eliminate workaround for retrieving container file names.
+- Updated the default Anthropic model to `claude-sonnet-4-0`, although of course
+  you can use whichever model you want.
+- Fixed the `homepage` tag in the `pubspec.yaml`.
+- Added [llms.txt](https://docs.dartantic.ai/llms.txt) and
+  [llms-full.txt](https://docs.dartantic.ai/llms-full.txt) for LLM readers.
+
+## 1.1.0
+
+This is a big release!
+
+- Added the OpenAI Responses provider built on `openai_core`, including session
+  persistence (aka prompt caching), intrinsic server-side tools, and thinking
+  metadata streams. Thanks to @jezell for his most excellent `openai_core`
+  package and his quick turn-around on my blocking issues!
+  - Streaming thinking and server-side tool call progress
+  - Server-side image generation with quality, size and partial progress as well
+    as generated image returned as part for ease of access
+  - Server-side web search with full progress reports
+  - Server-side code interpreter with reusable containers and returning of
+    generated files of all types as parts for ease of access
+  - Full server-side vector search tool with example showing how to upload files
+    and query vectors
+  - GPT-5 Codex access!
+- Replaced the Lambda provider with the new `openai_compat.dart` sample
+- Filtered Cohere models to "Live" entries and updated the default chat model
+- Surface usage totals for every provider consistently
+- Added support for the `DARTANTIC_LOG_LEVEL` environment variable for one-line
+  logging configuration
+- Support for the fully
+  [spec](https://google.github.io/dotprompt/implementors/)-compliant
+  [dotprompt_dart package](https://pub.dev/packages/dotprompt_dart)
+- Published all of the specs for dartantic in a new Specifications section in
+  the docs
+- 1300+ tests to ensure feature compatibility across the set of supported LLMs
+
+## 1.0.8
+
+- fix a intermittent anthropic tool-calling error with streaming responses
+- fix an openai-based tool-calling error that resulted in an infinite loop from
+  empty responses after tool calls
+
+## 1.0.7
+
+- move from soti_schema to soti_schema_plus in examples, as the former seems to
+  have been abandoned
+- fixed: can't move to the latest version of freezed etc due to deps in
+  ollama_dart [#54](https://github.com/csells/dartantic_ai/issues/54)
+- fixed: apiKey and baseUrl parameters should be exposed from the OllamaProvider
+  [#52](https://github.com/csells/dartantic_ai/issues/52)
+- fixed: Dartantic AI package local dependency
+  [#53](https://github.com/csells/dartantic_ai/issues/53)
+- fixed: update for openai_dart 0.5.4
+  [#51](https://github.com/csells/dartantic_ai/issues/51)
+- fixed chatarang to use new streaming message collection pattern
+
+## 1.0.6
+
+- Fixed #48: Pass package name and other info to Generative AI providers. I
+  added an example of how to use a custom HTTP client for these kinds of things
+  when creating a model. It's not as easy as it could be, and it didn't work for
+  gemini w/o a quick fix, but it's doable.
+
+## 1.0.5
+
+- Fixed #47: Dartantic is checking for wrong environment variable. I was being
+  aggressive about constructing providers before they were used and checking API
+  keys before they were needed, which was causing this issue. For example, if
+  you wanted to use `Agent('google')` and didn't have the MISTRAL_API_KEY set
+  (why would you?), string lookup creates all of the providers, which caused all
+  of them to check for their API key and -- BOOM.
+
+## 1.0.4
+
+- Updated LLM SDK dependencies:
+  - `anthropic_sdk_dart`: 0.2.1 → 0.2.2
+  - `openai_dart`: 0.5.2 → 0.5.3 (adds nullable choices field support for Groq
+    compatibility)
+  - `mistralai_dart`: 0.0.4 → 0.0.5
+  - `ollama_dart`: 0.2.3 → 0.2.4
+
+## 1.0.3
+
+- Fixed quickstart example code and updated README
+
+## 1.0.2
+
+- fixed a compilation error on the web
+
+## 1.0.1
+
+- updating to dartantic_interface 1.0.1 (that didn't take long : )
+
+## 1.0.0
+
+### Dynamic => Static Provider factories
+
+Provider access has moved to `Agent` static methods:
+
+```dart
+// OLD (0.9.x)
+final provider = OpenAiProvider();
+final providerFactory = Agent.providers['google'];
+final providerFactoryByAlias = Agent.providers['gemini'];
+
+// NEW (2.0.0)
+final provider1 = Agent.createProvider('openai');
+final provider2 = Agent.createProvider('google');
+final provider3 = Agent.createProvider('gemini');
+```
+
+If you'd like to extend the list of providers dynamically at runtime, you can
+use the `providerFactories` map on the `Agent` class:
+
+```dart
+Agent.providerFactories['my-provider'] = MyProvider.new;
+```
+
+### Agent.runXxx => Agent.sendXxx
+
+The `Agent.runXxx` methods have been renamed for consistency with chat models
+and the new `Chat` class:
+
+```dart
+// OLD
+final result = await agent.run('Hello');
+final typedResult = await agent.runFor<T>('Hello', outputSchema: schema);
+await for (final chunk in agent.runStream('Hello')) {...}
+
+// NEW
+final result = await agent.send('Hello');
+final typedResult = await agent.sendFor<T>('Hello', outputSchema: schema);
+await for (final chunk in agent.sendStream('Hello')) {...}
+```
+
+Also, when you're sending a prompt to the agent, instead of passing a list of
+messages via the messages parameter, you can pass it via the history parameter:
+
+```dart
+// OLD
+final result = await agent.run('Hello', messages: messages);
+
+// NEW
+final result = await agent.send('Hello', history: history);
+```
+
+The subtle difference is that the history is a list of previous messages before
+the prompt + optional attachments, which forms the new message. Love it or
+don't, but it made sense to me at the time...
+
+### Agent.provider => Agent.forProvider
+
+The `Agent.provider` constructor has been renamed to `Agent.forProvider` for
+clarity:
+
+```dart
+// OLD
+final agent = Agent.provider(OpenAiProvider());
+
+// NEW
+final agent = Agent.forProvider(Agent.createProvider('anthropic'));
+```
+
+### Message => ChatMessage
+
+The `Message` type has been renamed to `ChatMessage` for consistency with chat
+models:
+
+```dart
+// OLD
+var messages = <Message>[];
+final response = await agent.run('Hello', messages: messages);
+messages = response.messages.toList();
+
+// NEW
+var history = <ChatMessage>[];
+final response = await agent.send('Hello', history: history);
+history.addAll(response.messages);
+```
+
+### toSchema => JsonSchema.create
+
+The `toSchema` method has been dropped in favor of the built-in
+`JsonSchema.create` method for simplicity:
+
+```dart
+// OLD
+final schema = <String, dynamic>{
+  'type': 'object',
+  'properties': {
+    'town': {'type': 'string'},
+    'country': {'type': 'string'},
+  },
+  'required': ['town', 'country'],
+}.toSchema();
+
+// NEW
+final schema = JsonSchema.create({
+  'type': 'object',
+  'properties': {
+    'town': {'type': 'string', 'description': 'Name of the town'},
+    'country': {'type': 'string', 'description': 'Name of the country'},
+  },
+  'required': ['town', 'country'],
+});
+```
+
+### systemPrompt + Message.system() => ChatMessage.system()
+
+The `systemPrompt` parameter has been removed from Agent and model constructors.
+It was confusing to have both a system prompt and a system message, so I've
+simplified the implementation to use just an optional `ChatMessage.system()`
+instead. In practice, you'll want to keep the system message in the history
+anyway, so think of this as a "pit of success" thing:
+
+```dart
+// OLD
+final agent = Agent(
+  'openai',
+  systemPrompt: 'You are a helpful assistant.',
+);
+final result = await agent.send('Hello');
+
+// NEW
+final agent = Agent('openai');
+final result = await agent.send(
+  'Hello',
+  history: [
+    const ChatMessage.system('You are a helpful assistant.'),
+  ],
+);
+```
+
+### Agent chat and streaming
+
+The agent now streams new messages as they're created along with the output:
+
+```dart
+final agent = Agent('openai');
+final history = <ChatMessage>[];
+await for (final chunk in agent.sendStream('Hello', history: history)) {
+  // collect text and messages as they're created
+  print(chunk.output);
+  history.addAll(chunk.messages);
+}
+```
+
+If you'd prefer not to collect and track the message history manually, you can
+use the `Chat` class to collect messages for you:
+
+```dart
+final chat = Chat(Agent('openai'));
+await for (final chunk in chat.sendStream('Hello')) {
+  print(chunk.output);
+}
+
+// chat.history is a list of ChatMessage objects
+```
+
+### DataPart.file(File) => DataPart.fromFile(XFile)
+
+The `DataPart.file` constructor has been replaced with `DataPart.fromFile` to
+support cross-platform file handling, i.e. the web:
+
+```dart
+// OLD
+import 'dart:io';
+
+final part = await DataPart.file(File('bio.txt'));
+
+// NEW
+import 'package:cross_file/cross_file.dart';
+
+final file = XFile.fromData(
+  await File('bio.txt').readAsBytes(),
+  path: 'bio.txt',
+);
+final part = await DataPart.fromFile(file);
+```
+
+### Model String Format Enhanced
+
+The model string format has been enhanced to support chat, embeddings and other
+model names using custom relative URI. This was important to be able to specify
+the model for chat and embeddings separately:
+
+```dart
+// OLD
+Agent('openai');
+Agent('openai:gpt-4o');
+Agent('openai/gpt-4o');
+
+// NEW - all of the above still work plus:
+Agent('openai?chat=gpt-4o&embeddings=text-embedding-3-large');
+```
+
+### Agent.embedXxx
+
+The agent gets new `Agent.embedXxx` methods for creating embeddings for
+documents and queries:
+
+```dart
+final agent = Agent('openai');
+final embedding = await agent.embedQuery('Hello world');
+final results = await agent.embedDocuments(['Text 1', 'Text 2']);
+final similarity = EmbeddingsModel.cosineSimilarity(e1, e2);
+```
+
+Also, the `cosineSimilarity` method has been moved to the `EmbeddingsModel`.
+
+### Automatic Retry
+
+The agent now supports automatic retry for rate limits and failures:
+
+```dart
+final agent = Agent('openai');
+final result = await agent.send('Hello!'); // Automatically retries on 429
+```
+
+### Agent&lt;TOutput&gt;(outputSchema) => sendForXxx&lt;TOutput&gt;(outputSchema)
+
+Instead of putting the output schema on the `Agent` class, it's now on the
+`sendForXxx` method:
+
+```dart
+// OLD
+final agent = Agent<Map<String, dynamic>>('openai', outputSchema: ...);
+final result = await agent.send('Hello');
+
+// NEW
+final agent = Agent('openai');
+final result = await agent.sendFor<Map<String, dynamic>>('Hello', outputSchema: ...);
+```
+
+This allows you to be more flexible from message to message.
+
+### `AgentResponse` to `ChatResult<MyType>`
+
+The `AgentResponse` type has been renamed to `ChatResult`.
+
+### DotPrompt Support Removed
+
+The dependency on [the dotprompt_dart
+package](https://pub.dev/packages/dotprompt_dart) has been removed from
+dartantic_ai. However, you can still use the `DotPrompt` class to parse
+`.prompt` files:
+
+```dart
+import 'package:dotprompt_dart/dotprompt_dart.dart';
+
+final dotPrompt = DotPrompt(...);
+final prompt = dotPrompt.render();
+final agent = Agent(dotPrompt.frontMatter.model!);
+await agent.send(prompt);
+```
+
+### Tool Calls with Typed Output
+
+The `Agent.sendForXxx` method now supports specifying the output type of the
+tool call:
+
+```dart
+final provider = Agent.createProvider('openai');
+assert(provider.caps.contains(ProviderCaps.typedOutputWithTools));
+
+// tools
+final agent = Agent.forProvider(
+  provider,
+  tools: [currentDateTimeTool, temperatureTool, recipeLookupTool],
+);
+
+// typed output
+final result = await agent.sendFor<TimeAndTemperature>(
+  'What is the time and temperature in Portland, OR?',
+  outputSchema: TimeAndTemperature.schema,
+  outputFromJson: TimeAndTemperature.fromJson,
+);
+
+// magic!
+print('time: ${result.output.time}');
+print('temperature: ${result.output.temperature}');
+```
+
+Unfortunately, not all providers support this feature. You can check the
+provider's capabilities to see if it does.
+
+### ChatMessage Part Helpers
+
+The `ChatMessage` class has been enhanced with helpers for extracting specific
+types of parts from a list:
+
+```dart
+final message = ChatMessage.system('You are a helpful assistant.');
+final text = message.text; // "You are a helpful assistant."
+final toolCalls = message.toolCalls; // []
+final toolResults = message.toolResults; // []
+```
+
+### Usage Tracking
+
+The agent now supports usage tracking:
+
+```dart
+final result = await agent.send('Hello');
+print('Tokens used: ${result.usage.totalTokens}');
+```
+
+### Logging
+
+The agent now supports logging:
+
+```dart
+Agent.loggingOptions = const LoggingOptions(level: LogLevel.ALL);
+```
+
+## 0.9.7
+
+- Added the ability to set embedding dimensionality
+- Removed ToolCallingMode and singleStep mode. Multi-step tool calling is now
+  always enabled.
+- Enabled support for web and wasm.
+- Breaking Change: Replaced `DataPart.file` with `DataPart.stream` for file and
+  image attachments. This improves web and WASM compatibility. Use
+  `DataPart.stream(file.openRead(), name: file.path)` instead of
+  `DataPart.file(File(...))`.
+
+## 0.9.6
+
+- fixed an issue where the OpenAI model only processed the last tool result when
+  multiple tool results existed in a single message, causing unmatched tool call
+  IDs during provider switching.
+
+## 0.9.5
+
+- Major OpenAI Multi-Step Tool Calling Improvement: Eliminated complex probe
+  mechanism (100+ lines of code) in favor of [OpenAI's native
+  `parallelToolCalls`
+  parameter](https://pub.dev/documentation/openai_dart/latest/openai_dart/CreateChatCompletionRequest/parallelToolCalls.html).
+  This dramatically simplifies the implementation while improving reliability
+  and performance.
+
+## 0.9.4
+
+- README & docs tweaks
+
+## 0.9.3
+
+- Completely revamped docs! https://docs.page/csells/dartantic_ai
+
+## 0.9.2
+
+- Added `Agent.environment` to allow setting environment variables
+  programmatically. This is especially useful for web applications where
+  traditional environment variables are not available.
+
+## 0.9.1
+
+- Added support for extending the provider table at runtime, allowing custom
+  providers to be registered dynamically.
+
+- Added optional `name` parameter to `DataPart` and `LinkPart` for better
+  multi-media message creation ergonomics.
+
+## 0.9.0
+
+- Added `ToolCallingMode` to control multi-step tool calling behavior.
+  - `multiStep` (default): The agent will continue to send tool results until
+    all of the tool calls have been exercised.
+  - `singleStep`: The agent will perform only one request-response and then
+    stop.
+
+- OpenAI Multi-Step Tool Calling by including probing for additional tool calls
+  when the model responds with text instead of a tool call.
+
+- Gemini multi-step tool calling by handling new tool calls while processing the
+  response from previous tool calling.
+
+- Schema Nullable Properties Fix: Required properties in JSON schemas now
+  correctly set `nullable: false` in converted Gemini schemas, since required
+  properties cannot be null by definition.
+
+## 0.8.3
+
+- Breaking Change: `McpServer` → `McpClient`: Renamed MCP integration class cuz
+  we're not building a server!
+- MCP Required Fields Preservation: Enhanced MCP integration to preserve
+  required fields in tool schemas, allowing LLMs to know what parameters are
+  required for each tool call. This turns out to be a critical piece in whether
+  the LLM is able to call the tool correctly or not.
+- Model discovery: Added `Provider.listModels()` to enumerate available models,
+  and the kinds of operations they support and whether they're in stable or
+  preview/experimental mode.
+- Breaking Change: simplifying provider names (again!)
+- no change to actual provider aliases, e.g. "gemini" still maps to "google"
+- fixed a nasty fully-qualified model naming bug
+- Better docs!
+
+## 0.8.2
+
+- Better docs!
+
+## 0.8.1
+
+- Breaking change: Content=>List<Part>, lots more List<> => Iterable<>
+
+## 0.8.0
+
+- Multimedia Input Support: Added `attachments` parameter to Agent and Model
+  interfaces for including files, data and links.
+- Improved OpenAI compatibility for tool calls
+- Added the 'gemini-compat' provider for access to Gemini models via the OpenAI
+  endpoint.
+- Breaking change: everywhere I passed List<Message> I now pass
+  Iterable<Message>
+
+## 0.7.0
+
+- Provider Capabilities System: Add support for providers to declare their
+  capabilities
+- baseUrl support to enable OpenAI-compatibility
+- Added new "openrouter" provider
+  - it's an OpenAI API implementation, but doesn't support embeddings
+  - which drove support for provider capabilities...
+- temperature support
+- Breaking change: `McpServer.remote` now takes a `Uri` instead of a `String`
+  for the URL
+- Breaking change: Renamed model interface properties for clarity:
+  - `Model.modelName` → `Model.generativeModelName`
+  - Also added `Model.embeddingModelName`
+- Breaking change: Provider capabilities API naming:
+  - `Provider.caps` returns `Set<ProviderCaps>` instead of
+    `Iterable<ProviderCaps>`
+
+## 0.6.0
+
+- MCP (Model Context Protocol) Server Support
+- Message construction convenience methods:
+  - Added `Content` type alias for `List<Part>` to improve readability
+  - Added convenience constructors for `Message`: `Message.system()`,
+    `Message.user()`, `Message.model()`
+  - Added `Content.text()` extension method for easy text content creation
+  - Added convenience constructors for `ToolPart`: `ToolPart.call()` and
+    `ToolPart.result()`
+- Breaking change: inputType/outputType to inputSchema/outputSchema; I couldn't
+  stand to look at `inputType` and `outputType` in the code anymore!
+- Add logging support (defaults to off) and a logging example
+
+## 0.5.0
+
+- Embedding generation: Add methods to generate vector embeddings for text
+
+## 0.4.0
+
+- Streaming responses via `Agent.runStream` and related methods.
+- Multi-turn chat support
+- Provider switching: seamlessly alternate between multiple providers in a
+  single conversation, with full context and tool call/result compatibility.
+
+## 0.3.0
+
+- added [dotprompt_dart](https://pub.dev/packages/dotprompt_dart) package
+  support via `Agent.runPrompt(DotPrompt prompt)`
+- expanded model naming to include "providerName", "providerName:model" or
+  "providerName/model", e.g. "openai" or "googleai/gemini-2.0-flash"
+- move types specified by `Map<String, dynamic>` to a `JsonSchema` object; added
+  `toMap()` extension method to `JsonSchema` and `toSchema` to `Map<String,
+dynamic>` to make going back and forth more convenient.
+- move the provider argument to `Agent.provider` as the most flexible case, but
+  also the less common one. `Agent()` will contine to take a model string.
+
+## 0.2.0
+
+- Define tools and their inputs/outputs easily
+- Automatically generate LLM-specific tool/output schemas
+- Allow for a model descriptor string that just contains a family name so that
+  the provider can choose the default model.
+
+## 0.1.0
+
+- Multi-Model Support (just Gemini and OpenAI models so far)
+- Create agents from model strings (e.g. `openai:gpt-4o`) or typed providers
+  (e.g. `GoogleProvider()`)
+- Automatically check environment for API key if none is provided (not web
+  compatible)
+- String output via `Agent.run`
+- Typed output via `Agent.runFor`
+
+## 0.0.1
+
+- Initial version.

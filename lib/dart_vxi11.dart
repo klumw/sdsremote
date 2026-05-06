@@ -283,15 +283,17 @@ class Vxi11ErrorMessages {
 class Vxi11Instrument {
   final String _host;
   final String _deviceName;
+  String _sourceLabel = '';
   int _timeoutMs = 10000;
   RpcClient? _rpc;
   int? _linkId;
   String _lastError = '';
   int _xidCounter = 1;
 
-  Vxi11Instrument(String host, {String name = 'inst0'})
+  Vxi11Instrument(String host, {String name = 'inst0', String sourceLabel = ''})
       : _host = host,
-        _deviceName = name;
+        _deviceName = name,
+        _sourceLabel = sourceLabel;
 
   /// The host address this instrument connects to.
   String get host => _host;
@@ -305,7 +307,8 @@ class Vxi11Instrument {
   /// Opens portmapper + VXI-11 connections and creates a link.
   Future<int> open({double timeoutSeconds = 10.0}) async {
     _timeoutMs = (timeoutSeconds * 1000).round();
-    AppLogger().log('VXI-11: Opening connection to $_host');
+    final src = _sourceLabel.isNotEmpty ? '[$_sourceLabel] ' : '';
+    AppLogger().log('VXI-11: ${src}Opening connection to $_host');
 
     // Step 1: Connect to portmapper on port 111.
     Socket pmSocket;

@@ -27,7 +27,7 @@ class WaveformAcquisition {
     Vxi11Instrument? instr,
   }) async {
     final bool ownInstr = instr == null;
-    final activeInstr = instr ?? Vxi11Instrument(ipAddress);
+    final activeInstr = instr ?? Vxi11Instrument(ipAddress, sourceLabel: 'waveformAcq');
     String? originalTriggerMode;
     try {
       if (ownInstr) {

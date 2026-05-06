@@ -1,0 +1,323 @@
+import 'dart:async';
+
+import 'package:dartantic_ai/dartantic_ai.dart';
+
+import '../logger.dart';
+import 'agent.dart';
+import 'query_agent.dart';
+import 'systemprompts.dart';
+import 'vxi11_tool.dart';
+
+/// Creates the tool that wraps the VXI-11 instrument agent.
+///
+/// The [vxiAgent] is captured in the closure so the tool can delegate
+/// prompts to the instrument agent.
+Tool<Map<String, dynamic>> _createScpiAgentTool(
+  ChatAgent vxiAgent, {
+  String agentName = 'unknown',
+}) {
+  return Tool<Map<String, dynamic>>(
+    name: 'scpi_instrument_agent',
+    description:
+        'Send SCPI commands and queries to a VXI-11 instrument. '
+        'Use this tool when you need to interact with the connected '
+        'measurement instrument. Describe what you want to do with the '
+        'instrument in natural language, and the instrument agent will '
+        'handle the SCPI communication.',
+    inputSchema: Schema.fromMap({
+      'type': 'object',
+      'properties': {
+        'prompt': {
+          'type': 'string',
+          'description':
+              'Describe what you want to do with the instrument in natural '
+              'language, e.g. "Send the command C1:TRA OFF" or '
+              '"Query the device identification with *IDN?"',
+        },
+      },
+      'required': ['prompt'],
+    }),
+    onCall: (args) async {
+      final prompt = args['prompt'] as String;
+      final logger = AppLogger(
+        agentName: agentName,
+        toolName: 'scpi_instrument_agent',
+      );
+      logger.logToolCall(
+        input: args,
+        output: {'response': '(see instrument agent log for details)'},
+      );
+      final response = await vxiAgent.send(prompt);
+      return {'response': response};
+    },
+  );
+}
+
+/// Creates the tool that wraps the knowledgebase query agent.
+///
+/// The [queryAgent] is captured in the closure so the tool can delegate
+/// knowledgebase queries to the query agent.
+Tool<Map<String, dynamic>> _createQueryAgentTool(
+  QueryAgent queryAgent, {
+  String agentName = 'unknown',
+}) {
+  return Tool<Map<String, dynamic>>(
+    name: 'query_agent',
+    description:
+        'Search the oscilloscope knowledgebase for information about '
+        'commands, settings, troubleshooting, or device specifications. '
+        'Use this tool when you need to answer questions about how to use '
+        'the oscilloscope, what SCPI commands are available, how to '
+        'configure channels or triggers, or how to troubleshoot issues. '
+        'The knowledgebase contains documentation about the oscilloscope '
+        'device including channel setup, timebase, measurements, '
+        'troubleshooting, and specifications.',
+    inputSchema: Schema.fromMap({
+      'type': 'object',
+      'properties': {
+        'query': {
+          'type': 'string',
+          'description':
+              'The question about the oscilloscope device, e.g. '
+              '"How do I set the trigger level?" or '
+              '"What is the C1:TRA command?" or '
+              '"What are the specifications of the SDS1202X-E?"',
+        },
+      },
+      'required': ['query'],
+    }),
+    onCall: (args) async {
+      final query = args['query'] as String;
+      final logger = AppLogger(
+        agentName: agentName,
+        toolName: 'query_agent',
+      );
+      logger.logToolCall(
+        input: args,
+        output: {'response': '(see query agent log for details)'},
+      );
+      final response = await queryAgent.send(query);
+      return {'response': response};
+    },
+  );
+}
+
+/// A frontend AI agent that has the [ChatAgent] (with VXI-11 tool) and
+/// [QueryAgent] (with knowledgebase search) as tools.
+///
+/// This creates a three-tier architecture:
+/// - **FrontendAgent**: The user-facing agent that can answer general questions
+///   or delegate to specialized sub-agents.
+/// - **ChatAgent** (instrument agent): An internal agent equipped with the
+///   VXI-11 tool for sending SCPI commands and queries to a remote instrument.
+/// - **QueryAgent** (knowledgebase agent): An internal agent that searches a
+///   Markdown knowledgebase for oscilloscope documentation.
+///
+/// The frontend agent has the following tools:
+/// - `scpi_instrument_agent`: For sending SCPI commands to the instrument
+/// - `query_agent`: For searching the oscilloscope knowledgebase
+///
+/// All agents limit the number of tool calls per user input to
+/// [maxToolCalls] (default: 10). This prevents runaway tool loops.
+///
+/// Usage:
+/// ```dart
+/// final agent = FrontendAgent();
+/// await for (final chunk in agent.sendStream('What is the device ID?')) {
+///   print(chunk);
+/// }
+/// ```
+class FrontendAgent {
+
+  /// Default maximum number of tool calls per user input.
+  static const int defaultMaxToolCalls = 10;
+
+  /// The underlying dartantic_ai Agent instance for the frontend.
+  final Agent _frontendAgent;
+
+  /// The chat history for multi-turn conversations.
+  final List<ChatMessage> _history = [];
+
+  /// Maximum number of tool calls allowed per user input.
+  final int maxToolCalls;
+
+  /// Creates a [FrontendAgent] with instrument and knowledgebase sub-agents.
+  ///
+  /// The [model] parameter specifies the model to use in `provider:model`
+  /// format. Defaults to `deepseek:deepseek-v4-flash`.
+  ///
+  /// Supports:
+  /// - `deepseek:<model>` - DeepSeek via OpenAI-compatible API
+  /// - `edenai:<model>` - EdenAI via OpenAI-compatible API
+  ///
+  /// The [systemPrompt] parameter sets an optional system message for the
+  /// frontend agent. If null, [frontendAgentDefaultSystemPrompt] is used.
+  ///
+  /// The [vxi11Host] parameter sets the default VXI-11 instrument IP.
+  /// If null, no VXI-11 tool is added. Defaults to `192.168.178.95`.
+  ///
+  /// The [knowledgebasePath] parameter sets the path to the knowledgebase
+  /// Markdown file. Defaults to `knowledgebase.md`.
+  ///
+  /// The [tools] parameter allows adding additional custom tools to the
+  /// frontend agent.
+  ///
+  /// The [maxToolCalls] parameter limits the number of tool calls per
+  /// user input for all agents (frontend, instrument, and query).
+  /// Defaults to [defaultMaxToolCalls] (10).
+  FrontendAgent({
+    String model = 'deepseek:deepseek-v4-flash',
+    String? systemPrompt,
+    String? vxi11Host = defaultVxi11Host,
+    String knowledgebasePath = 'knowledgebase.md',
+    List<Tool>? tools,
+    this.maxToolCalls = defaultMaxToolCalls,
+  }) : _frontendAgent = Agent(
+          model,
+          displayName: 'FrontendAgent',
+          tools: [
+            if (vxi11Host != null)
+              _createScpiAgentTool(
+                _createVxiAgent(
+                  model: model,
+                  vxi11Host: vxi11Host,
+                  maxToolCalls: maxToolCalls,
+                ),
+                agentName: 'FrontendAgent',
+              ),
+            _createQueryAgentTool(
+              _createQuerySubAgent(
+                model: model,
+                knowledgebasePath: knowledgebasePath,
+                maxToolCalls: maxToolCalls,
+              ),
+              agentName: 'FrontendAgent',
+            ),
+            if (tools != null) ...tools,
+          ],
+        ) {
+    _history.add(ChatMessage.system(systemPrompt ?? frontendAgentDefaultSystemPrompt));
+  }
+
+  /// The display name of the agent (e.g., "DeepSeek").
+  String get displayName => _frontendAgent.displayName;
+
+  /// The current model name being used.
+  String get model => _frontendAgent.model;
+
+  /// Sends a [prompt] and returns the full response as a single string.
+  ///
+  /// The conversation history is automatically maintained for multi-turn
+  /// conversations.
+  Future<String> send(String prompt) async {
+    final logger = AppLogger(
+      agentName: 'FrontendAgent',
+      toolName: 'send',
+    );
+    logger.log(
+      '[DEBUG FrontendAgent.send] _history has ${_history.length} messages:',
+    );
+    for (var i = 0; i < _history.length; i++) {
+      final msg = _history[i];
+      logger.log(
+        '[DEBUG FrontendAgent.send]   [$i] role=${msg.role} '
+        'text="${msg.text.substring(0, msg.text.length > 80 ? 80 : msg.text.length)}"'
+        '${msg.hasToolCalls ? ' hasToolCalls' : ''}'
+        '${msg.hasToolResults ? ' hasToolResults' : ''}',
+      );
+    }
+    final result = await _frontendAgent.send(prompt, history: _history);
+    _history.addAll(result.messages);
+    return result.output.trim();
+  }
+
+  /// Sends a [prompt] and streams the response chunks.
+  ///
+  /// The conversation history is automatically maintained for multi-turn
+  /// conversations.
+  ///
+  /// Tool calls are counted and limited to [maxToolCalls] per input.
+  /// When the limit is reached, the agent is forced to respond without
+  /// further tool calls.
+  Stream<String> sendStream(String prompt) async* {
+    final logger = AppLogger(
+      agentName: 'FrontendAgent',
+      toolName: 'sendStream',
+    );
+    logger.log(
+      '[DEBUG FrontendAgent.sendStream] _history has ${_history.length} '
+      'messages:',
+    );
+    for (var i = 0; i < _history.length; i++) {
+      final msg = _history[i];
+      logger.log(
+        '[DEBUG FrontendAgent.sendStream]   [$i] role=${msg.role} '
+        'text="${msg.text.substring(0, msg.text.length > 80 ? 80 : msg.text.length)}"'
+        '${msg.hasToolCalls ? ' hasToolCalls' : ''}'
+        '${msg.hasToolResults ? ' hasToolResults' : ''}',
+      );
+    }
+    final chunks = <String>[];
+    var toolCallCount = 0;
+
+    await for (final chunk
+        in _frontendAgent.sendStream(prompt, history: _history)) {
+      // Count tool calls by checking for model messages with tool calls.
+      for (final msg in chunk.messages) {
+        if (msg.role == ChatMessageRole.model && msg.hasToolCalls) {
+          toolCallCount++;
+        }
+      }
+
+      // If we've exceeded the max tool calls, stop yielding and break.
+      if (toolCallCount > maxToolCalls) {
+        break;
+      }
+
+      chunks.add(chunk.output);
+      yield chunk.output;
+    }
+
+    // Reconstruct the full messages from the concatenated output.
+    final fullOutput = chunks.join();
+    if (fullOutput.isNotEmpty) {
+      _history.addAll([
+        ChatMessage.user(prompt),
+        ChatMessage.model(fullOutput),
+      ]);
+    }
+  }
+
+  /// Clears the conversation history.
+  void clearHistory() {
+    _history.clear();
+  }
+
+  /// Creates the internal instrument agent.
+  static ChatAgent _createVxiAgent({
+    required String model,
+    required String? vxi11Host,
+    required int maxToolCalls,
+  }) {
+    return ChatAgent(
+      model: model,
+      vxi11Host: vxi11Host,
+      maxToolCalls: maxToolCalls,
+      systemPrompt: instrumentAgentSystemPrompt,
+    );
+  }
+
+  /// Creates the internal query agent.
+  static QueryAgent _createQuerySubAgent({
+    required String model,
+    required String knowledgebasePath,
+    required int maxToolCalls,
+  }) {
+    return QueryAgent(
+      model: model,
+      knowledgebasePath: knowledgebasePath,
+      maxToolCalls: maxToolCalls,
+      systemPrompt: queryAgentSystemPrompt,
+    );
+  }
+}
