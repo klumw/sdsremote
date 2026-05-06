@@ -112,6 +112,7 @@ class _HelpWindowState extends State<HelpWindow> {
                               ),
                             ),
                           ),
+                          tableColumnWidth: const IntrinsicColumnWidth(),
                         ),
                   ),
           ),
