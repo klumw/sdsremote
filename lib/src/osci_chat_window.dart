@@ -26,8 +26,17 @@ String _convertBareUrlsToMarkdownLinks(String text) {
 /// A chat window widget for interacting with the AI assistant.
 class ChatWindow extends StatefulWidget {
   final AiChatService aiChatService;
+  final List<Map<String, String>> chatMessages;
+  final bool isChatting;
+  final ValueChanged<String> onSendMessage;
 
-  const ChatWindow({super.key, required this.aiChatService});
+  const ChatWindow({
+    super.key,
+    required this.aiChatService,
+    required this.chatMessages,
+    required this.isChatting,
+    required this.onSendMessage,
+  });
 
   @override
   State<ChatWindow> createState() => _ChatWindowState();
@@ -37,8 +46,6 @@ class _ChatWindowState extends State<ChatWindow> {
   final TextEditingController _chatController = TextEditingController();
   final ScrollController _chatScrollController = ScrollController();
   final FocusNode _chatFocusNode = FocusNode();
-  final List<Map<String, String>> _chatMessages = [];
-  bool _isChatting = false;
 
   @override
   void initState() {
@@ -57,52 +64,13 @@ class _ChatWindowState extends State<ChatWindow> {
     super.dispose();
   }
 
-  void _sendChatMessage() async {
+  void _sendChatMessage() {
     final text = _chatController.text.trim();
-    if (text.isEmpty || _isChatting) return;
+    if (text.isEmpty || widget.isChatting) return;
 
-    setState(() {
-      _chatMessages.add({'role': 'user', 'content': text});
-      _chatController.clear();
-      _isChatting = true;
-      // Add a placeholder for the AI response
-      _chatMessages.add({'role': 'ai', 'content': ''});
-    });
-
+    _chatController.clear();
+    widget.onSendMessage(text);
     _scrollToBottom();
-
-    final aiMsgIndex = _chatMessages.length - 1;
-    bool hasReceivedChunk = false;
-
-    try {
-      final stream = widget.aiChatService.sendMessageStream(text: text);
-
-      await for (final chunk in stream) {
-        hasReceivedChunk = true;
-        setState(() {
-          _chatMessages[aiMsgIndex]['content'] =
-              _chatMessages[aiMsgIndex]['content']! + chunk;
-        });
-        _scrollToBottom();
-      }
-
-      if (!hasReceivedChunk) {
-        setState(() {
-          _chatMessages[aiMsgIndex]['content'] = 'No response from AI-Server';
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _chatMessages[aiMsgIndex]['content'] =
-            'Error: Failed to connect to AI server ($e)';
-      });
-    } finally {
-      setState(() {
-        _isChatting = false;
-      });
-      // Automatically focus the input field when AI finished responding
-      _chatFocusNode.requestFocus();
-    }
   }
 
   void _scrollToBottom() {
@@ -132,9 +100,9 @@ class _ChatWindowState extends State<ChatWindow> {
             child: ListView.builder(
               controller: _chatScrollController,
               padding: const EdgeInsets.all(16),
-              itemCount: _chatMessages.length,
+              itemCount: widget.chatMessages.length,
               itemBuilder: (context, index) {
-                final msg = _chatMessages[index];
+                final msg = widget.chatMessages[index];
                 final isUser = msg['role'] == 'user';
                 return Align(
                   alignment: isUser
@@ -153,8 +121,8 @@ class _ChatWindowState extends State<ChatWindow> {
                     child:
                         (!isUser &&
                                 msg['content']!.isEmpty &&
-                                _isChatting &&
-                                index == _chatMessages.length - 1)
+                                widget.isChatting &&
+                                index == widget.chatMessages.length - 1)
                             ? Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [

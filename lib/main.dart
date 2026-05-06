@@ -214,6 +214,8 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
 
   // Chat
   final AiChatService _aiChatService = AiChatService();
+  final List<Map<String, String>> _chatMessages = [];
+  bool _isChatting = false;
 
   // Keys
 
@@ -926,7 +928,53 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   }
 
   Widget _buildChatWindow() {
-    return ChatWindow(aiChatService: _aiChatService);
+    return ChatWindow(
+      aiChatService: _aiChatService,
+      chatMessages: _chatMessages,
+      isChatting: _isChatting,
+      onSendMessage: _onChatSendMessage,
+    );
+  }
+
+  void _onChatSendMessage(String text) async {
+    setState(() {
+      _chatMessages.add({'role': 'user', 'content': text});
+      _isChatting = true;
+      // Add a placeholder for the AI response
+      _chatMessages.add({'role': 'ai', 'content': ''});
+    });
+
+    final aiMsgIndex = _chatMessages.length - 1;
+    bool hasReceivedChunk = false;
+
+    try {
+      final stream = _aiChatService.sendMessageStream(text: text);
+
+      await for (final chunk in stream) {
+        hasReceivedChunk = true;
+        setState(() {
+          _chatMessages[aiMsgIndex]['content'] =
+              _chatMessages[aiMsgIndex]['content']! + chunk;
+        });
+      }
+
+      if (!hasReceivedChunk) {
+        setState(() {
+          _chatMessages[aiMsgIndex]['content'] = 'No response from AI-Server';
+        });
+      }
+    } catch (e) {
+      setState(() {
+        _chatMessages[aiMsgIndex]['content'] =
+            'Error: Failed to connect to AI server ($e)';
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isChatting = false;
+        });
+      }
+    }
   }
 
   Widget _buildProfilesWindow() {
