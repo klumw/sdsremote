@@ -17,7 +17,7 @@ screen capture, and interaction via an integrated AI-powered chat interface.
 * **Remote Control Panel**  
   Acquire and view the oscilloscope display. Remote control your oscilloscope with a virtual front panel
 
-* **AI Chat Interface (Optional)**  
+* **AI Chat Interface**  
   Send commands and query oscilloscope functionality using natural language
 
 * **Device Profile Management**  
@@ -103,50 +103,45 @@ Access via the **Settings** button.
 
 ---
 
-## 4. AI System (Optional)
+## 4. AI System
 
 This feature allows you to interact with the oscilloscope using natural language, or to ask questions about the oscilloscope and its capabilities.  
 
 ### 4.1 AI Server Requirements
 
-The AI chat feature requires a locally running AI server in form of a Docker container.
-
-#### Setup Overview
-
-1. Ensure that Docker is installed and running on your host machine.
-2. Pull the AI server image:
-
-   ```bash
-   docker pull klumw/sds:latest
-   ```
+The AI chat feature communicates directly with AI providers via their APIs.
 
 #### Supported Providers and Models
 
-| Provider  | API Key Name      | Model Name                                                               |
-| --------- | ----------------- | ------------------------------------------------------------------------ |
-| OpenAI    | OPENAI_API_KEY    | gpt-4o, gpt-5.4-mini                                                     |
-| Google    | GOOGLE_API_KEY    | gemini-3-flash                                                           |
-| Anthropic | ANTHROPIC_API_KEY | claude-haiku                                                             |
-| Deepseek  | DEEPSEEK_API_KEY  | deepseek-v4-flash                                                        |
-| Eden AI   | EDENAI_API_KEY    | edenai-gpt-4o, edenai-gpt-5.4-mini, edenai-gemini-flash, edenai-haiku-4-5 |
+The following AI providers are available for configuration:
 
-For updates, visit:  
-[https://github.com/klumw/sdsremote](https://github.com/klumw/sdsremote)
-
-### 4.2 AI Model Configuration 
-
-1. Open **Settings**  
-2. Enter AI provider API key name and token  
-3. Enter model name  
-4. Save configuration  
-
-#### AI Server Runtime Behavior
-
-* The `sds-ai-server` instance is automatically started and stopped by the application
+---
+| Provider |
+|------|
+| DeepSeek |
+| OpenAI |
+| Anthropic |
+| Google |
+| Mistral |
+| Cohere |
+| EdenAI |
+| OpenRouter |
+| xAI |
 
 ---
 
-### 4.3 AI Chat Interface 
+
+### 4.2 AI Model Configuration
+
+1. Open **Settings**  
+2. Select AI provider from dropdown
+3. Enter API Key  
+4. Enter model name  
+5. Save configuration  
+
+---
+
+### 4.3 AI Chat Interface
 
 #### Access
 
@@ -163,16 +158,14 @@ For updates, visit:
   * “Get current timebase setting”
   * “Send command C1:TRA OFF“
 
-> **Note:**For best results, English input is recommended.  
-> Use **get**, **set**, or **send command** syntax to send SCPI commands.
+> Note: For best results, English input is recommended.  
+> Use **send command <command>** syntax to send SCPI commands.
 ---
 
 ### 4.4 AI Troubleshooting
 
 * **AI Disabled**
-  * Check API configuration  
-  * Ensure Docker daemon is running
-  * Verify container status (`docker ps`)
+  * Check AI config settings
 
 * **No AI Response**
   * Validate API credentials and quota  

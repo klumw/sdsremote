@@ -30,10 +30,10 @@ Remote control and AI enhanced operation of Siglent SDS1202X-E, SDS1104X-E, SDS1
 
 ### 2.1 Linux Debian .deb Package
 
-To install the pre-compiled Debian `.deb` package on Ubuntu (24.04 or newer) or other Debian-based Linux distributions, download the [latest package](https://github.com/klumw/sdsremote/releases/download/0.1.1/sdsremote_0.1.1_amd64.deb) from the releases page and run the following command in your terminal:
+To install the pre-compiled Debian `.deb` package on Debian-based Linux distributions(e.g Ubuntu 24.04 or newer), download the [latest package](https://github.com/klumw/sdsremote/releases/download/0.2.0/sdsremote_0.2.0_amd64.deb) from the releases page and run the following command in your terminal:
 
 ```bash
-sudo apt install ./sdsremote_0.1.1_amd64.deb
+sudo apt install ./sdsremote_0.2.0_amd64.deb
 ```
 
 Or double click the .deb file and follow the installation instructions.
@@ -44,7 +44,7 @@ Once installed, you can launch the application from your desktop environment's a
 
 ### 2.2 Windows MSI Installer
 
-For installation on Windows use the MSI installer [sdsremote_0.1.1.exe](https://github.com/klumw/sdsremote/releases/download/0.1.1/sdsremote_0.1.1.exe)
+For installation on Windows use the MSI installer [sdsremote_0.2.0.exe](https://github.com/klumw/sdsremote/releases/download/0.2.0/sdsremote_0.2.0.exe)
 
 ---
 
@@ -114,8 +114,6 @@ Choose the instructions for your target platform:
    ```bash
    flutter run -d windows
    ```
-
-> **Note:** The AI functionality requires Docker and a locally running AI server image (`klumw/sds:latest`). Refer to the application's internal documentation for detailed AI setup instructions.
 
 ---
 
