@@ -25,7 +25,7 @@ import 'vxi11_tool.dart';
 /// ```
 class ChatAgent {
   /// Default maximum number of tool calls per user input.
-  static const int defaultMaxToolCalls = 10;
+  static const int defaultMaxToolCalls = 3;
 
   /// The underlying dartantic_ai Agent instance.
   final Agent _agent;

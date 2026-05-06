@@ -25,10 +25,10 @@ import '../logger.dart';
 /// ```
 class QueryAgent {
   /// Path to the knowledgebase Markdown file.
-  static const _defaultKnowledgebasePath = 'knowledgebase.md';
+  static const _defaultKnowledgebasePath = 'docs/knowledgebase.md';
 
   /// Default maximum number of tool calls per user input.
-  static const int defaultMaxToolCalls = 10;
+  static const int defaultMaxToolCalls = 3;
 
   /// The underlying dartantic_ai Agent instance.
   final Agent _agent;
@@ -45,7 +45,7 @@ class QueryAgent {
   /// format. Defaults to `deepseek:deepseek-v4-flash`.
   ///
   /// The [knowledgebasePath] parameter specifies the path to the Markdown
-  /// knowledgebase file. Defaults to `knowledgebase.md`.
+  /// knowledgebase file. Defaults to `docs/knowledgebase.md`.
   ///
   /// The [systemPrompt] parameter sets an optional system message.
   ///

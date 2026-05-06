@@ -129,7 +129,7 @@ Tool<Map<String, dynamic>> _createQueryAgentTool(
 class FrontendAgent {
 
   /// Default maximum number of tool calls per user input.
-  static const int defaultMaxToolCalls = 10;
+  static const int defaultMaxToolCalls = 3;
 
   /// The underlying dartantic_ai Agent instance for the frontend.
   final Agent _frontendAgent;
@@ -156,7 +156,7 @@ class FrontendAgent {
   /// If null, no VXI-11 tool is added. Defaults to `192.168.178.95`.
   ///
   /// The [knowledgebasePath] parameter sets the path to the knowledgebase
-  /// Markdown file. Defaults to `knowledgebase.md`.
+  /// Markdown file. Defaults to `docs/knowledgebase.md`.
   ///
   /// The [tools] parameter allows adding additional custom tools to the
   /// frontend agent.
@@ -168,7 +168,7 @@ class FrontendAgent {
     String model = 'deepseek:deepseek-v4-flash',
     String? systemPrompt,
     String? vxi11Host,
-    String knowledgebasePath = 'knowledgebase.md',
+    String knowledgebasePath = 'docs/knowledgebase.md',
     List<Tool>? tools,
     this.maxToolCalls = defaultMaxToolCalls,
   }) : _frontendAgent = Agent(

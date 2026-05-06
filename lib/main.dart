@@ -202,7 +202,8 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   String _llmModel = '';
   bool get _isAiEnabled =>
       _aiProvider.isNotEmpty &&
-      _aiApiToken.trim().length >= 8;
+      _aiApiToken.trim().length >= 8 &&
+      _llmModel.trim().isNotEmpty;
 
   // Acquisition
   bool _isAcquiring = false;
@@ -971,6 +972,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       aiChatService: _aiChatService,
       chatMessages: _chatMessages,
       isChatting: _isChatting,
+      isInitialized: _aiChatService.isInitialized,
       onSendMessage: _onChatSendMessage,
     );
   }
@@ -1181,8 +1183,15 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
           _saveConfig();
           _startPingTimer();
 
-          if (_aiProvider.isNotEmpty && _aiApiToken.trim().length >= 8) {
+          if (_isAiEnabled) {
             _configureAiService();
+          } else if (_aiProvider.isNotEmpty && _aiApiToken.trim().length >= 8) {
+            // Provider and token are valid but model is empty;
+            // deactivate the agent without configuring a new one.
+            _aiChatService.deactivate();
+            if (mounted) {
+              setState(() {});
+            }
           }
         },
         onClose: () => setState(() => _showSettings = false),
@@ -1494,10 +1503,8 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     await _checkNewsNotification();
     _loadProfileFiles();
     _startPingTimer();
-    // Configure AI agent on startup if keys are already set/valid
-    bool keysValid =
-        _aiProvider.isNotEmpty && _aiApiToken.trim().length >= 8;
-    if (keysValid) {
+    // Configure AI agent on startup if provider, token, and model are valid
+    if (_isAiEnabled) {
       _configureAiService();
     }
   }
@@ -1573,6 +1580,17 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       AppLogger(agentName: 'main', toolName: '_configureAiService').log(
         'AI provider or token not valid, skipping configuration',
       );
+      return;
+    }
+
+    if (_llmModel.trim().isEmpty) {
+      AppLogger(agentName: 'main', toolName: '_configureAiService').log(
+        'LLM model is empty, deactivating AI agent',
+      );
+      _aiChatService.deactivate();
+      if (mounted) {
+        setState(() {});
+      }
       return;
     }
 

@@ -28,6 +28,7 @@ class ChatWindow extends StatefulWidget {
   final AiChatService aiChatService;
   final List<Map<String, String>> chatMessages;
   final bool isChatting;
+  final bool isInitialized;
   final ValueChanged<String> onSendMessage;
 
   const ChatWindow({
@@ -35,6 +36,7 @@ class ChatWindow extends StatefulWidget {
     required this.aiChatService,
     required this.chatMessages,
     required this.isChatting,
+    required this.isInitialized,
     required this.onSendMessage,
   });
 
@@ -66,7 +68,7 @@ class _ChatWindowState extends State<ChatWindow> {
 
   void _sendChatMessage() {
     final text = _chatController.text.trim();
-    if (text.isEmpty || widget.isChatting) return;
+    if (text.isEmpty || widget.isChatting || !widget.isInitialized) return;
 
     _chatController.clear();
     widget.onSendMessage(text);
@@ -267,8 +269,13 @@ class _ChatWindowState extends State<ChatWindow> {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  icon: const Icon(Icons.send, color: Colors.cyanAccent),
-                  onPressed: _sendChatMessage,
+                  icon: Icon(
+                    Icons.send,
+                    color: widget.isInitialized
+                        ? Colors.cyanAccent
+                        : Colors.grey[700],
+                  ),
+                  onPressed: widget.isInitialized ? _sendChatMessage : null,
                 ),
               ],
             ),

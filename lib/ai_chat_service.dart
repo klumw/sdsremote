@@ -83,6 +83,13 @@ class AiChatService {
     }
   }
 
+  /// Deactivates the service by clearing the agent without permanently
+  /// disposing the service. The service can be re-activated later with
+  /// [configure].
+  void deactivate() {
+    _agent = null;
+  }
+
   /// Disposes the service and releases the agent.
   void dispose() {
     _isDisposed = true;
