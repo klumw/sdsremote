@@ -4,23 +4,21 @@ import 'package:intl/intl.dart';
 
 /// Application logger for the SDS-Remote application.
 ///
-/// This is a singleton that writes log entries to a file in the system temp
-/// directory. It supports both simple log messages and structured tool call
-/// logging with agent/tool context.
+/// Writes log entries to a file in the system temp directory. Each instance
+/// carries its own [agentName] and [toolName] context so that concurrent
+/// loggers do not overwrite each other's identity. All instances share the
+/// same underlying log file via static paths.
 class AppLogger {
-  static final AppLogger _instance = AppLogger._internal();
-
   /// Optional agent name for context in structured logging.
-  String? agentName;
+  final String? agentName;
 
   /// Optional tool name for context in structured logging.
-  String? toolName;
+  final String? toolName;
 
   /// Creates a logger instance with optional agent/tool context.
   ///
-  /// Since [AppLogger] is a singleton, the [agentName] and [toolName] are
-  /// convenience parameters for the caller to identify the source of log
-  /// messages. They are included in the log output when provided.
+  /// The [agentName] and [toolName] identify the source of log messages and
+  /// are included in every log line written through this instance.
   ///
   /// Usage:
   /// ```dart
@@ -28,13 +26,7 @@ class AppLogger {
   /// logger.log('Some message');
   /// logger.logToolCall(input: {...}, output: {...});
   /// ```
-  factory AppLogger({String? agentName, String? toolName}) {
-    _instance.agentName = agentName;
-    _instance.toolName = toolName;
-    return _instance;
-  }
-
-  AppLogger._internal();
+  AppLogger({this.agentName, this.toolName});
 
   static String get _logDir => '${Directory.systemTemp.path}/sds/logging';
   static String get _logFile => '$_logDir/sds.log';

@@ -256,9 +256,18 @@ class FrontendAgent {
         '${msg.hasToolResults ? ' hasToolResults' : ''}',
       );
     }
+    logger.logToolCall(
+      input: {'prompt': prompt},
+      output: {},
+    );
     final result = await _frontendAgent.send(prompt, history: _history);
     _history.addAll(result.messages);
-    return result.output.trim();
+    final output = result.output.trim();
+    logger.logToolCall(
+      input: {'prompt': prompt},
+      output: {'response': output},
+    );
+    return output;
   }
 
   /// Sends a [prompt] and streams the response chunks.
@@ -287,15 +296,42 @@ class FrontendAgent {
         '${msg.hasToolResults ? ' hasToolResults' : ''}',
       );
     }
+    logger.logToolCall(
+      input: {'prompt': prompt},
+      output: {},
+    );
     final chunks = <String>[];
     var toolCallCount = 0;
 
     await for (final chunk
         in _frontendAgent.sendStream(prompt, history: _history)) {
-      // Count tool calls by checking for model messages with tool calls.
+      // Log tool calls and tool results from chunk messages.
       for (final msg in chunk.messages) {
         if (msg.role == ChatMessageRole.model && msg.hasToolCalls) {
           toolCallCount++;
+          for (final toolCall in msg.toolCalls) {
+            logger.logToolCall(
+              input: {
+                'tool': toolCall.toolName,
+                'callId': toolCall.callId,
+                'arguments': toolCall.arguments,
+              },
+              output: {},
+            );
+          }
+        }
+        if (msg.hasToolResults) {
+          for (final toolResult in msg.toolResults) {
+            logger.logToolCall(
+              input: {
+                'tool': toolResult.toolName,
+                'callId': toolResult.callId,
+              },
+              output: {
+                'result': toolResult.result,
+              },
+            );
+          }
         }
       }
 
@@ -316,6 +352,10 @@ class FrontendAgent {
         ChatMessage.model(fullOutput),
       ]);
     }
+    logger.logToolCall(
+      input: {'prompt': prompt},
+      output: {'response': fullOutput},
+    );
   }
 
   /// Clears the conversation history.
