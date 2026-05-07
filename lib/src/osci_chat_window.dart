@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -21,6 +22,66 @@ String _convertBareUrlsToMarkdownLinks(String text) {
     final url = match.group(0)!;
     return '[$url]($url)';
   });
+}
+
+/// A small animated streaming indicator shown at the end of AI message content
+/// while the frontend agent is still generating a response.
+///
+/// Displays a pulsing vertical bar character `▊` that fades in and out to
+/// signal that more content is on its way.
+class _StreamingIndicator extends StatefulWidget {
+  @override
+  State<_StreamingIndicator> createState() => _StreamingIndicatorState();
+}
+
+class _StreamingIndicatorState extends State<_StreamingIndicator>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _controller;
+  late final Animation<double> _opacity;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 530),
+    );
+    // Smooth pulsing: 0.3 → 1.0 → 0.3 using easeInOut sine-like curve
+    _opacity = Tween<double>(begin: 0.3, end: 1.0).animate(
+      CurvedAnimation(
+        parent: _controller,
+        curve: Curves.easeInOut,
+      ),
+    );
+    _controller.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _opacity,
+      builder: (context, child) {
+        return Opacity(
+          opacity: _opacity.value,
+          child: child,
+        );
+      },
+      child: const Text(
+        '▊',
+        style: TextStyle(
+          color: Colors.cyanAccent,
+          fontSize: 15,
+          height: 1.0,
+        ),
+      ),
+    );
+  }
 }
 
 /// A chat window widget for interacting with the AI assistant.
@@ -148,97 +209,7 @@ class _ChatWindowState extends State<ChatWindow> {
                       color: isUser ? Colors.cyan[800] : Colors.grey[800],
                       borderRadius: BorderRadius.circular(12),
                     ),
-                    child:
-                        (!isUser &&
-                                msg['content']!.isEmpty &&
-                                widget.isChatting &&
-                                index == widget.chatMessages.length - 1)
-                            ? Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  const SizedBox(
-                                    width: 14,
-                                    height: 14,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.cyanAccent,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 10),
-                                  const Text(
-                                    "Thinking...",
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 14,
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                  ),
-                                ],
-                              )
-                            : SelectionArea(
-                                child: MarkdownBody(
-                                  selectable: true,
-                                  data: _convertBareUrlsToMarkdownLinks(
-                                    msg['content']!,
-                                  ),
-                                  onTapLink: (text, href, title) {
-                                    if (href != null) {
-                                      launchUrl(
-                                        Uri.parse(href),
-                                        mode:
-                                            LaunchMode.externalApplication,
-                                      );
-                                    }
-                                  },
-                                      styleSheet:
-                                          MarkdownStyleSheet.fromTheme(
-                                            Theme.of(context),
-                                          ).copyWith(
-                                            p: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 15,
-                                            ),
-                                            h1: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 20,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            h2: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            h3: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 16,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            listBullet: const TextStyle(
-                                              color: Colors.cyanAccent,
-                                            ),
-                                            code: TextStyle(
-                                              backgroundColor: Colors.black26,
-                                              color: Colors.cyanAccent[100],
-                                              fontFamily: 'monospace',
-                                              fontSize: 14,
-                                            ),
-                                            codeblockDecoration: BoxDecoration(
-                                              color: Colors.black26,
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                            ),
-                                            blockquote: const TextStyle(
-                                              color: Colors.yellow,
-                                            ),
-                                            blockquoteDecoration: BoxDecoration(
-                                              color: Colors.black,
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                            ),
-                                          ),
-
-                                ),
-                              ),
+                    child: _buildMessageContent(msg, index, isUser),
                   ),
                 );
               },
@@ -309,6 +280,181 @@ class _ChatWindowState extends State<ChatWindow> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Builds the content for a single chat message bubble.
+  ///
+  /// Shows a "Thinking..." spinner when the AI message is empty and streaming
+  /// is in progress. Shows the message content with an animated streaming
+  /// indicator at the end when content has started arriving but the agent is
+  /// still generating. Otherwise renders the content as markdown.
+  Widget _buildMessageContent(
+    Map<String, String> msg,
+    int index,
+    bool isUser,
+  ) {
+    final isLastAiMessage =
+        !isUser && index == widget.chatMessages.length - 1;
+
+    // Case 1: Empty content while streaming → "Thinking..." spinner
+    if (isLastAiMessage &&
+        msg['content']!.isEmpty &&
+        widget.isChatting) {
+      return Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const SizedBox(
+            width: 14,
+            height: 14,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Colors.cyanAccent,
+            ),
+          ),
+          const SizedBox(width: 10),
+          const Text(
+            "Thinking...",
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Case 2: Non-empty content while streaming → content + blinking indicator
+    if (isLastAiMessage && widget.isChatting) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SelectionArea(
+            child: MarkdownBody(
+              selectable: true,
+              data: _convertBareUrlsToMarkdownLinks(
+                msg['content']!,
+              ),
+              onTapLink: (text, href, title) {
+                if (href != null) {
+                  launchUrl(
+                    Uri.parse(href),
+                    mode: LaunchMode.externalApplication,
+                  );
+                }
+              },
+              styleSheet: MarkdownStyleSheet.fromTheme(
+                Theme.of(context),
+              ).copyWith(
+                p: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 15,
+                ),
+                h1: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
+                h2: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                ),
+                h3: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+                listBullet: const TextStyle(
+                  color: Colors.cyanAccent,
+                ),
+                code: TextStyle(
+                  backgroundColor: Colors.black26,
+                  color: Colors.cyanAccent[100],
+                  fontFamily: 'monospace',
+                  fontSize: 14,
+                ),
+                codeblockDecoration: BoxDecoration(
+                  color: Colors.black26,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                blockquote: const TextStyle(
+                  color: Colors.yellow,
+                ),
+                blockquoteDecoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(4),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 2),
+          _StreamingIndicator(),
+        ],
+      );
+    }
+
+    // Case 3: Not streaming → plain markdown content
+    return SelectionArea(
+      child: MarkdownBody(
+        selectable: true,
+        data: _convertBareUrlsToMarkdownLinks(
+          msg['content']!,
+        ),
+        onTapLink: (text, href, title) {
+          if (href != null) {
+            launchUrl(
+              Uri.parse(href),
+              mode: LaunchMode.externalApplication,
+            );
+          }
+        },
+        styleSheet: MarkdownStyleSheet.fromTheme(
+          Theme.of(context),
+        ).copyWith(
+          p: const TextStyle(
+            color: Colors.white,
+            fontSize: 15,
+          ),
+          h1: const TextStyle(
+            color: Colors.white,
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+          ),
+          h2: const TextStyle(
+            color: Colors.white,
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+          ),
+          h3: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+          listBullet: const TextStyle(
+            color: Colors.cyanAccent,
+          ),
+          code: TextStyle(
+            backgroundColor: Colors.black26,
+            color: Colors.cyanAccent[100],
+            fontFamily: 'monospace',
+            fontSize: 14,
+          ),
+          codeblockDecoration: BoxDecoration(
+            color: Colors.black26,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          blockquote: const TextStyle(
+            color: Colors.yellow,
+          ),
+          blockquoteDecoration: BoxDecoration(
+            color: Colors.black,
+            borderRadius: BorderRadius.circular(4),
+          ),
+        ),
       ),
     );
   }
