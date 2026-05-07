@@ -137,7 +137,7 @@ The AI chat feature supports the following providers:
 
 Here's a list of LLMs that are proven to work with the application:
 
-**deepseek-v4-flash, gpt-4o, gpt-5.4-mini, gemini-3-flash, claude-haiku**  
+**deepseek-v4-flash, gpt-4o, gpt-5.5, gemini-3.1-flash, claude-haiku,claude-4.7**  
 
 *For exact model names, see your provider homepage.*
 

@@ -309,8 +309,12 @@ class QueryAgent with MaxToolCallsHandler {
     }
     final chunks = <String>[];
     var toolCallCount = 0;
+    final allMessages = <ChatMessage>[];
 
     await for (final chunk in _agent.sendStream(prompt, history: _history)) {
+      // Collect all messages for history preservation.
+      allMessages.addAll(chunk.messages);
+
       // Count individual tool calls by counting ToolPart.call parts in model
       // messages. A single model response can contain multiple tool calls.
       for (final msg in chunk.messages) {
@@ -336,13 +340,18 @@ class QueryAgent with MaxToolCallsHandler {
       yield chunk.output;
     }
 
-    // Reconstruct the full messages from the concatenated output.
-    final fullOutput = chunks.join();
-    if (fullOutput.isNotEmpty) {
-      _history.addAll([
-        ChatMessage.user(prompt),
-        ChatMessage.model(fullOutput),
-      ]);
+    // Reconstruct the full conversation history from all collected messages.
+    // This preserves tool call and tool result messages across turns.
+    if (allMessages.isNotEmpty) {
+      _history.addAll(allMessages);
+    } else {
+      final fullOutput = chunks.join();
+      if (fullOutput.isNotEmpty) {
+        _history.addAll([
+          ChatMessage.user(prompt),
+          ChatMessage.model(fullOutput),
+        ]);
+      }
     }
   }
 

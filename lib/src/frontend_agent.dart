@@ -298,6 +298,12 @@ class FrontendAgent {
     var toolCallCount = 0;
     var chunkIndex = 0;
 
+    // Collect ALL messages from ALL chunks to preserve the full conversation
+    // history including tool call and tool result messages. This ensures the
+    // LLM sees consistent history across turns, preventing empty responses
+    // caused by missing tool call/result context.
+    final allMessages = <ChatMessage>[];
+
     await for (final chunk
         in _frontendAgent.sendStream(prompt, history: _history)) {
       chunkIndex++;
@@ -308,6 +314,9 @@ class FrontendAgent {
         'finishReason=${chunk.finishReason}, '
         'usage=${chunk.usage}',
       );
+
+      // Collect all messages from this chunk for history preservation.
+      allMessages.addAll(chunk.messages);
 
       // Log the text of each message in the chunk
       for (var i = 0; i < chunk.messages.length; i++) {
@@ -387,7 +396,8 @@ class FrontendAgent {
       '[DIAG FrontendAgent.sendStream] Stream ended. '
       'Total chunks=$chunkIndex, '
       'toolCallCount=$toolCallCount, '
-      'chunks collected=${chunks.length}',
+      'chunks collected=${chunks.length}, '
+      'allMessages collected=${allMessages.length}',
     );
     for (var i = 0; i < chunks.length; i++) {
       logger.log(
@@ -397,17 +407,25 @@ class FrontendAgent {
       );
     }
 
-    // Reconstruct the full messages from the concatenated output.
-    final fullOutput = chunks.join();
-    if (fullOutput.isNotEmpty) {
-      _history.addAll([
-        ChatMessage.user(prompt),
-        ChatMessage.model(fullOutput),
-      ]);
+    // Reconstruct the full conversation history from all collected messages.
+    // This preserves tool call and tool result messages across turns, which
+    // is essential for the LLM to understand the conversation context.
+    if (allMessages.isNotEmpty) {
+      _history.addAll(allMessages);
+    } else {
+      // Fallback: if no messages were collected (shouldn't happen), use the
+      // text-only approach as a safety net.
+      final fullOutput = chunks.join();
+      if (fullOutput.isNotEmpty) {
+        _history.addAll([
+          ChatMessage.user(prompt),
+          ChatMessage.model(fullOutput),
+        ]);
+      }
     }
     logger.logToolCall(
       input: {'prompt': prompt},
-      output: {'response': fullOutput},
+      output: {'response': chunks.join()},
     );
   }
 
