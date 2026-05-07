@@ -1522,11 +1522,6 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     await _checkNewsNotification();
     _loadProfileFiles();
     _startPingTimer();
-    AppLogger(agentName: 'main', toolName: '_initialize').log(
-      'After _loadConfig: _aiProvider="$_aiProvider", '
-      '_aiApiToken=${_aiApiToken.isNotEmpty ? "***${_aiApiToken.substring(_aiApiToken.length - 4)}" : "(empty)"}, '
-      '_llmModel="$_llmModel", _isAiEnabled=$_isAiEnabled',
-    );
     // Configure AI agent on startup if provider, token, and model are valid
     if (_isAiEnabled) {
       _configureAiService();
