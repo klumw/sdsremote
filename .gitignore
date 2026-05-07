@@ -3,6 +3,7 @@ appimage_builder/
 
 #test
 test/
+tests/
 
 # Miscellaneous
 *.class
