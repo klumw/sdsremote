@@ -296,9 +296,50 @@ class FrontendAgent {
     );
     final chunks = <String>[];
     var toolCallCount = 0;
+    var chunkIndex = 0;
 
     await for (final chunk
         in _frontendAgent.sendStream(prompt, history: _history)) {
+      chunkIndex++;
+      logger.log(
+        '[DIAG FrontendAgent.sendStream] Chunk #$chunkIndex: '
+        'output="${chunk.output}" (len=${chunk.output.length}), '
+        'messages=${chunk.messages.length}, '
+        'finishReason=${chunk.finishReason}, '
+        'usage=${chunk.usage}',
+      );
+
+      // Log the text of each message in the chunk
+      for (var i = 0; i < chunk.messages.length; i++) {
+        final msg = chunk.messages[i];
+        final textPreview = msg.text.length > 120
+            ? '${msg.text.substring(0, 120)}...'
+            : msg.text;
+        logger.log(
+          '[DIAG FrontendAgent.sendStream]   Msg[$i]: '
+          'role=${msg.role}, '
+          'text="$textPreview", '
+          'hasToolCalls=${msg.hasToolCalls}, '
+          'hasToolResults=${msg.hasToolResults}, '
+          'partsCount=${msg.parts.length}',
+        );
+        // Log individual parts
+        for (var p = 0; p < msg.parts.length; p++) {
+          final part = msg.parts[p];
+          logger.log(
+            '[DIAG FrontendAgent.sendStream]     Part[$p]: '
+            'type=${part.runtimeType}',
+          );
+          if (part is ToolPart) {
+            logger.log(
+              '[DIAG FrontendAgent.sendStream]       toolName=${part.toolName}, '
+              'kind=${part.kind}, '
+              'callId=${part.callId}',
+            );
+          }
+        }
+      }
+
       // Log tool calls and tool results from chunk messages.
       for (final msg in chunk.messages) {
         if (msg.role == ChatMessageRole.model && msg.hasToolCalls) {
@@ -331,11 +372,29 @@ class FrontendAgent {
 
       // If we've exceeded the max tool calls, stop yielding and break.
       if (toolCallCount > maxToolCalls) {
+        logger.log(
+          '[DIAG FrontendAgent.sendStream] BREAKING: '
+          'toolCallCount=$toolCallCount > maxToolCalls=$maxToolCalls',
+        );
         break;
       }
 
       chunks.add(chunk.output);
       yield chunk.output;
+    }
+
+    logger.log(
+      '[DIAG FrontendAgent.sendStream] Stream ended. '
+      'Total chunks=$chunkIndex, '
+      'toolCallCount=$toolCallCount, '
+      'chunks collected=${chunks.length}',
+    );
+    for (var i = 0; i < chunks.length; i++) {
+      logger.log(
+        '[DIAG FrontendAgent.sendStream]   chunks[$i]="'
+        '${chunks[i].length > 80 ? chunks[i].substring(0, 80) : chunks[i]}" '
+        '(len=${chunks[i].length})',
+      );
     }
 
     // Reconstruct the full messages from the concatenated output.
