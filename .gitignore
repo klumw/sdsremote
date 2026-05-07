@@ -23,6 +23,8 @@ test/
 .svn/
 .swiftpm/
 migrate_working_dir/
+example/
+examples/
 
 # IntelliJ related
 *.iml
