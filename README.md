@@ -75,6 +75,7 @@ Choose the instructions for your target platform:
 3. **Extract and Add to PATH**: Extract the archive and add the `flutter\bin` directory to your system's PATH.
 4. **Verify Installation**: Run `flutter doctor` in a command prompt to verify that all dependencies are installed and the environment is set up correctly.
 
+
 ### 3.2 Building the App from Source
 
 1. **Clone the Repository** (if not already cloned):
@@ -115,6 +116,32 @@ Choose the instructions for your target platform:
    flutter run -d windows
    ```
 
+---
+
+### 3.3 AI Configuratin
+
+The AI chat feature supports the following providers:
+
+---
+| Provider |
+|------|
+| DeepSeek |
+| OpenAI |
+| Anthropic |
+| Google |
+| Mistral |
+| Cohere |
+| EdenAI |
+| OpenRouter |
+| xAI |
+
+Here's a list of LLMs that are proven to work with the application:
+
+**deepseek-v4-flash, gpt-4o, gpt-5.4-mini, gemini-3-flash, claude-haiku**  
+
+*For exact model names, see your provider homepage.*
+
+> The AI ​​may make errors regarding information and device operation. Use is at your own risk.
 ---
 
 ## 4. License and Feedback

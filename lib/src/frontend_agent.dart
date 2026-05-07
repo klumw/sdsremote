@@ -137,7 +137,7 @@ class FrontendAgent {
 
   /// Default maximum number of tool calls per user input for the knowledgebase
   /// query sub-agent.
-  static const int defaultQueryToolCalls = 3;
+  static const int defaultQueryToolCalls = 2;
 
   /// The underlying dartantic_ai Agent instance for the frontend.
   final Agent _frontendAgent;

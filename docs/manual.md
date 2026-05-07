@@ -128,6 +128,12 @@ The following AI providers are available for configuration:
 | OpenRouter |
 | xAI |
 
+Here's a list of LLMs that are proven to work with the application:  
+
+**deepseek-v4-flash, gpt-4o, gpt-5.4-mini, gemini-3-flash, claude-haiku**  
+*For exact model names, see your provider homepage.*
+
+> Important: The AI ​​may make errors regarding information and device operation. Use is at your own risk.
 ---
 
 
@@ -152,17 +158,17 @@ The following AI providers are available for configuration:
 * **Technical Assistance**  
   Example: *“How do I configure trigger delay on an SDS1104X-E?”*
 
-* **SCPI Command Execution (VXI-11)**  
+* **SCPI Command Execution**  
   Examples:  
   * “Set channel 1 vertical scale to 1V/div”  
   * “Get current timebase setting”
   * “Send command C1:TRA OFF“
 
 > Note: For best results, English input is recommended.  
-> Use **send command <command>** syntax to send SCPI commands.
+> Use **send command** syntax to send SCPI commands.
 ---
 
-### 4.4 AI Troubleshooting
+### 4.4 AI TroubleshootingR
 
 * **AI Disabled**
   * Check AI config settings
