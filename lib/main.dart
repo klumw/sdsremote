@@ -1647,6 +1647,9 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       apiToken: _aiApiToken,
       model: fullModel,
       vxi11Host: _ipAddress,
+      temperature: 0.3,
+      instrumentTemperature: 0.0,
+      queryTemperature: 0.0,
     );
 
     logger.log(

@@ -42,11 +42,11 @@ Tool<Map<String, dynamic>> _createScpiAgentTool(
         agentName: agentName,
         toolName: 'scpi_instrument_agent',
       );
+      final response = await vxiAgent.send(prompt);
       logger.logToolCall(
         input: args,
-        output: {'response': '(see instrument agent log for details)'},
+        output: {'response': response},
       );
-      final response = await vxiAgent.send(prompt);
       return {'response': response};
     },
   );
@@ -91,11 +91,11 @@ Tool<Map<String, dynamic>> _createQueryAgentTool(
         agentName: agentName,
         toolName: 'query_agent',
       );
+      final response = await queryAgent.send(query);
       logger.logToolCall(
         input: args,
-        output: {'response': '(see query agent log for details)'},
+        output: {'response': response},
       );
-      final response = await queryAgent.send(query);
       return {'response': response};
     },
   );
@@ -196,9 +196,13 @@ class FrontendAgent {
     this.maxToolCalls = defaultMaxToolCalls,
     this.instrumentToolCalls = defaultInstrumentToolCalls,
     this.queryToolCalls = defaultQueryToolCalls,
+    double? temperature,
+    double? instrumentTemperature,
+    double? queryTemperature,
   }) : _frontendAgent = Agent(
           model,
           displayName: 'FrontendAgent',
+          temperature: temperature,
           tools: [
             if (vxi11Host != null)
               _createScpiAgentTool(
@@ -206,6 +210,7 @@ class FrontendAgent {
                   model: model,
                   vxi11Host: vxi11Host,
                   maxToolCalls: instrumentToolCalls,
+                  temperature: instrumentTemperature ?? temperature,
                 ),
                 agentName: 'FrontendAgent',
               ),
@@ -214,6 +219,7 @@ class FrontendAgent {
                 model: model,
                 knowledgebasePath: knowledgebasePath,
                 maxToolCalls: queryToolCalls,
+                temperature: queryTemperature ?? temperature,
               ),
               agentName: 'FrontendAgent',
             ),
@@ -322,11 +328,13 @@ class FrontendAgent {
     required String model,
     required String? vxi11Host,
     required int maxToolCalls,
+    double? temperature,
   }) {
     return ChatAgent(
       model: model,
       vxi11Host: vxi11Host,
       maxToolCalls: maxToolCalls,
+      temperature: temperature,
       systemPrompt: instrumentAgentSystemPrompt,
     );
   }
@@ -336,11 +344,13 @@ class FrontendAgent {
     required String model,
     required String knowledgebasePath,
     required int maxToolCalls,
+    double? temperature,
   }) {
     return QueryAgent(
       model: model,
       knowledgebasePath: knowledgebasePath,
       maxToolCalls: maxToolCalls,
+      temperature: temperature,
       systemPrompt: queryAgentSystemPrompt,
     );
   }
