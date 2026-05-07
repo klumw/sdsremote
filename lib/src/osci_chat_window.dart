@@ -48,14 +48,42 @@ class _ChatWindowState extends State<ChatWindow> {
   final TextEditingController _chatController = TextEditingController();
   final ScrollController _chatScrollController = ScrollController();
   final FocusNode _chatFocusNode = FocusNode();
+  int _previousMessageCount = 0;
+  int _previousLastMessageLength = 0;
 
   @override
   void initState() {
     super.initState();
+    _previousMessageCount = widget.chatMessages.length;
+    _previousLastMessageLength = _lastMessageContentLength();
     // Request focus on the chat input field when the chat window opens
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _chatFocusNode.requestFocus();
     });
+  }
+
+  @override
+  void didUpdateWidget(ChatWindow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Auto-scroll when a new message is added (either user or AI response)
+    if (widget.chatMessages.length > _previousMessageCount) {
+      _previousMessageCount = widget.chatMessages.length;
+      _previousLastMessageLength = _lastMessageContentLength();
+      _scrollToBottom();
+      return;
+    }
+    // Auto-scroll during streaming when the last message content grows
+    final currentLength = _lastMessageContentLength();
+    if (currentLength > _previousLastMessageLength) {
+      _previousLastMessageLength = currentLength;
+      _scrollToBottom();
+    }
+  }
+
+  /// Returns the content length of the last message, or 0 if no messages exist.
+  int _lastMessageContentLength() {
+    if (widget.chatMessages.isEmpty) return 0;
+    return widget.chatMessages.last['content']?.length ?? 0;
   }
 
   @override

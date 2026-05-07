@@ -33,6 +33,9 @@ class AiChatService {
     required String apiToken,
     String model = 'deepseek:deepseek-v4-flash',
     String? vxi11Host,
+    int? maxToolCalls,
+    int? instrumentToolCalls,
+    int? queryToolCalls,
   }) {
     if (_isDisposed) return;
 
@@ -41,7 +44,10 @@ class AiChatService {
 
     final logger = AppLogger(agentName: 'AiChatService', toolName: 'configure');
     logger.log(
-      'Configuring FrontendAgent: model=$model, vxi11Host=$vxi11Host',
+      'Configuring FrontendAgent: model=$model, vxi11Host=$vxi11Host, '
+      'maxToolCalls=$maxToolCalls, '
+      'instrumentToolCalls=$instrumentToolCalls, '
+      'queryToolCalls=$queryToolCalls',
     );
 
     // The dartantic_ai Agent reads API keys from Agent.environment (a static
@@ -54,6 +60,9 @@ class AiChatService {
       _agent = FrontendAgent(
         model: model,
         vxi11Host: vxi11Host,
+        maxToolCalls: maxToolCalls ?? FrontendAgent.defaultMaxToolCalls,
+        instrumentToolCalls: instrumentToolCalls ?? FrontendAgent.defaultInstrumentToolCalls,
+        queryToolCalls: queryToolCalls ?? FrontendAgent.defaultQueryToolCalls,
       );
       logger.log(
         'SUCCESS: FrontendAgent created, agent=${_agent != null}',

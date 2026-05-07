@@ -28,7 +28,7 @@ class QueryAgent {
   static const _defaultKnowledgebasePath = 'docs/knowledgebase.md';
 
   /// Default maximum number of tool calls per user input.
-  static const int defaultMaxToolCalls = 3;
+  static const int defaultMaxToolCalls = 2;
 
   /// The underlying dartantic_ai Agent instance.
   final Agent _agent;

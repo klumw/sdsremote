@@ -128,8 +128,16 @@ Tool<Map<String, dynamic>> _createQueryAgentTool(
 /// ```
 class FrontendAgent {
 
-  /// Default maximum number of tool calls per user input.
+  /// Default maximum number of tool calls per user input for the frontend agent.
   static const int defaultMaxToolCalls = 3;
+
+  /// Default maximum number of tool calls per user input for the instrument
+  /// (VXI-11) sub-agent.
+  static const int defaultInstrumentToolCalls = 5;
+
+  /// Default maximum number of tool calls per user input for the knowledgebase
+  /// query sub-agent.
+  static const int defaultQueryToolCalls = 3;
 
   /// The underlying dartantic_ai Agent instance for the frontend.
   final Agent _frontendAgent;
@@ -137,8 +145,16 @@ class FrontendAgent {
   /// The chat history for multi-turn conversations.
   final List<ChatMessage> _history = [];
 
-  /// Maximum number of tool calls allowed per user input.
+  /// Maximum number of tool calls allowed per user input for the frontend agent.
   final int maxToolCalls;
+
+  /// Maximum number of tool calls allowed per user input for the instrument
+  /// (VXI-11) sub-agent.
+  final int instrumentToolCalls;
+
+  /// Maximum number of tool calls allowed per user input for the knowledgebase
+  /// query sub-agent.
+  final int queryToolCalls;
 
   /// Creates a [FrontendAgent] with instrument and knowledgebase sub-agents.
   ///
@@ -162,8 +178,15 @@ class FrontendAgent {
   /// frontend agent.
   ///
   /// The [maxToolCalls] parameter limits the number of tool calls per
-  /// user input for all agents (frontend, instrument, and query).
-  /// Defaults to [defaultMaxToolCalls] (10).
+  /// user input for the frontend agent. Defaults to [defaultMaxToolCalls] (3).
+  ///
+  /// The [instrumentToolCalls] parameter limits the number of tool calls per
+  /// user input for the instrument (VXI-11) sub-agent.
+  /// Defaults to [defaultInstrumentToolCalls] (5).
+  ///
+  /// The [queryToolCalls] parameter limits the number of tool calls per
+  /// user input for the knowledgebase query sub-agent.
+  /// Defaults to [defaultQueryToolCalls] (3).
   FrontendAgent({
     String model = 'deepseek:deepseek-v4-flash',
     String? systemPrompt,
@@ -171,6 +194,8 @@ class FrontendAgent {
     String knowledgebasePath = 'docs/knowledgebase.md',
     List<Tool>? tools,
     this.maxToolCalls = defaultMaxToolCalls,
+    this.instrumentToolCalls = defaultInstrumentToolCalls,
+    this.queryToolCalls = defaultQueryToolCalls,
   }) : _frontendAgent = Agent(
           model,
           displayName: 'FrontendAgent',
@@ -180,7 +205,7 @@ class FrontendAgent {
                 _createVxiAgent(
                   model: model,
                   vxi11Host: vxi11Host,
-                  maxToolCalls: maxToolCalls,
+                  maxToolCalls: instrumentToolCalls,
                 ),
                 agentName: 'FrontendAgent',
               ),
@@ -188,7 +213,7 @@ class FrontendAgent {
               _createQuerySubAgent(
                 model: model,
                 knowledgebasePath: knowledgebasePath,
-                maxToolCalls: maxToolCalls,
+                maxToolCalls: queryToolCalls,
               ),
               agentName: 'FrontendAgent',
             ),

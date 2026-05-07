@@ -968,10 +968,6 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   }
 
   Widget _buildChatWindow() {
-    AppLogger(agentName: 'main', toolName: '_buildChatWindow').log(
-      'Building ChatWindow: isInitialized=${_aiChatService.isInitialized}, '
-      'isChatting=$_isChatting, chatMessages=${_chatMessages.length}',
-    );
     return ChatWindow(
       aiChatService: _aiChatService,
       chatMessages: _chatMessages,
