@@ -968,6 +968,10 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   }
 
   Widget _buildChatWindow() {
+    AppLogger(agentName: 'main', toolName: '_buildChatWindow').log(
+      'Building ChatWindow: isInitialized=${_aiChatService.isInitialized}, '
+      'isChatting=$_isChatting, chatMessages=${_chatMessages.length}',
+    );
     return ChatWindow(
       aiChatService: _aiChatService,
       chatMessages: _chatMessages,
@@ -1166,11 +1170,18 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       diagnosticResults: _diagnosticResults,
       callbacks: SettingsPanelCallbacks(
         onSave: (newIp, newProvider, newToken, newModel) {
+          final logger = AppLogger(agentName: 'main', toolName: 'onSave');
           bool criticalConfigChanged =
               _ipAddress != newIp ||
               _aiProvider != newProvider ||
               _aiApiToken != newToken ||
               _llmModel != newModel;
+
+          logger.log(
+            'Saving config: ip=$newIp, provider=$newProvider, '
+            'token=${newToken.isNotEmpty ? "***${newToken.substring(newToken.length - 4)}" : "(empty)"}, '
+            'model="$newModel"',
+          );
 
           setState(() {
             _ipAddress = newIp;
@@ -1184,14 +1195,26 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
           _startPingTimer();
 
           if (_isAiEnabled) {
+            logger.log('_isAiEnabled is true, calling _configureAiService()');
             _configureAiService();
           } else if (_aiProvider.isNotEmpty && _aiApiToken.trim().length >= 8) {
+            logger.log(
+              '_isAiEnabled is false (model probably empty), calling deactivate() '
+              '_aiProvider="$_aiProvider", token length=${_aiApiToken.trim().length}, '
+              '_llmModel="$_llmModel"',
+            );
             // Provider and token are valid but model is empty;
             // deactivate the agent without configuring a new one.
             _aiChatService.deactivate();
             if (mounted) {
               setState(() {});
             }
+          } else {
+            logger.log(
+              '_isAiEnabled is false and no partial config: '
+              '_aiProvider="$_aiProvider", token length=${_aiApiToken.trim().length}, '
+              '_llmModel="$_llmModel"',
+            );
           }
         },
         onClose: () => setState(() => _showSettings = false),
@@ -1503,6 +1526,11 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     await _checkNewsNotification();
     _loadProfileFiles();
     _startPingTimer();
+    AppLogger(agentName: 'main', toolName: '_initialize').log(
+      'After _loadConfig: _aiProvider="$_aiProvider", '
+      '_aiApiToken=${_aiApiToken.isNotEmpty ? "***${_aiApiToken.substring(_aiApiToken.length - 4)}" : "(empty)"}, '
+      '_llmModel="$_llmModel", _isAiEnabled=$_isAiEnabled',
+    );
     // Configure AI agent on startup if provider, token, and model are valid
     if (_isAiEnabled) {
       _configureAiService();
@@ -1576,16 +1604,20 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   /// The full model string is constructed as `<prefix>:<model>` (e.g.
   /// `openai:gpt-4o`).
   void _configureAiService() {
+    final logger = AppLogger(agentName: 'main', toolName: '_configureAiService');
+    logger.log('ENTER: _configureAiService()');
+
     if (_aiProvider.isEmpty || _aiApiToken.trim().length < 8) {
-      AppLogger(agentName: 'main', toolName: '_configureAiService').log(
-        'AI provider or token not valid, skipping configuration',
+      logger.log(
+        'EXIT: AI provider or token not valid, skipping configuration. '
+        '_aiProvider="$_aiProvider", token length=${_aiApiToken.trim().length}',
       );
       return;
     }
 
     if (_llmModel.trim().isEmpty) {
-      AppLogger(agentName: 'main', toolName: '_configureAiService').log(
-        'LLM model is empty, deactivating AI agent',
+      logger.log(
+        'EXIT: LLM model is empty, deactivating AI agent',
       );
       _aiChatService.deactivate();
       if (mounted) {
@@ -1609,7 +1641,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     final modelName = _llmModel.isNotEmpty ? _llmModel : 'gpt-4o';
     final fullModel = '$modelPrefix:$modelName';
 
-    AppLogger(agentName: 'main', toolName: '_configureAiService').log(
+    logger.log(
       'Configuring AI service: provider=$_aiProvider, '
       'apiKeyName=$apiKeyName, model=$fullModel, ip=$_ipAddress',
     );
@@ -1619,6 +1651,10 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       apiToken: _aiApiToken,
       model: fullModel,
       vxi11Host: _ipAddress,
+    );
+
+    logger.log(
+      'After _aiChatService.configure(): isInitialized=${_aiChatService.isInitialized}',
     );
 
     if (mounted) {

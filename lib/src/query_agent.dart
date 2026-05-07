@@ -82,13 +82,59 @@ class QueryAgent {
   }
 
   /// Loads and splits the knowledgebase Markdown file into chunks.
+  ///
+  /// Tries [path] first; if not found, tries to resolve relative to the
+  /// executable's directory (for installed .deb builds at
+  /// `/usr/local/lib/sdsremote/`). Returns an empty list if no file is found
+  /// anywhere, logging a warning rather than crashing.
   static List<Document> _loadKnowledgebase(String path) {
-    final file = File(path);
-    if (!file.existsSync()) {
-      throw FileSystemException('Knowledgebase file not found', path);
+    String? resolvedPath;
+
+    // 1. Try the provided path as-is (works during development).
+    if (File(path).existsSync()) {
+      resolvedPath = path;
     }
 
-    final markdownText = file.readAsStringSync();
+    // 2. Try relative to the executable's directory (installed .deb).
+    if (resolvedPath == null) {
+      try {
+        final exeDir = File(Platform.resolvedExecutable).parent.path;
+        final altPath = '${exeDir}/docs/knowledgebase.md';
+        if (File(altPath).existsSync()) {
+          resolvedPath = altPath;
+        }
+      } catch (_) {
+        // Ignore — Platform.resolvedExecutable may fail on some platforms.
+      }
+    }
+
+    // 3. Try relative to the executable's parent directory.
+    if (resolvedPath == null) {
+      try {
+        final exeDir = File(Platform.resolvedExecutable).parent.path;
+        final altPath = '${exeDir}/../docs/knowledgebase.md';
+        if (File(altPath).existsSync()) {
+          resolvedPath = altPath;
+        }
+      } catch (_) {
+        // Ignore.
+      }
+    }
+
+    // If no file was found anywhere, log a warning and return empty.
+    if (resolvedPath == null) {
+      AppLogger(agentName: 'QueryAgent', toolName: 'loadKnowledgebase').log(
+        'WARNING: Knowledgebase file not found at "$path" or any alternative '
+        'location. The knowledgebase_search tool will be unavailable.',
+      );
+      return [];
+    }
+
+    AppLogger(agentName: 'QueryAgent', toolName: 'loadKnowledgebase').log(
+      'Loaded knowledgebase from: $resolvedPath',
+    );
+
+    final markdownText = File(resolvedPath).readAsStringSync();
 
     final splitter = MarkdownTextSplitter(
       chunkSize: 100,
@@ -102,11 +148,14 @@ class QueryAgent {
   ///
   /// The tool searches the pre-loaded chunks for content relevant to the
   /// user's query by checking which chunks contain words from the query.
+  ///
+  /// If the knowledgebase file could not be loaded ([chunks] is empty), the
+  /// tool returns a "not available" message instead of crashing.
   static Tool<Map<String, dynamic>> _createKnowledgebaseSearchTool(
     String knowledgebasePath, {
     String agentName = 'unknown',
   }) {
-    // Load chunks at tool creation time.
+    // Load chunks at tool creation time. Returns empty list if file missing.
     final chunks = _loadKnowledgebase(knowledgebasePath);
 
     return Tool<Map<String, dynamic>>(
@@ -130,11 +179,23 @@ class QueryAgent {
         'required': ['query'],
       }),
       onCall: (args) async {
-        final query = (args['query'] as String).toLowerCase();
         final logger = AppLogger(
           agentName: agentName,
           toolName: 'knowledgebase_search',
         );
+
+        // If no chunks were loaded, the knowledgebase is unavailable.
+        if (chunks.isEmpty) {
+          final result = {
+            'results':
+                'Knowledgebase is not available. The knowledgebase file '
+                'could not be found.',
+          };
+          logger.logToolCall(input: args, output: result);
+          return result;
+        }
+
+        final query = (args['query'] as String).toLowerCase();
         final queryWords =
             query.split(RegExp(r'\s+')).where((w) => w.length > 2).toList();
 

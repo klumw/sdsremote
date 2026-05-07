@@ -39,7 +39,8 @@ class AiChatService {
     // Discard the old agent; it will be garbage-collected.
     _agent = null;
 
-    AppLogger(agentName: 'AiChatService', toolName: 'configure').log(
+    final logger = AppLogger(agentName: 'AiChatService', toolName: 'configure');
+    logger.log(
       'Configuring FrontendAgent: model=$model, vxi11Host=$vxi11Host',
     );
 
@@ -49,10 +50,20 @@ class AiChatService {
     // and [apiToken] is the actual token VALUE.
     Agent.environment[apiKey] = apiToken;
 
-    _agent = FrontendAgent(
-      model: model,
-      vxi11Host: vxi11Host,
-    );
+    try {
+      _agent = FrontendAgent(
+        model: model,
+        vxi11Host: vxi11Host,
+      );
+      logger.log(
+        'SUCCESS: FrontendAgent created, agent=${_agent != null}',
+      );
+    } catch (e) {
+      logger.log(
+        'FAILURE: FrontendAgent constructor threw: $e',
+      );
+      // _agent remains null — caller should handle this.
+    }
   }
 
   /// Sends a message to the AI agent and returns a stream of response chunks.
@@ -65,6 +76,9 @@ class AiChatService {
     required String text,
     String agentName = 'sds',
   }) async* {
+    AppLogger(agentName: 'AiChatService', toolName: 'sendMessageStream').log(
+      'sendMessageStream called: isInitialized=$isInitialized, text="$text"',
+    );
     if (_isDisposed) throw Exception('Service is disposed');
     if (_agent == null) {
       yield 'Error: AI agent not configured. Please configure API keys in Settings.';
@@ -87,6 +101,9 @@ class AiChatService {
   /// disposing the service. The service can be re-activated later with
   /// [configure].
   void deactivate() {
+    AppLogger(agentName: 'AiChatService', toolName: 'deactivate').log(
+      'Service deactivated',
+    );
     _agent = null;
   }
 
