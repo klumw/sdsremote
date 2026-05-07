@@ -139,6 +139,14 @@ class _ChatWindowState extends State<ChatWindow> {
       _previousLastMessageLength = currentLength;
       _scrollToBottom();
     }
+
+    // Re-focus the chat input field when streaming finishes, so the user can
+    // immediately type the next message without manually clicking the field.
+    if (oldWidget.isChatting && !widget.isChatting) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _chatFocusNode.requestFocus();
+      });
+    }
   }
 
   /// Returns the content length of the last message, or 0 if no messages exist.
