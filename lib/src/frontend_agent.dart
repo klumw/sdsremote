@@ -137,7 +137,7 @@ class FrontendAgent {
 
   /// Default maximum number of tool calls per user input for the knowledgebase
   /// query sub-agent.
-  static const int defaultQueryToolCalls = 4;
+  static const int defaultQueryToolCalls = 10;
 
   /// The underlying dartantic_ai Agent instance for the frontend.
   final Agent _frontendAgent;
@@ -186,7 +186,7 @@ class FrontendAgent {
   ///
   /// The [queryToolCalls] parameter limits the number of tool calls per
   /// user input for the knowledgebase query sub-agent.
-  /// Defaults to [defaultQueryToolCalls] (3).
+  /// Defaults to [defaultQueryToolCalls] (10).
   FrontendAgent({
     String model = 'deepseek:deepseek-v4-flash',
     String? systemPrompt,
