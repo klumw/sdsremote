@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 
+import 'max_tool_calls_handler.dart';
 import 'vxi11_tool.dart';
 
 /// A reusable AI agent that uses DeepSeek or EdenAI via the OpenAI-compatible API.
@@ -23,7 +24,7 @@ import 'vxi11_tool.dart';
 ///   print(chunk);
 /// }
 /// ```
-class ChatAgent {
+class ChatAgent with MaxToolCallsHandler {
   /// Default maximum number of tool calls per user input.
   static const int defaultMaxToolCalls = 3;
 
@@ -34,6 +35,7 @@ class ChatAgent {
   final List<ChatMessage> _history = [];
 
   /// Maximum number of tool calls allowed per user input.
+  @override
   final int maxToolCalls;
 
   /// Creates a [ChatAgent] configured for the specified model with optional tools.
@@ -82,10 +84,18 @@ class ChatAgent {
   ///
   /// The conversation history is automatically maintained for multi-turn
   /// conversations.
+  ///
+  /// Tool calls are counted and limited to [maxToolCalls] per input.
+  /// When the limit is reached, the agent receives a tool result message
+  /// telling it the limit was reached so it can respond gracefully.
   Future<String> send(String prompt) async {
-    final result = await _agent.send(prompt, history: _history);
-    _history.addAll(result.messages);
-    return result.output.trim();
+    // Use sendStream which has the maxToolCalls enforcement,
+    // then accumulate the results into a single string.
+    final chunks = <String>[];
+    await for (final chunk in sendStream(prompt)) {
+      chunks.add(chunk);
+    }
+    return chunks.join().trim();
   }
 
   /// Sends a [prompt] and streams the response chunks.
@@ -101,15 +111,24 @@ class ChatAgent {
     var toolCallCount = 0;
 
     await for (final chunk in _agent.sendStream(prompt, history: _history)) {
-      // Count tool calls by checking for model messages with tool calls.
+      // Count individual tool calls by counting ToolPart.call parts in model
+      // messages. A single model response can contain multiple tool calls.
       for (final msg in chunk.messages) {
-        if (msg.role == ChatMessageRole.model && msg.hasToolCalls) {
-          toolCallCount++;
+        if (msg.role == ChatMessageRole.model) {
+          for (final part in msg.parts) {
+            if (part is ToolPart && part.kind == ToolPartKind.call) {
+              toolCallCount++;
+            }
+          }
         }
       }
 
-      // If we've exceeded the max tool calls, stop yielding and break.
-      if (toolCallCount > maxToolCalls) {
+      // If we've exceeded the max tool calls, inject a tool result message
+      // telling the LLM the limit was reached so it can respond gracefully.
+      if (isMaxToolCallsExceeded(toolCallCount)) {
+        final result = buildMaxToolCallsMessage();
+        _history.add(result.toolResultMessage);
+        yield result.message;
         break;
       }
 

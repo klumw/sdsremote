@@ -6,6 +6,7 @@ import 'package:langchain/langchain.dart'
     hide Agent, ChatMessage, ChatMessageRole, Tool;
 
 import '../logger.dart';
+import 'max_tool_calls_handler.dart';
 
 /// A query agent that searches a knowledgebase (Markdown document) for
 /// information about an oscilloscope device and returns a summarized answer.
@@ -23,7 +24,7 @@ import '../logger.dart';
 /// final answer = await agent.send('How do I set the trigger level?');
 /// print(answer);
 /// ```
-class QueryAgent {
+class QueryAgent with MaxToolCallsHandler {
   /// Path to the knowledgebase Markdown file.
   static const _defaultKnowledgebasePath = 'docs/knowledgebase.md';
 
@@ -37,6 +38,7 @@ class QueryAgent {
   final List<ChatMessage> _history = [];
 
   /// Maximum number of tool calls allowed per user input.
+  @override
   final int maxToolCalls;
 
   /// Creates a [QueryAgent] with a knowledgebase search tool.
@@ -248,6 +250,10 @@ class QueryAgent {
   ///
   /// The conversation history is automatically maintained for multi-turn
   /// conversations.
+  ///
+  /// Tool calls are counted and limited to [maxToolCalls] per input.
+  /// When the limit is reached, the agent receives a tool result message
+  /// telling it the limit was reached so it can respond gracefully.
   Future<String> send(String prompt) async {
     final logger = AppLogger(
       agentName: 'QueryAgent',
@@ -265,9 +271,14 @@ class QueryAgent {
         '${msg.hasToolResults ? ' hasToolResults' : ''}',
       );
     }
-    final result = await _agent.send(prompt, history: _history);
-    _history.addAll(result.messages);
-    return result.output.trim();
+
+    // Use sendStream which has the maxToolCalls enforcement,
+    // then accumulate the results into a single string.
+    final chunks = <String>[];
+    await for (final chunk in sendStream(prompt)) {
+      chunks.add(chunk);
+    }
+    return chunks.join().trim();
   }
 
   /// Sends a [prompt] and streams the response chunks.
@@ -300,15 +311,24 @@ class QueryAgent {
     var toolCallCount = 0;
 
     await for (final chunk in _agent.sendStream(prompt, history: _history)) {
-      // Count tool calls by checking for model messages with tool calls.
+      // Count individual tool calls by counting ToolPart.call parts in model
+      // messages. A single model response can contain multiple tool calls.
       for (final msg in chunk.messages) {
-        if (msg.role == ChatMessageRole.model && msg.hasToolCalls) {
-          toolCallCount++;
+        if (msg.role == ChatMessageRole.model) {
+          for (final part in msg.parts) {
+            if (part is ToolPart && part.kind == ToolPartKind.call) {
+              toolCallCount++;
+            }
+          }
         }
       }
 
-      // If we've exceeded the max tool calls, stop yielding and break.
-      if (toolCallCount > maxToolCalls) {
+      // If we've exceeded the max tool calls, inject a tool result message
+      // telling the LLM the limit was reached so it can respond gracefully.
+      if (isMaxToolCallsExceeded(toolCallCount)) {
+        final result = buildMaxToolCallsMessage();
+        _history.add(result.toolResultMessage);
+        yield result.message;
         break;
       }
 
