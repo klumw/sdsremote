@@ -58,11 +58,9 @@ class ChatAgent with MaxToolCallsHandler {
     String? vxi11Host,
     List<Tool>? tools,
     this.maxToolCalls = defaultMaxToolCalls,
-    double? temperature,
   }) : _agent = Agent(
           model,
           displayName: 'ChatAgent',
-          temperature: temperature,
           tools: [
             if (vxi11Host != null) createVxi11Tool(
               host: vxi11Host,

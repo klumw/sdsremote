@@ -58,11 +58,9 @@ class QueryAgent with MaxToolCallsHandler {
     String knowledgebasePath = _defaultKnowledgebasePath,
     String? systemPrompt,
     this.maxToolCalls = defaultMaxToolCalls,
-    double? temperature,
   }) : _agent = Agent(
           model,
           displayName: 'QueryAgent',
-          temperature: temperature,
           tools: [
             _createKnowledgebaseSearchTool(
               knowledgebasePath,

@@ -36,9 +36,6 @@ class AiChatService {
     int? maxToolCalls,
     int? instrumentToolCalls,
     int? queryToolCalls,
-    double? temperature,
-    double? instrumentTemperature,
-    double? queryTemperature,
   }) {
     if (_isDisposed) return;
 
@@ -50,10 +47,7 @@ class AiChatService {
       'Configuring FrontendAgent: model=$model, vxi11Host=$vxi11Host, '
       'maxToolCalls=$maxToolCalls, '
       'instrumentToolCalls=$instrumentToolCalls, '
-      'queryToolCalls=$queryToolCalls, '
-      'temperature=$temperature, '
-      'instrumentTemperature=$instrumentTemperature, '
-      'queryTemperature=$queryTemperature',
+      'queryToolCalls=$queryToolCalls',
     );
 
     // The dartantic_ai Agent reads API keys from Agent.environment (a static
@@ -69,9 +63,6 @@ class AiChatService {
         maxToolCalls: maxToolCalls ?? FrontendAgent.defaultMaxToolCalls,
         instrumentToolCalls: instrumentToolCalls ?? FrontendAgent.defaultInstrumentToolCalls,
         queryToolCalls: queryToolCalls ?? FrontendAgent.defaultQueryToolCalls,
-        temperature: temperature,
-        instrumentTemperature: instrumentTemperature,
-        queryTemperature: queryTemperature,
       );
       logger.log(
         'SUCCESS: FrontendAgent created, agent=${_agent != null}',
