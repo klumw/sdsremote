@@ -385,6 +385,10 @@ KNOBS — exact command strings:
   Trigger Level       turn right  → \$\$SY_FP 16,1
   Trigger Level       turn left   → \$\$SY_FP 16,-1
   Trigger Level       press       → \$\$SY_FP 16,0
+
+## SUPPORTED CHANNELS
+ONLY channels C1,C2,C3 and C4 are supported. Do not attempt to use any other channel names.
+For commans for channels C3,C4 ALWAYS check with CHS? if they are available, if not let the user know.
 """;
 
 /// System prompt for the knowledgebase query agent.
