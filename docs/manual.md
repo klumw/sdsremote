@@ -99,6 +99,7 @@ Access via the **Settings** button.
   Enables waveform data export alongside images
 
 ### 3.3 AI Settings  
+
 > **See section 4.2 for more information**
 
 ---
@@ -113,9 +114,6 @@ The AI chat feature communicates directly with AI providers via their APIs.
 
 #### Supported Providers and Models
 
-The following AI providers are available for configuration:
-
----
 | Provider |
 |------|
 | DeepSeek |
