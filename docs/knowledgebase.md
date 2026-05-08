@@ -3654,7 +3654,7 @@ Do the following steps to set the oscilloscope to communicate with PC via LAN:
 
 
 
-## WLAN(Option)
+## WLAN(4-channel only)
 
 SDS1000X -E (4-channel) supports this function. Do the following steps to set the oscilloscope to communicate with PC via WLAN:
 
@@ -3685,11 +3685,11 @@ On: you can set the SSID and PSK manually.
 
 
 
-## Web Server
+## Web Server (4-Channel only)
 
 SDS1000X -E (4-channel) provide the web server function; you can access and control the oscilloscope using a web browser. Connect the oscilloscope to your LAN (or WLAN), then type the oscilloscope's IP address in the web browser. The oscilloscope's web interface is displayed.
 
-## Set Password
+## Set Password (4-Channel only)
 
 1. Press the Utility button on the front panel to enter the UTILITY function menu.
 2. Press the WebServer softkey on the fourth page of utility function menu to enter the WEBSERVER menu .
@@ -3700,7 +3700,7 @@ SDS1000X -E (4-channel) provide the web server function; you can access and cont
 
 
 
-## Web Browser
+## Web Browser (4-channel only)
 
 
 
@@ -4133,11 +4133,11 @@ Do the following steps to install the option on the oscilloscope:
 6. Press the Information softkey to view the option information.
 
 
-## Bode Plot II
+## Bode Plot II (4-channel only)
 
-The bode plot application for the SDS1000X-E (4-channel) control an external arbitrary waveform generator(only Siglent's arbitrary waveform generator can be supported) to sweep a sine wave across a range of frequencies while measuring the input to and output from a device under test (DUT). At each frequency point, gain and phase are measured and displayed on the Bode plot.
+The bode plot application for the SDS1000X-E (4-channel only) control an external arbitrary waveform generator(only Siglent's arbitrary waveform generator can be supported) to sweep a sine wave across a range of frequencies while measuring the input to and output from a device under test (DUT). At each frequency point, gain and phase are measured and displayed on the Bode plot.
 
-## Perform Bode Plot
+## Perform Bode Plot (4-channel only)
 
 The following steps briefly describe how to perform the Bode Plot:
 
