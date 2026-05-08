@@ -6,6 +6,10 @@
 It provides a modern graphical user interface (GUI) for instrument control, waveform acquisition,  
 screen capture, and interaction via an integrated AI-powered chat interface.
 
+**Note: This application is in no way affiliated with Siglent or any other commercial entities.**
+
+---
+
 ### Key Features
 
 * **Remote Oscilloscope Control**  

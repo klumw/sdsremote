@@ -2,6 +2,10 @@
 
 **SDS-Remote** is a remote control interface and help center for Siglent SDS 1000X-E series oscilloscopes. It provides a modern graphical user interface (GUI) for instrument control, waveform acquisition, screen capture, and interaction via an integrated AI-powered chat interface. SDS-Remote runs on **Linux** and **Windows**.
 
+**Note: This application is in no way affiliated with Siglent or any other commercial entities.**
+
+---
+
 ## 1. SDS-Remote Software: What is it for and what can it do
 
 Remote control and AI enhanced operation of Siglent SDS1202X-E, SDS1104X-E, SDS1204X-E and SDS1102X-E oscilloscopes from **Linux** and **Windows**.
