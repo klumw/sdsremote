@@ -133,7 +133,7 @@ class FrontendAgent {
 
   /// Default maximum number of tool calls per user input for the instrument
   /// (VXI-11) sub-agent.
-  static const int defaultInstrumentToolCalls = 5;
+  static const int defaultInstrumentToolCalls = 10;
 
   /// Default maximum number of tool calls per user input for the knowledgebase
   /// query sub-agent.
