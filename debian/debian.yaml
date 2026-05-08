@@ -11,4 +11,4 @@ control:
   Priority: optional
   Depends: libgtk-3-0 | libgtk-3-0t64, libblkid1, liblzma5
   Maintainer: sdsremote@outlook.com
-  Description: Siglent SDS oscilloscope remote viewer
+  Description: SDS Oscilloscope Software

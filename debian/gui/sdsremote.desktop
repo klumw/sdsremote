@@ -2,9 +2,9 @@
 Version=0.1.0
 Name=SDS Remote
 GenericName=SDS Remote
-Comment=Siglent SDS oscilloscope remote viewer
+Comment=SDS Oscilloscope Software
 Terminal=false
 Type=Application
 Categories=Utility;
-Keywords=oscilloscope;siglent;
+Keywords=oscilloscope;
 Icon=sdsremote
