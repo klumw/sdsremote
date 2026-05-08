@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:intl/intl.dart';
+import 'package:logging/logging.dart';
 
 /// Application logger for the SDS-Remote application.
 ///
@@ -28,6 +29,40 @@ class AppLogger {
   /// ```
   AppLogger({this.agentName, this.toolName});
 
+  static const Level traceLevel = Level('TRACE', 300);
+  static const Level _defaultLevel = Level.INFO;
+  static Level minimumLevel = _defaultLevel;
+
+  /// Parses a user-provided log level name.
+  ///
+  /// Supported values: TRACE, DEBUG, INFO, WARNING, WARN, ERROR, SEVERE, OFF.
+  /// Unrecognized values fall back to [Level.INFO].
+  static Level parseLevel(String? levelName) {
+    if (levelName == null || levelName.trim().isEmpty) {
+      return _defaultLevel;
+    }
+
+    switch (levelName.trim().toUpperCase()) {
+      case 'TRACE':
+        return traceLevel;
+      case 'DEBUG':
+      case 'FINE':
+        return Level.FINE;
+      case 'INFO':
+        return Level.INFO;
+      case 'WARNING':
+      case 'WARN':
+        return Level.WARNING;
+      case 'ERROR':
+      case 'SEVERE':
+        return Level.SEVERE;
+      case 'OFF':
+        return Level.OFF;
+      default:
+        return _defaultLevel;
+    }
+  }
+
   static String get _logDir => '${Directory.systemTemp.path}/sds/logging';
   static String get _logFile => '$_logDir/sds.log';
   static const int _maxLogSize = 1024 * 1024; // 1MB
@@ -46,7 +81,11 @@ class AppLogger {
     return '';
   }
 
-  Future<void> log(String message) async {
+  bool _shouldLog(Level level) => level.value >= minimumLevel.value;
+
+  Future<void> _writeLine(Level level, String message) async {
+    if (!_shouldLog(level)) return;
+
     try {
       final directory = Directory(_logDir);
       if (!await directory.exists()) {
@@ -63,7 +102,10 @@ class AppLogger {
 
       final timestamp = _dateFormat.format(DateTime.now());
       final prefix = _buildPrefix();
-      final line = prefix.isNotEmpty ? '[$timestamp] $prefix $message\n' : '[$timestamp] $message\n';
+      final levelName = _formatLevelName(level);
+      final line = prefix.isNotEmpty
+          ? '[$timestamp] [$levelName] $prefix $message\n'
+          : '[$timestamp] [$levelName] $message\n';
       await file.writeAsString(
         line,
         mode: FileMode.append,
@@ -75,6 +117,19 @@ class AppLogger {
     }
   }
 
+  String _formatLevelName(Level level) {
+    if (level == traceLevel) return 'TRACE';
+    if (level == Level.FINE) return 'DEBUG';
+    return level.name;
+  }
+
+  Future<void> log(String message) async => _writeLine(Level.INFO, message);
+  Future<void> info(String message) async => _writeLine(Level.INFO, message);
+  Future<void> debug(String message) async => _writeLine(Level.FINE, message);
+  Future<void> trace(String message) async => _writeLine(traceLevel, message);
+  Future<void> warning(String message) async => _writeLine(Level.WARNING, message);
+  Future<void> severe(String message) async => _writeLine(Level.SEVERE, message);
+
   /// Logs a tool call with structured input/output data.
   ///
   /// This is used by AI agent tools to log their invocations with the
@@ -83,6 +138,8 @@ class AppLogger {
     required Map<String, dynamic> input,
     required Map<String, dynamic> output,
   }) async {
+    if (!_shouldLog(Level.FINE)) return;
+
     try {
       final directory = Directory(_logDir);
       if (!await directory.exists()) {
@@ -102,8 +159,8 @@ class AppLogger {
       final inputJson = const JsonEncoder.withIndent('  ').convert(input);
       final outputJson = const JsonEncoder.withIndent('  ').convert(output);
       final line = prefix.isNotEmpty
-          ? '[$timestamp] $prefix ToolCall:\n  Input: $inputJson\n  Output: $outputJson\n'
-          : '[$timestamp] ToolCall:\n  Input: $inputJson\n  Output: $outputJson\n';
+          ? '[$timestamp] [DEBUG] $prefix ToolCall:\n  Input: $inputJson\n  Output: $outputJson\n'
+          : '[$timestamp] [DEBUG] ToolCall:\n  Input: $inputJson\n  Output: $outputJson\n';
       await file.writeAsString(
         line,
         mode: FileMode.append,

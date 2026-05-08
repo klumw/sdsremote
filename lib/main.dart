@@ -9,6 +9,8 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:image/image.dart' as img;
+import 'package:logging/logging.dart';
+import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -133,12 +135,40 @@ Uint8List _processScreenDump(Uint8List data) {
 // Application Entry Point
 // ===========================================================================
 
-void main() async {
+Level _getRequestedLogLevel(List<String> args) {
+  final cliArgs = args.isNotEmpty ? args : Platform.executableArguments;
+  for (var index = 0; index < cliArgs.length; index++) {
+    final arg = cliArgs[index];
+    if (arg.startsWith('--loglevel=')) {
+      return AppLogger.parseLevel(arg.substring('--loglevel='.length));
+    }
+    if (arg == '--loglevel' && index + 1 < cliArgs.length) {
+      return AppLogger.parseLevel(cliArgs[index + 1]);
+    }
+  }
+  return AppLogger.parseLevel(null);
+}
+
+void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   await windowManager.ensureInitialized();
 
-  // Log application startup
-  AppLogger().log('SDS-Remote: application starting');
+  final logLevel = _getRequestedLogLevel(args);
+  AppLogger.minimumLevel = logLevel;
+  Agent.loggingOptions = LoggingOptions(
+    level: AppLogger.traceLevel,
+    onRecord: (record) {
+      final logger = AppLogger(agentName: 'AI', toolName: record.loggerName);
+      final message = record.message;
+      if (record.level >= Level.FINE) {
+        logger.debug(message);
+      } else {
+        logger.trace(message);
+      }
+    },
+  );
+
+  AppLogger().info('SDS-Remote: application starting');
 
   const windowOptions = WindowOptions(
     size: Size(1400, 900),

@@ -43,7 +43,7 @@ class AiChatService {
     _agent = null;
 
     final logger = AppLogger(agentName: 'AiChatService', toolName: 'configure');
-    logger.log(
+    logger.debug(
       'Configuring FrontendAgent: model=$model, vxi11Host=$vxi11Host, '
       'maxToolCalls=$maxToolCalls, '
       'instrumentToolCalls=$instrumentToolCalls, '
@@ -64,11 +64,11 @@ class AiChatService {
         instrumentToolCalls: instrumentToolCalls ?? FrontendAgent.defaultInstrumentToolCalls,
         queryToolCalls: queryToolCalls ?? FrontendAgent.defaultQueryToolCalls,
       );
-      logger.log(
+      logger.debug(
         'SUCCESS: FrontendAgent created, agent=${_agent != null}',
       );
     } catch (e) {
-      logger.log(
+      logger.debug(
         'FAILURE: FrontendAgent constructor threw: $e',
       );
       // _agent remains null — caller should handle this.
@@ -85,7 +85,7 @@ class AiChatService {
     required String text,
     String agentName = 'sds',
   }) async* {
-    AppLogger(agentName: 'AiChatService', toolName: 'sendMessageStream').log(
+    AppLogger(agentName: 'AiChatService', toolName: 'sendMessageStream').debug(
       'sendMessageStream called: isInitialized=$isInitialized, text="$text"',
     );
     if (_isDisposed) throw Exception('Service is disposed');
@@ -99,7 +99,7 @@ class AiChatService {
         yield chunk;
       }
     } catch (e) {
-      AppLogger(agentName: 'AiChatService', toolName: 'sendMessageStream').log(
+      AppLogger(agentName: 'AiChatService', toolName: 'sendMessageStream').debug(
         'Error during AI streaming: $e',
       );
       yield 'Error: AI request failed ($e)';
@@ -110,7 +110,7 @@ class AiChatService {
   /// disposing the service. The service can be re-activated later with
   /// [configure].
   void deactivate() {
-    AppLogger(agentName: 'AiChatService', toolName: 'deactivate').log(
+    AppLogger(agentName: 'AiChatService', toolName: 'deactivate').debug(
       'Service deactivated',
     );
     _agent = null;

@@ -75,7 +75,7 @@ class QueryAgent with MaxToolCallsHandler {
       agentName: 'QueryAgent',
       toolName: 'constructor',
     );
-    logger.log(
+    logger.debug(
       '[DEBUG QueryAgent.constructor] systemPrompt=$systemPrompt, '
       '_history.length=${_history.length}, '
       '_history[0]?.role=${_history.isNotEmpty ? _history[0].role : "N/A"}, '
@@ -125,14 +125,14 @@ class QueryAgent with MaxToolCallsHandler {
 
     // If no file was found anywhere, log a warning and return empty.
     if (resolvedPath == null) {
-      AppLogger(agentName: 'QueryAgent', toolName: 'loadKnowledgebase').log(
+      AppLogger(agentName: 'QueryAgent', toolName: 'loadKnowledgebase').debug(
         'WARNING: Knowledgebase file not found at "$path" or any alternative '
         'location. The knowledgebase_search tool will be unavailable.',
       );
       return [];
     }
 
-    AppLogger(agentName: 'QueryAgent', toolName: 'loadKnowledgebase').log(
+    AppLogger(agentName: 'QueryAgent', toolName: 'loadKnowledgebase').debug(
       'Loaded knowledgebase from: $resolvedPath',
     );
 
@@ -259,12 +259,12 @@ class QueryAgent with MaxToolCallsHandler {
       agentName: 'QueryAgent',
       toolName: 'send',
     );
-    logger.log(
+    logger.debug(
       '[DEBUG QueryAgent.send] _history has ${_history.length} messages:',
     );
     for (var i = 0; i < _history.length; i++) {
       final msg = _history[i];
-      logger.log(
+      logger.debug(
         '[DEBUG QueryAgent.send]   [$i] role=${msg.role} '
         'text="${msg.text.substring(0, msg.text.length > 80 ? 80 : msg.text.length)}"'
         '${msg.hasToolCalls ? ' hasToolCalls' : ''}'
@@ -294,13 +294,13 @@ class QueryAgent with MaxToolCallsHandler {
       agentName: 'QueryAgent',
       toolName: 'sendStream',
     );
-    logger.log(
+    logger.debug(
       '[DEBUG QueryAgent.sendStream] _history has ${_history.length} '
       'messages:',
     );
     for (var i = 0; i < _history.length; i++) {
       final msg = _history[i];
-      logger.log(
+      logger.debug(
         '[DEBUG QueryAgent.sendStream]   [$i] role=${msg.role} '
         'text="${msg.text.substring(0, msg.text.length > 80 ? 80 : msg.text.length)}"'
         '${msg.hasToolCalls ? ' hasToolCalls' : ''}'

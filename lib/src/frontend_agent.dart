@@ -137,7 +137,7 @@ class FrontendAgent {
 
   /// Default maximum number of tool calls per user input for the knowledgebase
   /// query sub-agent.
-  static const int defaultQueryToolCalls = 10;
+  static const int defaultQueryToolCalls = 8;
 
   /// The underlying dartantic_ai Agent instance for the frontend.
   final Agent _frontendAgent;
@@ -238,12 +238,12 @@ class FrontendAgent {
       agentName: 'FrontendAgent',
       toolName: 'send',
     );
-    logger.log(
+    logger.debug(
       '[DEBUG FrontendAgent.send] _history has ${_history.length} messages:',
     );
     for (var i = 0; i < _history.length; i++) {
       final msg = _history[i];
-      logger.log(
+      logger.debug(
         '[DEBUG FrontendAgent.send]   [$i] role=${msg.role} '
         'text="${msg.text.substring(0, msg.text.length > 80 ? 80 : msg.text.length)}"'
         '${msg.hasToolCalls ? ' hasToolCalls' : ''}'
@@ -277,13 +277,13 @@ class FrontendAgent {
       agentName: 'FrontendAgent',
       toolName: 'sendStream',
     );
-    logger.log(
+    logger.debug(
       '[DEBUG FrontendAgent.sendStream] _history has ${_history.length} '
       'messages:',
     );
     for (var i = 0; i < _history.length; i++) {
       final msg = _history[i];
-      logger.log(
+      logger.debug(
         '[DEBUG FrontendAgent.sendStream]   [$i] role=${msg.role} '
         'text="${msg.text.substring(0, msg.text.length > 80 ? 80 : msg.text.length)}"'
         '${msg.hasToolCalls ? ' hasToolCalls' : ''}'
@@ -307,7 +307,7 @@ class FrontendAgent {
     await for (final chunk
         in _frontendAgent.sendStream(prompt, history: _history)) {
       chunkIndex++;
-      logger.log(
+      logger.debug(
         '[DIAG FrontendAgent.sendStream] Chunk #$chunkIndex: '
         'output="${chunk.output}" (len=${chunk.output.length}), '
         'messages=${chunk.messages.length}, '
@@ -324,7 +324,7 @@ class FrontendAgent {
         final textPreview = msg.text.length > 120
             ? '${msg.text.substring(0, 120)}...'
             : msg.text;
-        logger.log(
+        logger.debug(
           '[DIAG FrontendAgent.sendStream]   Msg[$i]: '
           'role=${msg.role}, '
           'text="$textPreview", '
@@ -335,12 +335,12 @@ class FrontendAgent {
         // Log individual parts
         for (var p = 0; p < msg.parts.length; p++) {
           final part = msg.parts[p];
-          logger.log(
+          logger.debug(
             '[DIAG FrontendAgent.sendStream]     Part[$p]: '
             'type=${part.runtimeType}',
           );
           if (part is ToolPart) {
-            logger.log(
+            logger.debug(
               '[DIAG FrontendAgent.sendStream]       toolName=${part.toolName}, '
               'kind=${part.kind}, '
               'callId=${part.callId}',
@@ -381,7 +381,7 @@ class FrontendAgent {
 
       // If we've exceeded the max tool calls, stop yielding and break.
       if (toolCallCount > maxToolCalls) {
-        logger.log(
+        logger.debug(
           '[DIAG FrontendAgent.sendStream] BREAKING: '
           'toolCallCount=$toolCallCount > maxToolCalls=$maxToolCalls',
         );
@@ -392,7 +392,7 @@ class FrontendAgent {
       yield chunk.output;
     }
 
-    logger.log(
+    logger.debug(
       '[DIAG FrontendAgent.sendStream] Stream ended. '
       'Total chunks=$chunkIndex, '
       'toolCallCount=$toolCallCount, '
@@ -400,7 +400,7 @@ class FrontendAgent {
       'allMessages collected=${allMessages.length}',
     );
     for (var i = 0; i < chunks.length; i++) {
-      logger.log(
+      logger.debug(
         '[DIAG FrontendAgent.sendStream]   chunks[$i]="'
         '${chunks[i].length > 80 ? chunks[i].substring(0, 80) : chunks[i]}" '
         '(len=${chunks[i].length})',
