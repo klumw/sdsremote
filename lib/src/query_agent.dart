@@ -101,7 +101,7 @@ class QueryAgent with MaxToolCallsHandler {
     if (resolvedPath == null) {
       try {
         final exeDir = File(Platform.resolvedExecutable).parent.path;
-        final altPath = '${exeDir}/docs/knowledgebase.md';
+        final altPath = '$exeDir/docs/knowledgebase.md';
         if (File(altPath).existsSync()) {
           resolvedPath = altPath;
         }
@@ -114,7 +114,7 @@ class QueryAgent with MaxToolCallsHandler {
     if (resolvedPath == null) {
       try {
         final exeDir = File(Platform.resolvedExecutable).parent.path;
-        final altPath = '${exeDir}/../docs/knowledgebase.md';
+        final altPath = '$exeDir/../docs/knowledgebase.md';
         if (File(altPath).existsSync()) {
           resolvedPath = altPath;
         }
