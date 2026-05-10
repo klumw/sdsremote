@@ -10,9 +10,11 @@ class DeviceParametersPanel extends StatelessWidget {
   final bool isOnline;
   final bool cursorsXEnabled;
   final bool cursorsYEnabled;
+  final double zoomFactor;
   final ValueChanged<String>? onChannelToggle;
   final ValueChanged<bool>? onCursorXToggled;
   final ValueChanged<bool>? onCursorYToggled;
+  final ValueChanged<double>? onZoomFactorChanged;
 
   const DeviceParametersPanel({
     super.key,
@@ -22,9 +24,11 @@ class DeviceParametersPanel extends StatelessWidget {
     required this.isOnline,
     this.cursorsXEnabled = false,
     this.cursorsYEnabled = false,
+    this.zoomFactor = 1.0,
     this.onChannelToggle,
     this.onCursorXToggled,
     this.onCursorYToggled,
+    this.onZoomFactorChanged,
   });
 
   @override
@@ -167,6 +171,8 @@ class DeviceParametersPanel extends StatelessWidget {
                     Colors.orangeAccent,
                     onCursorYToggled,
                   ),
+                  const SizedBox(height: 12),
+                  _buildZoomSliderSection(),
                 ],
               ),
             ),
@@ -215,6 +221,52 @@ class DeviceParametersPanel extends StatelessWidget {
             onChanged: onChanged,
             activeThumbColor: activeColor,
             activeTrackColor: activeColor.withValues(alpha: 0.4),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildZoomSliderSection() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF172A45).withValues(alpha: 0.3),
+        border: Border.all(color: const Color(0xFF475569)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Zoom",
+                style: TextStyle(
+                  color: Colors.greenAccent,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              Text(
+                "${zoomFactor.toStringAsFixed(1)}x",
+                style: const TextStyle(
+                  color: Colors.greenAccent,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          Slider(
+            value: zoomFactor,
+            min: 1.0,
+            max: 4.0,
+            divisions: 12,
+            activeColor: Colors.greenAccent,
+            inactiveColor: Colors.white24,
+            onChanged: onZoomFactorChanged ?? (_) {},
           ),
         ],
       ),

@@ -326,6 +326,9 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   DeviceParams? _deviceParams;
   bool _waveformAcquired = false;
 
+  // Zoom
+  ZoomState _zoomState = const ZoomState();
+
   // Cursors
   CursorState _cursorState = const CursorState();
   int? _draggingCursorIndex; // 0=cursorX1, 1=cursorX2, 2=cursorY1, 3=cursorY2
@@ -520,6 +523,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
                                                   params: _deviceParams!,
                                                   ch1Enabled: _ch1Enabled,
                                                   ch2Enabled: _ch2Enabled,
+                                                  zoom: _zoomState,
                                                 ),
                                                 child: const SizedBox.expand(),
                                               ),
@@ -528,9 +532,30 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
                                               painter: CursorPainter(
                                                 cursors: _cursorState,
                                                 params: _deviceParams!,
+                                                zoom: _zoomState,
+                                                dataTMin: _waveformCh1?.points.first.$1 ?? _waveformCh2?.points.first.$1,
+                                                dataTMax: _waveformCh1?.points.last.$1 ?? _waveformCh2?.points.last.$1,
                                               ),
                                               child: const SizedBox.expand(),
                                             ),
+                                            // Horizontal pan slider (only visible when zoomed)
+                                            if (_zoomState.zoomFactor > 1.0)
+                                              Positioned(
+                                                left: 0,
+                                                right: 0,
+                                                bottom: 0,
+                                                height: 24,
+                                                child: _buildHorizontalPanSlider(),
+                                              ),
+                                            // Vertical pan slider (only visible when zoomed)
+                                            if (_zoomState.zoomFactor > 1.0)
+                                              Positioned(
+                                                top: 0,
+                                                bottom: 24,
+                                                right: 0,
+                                                width: 24,
+                                                child: _buildVerticalPanSlider(),
+                                              ),
                                           ],
                                         ),
                                       ),
@@ -593,9 +618,11 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
                         isOnline: _isOnline,
                         cursorsXEnabled: _cursorState.cursorsXEnabled,
                         cursorsYEnabled: _cursorState.cursorsYEnabled,
+                        zoomFactor: _zoomState.zoomFactor,
                         onChannelToggle: _onDeviceParamChannelToggle,
                         onCursorXToggled: _onCursorXToggled,
                         onCursorYToggled: _onCursorYToggled,
+                        onZoomFactorChanged: _onZoomFactorChanged,
                       ),
                   ],
                 ),
@@ -1880,6 +1907,81 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       return closestIndex;
     }
     return null;
+  }
+
+  // =========================================================================
+  // Zoom / Pan
+  // =========================================================================
+
+  void _onZoomFactorChanged(double factor) {
+    setState(() {
+      _zoomState = _zoomState.copyWith(zoomFactor: factor);
+    });
+  }
+
+  void _onPanXChanged(double panX) {
+    setState(() {
+      _zoomState = _zoomState.copyWith(panX: panX);
+    });
+  }
+
+  void _onPanYChanged(double panY) {
+    setState(() {
+      _zoomState = _zoomState.copyWith(panY: panY);
+    });
+  }
+
+  Widget _buildHorizontalPanSlider() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xCC0D1117),
+        border: Border(
+          top: BorderSide(color: Color(0xFF475569)),
+        ),
+      ),
+      child: SliderTheme(
+        data: const SliderThemeData(
+          trackHeight: 4,
+          thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6),
+          overlayShape: RoundSliderOverlayShape(overlayRadius: 12),
+          activeTrackColor: Colors.cyanAccent,
+          inactiveTrackColor: Colors.white24,
+          thumbColor: Colors.cyanAccent,
+        ),
+        child: Slider(
+          value: _zoomState.panX,
+          onChanged: _onPanXChanged,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVerticalPanSlider() {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xCC0D1117),
+        border: Border(
+          left: BorderSide(color: Color(0xFF475569)),
+        ),
+      ),
+      child: RotatedBox(
+        quarterTurns: 1,
+        child: SliderTheme(
+          data: const SliderThemeData(
+            trackHeight: 4,
+            thumbShape: RoundSliderThumbShape(enabledThumbRadius: 6),
+            overlayShape: RoundSliderOverlayShape(overlayRadius: 12),
+            activeTrackColor: Colors.orangeAccent,
+            inactiveTrackColor: Colors.white24,
+            thumbColor: Colors.orangeAccent,
+          ),
+          child: Slider(
+            value: _zoomState.panY,
+            onChanged: _onPanYChanged,
+          ),
+        ),
+      ),
+    );
   }
 
   void _onDeviceParamChannelToggle(String channel) {

@@ -9,9 +9,10 @@ class WaveformBasePainter extends CustomPainter {
   final DeviceParams params;
   final bool ch1Enabled;
   final bool ch2Enabled;
+  final ZoomState zoom;
 
-  static const int _hDivisions = 14; 
-  static const int _vDivisions = 8; 
+  static const int _hDivisions = 14;
+  static const int _vDivisions = 8;
 
   WaveformBasePainter({
     this.ch1,
@@ -19,6 +20,7 @@ class WaveformBasePainter extends CustomPainter {
     required this.params,
     this.ch1Enabled = true,
     this.ch2Enabled = true,
+    this.zoom = const ZoomState(),
   });
 
   @override
@@ -39,14 +41,56 @@ class WaveformBasePainter extends CustomPainter {
       return;
     }
 
+    // Determine the full data time range from available channel data.
+    double dataTMin = double.infinity;
+    double dataTMax = double.negativeInfinity;
+    if (ch1 != null && ch1!.points.isNotEmpty) {
+      dataTMin = ch1!.points.first.$1;
+      dataTMax = ch1!.points.last.$1;
+    }
+    if (ch2 != null && ch2!.points.isNotEmpty) {
+      dataTMin = dataTMin < ch2!.points.first.$1 ? dataTMin : ch2!.points.first.$1;
+      dataTMax = dataTMax > ch2!.points.last.$1 ? dataTMax : ch2!.points.last.$1;
+    }
+    if (dataTMin == double.infinity) return;
+
+    final double dataTRange = dataTMax - dataTMin;
+    if (dataTRange <= 0) return;
+
+    // At zoom 1.0, the full data range fills the entire widget width
+    // (original behavior). At zoom > 1.0, we zoom into the data centered
+    // around the panX position.
+    final double centerTime = dataTMin + zoom.panX * dataTRange;
+    final double visibleTSpan = dataTRange / zoom.zoomFactor;
+    final double visibleTMin = centerTime - visibleTSpan / 2;
+    final double visibleTMax = centerTime + visibleTSpan / 2;
+
     if (ch1Enabled && ch1 != null && ch1!.points.isNotEmpty) {
+      final double vdiv = params.vdivCh1 ?? 1.0;
+      final double voffset = params.voffsetCh1 ?? 0.0;
+      final double vMax = voffset + 4 * vdiv;
+      final double vMin = voffset - 4 * vdiv;
+      final double vRange = vMax - vMin;
+      final double centerVoltage = vMin + zoom.panY * vRange;
+      final double visibleVRange = vRange / zoom.zoomFactor;
+      final double visibleVMin = centerVoltage - visibleVRange / 2;
+      final double visibleVMax = centerVoltage + visibleVRange / 2;
       _drawWaveform(canvas, size, ch1!, Colors.yellow,
-          params.vdivCh1 ?? 1.0, params.voffsetCh1 ?? 0.0);
+          visibleTMin, visibleTMax, visibleVMin, visibleVMax);
     }
 
     if (ch2Enabled && ch2 != null && ch2!.points.isNotEmpty) {
+      final double vdiv = params.vdivCh2 ?? 1.0;
+      final double voffset = params.voffsetCh2 ?? 0.0;
+      final double vMax = voffset + 4 * vdiv;
+      final double vMin = voffset - 4 * vdiv;
+      final double vRange = vMax - vMin;
+      final double centerVoltage = vMin + zoom.panY * vRange;
+      final double visibleVRange = vRange / zoom.zoomFactor;
+      final double visibleVMin = centerVoltage - visibleVRange / 2;
+      final double visibleVMax = centerVoltage + visibleVRange / 2;
       _drawWaveform(canvas, size, ch2!, const Color(0xFFFF20FF),
-          params.vdivCh2 ?? 1.0, params.voffsetCh2 ?? 0.0);
+          visibleTMin, visibleTMax, visibleVMin, visibleVMax);
     }
   }
 
@@ -69,7 +113,9 @@ class WaveformBasePainter extends CustomPainter {
   }
 
   void _drawWaveform(Canvas canvas, Size size, WaveformData data,
-      Color color, double vdiv, double voffset) {
+      Color color,
+      double visibleTMin, double visibleTMax,
+      double visibleVMin, double visibleVMax) {
     if (data.points.length < 2) return;
 
     final paint = Paint()
@@ -80,19 +126,16 @@ class WaveformBasePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
-    final tMin = data.points.first.$1;
-    final tMax = data.points.last.$1;
-    final tRange = tMax - tMin;
-
-    final vMax = voffset + 4 * vdiv;
-    final vMin = voffset - 4 * vdiv;
-    final vRange = vMax - vMin;
+    final visibleTRange = visibleTMax - visibleTMin;
+    final visibleVRange = visibleVMax - visibleVMin;
+    if (visibleTRange <= 0 || visibleVRange <= 0) return;
 
     final path = Path();
     bool first = true;
     for (final point in data.points) {
-      final px = tRange > 0 ? (point.$1 - tMin) / tRange * size.width : size.width / 2;
-      final py = vRange > 0 ? (vMax - point.$2) / vRange * size.height : size.height / 2;
+      if (point.$1 < visibleTMin || point.$1 > visibleTMax) continue;
+      final px = (point.$1 - visibleTMin) / visibleTRange * size.width;
+      final py = (visibleVMax - point.$2) / visibleVRange * size.height;
       if (first) {
         path.moveTo(px, py);
         first = false;
@@ -129,19 +172,26 @@ class WaveformBasePainter extends CustomPainter {
         oldDelegate.ch2 != ch2 ||
         oldDelegate.params != params ||
         oldDelegate.ch1Enabled != ch1Enabled ||
-        oldDelegate.ch2Enabled != ch2Enabled;
+        oldDelegate.ch2Enabled != ch2Enabled ||
+        oldDelegate.zoom != zoom;
   }
 }
 
 class CursorPainter extends CustomPainter {
   final CursorState cursors;
   final DeviceParams params;
+  final ZoomState zoom;
+  final double? dataTMin;
+  final double? dataTMax;
 
   static const int _hDivisions = 14;
 
   CursorPainter({
     required this.cursors,
     required this.params,
+    this.zoom = const ZoomState(),
+    this.dataTMin,
+    this.dataTMax,
   });
 
   @override
@@ -242,8 +292,12 @@ class CursorPainter extends CustomPainter {
   }
 
   double _timeAtX(double relX) {
-    final displaySpan = params.timebase * _hDivisions;
-    return params.trdl + (relX - 0.5) * displaySpan;
+    // Cursor time values must be consistent with WaveformBasePainter,
+    // which uses the screen time span (timebase * 14 divisions) as its basis.
+    final double displaySpan = params.timebase * _hDivisions;
+    final double centerTime = params.trdl + (zoom.panX - 0.5) * displaySpan;
+    final double zoomedSpan = displaySpan / zoom.zoomFactor;
+    return centerTime + (relX - 0.5) * zoomedSpan;
   }
 
   void _drawCursorInfoPanel(Canvas canvas, Size size, CursorState cursors) {
@@ -254,7 +308,9 @@ class CursorPainter extends CustomPainter {
       final vMax = voffset + 4 * vdiv;
       final vMin = voffset - 4 * vdiv;
       final vRange = vMax - vMin;
-      return vMax - relY * vRange;
+      final centerVoltage = vMin + zoom.panY * vRange;
+      final zoomedRange = vRange / zoom.zoomFactor;
+      return (centerVoltage + zoomedRange / 2) - relY * zoomedRange;
     }
 
     final yV1 = cursors.cursorsYEnabled ? voltageAtY(cursors.cursorY1) : null;
@@ -458,6 +514,10 @@ class CursorPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(CursorPainter oldDelegate) {
-    return oldDelegate.cursors != cursors || oldDelegate.params != params;
+    return oldDelegate.cursors != cursors ||
+        oldDelegate.params != params ||
+        oldDelegate.zoom != zoom ||
+        oldDelegate.dataTMin != dataTMin ||
+        oldDelegate.dataTMax != dataTMax;
   }
 }

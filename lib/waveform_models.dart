@@ -98,6 +98,34 @@ class CursorState {
   }
 }
 
+/// State for waveform zoom and pan.
+///
+/// [zoomFactor] ranges from 1.0 (no zoom) to 4.0 (maximum magnification).
+/// [panX] and [panY] range from 0.0 to 1.0, with 0.5 being the center.
+class ZoomState {
+  final double zoomFactor;
+  final double panX;
+  final double panY;
+
+  const ZoomState({
+    this.zoomFactor = 1.0,
+    this.panX = 0.5,
+    this.panY = 0.5,
+  });
+
+  ZoomState copyWith({
+    double? zoomFactor,
+    double? panX,
+    double? panY,
+  }) {
+    return ZoomState(
+      zoomFactor: zoomFactor ?? this.zoomFactor,
+      panX: panX ?? this.panX,
+      panY: panY ?? this.panY,
+    );
+  }
+}
+
 /// Error type for acquisition errors
 class AcquisitionException implements Exception {
   final String command; // affected SCPI command
