@@ -1915,7 +1915,13 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
 
   void _onZoomFactorChanged(double factor) {
     setState(() {
-      _zoomState = _zoomState.copyWith(zoomFactor: factor);
+      // When zooming out completely to 1.0x, reset pan to center
+      // so the waveform returns to its original centered position.
+      _zoomState = _zoomState.copyWith(
+        zoomFactor: factor,
+        panX: factor == 1.0 ? 0.5 : null,
+        panY: factor == 1.0 ? 0.5 : null,
+      );
     });
   }
 
