@@ -7,9 +7,6 @@ import 'logger.dart';
 
 /// Service that wraps a [FrontendAgent] instance and provides a streaming
 /// chat interface for the UI.
-///
-/// This replaces the previous Docker-based backend with a direct in-process
-/// AI agent using the dartantic_ai framework.
 class AiChatService {
   FrontendAgent? _agent;
   bool _isDisposed = false;

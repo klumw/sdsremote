@@ -1197,12 +1197,6 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       callbacks: SettingsPanelCallbacks(
         onSave: (newIp, newProvider, newToken, newModel) {
           final logger = AppLogger(agentName: 'main', toolName: 'onSave');
-          bool criticalConfigChanged =
-              _ipAddress != newIp ||
-              _aiProvider != newProvider ||
-              _aiApiToken != newToken ||
-              _llmModel != newModel;
-
           logger.log(
             'Saving config: ip=$newIp, provider=$newProvider, '
             'token=${newToken.isNotEmpty ? "***${newToken.substring(newToken.length - 4)}" : "(empty)"}, '
@@ -1607,10 +1601,6 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
         _settingsOffset = const Offset(100, 100);
       });
     }
-  }
-
-  void _toggleHelp() {
-    _togglePanel(ActivePanel.help);
   }
 
   // =========================================================================

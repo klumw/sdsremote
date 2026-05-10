@@ -283,7 +283,7 @@ class Vxi11ErrorMessages {
 class Vxi11Instrument {
   final String _host;
   final String _deviceName;
-  String _sourceLabel = '';
+  final String _sourceLabel;
   int _timeoutMs = 10000;
   RpcClient? _rpc;
   int? _linkId;
