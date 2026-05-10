@@ -5,7 +5,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'max_tool_calls_handler.dart';
 import 'vxi11_tool.dart';
 
-/// A reusable AI agent that uses DeepSeek or EdenAI via the OpenAI-compatible API.
+/// A reusable AI agent for instrument control via an AI model.
 ///
 /// This class wraps the dartantic_ai framework and provides a simple,
 /// reusable interface for chat interactions. It can be used in both
@@ -19,12 +19,12 @@ import 'vxi11_tool.dart';
 ///
 /// Usage:
 /// ```dart
-/// final agent = ChatAgent();
+/// final agent = InstrumentAgent();
 /// await for (final chunk in agent.sendStream('Send C1:TRA OFF to the device')) {
 ///   print(chunk);
 /// }
 /// ```
-class ChatAgent with MaxToolCallsHandler {
+class InstrumentAgent with MaxToolCallsHandler {
   /// Default maximum number of tool calls per user input.
   static const int defaultMaxToolCalls = 3;
 
@@ -38,10 +38,10 @@ class ChatAgent with MaxToolCallsHandler {
   @override
   final int maxToolCalls;
 
-  /// Creates a [ChatAgent] configured for the specified model with optional tools.
+  /// Creates a [InstrumentAgent] configured for the specified model with optional tools.
   ///
   /// The [model] parameter specifies the model to use in `provider:model`
-  /// format. Defaults to `deepseek:deepseek-v4-flash`.
+  /// format.
   ///
   /// The [systemPrompt] parameter sets an optional system message.
   ///
@@ -52,7 +52,7 @@ class ChatAgent with MaxToolCallsHandler {
   ///
   /// The [maxToolCalls] parameter limits the number of tool calls per
   /// user input. Defaults to [defaultMaxToolCalls] (10).
-  ChatAgent({
+  InstrumentAgent({
     String model = 'deepseek:deepseek-v4-flash',
     String? systemPrompt,
     String? vxi11Host,
@@ -60,11 +60,11 @@ class ChatAgent with MaxToolCallsHandler {
     this.maxToolCalls = defaultMaxToolCalls,
   }) : _agent = Agent(
           model,
-          displayName: 'ChatAgent',
+          displayName: 'InstrumentAgent',
           tools: [
             if (vxi11Host != null) createVxi11Tool(
               host: vxi11Host,
-              agentName: 'ChatAgent',
+              agentName: 'InstrumentAgent',
             ),
             if (tools != null) ...tools,
           ],
@@ -74,7 +74,7 @@ class ChatAgent with MaxToolCallsHandler {
     }
   }
 
-  /// The display name of the agent (e.g., "DeepSeek").
+  /// The display name of the agent.
   String get displayName => _agent.displayName;
 
   /// The current model name being used.
@@ -127,12 +127,30 @@ class ChatAgent with MaxToolCallsHandler {
         }
       }
 
-      // If we've exceeded the max tool calls, inject a tool result message
-      // telling the LLM the limit was reached so it can respond gracefully.
+      // If we've exceeded the max tool calls, inject tool result messages
+      // for the actual tool calls from this chunk so the conversation history
+      // stays consistent for the next turn. Without this, the orphaned tool
+      // call messages would cause API validation errors like "assistant message
+      // with 'tool_calls' must be followed by tool messages responding to each
+      // 'tool_call_id'".
       if (isMaxToolCallsExceeded(toolCallCount)) {
-        final result = buildMaxToolCallsMessage();
-        _history.add(result.toolResultMessage);
-        yield result.message;
+        for (final msg in chunk.messages) {
+          if (msg.role == ChatMessageRole.model && msg.hasToolCalls) {
+            final toolResultParts = msg.toolCalls.map((tc) => ToolPart.result(
+              callId: tc.callId,
+              toolName: tc.toolName,
+              result: '{"error": "Maximum tool calls ($maxToolCalls) reached. '
+                  'Please respond with what you have so far."}',
+            )).toList();
+            final toolResultMessage = ChatMessage(
+              role: ChatMessageRole.user,
+              parts: toolResultParts,
+            );
+            _history.add(toolResultMessage);
+          }
+        }
+        yield 'Maximum tool calls ($maxToolCalls) reached. '
+            'Please respond with what you have so far.';
         break;
       }
 

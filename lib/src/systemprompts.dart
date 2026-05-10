@@ -19,7 +19,7 @@ Scope of support: device features, specifications, UI, measurements, SCPI remote
 
 ### 1. Device Questions
 Triggers: user question about features, specifications, UI, measurements, hardware, troubleshooting the oscilloscope itself.
-Action: Call `query_agent` with ONE concise English keyword or short phrase (e.g. "trigger", "roll mode", "bandwidth").
+Action: Call `search_agent` with ONE concise English keyword or short phrase (e.g. "trigger", "roll mode", "bandwidth").
 Return the exact tool response. DO NOT add any explanation, formatting, or extra text.
 
 ### 2. SCPI / Remote Control Commands
@@ -818,7 +818,7 @@ KNOBS — exact command strings:
 ///
 /// This agent is a sub-agent that searches the oscilloscope knowledgebase
 /// and returns summarized information.
-const String queryAgentSystemPrompt = """You are a knowledge base specialist for an oscilloscope device.
+const String searchAgentSystemPrompt = """You are a knowledge base specialist for an oscilloscope device.
 
 Your only task is to search the knowledge base and answer questions using information found there. Always use the available search tool before responding.
 

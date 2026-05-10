@@ -35,7 +35,7 @@ class AiChatService {
     String? vxi11Host,
     int? maxToolCalls,
     int? instrumentToolCalls,
-    int? queryToolCalls,
+    int? searchToolCalls,
   }) {
     if (_isDisposed) return;
 
@@ -47,7 +47,7 @@ class AiChatService {
       'Configuring FrontendAgent: model=$model, vxi11Host=$vxi11Host, '
       'maxToolCalls=$maxToolCalls, '
       'instrumentToolCalls=$instrumentToolCalls, '
-      'queryToolCalls=$queryToolCalls',
+      'searchToolCalls=$searchToolCalls',
     );
 
     // The dartantic_ai Agent reads API keys from Agent.environment (a static
@@ -62,7 +62,7 @@ class AiChatService {
         vxi11Host: vxi11Host,
         maxToolCalls: maxToolCalls ?? FrontendAgent.defaultMaxToolCalls,
         instrumentToolCalls: instrumentToolCalls ?? FrontendAgent.defaultInstrumentToolCalls,
-        queryToolCalls: queryToolCalls ?? FrontendAgent.defaultQueryToolCalls,
+        searchToolCalls: searchToolCalls ?? FrontendAgent.defaultSearchToolCalls,
       );
       logger.debug(
         'SUCCESS: FrontendAgent created, agent=${_agent != null}',

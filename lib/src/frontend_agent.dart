@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../logger.dart';
-import 'agent.dart';
-import 'query_agent.dart';
+import 'instrument_agent.dart';
+import 'search_agent.dart';
 import 'systemprompts.dart';
 
 /// Creates the tool that wraps the VXI-11 instrument agent.
@@ -12,7 +12,7 @@ import 'systemprompts.dart';
 /// The [vxiAgent] is captured in the closure so the tool can delegate
 /// prompts to the instrument agent.
 Tool<Map<String, dynamic>> _createScpiAgentTool(
-  ChatAgent vxiAgent, {
+  InstrumentAgent vxiAgent, {
   String agentName = 'unknown',
 }) {
   return Tool<Map<String, dynamic>>(
@@ -52,16 +52,16 @@ Tool<Map<String, dynamic>> _createScpiAgentTool(
   );
 }
 
-/// Creates the tool that wraps the knowledgebase query agent.
+/// Creates the tool that wraps the knowledgebase search agent.
 ///
-/// The [queryAgent] is captured in the closure so the tool can delegate
-/// knowledgebase queries to the query agent.
-Tool<Map<String, dynamic>> _createQueryAgentTool(
-  QueryAgent queryAgent, {
+/// The [searchAgent] is captured in the closure so the tool can delegate
+/// knowledgebase queries to the search agent.
+Tool<Map<String, dynamic>> _createSearchAgentTool(
+  SearchAgent searchAgent, {
   String agentName = 'unknown',
 }) {
   return Tool<Map<String, dynamic>>(
-    name: 'query_agent',
+    name: 'search_agent',
     description:
         'Search the oscilloscope knowledgebase for information about '
         'commands, settings, troubleshooting, or device specifications. '
@@ -89,9 +89,9 @@ Tool<Map<String, dynamic>> _createQueryAgentTool(
       final query = args['query'] as String;
       final logger = AppLogger(
         agentName: agentName,
-        toolName: 'query_agent',
+        toolName: 'search_agent',
       );
-      final response = await queryAgent.send(query);
+      final response = await searchAgent.send(query);
       logger.logToolCall(
         input: args,
         output: {'response': response},
@@ -101,20 +101,20 @@ Tool<Map<String, dynamic>> _createQueryAgentTool(
   );
 }
 
-/// A frontend AI agent that has the [ChatAgent] (with VXI-11 tool) and
-/// [QueryAgent] (with knowledgebase search) as tools.
+/// A frontend AI agent that has the [InstrumentAgent] (with VXI-11 tool) and
+/// [SearchAgent] (with knowledgebase search) as tools.
 ///
 /// This creates a three-tier architecture:
 /// - **FrontendAgent**: The user-facing agent that can answer general questions
 ///   or delegate to specialized sub-agents.
-/// - **ChatAgent** (instrument agent): An internal agent equipped with the
+/// - **InstrumentAgent** (instrument agent): An internal agent equipped with the
 ///   VXI-11 tool for sending SCPI commands and queries to a remote instrument.
-/// - **QueryAgent** (knowledgebase agent): An internal agent that searches a
+/// - **SearchAgent** (knowledgebase agent): An internal agent that searches a
 ///   Markdown knowledgebase for oscilloscope documentation.
 ///
 /// The frontend agent has the following tools:
 /// - `scpi_instrument_agent`: For sending SCPI commands to the instrument
-/// - `query_agent`: For searching the oscilloscope knowledgebase
+/// - `search_agent`: For searching the oscilloscope knowledgebase
 ///
 /// All agents limit the number of tool calls per user input to
 /// [maxToolCalls] (default: 10). This prevents runaway tool loops.
@@ -136,8 +136,8 @@ class FrontendAgent {
   static const int defaultInstrumentToolCalls = 10;
 
   /// Default maximum number of tool calls per user input for the knowledgebase
-  /// query sub-agent.
-  static const int defaultQueryToolCalls = 8;
+  /// search sub-agent.
+  static const int defaultSearchToolCalls = 8;
 
   /// The underlying dartantic_ai Agent instance for the frontend.
   final Agent _frontendAgent;
@@ -153,17 +153,13 @@ class FrontendAgent {
   final int instrumentToolCalls;
 
   /// Maximum number of tool calls allowed per user input for the knowledgebase
-  /// query sub-agent.
-  final int queryToolCalls;
+  /// search sub-agent.
+  final int searchToolCalls;
 
-  /// Creates a [FrontendAgent] with instrument and knowledgebase sub-agents.
+  /// Creates a [FrontendAgent] with instrument and knowledgebase search sub-agents.
   ///
   /// The [model] parameter specifies the model to use in `provider:model`
-  /// format. Defaults to `deepseek:deepseek-v4-flash`.
-  ///
-  /// Supports:
-  /// - `deepseek:<model>` - DeepSeek via OpenAI-compatible API
-  /// - `edenai:<model>` - EdenAI via OpenAI-compatible API
+  /// format.
   ///
   /// The [systemPrompt] parameter sets an optional system message for the
   /// frontend agent. If null, [frontendAgentDefaultSystemPrompt] is used.
@@ -184,9 +180,9 @@ class FrontendAgent {
   /// user input for the instrument (VXI-11) sub-agent.
   /// Defaults to [defaultInstrumentToolCalls] (5).
   ///
-  /// The [queryToolCalls] parameter limits the number of tool calls per
-  /// user input for the knowledgebase query sub-agent.
-  /// Defaults to [defaultQueryToolCalls] (10).
+  /// The [searchToolCalls] parameter limits the number of tool calls per
+  /// user input for the knowledgebase search sub-agent.
+  /// Defaults to [defaultSearchToolCalls] (10).
   FrontendAgent({
     String model = 'deepseek:deepseek-v4-flash',
     String? systemPrompt,
@@ -195,7 +191,7 @@ class FrontendAgent {
     List<Tool>? tools,
     this.maxToolCalls = defaultMaxToolCalls,
     this.instrumentToolCalls = defaultInstrumentToolCalls,
-    this.queryToolCalls = defaultQueryToolCalls,
+    this.searchToolCalls = defaultSearchToolCalls,
   }) : _frontendAgent = Agent(
           model,
           displayName: 'FrontendAgent',
@@ -209,11 +205,11 @@ class FrontendAgent {
                 ),
                 agentName: 'FrontendAgent',
               ),
-            _createQueryAgentTool(
-              _createQuerySubAgent(
+            _createSearchAgentTool(
+              _createSearchSubAgent(
                 model: model,
                 knowledgebasePath: knowledgebasePath,
-                maxToolCalls: queryToolCalls,
+                maxToolCalls: searchToolCalls,
               ),
               agentName: 'FrontendAgent',
             ),
@@ -223,7 +219,7 @@ class FrontendAgent {
     _history.add(ChatMessage.system(systemPrompt ?? frontendAgentDefaultSystemPrompt));
   }
 
-  /// The display name of the agent (e.g., "DeepSeek").
+  /// The display name of the agent.
   String get displayName => _frontendAgent.displayName;
 
   /// The current model name being used.
@@ -379,12 +375,32 @@ class FrontendAgent {
         }
       }
 
-      // If we've exceeded the max tool calls, stop yielding and break.
+      // If we've exceeded the max tool calls, inject tool result messages
+      // for the actual tool calls from this chunk so the conversation history
+      // stays consistent for the next turn. Without this, the orphaned tool
+      // call messages would cause API validation errors like "assistant message
+      // with 'tool_calls' must be followed by tool messages responding to each
+      // 'tool_call_id'".
       if (toolCallCount > maxToolCalls) {
         logger.debug(
           '[DIAG FrontendAgent.sendStream] BREAKING: '
           'toolCallCount=$toolCallCount > maxToolCalls=$maxToolCalls',
         );
+        for (final msg in chunk.messages) {
+          if (msg.role == ChatMessageRole.model && msg.hasToolCalls) {
+            final toolResultParts = msg.toolCalls.map((tc) => ToolPart.result(
+              callId: tc.callId,
+              toolName: tc.toolName,
+              result: '{"error": "Maximum tool calls ($maxToolCalls) reached. '
+                  'Please respond with what you have so far."}',
+            )).toList();
+            final toolResultMessage = ChatMessage(
+              role: ChatMessageRole.user,
+              parts: toolResultParts,
+            );
+            _history.add(toolResultMessage);
+          }
+        }
         break;
       }
 
@@ -435,12 +451,12 @@ class FrontendAgent {
   }
 
   /// Creates the internal instrument agent.
-  static ChatAgent _createVxiAgent({
+  static InstrumentAgent _createVxiAgent({
     required String model,
     required String? vxi11Host,
     required int maxToolCalls,
   }) {
-    return ChatAgent(
+    return InstrumentAgent(
       model: model,
       vxi11Host: vxi11Host,
       maxToolCalls: maxToolCalls,
@@ -448,17 +464,17 @@ class FrontendAgent {
     );
   }
 
-  /// Creates the internal query agent.
-  static QueryAgent _createQuerySubAgent({
+  /// Creates the internal search agent.
+  static SearchAgent _createSearchSubAgent({
     required String model,
     required String knowledgebasePath,
     required int maxToolCalls,
   }) {
-    return QueryAgent(
+    return SearchAgent(
       model: model,
       knowledgebasePath: knowledgebasePath,
       maxToolCalls: maxToolCalls,
-      systemPrompt: queryAgentSystemPrompt,
+      systemPrompt: searchAgentSystemPrompt,
     );
   }
 }

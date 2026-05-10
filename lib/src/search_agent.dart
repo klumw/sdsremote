@@ -8,7 +8,7 @@ import 'package:langchain/langchain.dart'
 import '../logger.dart';
 import 'max_tool_calls_handler.dart';
 
-/// A query agent that searches a knowledgebase (Markdown document) for
+/// A search agent that searches a knowledgebase (Markdown document) for
 /// information about an oscilloscope device and returns a summarized answer.
 ///
 /// The agent has a built-in tool called `knowledgebase_search` that splits
@@ -20,11 +20,11 @@ import 'max_tool_calls_handler.dart';
 ///
 /// Usage:
 /// ```dart
-/// final agent = QueryAgent();
+/// final agent = SearchAgent();
 /// final answer = await agent.send('How do I set the trigger level?');
 /// print(answer);
 /// ```
-class QueryAgent with MaxToolCallsHandler {
+class SearchAgent with MaxToolCallsHandler {
   /// Path to the knowledgebase Markdown file.
   static const _defaultKnowledgebasePath = 'docs/knowledgebase.md';
 
@@ -41,10 +41,10 @@ class QueryAgent with MaxToolCallsHandler {
   @override
   final int maxToolCalls;
 
-  /// Creates a [QueryAgent] with a knowledgebase search tool.
+  /// Creates a [SearchAgent] with a knowledgebase search tool.
   ///
   /// The [model] parameter specifies the model to use in `provider:model`
-  /// format. Defaults to `deepseek:deepseek-v4-flash`.
+  /// format.
   ///
   /// The [knowledgebasePath] parameter specifies the path to the Markdown
   /// knowledgebase file. Defaults to `docs/knowledgebase.md`.
@@ -53,18 +53,18 @@ class QueryAgent with MaxToolCallsHandler {
   ///
   /// The [maxToolCalls] parameter limits the number of tool calls per
   /// user input. Defaults to [defaultMaxToolCalls] (10).
-  QueryAgent({
+  SearchAgent({
     String model = 'deepseek:deepseek-v4-flash',
     String knowledgebasePath = _defaultKnowledgebasePath,
     String? systemPrompt,
     this.maxToolCalls = defaultMaxToolCalls,
   }) : _agent = Agent(
           model,
-          displayName: 'QueryAgent',
+          displayName: 'SearchAgent',
           tools: [
             _createKnowledgebaseSearchTool(
               knowledgebasePath,
-              agentName: 'QueryAgent',
+              agentName: 'SearchAgent',
             ),
           ],
         ) {
@@ -72,11 +72,11 @@ class QueryAgent with MaxToolCallsHandler {
       _history.add(ChatMessage.system(systemPrompt));
     }
     final logger = AppLogger(
-      agentName: 'QueryAgent',
+      agentName: 'SearchAgent',
       toolName: 'constructor',
     );
     logger.debug(
-      '[DEBUG QueryAgent.constructor] systemPrompt=$systemPrompt, '
+      '[DEBUG SearchAgent.constructor] systemPrompt=$systemPrompt, '
       '_history.length=${_history.length}, '
       '_history[0]?.role=${_history.isNotEmpty ? _history[0].role : "N/A"}, '
       '_history[0]?.text="${_history.isNotEmpty ? _history[0].text : "N/A"}"',
@@ -125,14 +125,14 @@ class QueryAgent with MaxToolCallsHandler {
 
     // If no file was found anywhere, log a warning and return empty.
     if (resolvedPath == null) {
-      AppLogger(agentName: 'QueryAgent', toolName: 'loadKnowledgebase').debug(
+      AppLogger(agentName: 'SearchAgent', toolName: 'loadKnowledgebase').debug(
         'WARNING: Knowledgebase file not found at "$path" or any alternative '
         'location. The knowledgebase_search tool will be unavailable.',
       );
       return [];
     }
 
-    AppLogger(agentName: 'QueryAgent', toolName: 'loadKnowledgebase').debug(
+    AppLogger(agentName: 'SearchAgent', toolName: 'loadKnowledgebase').debug(
       'Loaded knowledgebase from: $resolvedPath',
     );
 
@@ -240,7 +240,7 @@ class QueryAgent with MaxToolCallsHandler {
     );
   }
 
-  /// The display name of the agent (e.g., "DeepSeek").
+  /// The display name of the agent.
   String get displayName => _agent.displayName;
 
   /// The current model name being used.
@@ -256,16 +256,16 @@ class QueryAgent with MaxToolCallsHandler {
   /// telling it the limit was reached so it can respond gracefully.
   Future<String> send(String prompt) async {
     final logger = AppLogger(
-      agentName: 'QueryAgent',
+      agentName: 'SearchAgent',
       toolName: 'send',
     );
     logger.debug(
-      '[DEBUG QueryAgent.send] _history has ${_history.length} messages:',
+      '[DEBUG SearchAgent.send] _history has ${_history.length} messages:',
     );
     for (var i = 0; i < _history.length; i++) {
       final msg = _history[i];
       logger.debug(
-        '[DEBUG QueryAgent.send]   [$i] role=${msg.role} '
+        '[DEBUG SearchAgent.send]   [$i] role=${msg.role} '
         'text="${msg.text.substring(0, msg.text.length > 80 ? 80 : msg.text.length)}"'
         '${msg.hasToolCalls ? ' hasToolCalls' : ''}'
         '${msg.hasToolResults ? ' hasToolResults' : ''}',
@@ -291,17 +291,17 @@ class QueryAgent with MaxToolCallsHandler {
   /// further tool calls.
   Stream<String> sendStream(String prompt) async* {
     final logger = AppLogger(
-      agentName: 'QueryAgent',
+      agentName: 'SearchAgent',
       toolName: 'sendStream',
     );
     logger.debug(
-      '[DEBUG QueryAgent.sendStream] _history has ${_history.length} '
+      '[DEBUG SearchAgent.sendStream] _history has ${_history.length} '
       'messages:',
     );
     for (var i = 0; i < _history.length; i++) {
       final msg = _history[i];
       logger.debug(
-        '[DEBUG QueryAgent.sendStream]   [$i] role=${msg.role} '
+        '[DEBUG SearchAgent.sendStream]   [$i] role=${msg.role} '
         'text="${msg.text.substring(0, msg.text.length > 80 ? 80 : msg.text.length)}"'
         '${msg.hasToolCalls ? ' hasToolCalls' : ''}'
         '${msg.hasToolResults ? ' hasToolResults' : ''}',
@@ -327,12 +327,30 @@ class QueryAgent with MaxToolCallsHandler {
         }
       }
 
-      // If we've exceeded the max tool calls, inject a tool result message
-      // telling the LLM the limit was reached so it can respond gracefully.
+      // If we've exceeded the max tool calls, inject tool result messages
+      // for the actual tool calls from this chunk so the conversation history
+      // stays consistent for the next turn. Without this, the orphaned tool
+      // call messages would cause API validation errors like "assistant message
+      // with 'tool_calls' must be followed by tool messages responding to each
+      // 'tool_call_id'".
       if (isMaxToolCallsExceeded(toolCallCount)) {
-        final result = buildMaxToolCallsMessage();
-        _history.add(result.toolResultMessage);
-        yield result.message;
+        for (final msg in chunk.messages) {
+          if (msg.role == ChatMessageRole.model && msg.hasToolCalls) {
+            final toolResultParts = msg.toolCalls.map((tc) => ToolPart.result(
+              callId: tc.callId,
+              toolName: tc.toolName,
+              result: '{"error": "Maximum tool calls ($maxToolCalls) reached. '
+                  'Please respond with what you have so far."}',
+            )).toList();
+            final toolResultMessage = ChatMessage(
+              role: ChatMessageRole.user,
+              parts: toolResultParts,
+            );
+            _history.add(toolResultMessage);
+          }
+        }
+        yield 'Maximum tool calls ($maxToolCalls) reached. '
+            'Please respond with what you have so far.';
         break;
       }
 
