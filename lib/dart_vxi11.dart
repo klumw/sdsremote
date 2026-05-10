@@ -500,7 +500,7 @@ class Vxi11Instrument {
       _lastError = 'Connection not open';
       throw StateError(_lastError);
     }
-    return _stripIeeeHeader(await _readRaw());
+    return stripIeeeHeader(await _readRaw());
   }
 
   /// Sends SCDP and reads the raw BMP image bytes.
@@ -557,7 +557,7 @@ class Vxi11Instrument {
   }
 
   /// Strips the IEEE 488.2 `#<n><len>` header if present and returns payload.
-  Uint8List _stripIeeeHeader(Uint8List raw) {
+  Uint8List stripIeeeHeader(Uint8List raw) {
     // Find '#'
     int i = 0;
     while (i < raw.length && raw[i] != 0x23) {

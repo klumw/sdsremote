@@ -914,12 +914,15 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       final instr = await _getInstrument();
       if (instr == null) throw Exception('Device not connected');
 
-      // Send PNSU? to get XML settings
+      // Send PNSU? to get XML settings.
+      // The instrument returns data with an IEEE 488.2 definite-length block
+      // header (e.g. "PNSU #9000047692<?xml..."). Decode with lenient UTF-8
+      // handling to tolerate any non-UTF-8 bytes in the raw response.
       final data = await instr.readRawResponse('PNSU?');
-      final xml = utf8.decode(data);
+      final content = utf8.decode(data, allowMalformed: true);
 
       final file = File('$name.lss');
-      await file.writeAsString(xml);
+      await file.writeAsString(content);
 
       _loadProfileFiles();
       if (mounted) {
