@@ -130,6 +130,11 @@ class WaveformBasePainter extends CustomPainter {
     final visibleVRange = visibleVMax - visibleVMin;
     if (visibleTRange <= 0 || visibleVRange <= 0) return;
 
+    // Restrict waveform drawing to the grid area to prevent
+    // overflow beyond the grid when zoom factor > 1.
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
+
     final path = Path();
     bool first = true;
     for (final point in data.points) {
@@ -144,6 +149,7 @@ class WaveformBasePainter extends CustomPainter {
       }
     }
     canvas.drawPath(path, paint);
+    canvas.restore();
   }
 
   void _drawNoDataHint(Canvas canvas, Size size) {
