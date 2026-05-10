@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import 'osci_knob_widgets.dart';
+import '../main.dart' show KnobId;
 
 /// A widget that renders a physical oscilloscope control panel overlay
 /// on top of a screen dump image.
@@ -14,21 +15,8 @@ class PhysicalControlPanel extends StatelessWidget {
   final ValueChanged<String> onChannelToggle;
   final ValueChanged<int>? onSoftKeyPressed;
   final VoidCallback? onMenuPressed;
-  final ValueChanged<double>? onIntensityAdjustChanged;
-  final VoidCallback? onIntensityAdjustTapped;
-  final ValueChanged<double>? onCh1VoltageKnobChanged;
-  final VoidCallback? onCh1VoltageKnobTapped;
-  final ValueChanged<double>? onCh1PositionKnobChanged;
-  final ValueChanged<double>? onCh2VoltageKnobChanged;
-  final VoidCallback? onCh2VoltageKnobTapped;
-  final ValueChanged<double>? onCh2PositionKnobChanged;
-  final VoidCallback? onCh1PositionKnobTapped;
-  final VoidCallback? onCh2PositionKnobTapped;
-  final ValueChanged<double>? onHorizontalTimeKnobChanged;
-  final VoidCallback? onHorizontalTimeKnobTapped;
-  final VoidCallback? onHorizontalPositionKnobTapped;
-  final ValueChanged<double>? onTriggerLevelKnobChanged;
-  final VoidCallback? onTriggerLevelKnobTapped;
+  final void Function(KnobId knob, double newValue)? onKnobChanged;
+  final void Function(KnobId knob)? onKnobTapped;
   final ValueChanged<String>? onMenuButtonPressed;
   final ValueChanged<String>? onVerticalButtonPressed;
   final ValueChanged<String>? onHorizontalButtonPressed;
@@ -43,21 +31,8 @@ class PhysicalControlPanel extends StatelessWidget {
     required this.onChannelToggle,
     this.onSoftKeyPressed,
     this.onMenuPressed,
-    this.onIntensityAdjustChanged,
-    this.onIntensityAdjustTapped,
-    this.onCh1VoltageKnobChanged,
-    this.onCh1VoltageKnobTapped,
-    this.onCh1PositionKnobChanged,
-    this.onCh2VoltageKnobChanged,
-    this.onCh2VoltageKnobTapped,
-    this.onCh2PositionKnobChanged,
-    this.onCh1PositionKnobTapped,
-    this.onCh2PositionKnobTapped,
-    this.onHorizontalTimeKnobChanged,
-    this.onHorizontalTimeKnobTapped,
-    this.onHorizontalPositionKnobTapped,
-    this.onTriggerLevelKnobChanged,
-    this.onTriggerLevelKnobTapped,
+    this.onKnobChanged,
+    this.onKnobTapped,
     this.onMenuButtonPressed,
     this.onVerticalButtonPressed,
     this.onHorizontalButtonPressed,
@@ -168,9 +143,13 @@ class PhysicalControlPanel extends StatelessWidget {
                               _buildKnobSection(
                                 'Intensity\nAdjust',
                                 60,
-                                onChanged: onIntensityAdjustChanged,
+                                onChanged: onKnobChanged != null
+                                    ? (v) => onKnobChanged!(KnobId.intensityAdjust, v)
+                                    : null,
                                 showCounter: false,
-                                onTap: onIntensityAdjustTapped,
+                                onTap: onKnobTapped != null
+                                    ? () => onKnobTapped!(KnobId.intensityAdjust)
+                                    : null,
                               ),
                               const SizedBox(width: 10),
                               Expanded(flex: 4, child: _buildMenuGrid()),
@@ -227,10 +206,13 @@ class PhysicalControlPanel extends StatelessWidget {
                                         const SizedBox(height: 8),
                                         _buildKnob(
                                           70,
-                                          onChanged:
-                                              onHorizontalTimeKnobChanged,
+                                          onChanged: onKnobChanged != null
+                                              ? (v) => onKnobChanged!(KnobId.horizontalTime, v)
+                                              : null,
                                           showCounter: false,
-                                          onTap: onHorizontalTimeKnobTapped,
+                                          onTap: onKnobTapped != null
+                                              ? () => onKnobTapped!(KnobId.horizontalTime)
+                                              : null,
                                         ),
                                         const SizedBox(height: 25),
                                         _buildOscButton(
@@ -252,7 +234,9 @@ class PhysicalControlPanel extends StatelessWidget {
                                         _buildKnob(
                                           50,
                                           showCounter: false,
-                                          onTap: onHorizontalPositionKnobTapped,
+                                          onTap: onKnobTapped != null
+                                              ? () => onKnobTapped!(KnobId.horizontalPosition)
+                                              : null,
                                         ),
                                       ],
                                     ),
@@ -317,9 +301,13 @@ class PhysicalControlPanel extends StatelessWidget {
                                         const SizedBox(height: 8),
                                         _buildKnob(
                                           50,
-                                          onChanged: onTriggerLevelKnobChanged,
+                                          onChanged: onKnobChanged != null
+                                              ? (v) => onKnobChanged!(KnobId.triggerLevel, v)
+                                              : null,
                                           showCounter: false,
-                                          onTap: onTriggerLevelKnobTapped,
+                                          onTap: onKnobTapped != null
+                                              ? () => onKnobTapped!(KnobId.triggerLevel)
+                                              : null,
                                         ),
                                       ],
                                     ),
@@ -528,7 +516,14 @@ class PhysicalControlPanel extends StatelessWidget {
           children: [
             const Text('V <-> mV', style: TextStyle(fontSize: 10)),
             const SizedBox(height: 8),
-            _buildKnob(70, enabled: true, showCounter: false, onChanged: ch == 'CH1' ? onCh1VoltageKnobChanged : (ch == 'CH2' ? onCh2VoltageKnobChanged : null), onTap: ch == 'CH1' ? onCh1VoltageKnobTapped : (ch == 'CH2' ? onCh2VoltageKnobTapped : null)),
+            _buildKnob(70, enabled: true, showCounter: false,
+              onChanged: onKnobChanged != null
+                  ? (v) => onKnobChanged!(ch == 'CH1' ? KnobId.ch1Voltage : KnobId.ch2Voltage, v)
+                  : null,
+              onTap: onKnobTapped != null
+                  ? () => onKnobTapped!(ch == 'CH1' ? KnobId.ch1Voltage : KnobId.ch2Voltage)
+                  : null,
+            ),
           ],
         ),
         const SizedBox(height: 15),
@@ -558,7 +553,14 @@ class PhysicalControlPanel extends StatelessWidget {
           children: [
             const Text('Position', style: TextStyle(fontSize: 10)),
             const SizedBox(height: 8),
-            _buildKnob(50, enabled: true, showCounter: false, onChanged: ch == 'CH1' ? onCh1PositionKnobChanged : (ch == 'CH2' ? onCh2PositionKnobChanged : null), onTap: ch == 'CH1' ? onCh1PositionKnobTapped : (ch == 'CH2' ? onCh2PositionKnobTapped : null)),
+            _buildKnob(50, enabled: true, showCounter: false,
+              onChanged: onKnobChanged != null
+                  ? (v) => onKnobChanged!(ch == 'CH1' ? KnobId.ch1Position : KnobId.ch2Position, v)
+                  : null,
+              onTap: onKnobTapped != null
+                  ? () => onKnobTapped!(ch == 'CH1' ? KnobId.ch1Position : KnobId.ch2Position)
+                  : null,
+            ),
           ],
         ),
       ],

@@ -119,7 +119,6 @@ class WaveformAcquisition {
     } finally {
       if (ownInstr) {
         await activeInstr.close();
-        await activeInstr.destroy();
       }
     }
   }

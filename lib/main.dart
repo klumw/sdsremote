@@ -70,6 +70,94 @@ const List<ProviderConfig> providerConfigs = [
 
 enum ActivePanel { none, help, chat, profiles }
 
+/// A reusable toolbar button with the standard SDS-Remote dark theme styling.
+/// Used in the top bar for Control Panel, Acquire Waveform, AI, Profiles, and Help buttons.
+class _OsciToolbarButton extends StatelessWidget {
+  final String label;
+  final Widget icon;
+  final VoidCallback? onPressed;
+  final bool alwaysEnabled;
+
+  const _OsciToolbarButton({
+    required this.label,
+    required this.icon,
+    this.onPressed,
+    this.alwaysEnabled = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final isDisabled = !alwaysEnabled && onPressed == null;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Ink(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF172A45).withValues(alpha: isDisabled ? 0.3 : 1.0),
+            borderRadius: BorderRadius.circular(8),
+            boxShadow: isDisabled
+                ? []
+                : [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.4),
+                      offset: const Offset(1, 1),
+                      blurRadius: 2,
+                    ),
+                  ],
+            border: Border.all(
+              color: const Color(0xFF475569).withValues(alpha: isDisabled ? 0.3 : 1.0),
+              width: 1.0,
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (isDisabled)
+                ColorFiltered(
+                  colorFilter: ColorFilter.mode(
+                    Colors.white.withValues(alpha: 0.3),
+                    BlendMode.srcIn,
+                  ),
+                  child: icon,
+                )
+              else
+                icon,
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white.withValues(alpha: isDisabled ? 0.3 : 1.0),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Identifies a physical knob on the oscilloscope for the generic
+/// [_handleKnobChanged] and [_handleKnobTapped] methods.
+enum KnobId {
+  intensityAdjust(15),
+  ch1Voltage(35),
+  ch2Voltage(36),
+  ch1Position(43),
+  ch2Position(44),
+  horizontalTime(7),
+  horizontalPosition(10),
+  triggerLevel(16);
+
+  final int scpiCommandNumber;
+  const KnobId(this.scpiCommandNumber);
+}
+
 // ===========================================================================
 // Top-level functions (used with compute())
 // ===========================================================================
@@ -82,41 +170,33 @@ Uint8List _processScreenDump(Uint8List data) {
   return Uint8List.fromList(img.encodePng(decoded));
 }
 
+WaveformData? _convertChannel({
+  required Uint8List? rawData,
+  required double? vdiv,
+  required double? voffset,
+  required double trdl,
+  required double timebase,
+  required double sampleRate,
+}) {
+  if (rawData == null || vdiv == null || voffset == null) return null;
+  final voltages = WaveformConverter.convertVoltages(rawData, vdiv, voffset);
+  final times = WaveformConverter.computeTimeAxis(
+    voltages.length, trdl, timebase, sampleRate,
+  );
+  return WaveformData(points: WaveformConverter.combine(times, voltages));
+}
+
 (WaveformData?, WaveformData?, DeviceParams) _convertRawData(
   WaveformRawData raw,
 ) {
-  WaveformData? ch1;
-  WaveformData? ch2;
-
-  if (raw.ch1Raw != null && raw.vdivCh1 != null && raw.voffsetCh1 != null) {
-    final voltages = WaveformConverter.convertVoltages(
-      raw.ch1Raw!,
-      raw.vdivCh1!,
-      raw.voffsetCh1!,
-    );
-    final times = WaveformConverter.computeTimeAxis(
-      voltages.length,
-      raw.trdl,
-      raw.timebase,
-      raw.sampleRate,
-    );
-    ch1 = WaveformData(points: WaveformConverter.combine(times, voltages));
-  }
-
-  if (raw.ch2Raw != null && raw.vdivCh2 != null && raw.voffsetCh2 != null) {
-    final voltages = WaveformConverter.convertVoltages(
-      raw.ch2Raw!,
-      raw.vdivCh2!,
-      raw.voffsetCh2!,
-    );
-    final times = WaveformConverter.computeTimeAxis(
-      voltages.length,
-      raw.trdl,
-      raw.timebase,
-      raw.sampleRate,
-    );
-    ch2 = WaveformData(points: WaveformConverter.combine(times, voltages));
-  }
+  final ch1 = _convertChannel(
+    rawData: raw.ch1Raw, vdiv: raw.vdivCh1, voffset: raw.voffsetCh1,
+    trdl: raw.trdl, timebase: raw.timebase, sampleRate: raw.sampleRate,
+  );
+  final ch2 = _convertChannel(
+    rawData: raw.ch2Raw, vdiv: raw.vdivCh2, voffset: raw.voffsetCh2,
+    trdl: raw.trdl, timebase: raw.timebase, sampleRate: raw.sampleRate,
+  );
 
   final params = DeviceParams(
     vdivCh1: raw.vdivCh1,
@@ -260,6 +340,11 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
 
   // Soft key handling
   bool _isProcessingSoftKey = false;
+
+  // Knob handling (generic)
+  final Map<KnobId, double> _knobPreviousValues = {
+    for (final knob in KnobId.values) knob: 0.5,
+  };
 
   // Timers
   Timer? _pingTimer;
@@ -458,46 +543,15 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
                                   screenDump: _screenDump!,
                                   ch1Enabled: _ch1Enabled,
                                   ch2Enabled: _ch2Enabled,
-                                  onChannelToggle: _handleChannelToggle,
+                                  onChannelToggle: _handleButtonPress,
                                   onSoftKeyPressed: _handleSoftKeyPress,
                                   onMenuPressed: _handleMenuPress,
-                                  onIntensityAdjustChanged:
-                                      _handleIntensityAdjustChanged,
-                                  onIntensityAdjustTapped:
-                                      _handleIntensityAdjustTapped,
-                                  onCh1VoltageKnobChanged:
-                                      _handleCh1VoltageKnobChanged,
-                                  onCh1VoltageKnobTapped:
-                                      _handleCh1VoltageKnobTapped,
-                                  onCh1PositionKnobChanged:
-                                      _handleCh1PositionKnobChanged,
-                                  onCh2VoltageKnobChanged:
-                                      _handleCh2VoltageKnobChanged,
-                                  onCh2VoltageKnobTapped:
-                                      _handleCh2VoltageKnobTapped,
-                                  onCh2PositionKnobChanged:
-                                      _handleCh2PositionKnobChanged,
-                                  onCh1PositionKnobTapped:
-                                      _handleCh1PositionKnobTapped,
-                                  onCh2PositionKnobTapped:
-                                      _handleCh2PositionKnobTapped,
-                                  onHorizontalTimeKnobChanged:
-                                      _handleHorizontalTimeKnobChanged,
-                                  onHorizontalTimeKnobTapped:
-                                      _handleHorizontalTimeKnobTapped,
-                                  onHorizontalPositionKnobTapped:
-                                      _handleHorizontalPositionKnobTapped,
-                                  onTriggerLevelKnobChanged:
-                                      _handleTriggerLevelKnobChanged,
-                                  onTriggerLevelKnobTapped:
-                                      _handleTriggerLevelKnobTapped,
-                                  onMenuButtonPressed: _handleMenuButtonPress,
-                                  onVerticalButtonPressed:
-                                      _handleVerticalButtonPress,
-                                  onHorizontalButtonPressed:
-                                      _handleHorizontalButtonPress,
-                                  onTriggerButtonPressed:
-                                      _handleTriggerButtonPress,
+                                  onKnobChanged: _handleKnobChanged,
+                                  onKnobTapped: _handleKnobTapped,
+                                  onMenuButtonPressed: _handleButtonPress,
+                                  onVerticalButtonPressed: _handleButtonPress,
+                                  onHorizontalButtonPressed: _handleButtonPress,
+                                  onTriggerButtonPressed: _handleButtonPress,
                                 )
                               : Center(
                                   child: Column(
@@ -576,7 +630,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
               alignment: Alignment.centerLeft,
               child: Row(
                 children: [
-                  _buildActionButton(
+                  _OsciToolbarButton(
                     label: _isAcquiring ? "Acquiring..." : "Control Panel",
                     icon: _isAcquiring
                         ? const SizedBox(
@@ -592,16 +646,45 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
                         : _acquireScreenDump,
                   ),
                   const SizedBox(width: 16),
-                  _buildWaveformControls(),
+                  _OsciToolbarButton(
+                    label: _isAcquiringWaveform ? "Acquiring..." : "Acquire Waveform",
+                    icon: _isAcquiringWaveform
+                        ? const SizedBox(
+                            width: 25,
+                            height: 25,
+                            child: CircularProgressIndicator(color: Colors.white),
+                          )
+                        : const Icon(Icons.show_chart, size: 25),
+                    onPressed: (_isAcquiringWaveform || !_isOnline)
+                        ? null
+                        : _acquireWaveform,
+                  ),
                   const SizedBox(width: 16),
-                  _buildAiButton(),
+                  _OsciToolbarButton(
+                    label: "AI",
+                    icon: const Icon(Icons.auto_awesome, size: 25),
+                    onPressed: _isAiEnabled
+                        ? () => _togglePanel(ActivePanel.chat)
+                        : null,
+                  ),
                   const SizedBox(width: 16),
-                  _buildProfilesButton(),
+                  _OsciToolbarButton(
+                    label: "Profiles",
+                    icon: const Icon(Icons.save, size: 25),
+                    onPressed: _isOnline
+                        ? () => _togglePanel(ActivePanel.profiles)
+                        : null,
+                  ),
                 ],
               ),
             ),
           ),
-          _buildHelpButton(),
+          _OsciToolbarButton(
+            label: "Help",
+            icon: const Icon(Icons.help_outline, size: 25),
+            onPressed: () => _togglePanel(ActivePanel.help),
+            alwaysEnabled: true,
+          ),
           const SizedBox(width: 16),
           Stack(
             children: [
@@ -652,284 +735,6 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     );
   }
 
-  Widget _buildActionButton({
-    required String label,
-    required Widget icon,
-    VoidCallback? onPressed,
-  }) {
-    final isDisabled = onPressed == null;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(
-              0xFF172A45,
-            ).withValues(alpha: isDisabled ? 0.3 : 1.0),
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: isDisabled
-                ? []
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.4),
-                      offset: const Offset(1, 1),
-                      blurRadius: 2,
-                    ),
-                  ],
-            border: Border.all(
-              color: const Color(
-                0xFF475569,
-              ).withValues(alpha: isDisabled ? 0.3 : 1.0),
-              width: 1.0,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              isDisabled
-                  ? ColorFiltered(
-                      colorFilter: ColorFilter.mode(
-                        Colors.white.withValues(alpha: 0.3),
-                        BlendMode.srcIn,
-                      ),
-                      child: icon,
-                    )
-                  : icon,
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white.withValues(alpha: isDisabled ? 0.3 : 1.0),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWaveformControls() {
-    final isDisabled = _isAcquiringWaveform || !_isOnline;
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Material(
-          color: Colors.transparent,
-          child: InkWell(
-            onTap: isDisabled ? null : _acquireWaveform,
-            borderRadius: BorderRadius.circular(8),
-            child: Ink(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(
-                  0xFF172A45,
-                ).withValues(alpha: isDisabled ? 0.3 : 1.0),
-                borderRadius: BorderRadius.circular(8),
-                boxShadow: isDisabled
-                    ? []
-                    : [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.4),
-                          offset: const Offset(1, 1),
-                          blurRadius: 2,
-                        ),
-                      ],
-                border: Border.all(
-                  color: const Color(
-                    0xFF475569,
-                  ).withValues(alpha: isDisabled ? 0.3 : 1.0),
-                  width: 1.0,
-                ),
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  _isAcquiringWaveform
-                      ? const SizedBox(
-                          width: 25,
-                          height: 25,
-                          child: CircularProgressIndicator(color: Colors.white),
-                        )
-                      : Icon(
-                          Icons.show_chart,
-                          size: 25,
-                          color: Colors.white.withValues(
-                            alpha: isDisabled ? 0.3 : 1.0,
-                          ),
-                        ),
-                  const SizedBox(width: 8),
-                  Text(
-                    _isAcquiringWaveform ? "Acquiring..." : "Acquire Waveform",
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white.withValues(
-                        alpha: isDisabled ? 0.3 : 1.0,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildAiButton() {
-    final isDisabled = !_isAiEnabled;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: isDisabled ? null : () => _togglePanel(ActivePanel.chat),
-        borderRadius: BorderRadius.circular(8),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(
-              0xFF172A45,
-            ).withValues(alpha: isDisabled ? 0.3 : 1.0),
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: isDisabled
-                ? []
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.4),
-                      offset: const Offset(1, 1),
-                      blurRadius: 2,
-                    ),
-                  ],
-            border: Border.all(
-              color: const Color(
-                0xFF475569,
-              ).withValues(alpha: isDisabled ? 0.3 : 1.0),
-              width: 1.0,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.auto_awesome,
-                size: 25,
-                color: Colors.white.withValues(alpha: isDisabled ? 0.3 : 1.0),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                "AI",
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white.withValues(alpha: isDisabled ? 0.3 : 1.0),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildProfilesButton() {
-    final isDisabled = !_isOnline;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: isDisabled ? null : () => _togglePanel(ActivePanel.profiles),
-        borderRadius: BorderRadius.circular(8),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(
-              0xFF172A45,
-            ).withValues(alpha: isDisabled ? 0.3 : 1.0),
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: isDisabled
-                ? []
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.4),
-                      offset: const Offset(1, 1),
-                      blurRadius: 2,
-                    ),
-                  ],
-            border: Border.all(
-              color: const Color(
-                0xFF475569,
-              ).withValues(alpha: isDisabled ? 0.3 : 1.0),
-              width: 1.0,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                Icons.save,
-                size: 25,
-                color: Colors.white.withValues(alpha: isDisabled ? 0.3 : 1.0),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                "Profiles",
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white.withValues(alpha: isDisabled ? 0.3 : 1.0),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildHelpButton() {
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: () => _togglePanel(ActivePanel.help),
-        borderRadius: BorderRadius.circular(8),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(0xFF172A45),
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.4),
-                offset: const Offset(1, 1),
-                blurRadius: 2,
-              ),
-            ],
-            border: Border.all(color: const Color(0xFF475569), width: 1.0),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.help_outline, size: 25, color: Colors.white),
-              const SizedBox(width: 8),
-              const Text(
-                "Help",
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 
   // =========================================================================
   // Status Bar
@@ -1300,7 +1105,6 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       await instr.writeString('*IDN?');
       final idn = (await instr.readString()).trim();
       await instr.close();
-      await instr.destroy();
       final parts = idn.split(',');
       final name = parts.length >= 2
           ? '${parts[0].trim()} ${parts[1].trim()}'
@@ -1712,7 +1516,6 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       await instr.open(timeoutSeconds: 3.0);
       addResult('SUCCESS: VXI-11 link opened');
       await instr.close();
-      await instr.destroy();
     } catch (e) {
       addResult('FAILURE: VXI-11 open failed: $e');
       setState(() => _isRunningDiagnostic = false);
@@ -1727,7 +1530,6 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       await instr.writeString('*IDN?');
       final idn = (await instr.readString()).trim();
       await instr.close();
-      await instr.destroy();
       addResult('SUCCESS: Device identity: $idn');
     } catch (e) {
       addResult('FAILURE: *IDN? query failed: $e');
@@ -1742,7 +1544,6 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       await instr.open(timeoutSeconds: 5.0);
       final data = await instr.getScreenDump();
       await instr.close();
-      await instr.destroy();
       addResult('SUCCESS: Screen dump received (${data.length} bytes)');
     } catch (e) {
       addResult('FAILURE: Screen dump failed: $e');
@@ -1772,7 +1573,6 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       _instrument = null;
       try {
         await instr.close();
-        await instr.destroy();
       } catch (e) {
         AppLogger().log('Error closing instrument: $e');
       }
@@ -1911,726 +1711,125 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   /// Sends $$SY_FP 15,-1 command when turned left (value decreases)
   /// then immediately requests a screen dump image.
   /// Reuses functionality from button M1.
-  double _previousIntensityValue = 0.5;
-  void _handleIntensityAdjustChanged(double newValue) async {
-    // Check if knob is turned (value changes) and device is ready
-    // Block if already processing a soft key or acquiring a screen dump
-    if (newValue != _previousIntensityValue &&
-        _isOnline &&
-        !_isProcessingSoftKey) {
-      setState(() {
-        _isProcessingSoftKey = true;
-      });
+  /// Generic handler for knob rotation (value changes).
+  /// Sends `$$SY_FP <cmd>,1` when turned right or `$$SY_FP <cmd>,-1` when left.
+  Future<void> _handleKnobChanged(KnobId knob, double newValue) async {
+    final prev = _knobPreviousValues[knob]!;
+    if (newValue == prev || !_isOnline || _isProcessingSoftKey) return;
 
-      try {
-        // Determine direction and send appropriate command
-        final String command;
-        if (newValue > _previousIntensityValue) {
-          // Knob turned right (value increases)
-          command = '\$\$SY_FP 15,1';
-        } else {
-          // Knob turned left (value decreases)
-          command = '\$\$SY_FP 15,-1';
-        }
+    setState(() => _isProcessingSoftKey = true);
+    try {
+      final dir = newValue > prev ? 1 : -1;
+      final command = '\$\$SY_FP ${knob.scpiCommandNumber},$dir';
+      if (await _sendCommand(command)) _scheduleRefresh();
+    } catch (e) {
+      AppLogger().log('${knob.name} knob handler error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error processing ${knob.name} knob: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessingSoftKey = false);
+    }
+    _knobPreviousValues[knob] = newValue;
+  }
 
-        final success = await _sendCommand(command);
+  /// Generic handler for knob tap/click.
+  /// Sends `$$SY_FP <cmd>,0`.
+  Future<void> _handleKnobTapped(KnobId knob) async {
+    if (!_isOnline || _isProcessingSoftKey) return;
 
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } catch (e) {
-        AppLogger().log('Intensity/Adjust knob handler error: $e');
+    setState(() => _isProcessingSoftKey = true);
+    try {
+      final command = '\$\$SY_FP ${knob.scpiCommandNumber},0';
+      if (await _sendCommand(command)) _scheduleRefresh();
+    } catch (e) {
+      AppLogger().log('${knob.name} knob tap handler error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error processing ${knob.name} knob tap: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isProcessingSoftKey = false);
+    }
+  }
+
+  // =========================================================================
+  // Button Operations (generic handler)
+  // =========================================================================
+
+  /// Maps button labels to their SCPI command strings.
+  static const Map<String, String> _buttonCommands = {
+    // Menu buttons
+    'Cursors': '\$\$SY_FP 22,1',
+    'Acquire': '\$\$SY_FP 27,1',
+    'Save/Recall': '\$\$SY_FP 28,1',
+    'Measure': '\$\$SY_FP 26,1',
+    'Clear Sweeps': '\$\$SY_FP 47,1',
+    'Utility': '\$\$SY_FP 24,1',
+    'Default': '\$\$SY_FP 13,1',
+    'Display/Persist': '\$\$SY_FP 23,1',
+    'Print': '\$\$SY_FP 25,1',
+    // Vertical buttons
+    'Math': '\$\$SY_FP 31,1',
+    'Ref': '\$\$SY_FP 32,1',
+    'History': '\$\$SY_FP 48,1',
+    'Decode': '\$\$SY_FP 29,1',
+    'Run/Stop': '\$\$SY_FP 12,1',
+    'Auto\nSetup': '\$\$SY_FP 11,1',
+    // Horizontal buttons
+    'Roll': '\$\$SY_FP 49,1',
+    // Trigger buttons
+    'Setup': '\$\$SY_FP 18,1',
+    'Auto': '\$\$SY_FP 17,1',
+    'Normal': '\$\$SY_FP 19,1',
+    'Single': '\$\$SY_FP 20,1',
+    // Channel
+    'CH1': '\$\$SY_FP 39,1',
+    'CH2': '\$\$SY_FP 40,1',
+  };
+
+  /// Generic handler for any button press (menu, vertical, horizontal, trigger, channel).
+  /// Looks up the SCPI command from [_buttonCommands] and sends it.
+  Future<void> _handleButtonPress(String buttonLabel) async {
+    if (_isProcessingSoftKey || !_isOnline) return;
+
+    setState(() => _isProcessingSoftKey = true);
+    try {
+      final command = _buttonCommands[buttonLabel];
+      if (command == null) {
+        AppLogger().log('Button "$buttonLabel" not implemented yet');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Error processing Intensity/Adjust knob: $e'),
-              backgroundColor: Colors.red,
+              content: Text('Button "$buttonLabel" not implemented yet'),
+              backgroundColor: Colors.blue,
             ),
           );
         }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isProcessingSoftKey = false;
-          });
-        }
+        return;
       }
-    }
-
-    // Update previous value for next comparison
-    _previousIntensityValue = newValue;
-  }
-
-  /// Handles Intensity/Adjust knob tap/click.
-  /// Sends $$SY_FP 15,0 command (special SPCI command for Intensity/Adjust knob click),
-  /// then immediately requests a screen dump image update.
-  /// Reuses functionality from button M1.
-  void _handleIntensityAdjustTapped() async {
-    // Block if already processing a soft key or acquiring a screen dump
-    if (!_isOnline || _isProcessingSoftKey) {
-      return;
-    }
-
-    setState(() {
-      _isProcessingSoftKey = true;
-    });
-
-    try {
-      // Send the special SPCI command for Intensity/Adjust knob click
-      final command = '\$\$SY_FP 15,0';
-      final success = await _sendCommand(command);
-
-      if (success) {
-        // Immediately request screen dump image (reusing M1 button functionality)
-        _scheduleRefresh();
-      }
+      if (await _sendCommand(command)) _scheduleRefresh();
     } catch (e) {
-      AppLogger().log('Intensity/Adjust knob tap handler error: $e');
+      AppLogger().log('Button "$buttonLabel" handler error: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Error processing Intensity/Adjust knob tap: $e'),
+            content: Text('Error processing $buttonLabel button: $e'),
             backgroundColor: Colors.red,
           ),
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessingSoftKey = false;
-        });
-      }
-    }
-  }
-
-  /// Handles Channel 1 Voltage knob tap/click.
-  /// Sends $$SY_FP 35,0 command (special SPCI command for CH1 Voltage knob click),
-  /// then immediately requests a screen dump image update.
-  /// Reuses functionality from button M1.
-  void _handleCh1VoltageKnobTapped() async {
-    // Block if already processing a soft key or acquiring a screen dump
-    if (!_isOnline || _isProcessingSoftKey) {
-      return;
-    }
-
-    setState(() {
-      _isProcessingSoftKey = true;
-    });
-
-    try {
-      // Send the special SPCI command for CH1 Voltage knob click
-      final command = '\$\$SY_FP 35,0';
-      final success = await _sendCommand(command);
-
-      if (success) {
-        // Immediately request screen dump image (reusing M1 button functionality)
-        _scheduleRefresh();
-      }
-    } catch (e) {
-      AppLogger().log('CH1 Voltage knob tap handler error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error processing CH1 Voltage knob tap: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessingSoftKey = false;
-        });
-      }
-    }
-  }
-
-  /// Handles Channel 1 Voltage knob turned right or left.
-  /// Sends $$SY_FP 35,1 command when turned right (value increases)
-  /// Sends $$SY_FP 35,-1 command when turned left (value decreases)
-  /// then immediately requests a screen dump image.
-  /// Reuses functionality from button M1.
-  double _previousCh1VoltageValue = 0.5;
-  void _handleCh1VoltageKnobChanged(double newValue) async {
-    // Check if knob is turned (value changes) and device is ready
-    // Block if already processing a soft key or acquiring a screen dump
-    if (newValue != _previousCh1VoltageValue &&
-        _isOnline &&
-        !_isProcessingSoftKey) {
-      setState(() {
-        _isProcessingSoftKey = true;
-      });
-
-      try {
-        // Determine direction and send appropriate command
-        final String command;
-        if (newValue > _previousCh1VoltageValue) {
-          // Knob turned right (value increases)
-          command = '\$\$SY_FP 35,1';
-        } else {
-          // Knob turned left (value decreases)
-          command = '\$\$SY_FP 35,-1';
-        }
-
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } catch (e) {
-        AppLogger().log('CH1 Voltage knob handler error: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error processing CH1 Voltage knob: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isProcessingSoftKey = false;
-          });
-        }
-      }
-    }
-
-    // Update previous value for next comparison
-    _previousCh1VoltageValue = newValue;
-  }
-
-  /// Handles Channel 2 Voltage knob turned right or left.
-  /// Sends $$SY_FP 36,1 command when turned right (value increases)
-  /// Sends $$SY_FP 36,-1 command when turned left (value decreases)
-  /// then immediately requests a screen dump image.
-  /// Reuses functionality from button M1.
-  double _previousCh2VoltageValue = 0.5;
-  void _handleCh2VoltageKnobChanged(double newValue) async {
-    // Check if knob is turned (value changes) and device is ready
-    // Block if already processing a soft key or acquiring a screen dump
-    if (newValue != _previousCh2VoltageValue &&
-        _isOnline &&
-        !_isProcessingSoftKey) {
-      setState(() {
-        _isProcessingSoftKey = true;
-      });
-
-      try {
-        // Determine direction and send appropriate command
-        final String command;
-        if (newValue > _previousCh2VoltageValue) {
-          // Knob turned right (value increases)
-          command = '\$\$SY_FP 36,1';
-        } else {
-          // Knob turned left (value decreases)
-          command = '\$\$SY_FP 36,-1';
-        }
-
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } catch (e) {
-        AppLogger().log('CH2 Voltage knob handler error: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error processing CH2 Voltage knob: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isProcessingSoftKey = false;
-          });
-        }
-      }
-    }
-
-    // Update previous value for next comparison
-    _previousCh2VoltageValue = newValue;
-  }
-
-  /// Handles Channel 2 Voltage knob tap/click.
-  /// Sends $$SY_FP 36,0 command (special SPCI command for CH2 Voltage knob click),
-  /// then immediately requests a screen dump image update.
-  /// Reuses functionality from button M1.
-  void _handleCh2VoltageKnobTapped() async {
-    // Block if already processing a soft key or acquiring a screen dump
-    if (!_isOnline || _isProcessingSoftKey) {
-      return;
-    }
-
-    setState(() {
-      _isProcessingSoftKey = true;
-    });
-
-    try {
-      // Send the special SPCI command for CH2 Voltage knob click
-      final command = '\$\$SY_FP 36,0';
-      final success = await _sendCommand(command);
-
-      if (success) {
-        // Immediately request screen dump image (reusing M1 button functionality)
-        _scheduleRefresh();
-      }
-    } catch (e) {
-      AppLogger().log('CH2 Voltage knob tap handler error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error processing CH2 Voltage knob tap: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessingSoftKey = false;
-        });
-      }
-    }
-  }
-
-  /// Handles Channel 1 Position knob turned right or left.
-  /// Sends $$SY_FP 43,1 command when turned right (value increases)
-  /// Sends $$SY_FP 43,-1 command when turned left (value decreases)
-  /// then immediately requests a screen dump image.
-  /// Reuses functionality from button M1.
-  double _previousCh1PositionValue = 0.5;
-  void _handleCh1PositionKnobChanged(double newValue) async {
-    // Check if knob is turned (value changes) and device is ready
-    // Block if already processing a soft key or acquiring a screen dump
-    if (newValue != _previousCh1PositionValue &&
-        _isOnline &&
-        !_isProcessingSoftKey) {
-      setState(() {
-        _isProcessingSoftKey = true;
-      });
-
-      try {
-        // Determine direction and send appropriate command
-        final String command;
-        if (newValue > _previousCh1PositionValue) {
-          // Knob turned right (value increases)
-          command = '\$\$SY_FP 43,1';
-        } else {
-          // Knob turned left (value decreases)
-          command = '\$\$SY_FP 43,-1';
-        }
-
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } catch (e) {
-        AppLogger().log('CH1 Position knob handler error: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error processing CH1 Position knob: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isProcessingSoftKey = false;
-          });
-        }
-      }
-    }
-
-    // Update previous value for next comparison
-    _previousCh1PositionValue = newValue;
-  }
-
-  /// Handles Channel 1 Position knob tap/click.
-  /// Sends $$SY_FP 43,0 command (special SPCI command for CH1 Position knob click),
-  /// then immediately requests a screen dump image update.
-  /// Reuses functionality from button M1.
-  void _handleCh1PositionKnobTapped() async {
-    // Block if already processing a soft key or acquiring a screen dump
-    if (!_isOnline || _isProcessingSoftKey) {
-      return;
-    }
-
-    setState(() {
-      _isProcessingSoftKey = true;
-    });
-
-    try {
-      // Send the special SPCI command for CH1 Position knob click
-      final command = '\$\$SY_FP 43,0';
-      final success = await _sendCommand(command);
-
-      if (success) {
-        // Immediately request screen dump image (reusing M1 button functionality)
-        _scheduleRefresh();
-      }
-    } catch (e) {
-      AppLogger().log('CH1 Position knob tap handler error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error processing CH1 Position knob tap: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessingSoftKey = false;
-        });
-      }
-    }
-  }
-
-  /// Handles Channel 2 Position knob turned right or left.
-  /// Sends $$SY_FP 44,1 command when turned right (value increases)
-  /// Sends $$SY_FP 44,-1 command when turned left (value decreases)
-  /// then immediately requests a screen dump image.
-  /// Reuses functionality from button M1.
-  double _previousCh2PositionValue = 0.5;
-  void _handleCh2PositionKnobChanged(double newValue) async {
-    // Check if knob is turned (value changes) and device is ready
-    // Block if already processing a soft key or acquiring a screen dump
-    if (newValue != _previousCh2PositionValue &&
-        _isOnline &&
-        !_isProcessingSoftKey) {
-      setState(() {
-        _isProcessingSoftKey = true;
-      });
-
-      try {
-        // Determine direction and send appropriate command
-        final String command;
-        if (newValue > _previousCh2PositionValue) {
-          // Knob turned right (value increases)
-          command = '\$\$SY_FP 44,1';
-        } else {
-          // Knob turned left (value decreases)
-          command = '\$\$SY_FP 44,-1';
-        }
-
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } catch (e) {
-        AppLogger().log('CH2 Position knob handler error: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error processing CH2 Position knob: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isProcessingSoftKey = false;
-          });
-        }
-      }
-    }
-
-    // Update previous value for next comparison
-    _previousCh2PositionValue = newValue;
-  }
-
-  /// Handles Channel 2 Position knob tap/click.
-  /// Sends $$SY_FP 44,0 command (special SPCI command for CH2 Position knob click),
-  /// then immediately requests a screen dump image update.
-  /// Reuses functionality from button M1.
-  void _handleCh2PositionKnobTapped() async {
-    // Block if already processing a soft key or acquiring a screen dump
-    if (!_isOnline || _isProcessingSoftKey) {
-      return;
-    }
-
-    setState(() {
-      _isProcessingSoftKey = true;
-    });
-
-    try {
-      // Send the special SPCI command for CH2 Position knob click
-      final command = '\$\$SY_FP 44,0';
-      final success = await _sendCommand(command);
-
-      if (success) {
-        // Immediately request screen dump image (reusing M1 button functionality)
-        _scheduleRefresh();
-      }
-    } catch (e) {
-      AppLogger().log('CH2 Position knob tap handler error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error processing CH2 Position knob tap: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessingSoftKey = false;
-        });
-      }
-    }
-  }
-
-  /// Handles Horizontal Time knob turned right or left.
-  /// Sends $$SY_FP 7,1 command when turned right (value increases)
-  /// Sends $$SY_FP 7,-1 command when turned left (value decreases)
-  /// then immediately requests a screen dump image.
-  /// Reuses functionality from button M1.
-  double _previousHorizontalTimeValue = 0.5;
-  void _handleHorizontalTimeKnobChanged(double newValue) async {
-    // Check if knob is turned (value changes) and device is ready
-    // Block if already processing a soft key or acquiring a screen dump
-    if (newValue != _previousHorizontalTimeValue &&
-        _isOnline &&
-        !_isProcessingSoftKey) {
-      setState(() {
-        _isProcessingSoftKey = true;
-      });
-
-      try {
-        // Determine direction and send appropriate command
-        final String command;
-        if (newValue > _previousHorizontalTimeValue) {
-          // Knob turned right (value increases)
-          command = '\$\$SY_FP 7,1';
-        } else {
-          // Knob turned left (value decreases)
-          command = '\$\$SY_FP 7,-1';
-        }
-
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } catch (e) {
-        AppLogger().log('Horizontal Time knob handler error: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error processing Horizontal Time knob: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isProcessingSoftKey = false;
-          });
-        }
-      }
-    }
-
-    // Update previous value for next comparison
-    _previousHorizontalTimeValue = newValue;
-  }
-
-  /// Handles Horizontal Time knob tap/click.
-  /// Sends $$SY_FP 7,0 command (special SPCI command for Horizontal Time knob click),
-  /// then immediately requests a screen dump image update.
-  /// Reuses functionality from button M1.
-  void _handleHorizontalTimeKnobTapped() async {
-    // Block if already processing a soft key or acquiring a screen dump
-    if (!_isOnline || _isProcessingSoftKey) {
-      return;
-    }
-
-    setState(() {
-      _isProcessingSoftKey = true;
-    });
-
-    try {
-      // Send the special SPCI command for Horizontal Time knob click
-      final command = '\$\$SY_FP 7,0';
-      final success = await _sendCommand(command);
-
-      if (success) {
-        // Immediately request screen dump image (reusing M1 button functionality)
-        _scheduleRefresh();
-      }
-    } catch (e) {
-      AppLogger().log('Horizontal Time knob tap handler error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error processing Horizontal Time knob tap: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessingSoftKey = false;
-        });
-      }
-    }
-  }
-
-  /// Handles Horizontal Position knob tap/click.
-  /// Sends $$SY_FP 10,0 command (special SPCI command for Horizontal Position knob click),
-  /// then immediately requests a screen dump image update.
-  /// Reuses functionality from button M1.
-  void _handleHorizontalPositionKnobTapped() async {
-    // Block if already processing a soft key or acquiring a screen dump
-    if (!_isOnline || _isProcessingSoftKey) {
-      return;
-    }
-
-    setState(() {
-      _isProcessingSoftKey = true;
-    });
-
-    try {
-      // Send the special SPCI command for Horizontal Position knob click
-      final command = '\$\$SY_FP 10,0';
-      final success = await _sendCommand(command);
-
-      if (success) {
-        // Immediately request screen dump image (reusing M1 button functionality)
-        _scheduleRefresh();
-      }
-    } catch (e) {
-      AppLogger().log('Horizontal Position knob tap handler error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error processing Horizontal Position knob tap: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessingSoftKey = false;
-        });
-      }
-    }
-  }
-
-  /// Handles Trigger Level knob turned right or left.
-  /// Sends $$SY_FP 16,1 command when turned right (value increases)
-  /// Sends $$SY_FP 16,-1 command when turned left (value decreases)
-  /// then immediately requests a screen dump image.
-  /// Reuses functionality from button M1.
-  double _previousTriggerLevelValue = 0.5;
-  void _handleTriggerLevelKnobChanged(double newValue) async {
-    // Check if knob is turned (value changes) and device is ready
-    // Block if already processing a soft key or acquiring a screen dump
-    if (newValue != _previousTriggerLevelValue &&
-        _isOnline &&
-        !_isProcessingSoftKey) {
-      setState(() {
-        _isProcessingSoftKey = true;
-      });
-
-      try {
-        // Determine direction and send appropriate command
-        final String command;
-        if (newValue > _previousTriggerLevelValue) {
-          // Knob turned right (value increases)
-          command = '\$\$SY_FP 16,1';
-        } else {
-          // Knob turned left (value decreases)
-          command = '\$\$SY_FP 16,-1';
-        }
-
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } catch (e) {
-        AppLogger().log('Trigger Level knob handler error: $e');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Error processing Trigger Level knob: $e'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-      } finally {
-        if (mounted) {
-          setState(() {
-            _isProcessingSoftKey = false;
-          });
-        }
-      }
-    }
-
-    // Update previous value for next comparison
-    _previousTriggerLevelValue = newValue;
-  }
-
-  /// Handles Trigger Level knob tap/click.
-  /// Sends $$SY_FP 16,0 command (special SPCI command for Trigger Level knob click),
-  /// then immediately requests a screen dump image update.
-  /// Reuses functionality from button M1.
-  void _handleTriggerLevelKnobTapped() async {
-    // Block if already processing a soft key or acquiring a screen dump
-    if (!_isOnline || _isProcessingSoftKey) {
-      return;
-    }
-
-    setState(() {
-      _isProcessingSoftKey = true;
-    });
-
-    try {
-      // Send the special SPCI command for Trigger Level knob click
-      final command = '\$\$SY_FP 16,0';
-      final success = await _sendCommand(command);
-
-      if (success) {
-        // Immediately request screen dump image (reusing M1 button functionality)
-        _scheduleRefresh();
-      }
-    } catch (e) {
-      AppLogger().log('Trigger Level knob tap handler error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error processing Trigger Level knob tap: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessingSoftKey = false;
-        });
-      }
+      if (mounted) setState(() => _isProcessingSoftKey = false);
     }
   }
 
@@ -2709,29 +1908,34 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     return renderBox?.size;
   }
 
+  /// Computes the cursor info panel dimensions based on enabled cursor types.
+  static const double _cursorPanelWidth = 200.0;
+  static const double _cursorPanelPadding = 12.0;
+  static const double _cursorRowHeight = 20.0;
+  static const double _cursorHeaderHeight = 24.0;
+  static const double _cursorSectionGap = 8.0;
+
+  double _computeCursorPanelHeight() {
+    final int yRows = _cursorState.cursorsYEnabled ? 3 : 0;
+    final int xRows = _cursorState.cursorsXEnabled ? 2 : 0;
+    final double sectionsGap = (yRows > 0 && xRows > 0) ? _cursorSectionGap : 0;
+    return _cursorHeaderHeight +
+        (yRows + xRows) * _cursorRowHeight +
+        sectionsGap +
+        _cursorPanelPadding * 2;
+  }
+
   /// Returns the bounding rectangle of the cursor info panel in local widget
   /// coordinates, or null if cursors are not enabled.
   Rect? _getCursorInfoPanelRect(Size size) {
     if (!_cursorState.cursorsXEnabled && !_cursorState.cursorsYEnabled) {
       return null;
     }
-    const double panelWidth = 200.0;
-    const double panelPadding = 12.0;
-    const double rowHeight = 20.0;
-    const double headerHeight = 24.0;
-    const double sectionGap = 8.0;
-    final int yRows = _cursorState.cursorsYEnabled ? 3 : 0;
-    final int xRows = _cursorState.cursorsXEnabled ? 2 : 0;
-    final double sectionsGap = (yRows > 0 && xRows > 0) ? sectionGap : 0;
-    final double panelHeight =
-        headerHeight +
-        (yRows + xRows) * rowHeight +
-        sectionsGap +
-        panelPadding * 2;
+    final double panelHeight = _computeCursorPanelHeight();
     final double panelX =
-        size.width - panelWidth - 12 + _cursorState.cursorInfoOffset.dx;
+        size.width - _cursorPanelWidth - 12 + _cursorState.cursorInfoOffset.dx;
     final double panelY = 12 + _cursorState.cursorInfoOffset.dy;
-    return Rect.fromLTWH(panelX, panelY, panelWidth, panelHeight);
+    return Rect.fromLTWH(panelX, panelY, _cursorPanelWidth, panelHeight);
   }
 
   void _onCursorHover(PointerHoverEvent event) {
@@ -2804,20 +2008,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   /// We constrain the panel so it stays fully visible within the waveform widget
   /// with a small margin on each side.
   Offset _clampCursorInfoOffset(Offset proposedOffset, Size size) {
-    const double panelWidth = 200.0;
-    const double panelPadding = 12.0;
-    const double rowHeight = 20.0;
-    const double headerHeight = 24.0;
-    const double sectionGap = 8.0;
-    final int yRows = _cursorState.cursorsYEnabled ? 3 : 0;
-    final int xRows = _cursorState.cursorsXEnabled ? 2 : 0;
-    final double sectionsGap = (yRows > 0 && xRows > 0) ? sectionGap : 0;
-    final double panelHeight =
-        headerHeight +
-        (yRows + xRows) * rowHeight +
-        sectionsGap +
-        panelPadding * 2;
-
+    final double panelHeight = _computeCursorPanelHeight();
     const double margin = 12.0;
 
     // Constrain panelX within [margin, size.width - panelWidth - margin]
@@ -2825,7 +2016,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     // => dx = panelX - (size.width - panelWidth - 12)
     // min dx: panelX = margin => dx = margin - (size.width - panelWidth - 12)
     // max dx: panelX = size.width - panelWidth - margin => dx = margin - 12
-    final double minDx = margin - (size.width - panelWidth - margin);
+    final double minDx = margin - (size.width - _cursorPanelWidth - margin);
     final double maxDx = margin - margin;
     final double clampedDx = proposedOffset.dx.clamp(minDx, maxDx);
 
@@ -2884,443 +2075,5 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   void _onCursorDragEnd(DragEndDetails details) {
     _draggingCursorIndex = null;
     _draggingCursorInfo = false;
-  }
-
-  /// Handles menu button press (Cursors, Acquire, Save/Recall, etc.).
-  /// For Cursors button: sends $$SY_FP 22,1 command then refreshes screen.
-  /// For Acquire button: sends $$SY_FP 27,1 command then refreshes screen.
-  /// For Save/Recall button: sends $$SY_FP 28,1 command then refreshes screen.
-  /// For Measure button: sends $$SY_FP 26,1 command then refreshes screen.
-  /// For Clear Sweeps button: sends $$SY_FP 47,1 command then refreshes screen.
-  /// For Utility button: sends $$SY_FP 24,1 command then refreshes screen.
-  /// For Default button: sends $$SY_FP 13,1 command then refreshes screen.
-  /// For Display/Persist button: sends $$SY_FP 23,1 command then refreshes screen.
-  /// For Print button: sends $$SY_FP 25,1 command then refreshes screen.
-  /// Reuses M1 button functionality for screen dump acquisition.
-  void _handleMenuButtonPress(String buttonLabel) async {
-    // Block if already processing a soft key or acquiring a screen dump
-    if (_isProcessingSoftKey || !_isOnline) {
-      return;
-    }
-
-    setState(() {
-      _isProcessingSoftKey = true;
-    });
-
-    try {
-      // Handle different menu buttons
-      if (buttonLabel == 'Cursors') {
-        // Send the special SCPI command for Cursors button
-        final command = '\$\$SY_FP 22,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else if (buttonLabel == 'Acquire') {
-        // Send the special SCPI command for Acquire button
-        final command = '\$\$SY_FP 27,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else if (buttonLabel == 'Save/Recall') {
-        // Send the special SCPI command for Save/Recall button
-        final command = '\$\$SY_FP 28,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else if (buttonLabel == 'Measure') {
-        // Send the special SCPI command for Measure button
-        final command = '\$\$SY_FP 26,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else if (buttonLabel == 'Clear Sweeps') {
-        // Send the special SCPI command for Clear Sweeps button
-        final command = '\$\$SY_FP 47,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else if (buttonLabel == 'Utility') {
-        // Send the special SCPI command for Utility button
-        final command = '\$\$SY_FP 24,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else if (buttonLabel == 'Default') {
-        // Send the special SCPI command for Default button
-        final command = '\$\$SY_FP 13,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else if (buttonLabel == 'Display/Persist') {
-        // Send the special SCPI command for Display/Persist button
-        final command = '\$\$SY_FP 23,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else if (buttonLabel == 'Print') {
-        // Send the special SCPI command for Print button
-        final command = '\$\$SY_FP 25,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else {
-        // For other menu buttons, just log for now
-        AppLogger().log(
-          'Menu button pressed: $buttonLabel (not implemented yet)',
-        );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Button "$buttonLabel" not implemented yet'),
-              backgroundColor: Colors.blue,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      AppLogger().log('Menu button handler error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error processing $buttonLabel button: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessingSoftKey = false;
-        });
-      }
-    }
-  }
-
-  /// Handles vertical button press (Math, Ref, History, Decode, Run/Stop, Auto Setup).
-  /// For Math button: sends $$SY_FP 31,1 command then refreshes screen.
-  /// For Ref button: sends $$SY_FP 32,1 command then refreshes screen.
-  /// For History button: sends $$SY_FP 48,1 command then refreshes screen.
-  /// For Decode button: sends $$SY_FP 29,1 command then refreshes screen.
-  /// For Run/Stop button: sends $$SY_FP 12,1 command then refreshes screen.
-  /// For Auto Setup button: sends $$SY_FP 11,1 command then refreshes screen.
-  /// Reuses M1 button functionality for screen dump acquisition.
-  void _handleVerticalButtonPress(String buttonLabel) async {
-    // Block if already processing a soft key or acquiring a screen dump
-    if (_isProcessingSoftKey || !_isOnline) {
-      return;
-    }
-
-    setState(() {
-      _isProcessingSoftKey = true;
-    });
-
-    try {
-      // Handle different vertical buttons
-      if (buttonLabel == 'Math') {
-        // Send the special SCPI command for Math button
-        final command = '\$\$SY_FP 31,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else if (buttonLabel == 'Ref') {
-        // Send the special SCPI command for Ref button
-        final command = '\$\$SY_FP 32,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else if (buttonLabel == 'History') {
-        // Send the special SCPI command for History button
-        final command = '\$\$SY_FP 48,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else if (buttonLabel == 'Decode') {
-        // Send the special SCPI command for Decode button
-        final command = '\$\$SY_FP 29,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else if (buttonLabel == 'Run/Stop') {
-        // Send the special SCPI command for Run/Stop button
-        final command = '\$\$SY_FP 12,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else if (buttonLabel == 'Auto\nSetup') {
-        // Send the special SCPI command for Auto Setup button
-        final command = '\$\$SY_FP 11,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else {
-        // For other vertical buttons, just log for now
-        AppLogger().log(
-          'Vertical button pressed: $buttonLabel (not implemented yet)',
-        );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Button "$buttonLabel" not implemented yet'),
-              backgroundColor: Colors.blue,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      AppLogger().log('Vertical button handler error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error processing $buttonLabel button: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessingSoftKey = false;
-        });
-      }
-    }
-  }
-
-  /// Handles channel toggle button press (CH1, CH2).
-  /// For CH1 button: sends $$SY_FP 39,1 command then refreshes screen.
-  /// For CH2 button: sends $$SY_FP 40,1 command then refreshes screen.
-  /// Also toggles the channel state in the UI.
-  /// Reuses M1 button functionality for screen dump acquisition.
-  void _handleChannelToggle(String channel) async {
-    // Block if already processing a soft key or acquiring a screen dump
-    if (_isProcessingSoftKey || !_isOnline) {
-      return;
-    }
-
-    setState(() {
-      _isProcessingSoftKey = true;
-    });
-
-    try {
-      // CH1 and CH2 buttons are always activated - no state change
-      // Send the appropriate SCPI command based on channel
-      final String command;
-      if (channel == 'CH1') {
-        command = '\$\$SY_FP 39,1';
-      } else {
-        command = '\$\$SY_FP 40,1';
-      }
-
-      final success = await _sendCommand(command);
-
-      if (success) {
-        // Immediately request screen dump image (reusing M1 button functionality)
-        _scheduleRefresh();
-      }
-    } catch (e) {
-      AppLogger().log('Channel toggle handler error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error processing $channel button: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessingSoftKey = false;
-        });
-      }
-    }
-  }
-
-  /// Handles horizontal button press (Roll).
-  /// For Roll button: sends $$SY_FP 49,1 command then refreshes screen.
-  /// Reuses M1 button functionality for screen dump acquisition.
-  void _handleHorizontalButtonPress(String buttonLabel) async {
-    // Block if already processing a soft key or acquiring a screen dump
-    if (_isProcessingSoftKey || !_isOnline) {
-      return;
-    }
-
-    setState(() {
-      _isProcessingSoftKey = true;
-    });
-
-    try {
-      // Handle different horizontal buttons
-      if (buttonLabel == 'Roll') {
-        // Send the special SCPI command for Roll button
-        final command = '\$\$SY_FP 49,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else {
-        // For other horizontal buttons, just log for now
-        AppLogger().log(
-          'Horizontal button pressed: $buttonLabel (not implemented yet)',
-        );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Button "$buttonLabel" not implemented yet'),
-              backgroundColor: Colors.blue,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      AppLogger().log('Horizontal button handler error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error processing $buttonLabel button: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessingSoftKey = false;
-        });
-      }
-    }
-  }
-
-  /// Handles trigger button press (Setup, Auto, Normal, Single).
-  /// For Setup button: sends $$SY_FP 18,1 command then refreshes screen.
-  /// For Auto button: sends $$SY_FP 17,1 command then refreshes screen.
-  /// For Normal button: sends $$SY_FP 19,1 command then refreshes screen.
-  /// For Single button: sends $$SY_FP 20,1 command then refreshes screen.
-  /// Reuses M1 button functionality for screen dump acquisition.
-  void _handleTriggerButtonPress(String buttonLabel) async {
-    // Block if already processing a soft key or acquiring a screen dump
-    if (_isProcessingSoftKey || !_isOnline) {
-      return;
-    }
-
-    setState(() {
-      _isProcessingSoftKey = true;
-    });
-
-    try {
-      // Handle different trigger buttons
-      if (buttonLabel == 'Setup') {
-        // Send the special SCPI command for Setup button
-        final command = '\$\$SY_FP 18,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else if (buttonLabel == 'Auto') {
-        // Send the special SCPI command for Auto button
-        final command = '\$\$SY_FP 17,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else if (buttonLabel == 'Normal') {
-        // Send the special SCPI command for Normal button
-        final command = '\$\$SY_FP 19,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else if (buttonLabel == 'Single') {
-        // Send the special SCPI command for Single button
-        final command = '\$\$SY_FP 20,1';
-        final success = await _sendCommand(command);
-
-        if (success) {
-          // Immediately request screen dump image (reusing M1 button functionality)
-          _scheduleRefresh();
-        }
-      } else {
-        // For other trigger buttons, just log for now
-        AppLogger().log(
-          'Trigger button pressed: $buttonLabel (not implemented yet)',
-        );
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Button "$buttonLabel" not implemented yet'),
-              backgroundColor: Colors.blue,
-            ),
-          );
-        }
-      }
-    } catch (e) {
-      AppLogger().log('Trigger button handler error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error processing $buttonLabel button: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessingSoftKey = false;
-        });
-      }
-    }
   }
 }
