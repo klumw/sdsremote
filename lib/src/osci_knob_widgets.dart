@@ -109,11 +109,13 @@ class _KnobWithDisplayState extends State<KnobWithDisplay> {
               child: Listener(
                 behavior: HitTestBehavior.translucent,
                 onPointerDown: (details) {
+                  if (!widget.enabled) return;
                   _lastAngle = _getAngle(details.localPosition);
                   _isPanning = true;
                 },
                 onPointerMove: (details) {
                   if (!_isPanning) return;
+                  if (!widget.enabled) return;
                   
                   double currentAngle = _getAngle(details.localPosition);
                   double delta = currentAngle - _lastAngle;
@@ -138,7 +140,7 @@ class _KnobWithDisplayState extends State<KnobWithDisplay> {
                   _isPanning = false;
                 },
                 child: InkWell(
-                  onTap: widget.onTap ?? () {},
+                  onTap: widget.onTap,
                   borderRadius: BorderRadius.circular(widget.size / 2),
                   splashColor: Colors.blueAccent.withValues(alpha: 0.3),
                   highlightColor: Colors.blueAccent.withValues(alpha: 0.1),

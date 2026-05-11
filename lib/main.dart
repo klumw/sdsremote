@@ -358,7 +358,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
 
   Timer? _refreshTimer;
   bool _refreshPending = false;
-  static const int _refreshDelayMs = 1000;
+  static const int _refreshDelayMs = 300;
 
   // UI State
   bool _showSettings = false;
@@ -566,6 +566,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
                               : _screenDump != null
                               ? PhysicalControlPanel(
                                   isOnline: _isOnline,
+                                  isProcessingEvent: _isProcessingEvent,
                                   screenDump: _screenDump!,
                                   ch1Enabled: _ch1Enabled,
                                   ch2Enabled: _ch2Enabled,
