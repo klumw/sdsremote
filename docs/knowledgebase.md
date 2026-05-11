@@ -385,6 +385,7 @@ press the button to enter the TRIGGER function menu. The oscilloscope provides a
 press the button to set the trigger mode to Auto, Normal, Single.
 
 ## Trigger Level Knob
+
 adjust the trigger level. Turn clockwise to increase the level and turn counterclockwise to reduce the level. During the modification, the trigger level line would move up and down and the value in the trigger level message box at the up-right corner of the screen would change accordingly. Press down the knob to quickly reset the trigger level to center of the waveform . 50%
 
 ## Run Control

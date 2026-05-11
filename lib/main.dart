@@ -341,8 +341,9 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   bool _ch2Enabled = true;
   bool _saveWithParams = false;
 
-  // Soft key handling
-  bool _isProcessingSoftKey = false;
+  // Event processing lock: prevents overlapping button/knob events
+  // Lock is held across the full sequence: SCPI send → wait → screen dump → 500ms cooldown
+  bool _isProcessingEvent = false;
 
   // Knob handling (generic)
   final Map<KnobId, double> _knobPreviousValues = {
@@ -1658,14 +1659,13 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   /// Handles soft key button press (M1-M6).
   /// Sends $$SY_FP X,1 command where X is button number, then refreshes screen.
   void _handleSoftKeyPress(int buttonNumber) async {
-    // Block if already processing a soft key or acquiring a screen dump
-    if (_isProcessingSoftKey || !_isOnline) {
+    // Discard event if already processing another event or offline
+    if (_isProcessingEvent || !_isOnline) {
       return;
     }
 
-    setState(() {
-      _isProcessingSoftKey = true;
-    });
+    _isProcessingEvent = true;
+    if (mounted) setState(() {});
 
     try {
       // Send the SCPI command
@@ -1673,8 +1673,12 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       final success = await _sendCommand(command);
 
       if (success) {
-        // Refresh screen dump after successful command
-        _scheduleRefresh();
+        // Wait for oscilloscope to process the command
+        await Future.delayed(const Duration(milliseconds: _refreshDelayMs));
+        // Fetch the screen dump synchronously
+        await _acquireScreenDump(keepPanels: true);
+        // Final cooldown before next event is allowed
+        await Future.delayed(const Duration(milliseconds: 500));
       }
     } catch (e) {
       AppLogger().log('Soft key handler error: $e');
@@ -1687,11 +1691,8 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessingSoftKey = false;
-        });
-      }
+      _isProcessingEvent = false;
+      if (mounted) setState(() {});
     }
   }
 
@@ -1699,14 +1700,13 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   /// Sends $$SY_FP 0,1 command (VXI special SPCI command for MENU button),
   /// then immediately requests a screen dump image.
   void _handleMenuPress() async {
-    // Block if already processing a soft key or acquiring a screen dump
-    if (_isProcessingSoftKey || !_isOnline) {
+    // Discard event if already processing another event or offline
+    if (_isProcessingEvent || !_isOnline) {
       return;
     }
 
-    setState(() {
-      _isProcessingSoftKey = true;
-    });
+    _isProcessingEvent = true;
+    if (mounted) setState(() {});
 
     try {
       // Send the VXI special SPCI command for MENU button
@@ -1714,8 +1714,12 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       final success = await _sendCommand(command);
 
       if (success) {
-        // Immediately request screen dump image (reusing M1 button functionality)
-        _scheduleRefresh();
+        // Wait for oscilloscope to process the command
+        await Future.delayed(const Duration(milliseconds: _refreshDelayMs));
+        // Fetch the screen dump synchronously
+        await _acquireScreenDump(keepPanels: true);
+        // Final cooldown before next event is allowed
+        await Future.delayed(const Duration(milliseconds: 500));
       }
     } catch (e) {
       AppLogger().log('MENU button handler error: $e');
@@ -1728,11 +1732,8 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
         );
       }
     } finally {
-      if (mounted) {
-        setState(() {
-          _isProcessingSoftKey = false;
-        });
-      }
+      _isProcessingEvent = false;
+      if (mounted) setState(() {});
     }
   }
 
@@ -1745,13 +1746,21 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   /// Sends `$$SY_FP <cmd>,1` when turned right or `$$SY_FP <cmd>,-1` when left.
   Future<void> _handleKnobChanged(KnobId knob, double newValue) async {
     final prev = _knobPreviousValues[knob]!;
-    if (newValue == prev || !_isOnline || _isProcessingSoftKey) return;
+    if (newValue == prev || !_isOnline || _isProcessingEvent) return;
 
-    setState(() => _isProcessingSoftKey = true);
+    _isProcessingEvent = true;
+    if (mounted) setState(() {});
     try {
       final dir = newValue > prev ? 1 : -1;
       final command = '\$\$SY_FP ${knob.scpiCommandNumber},$dir';
-      if (await _sendCommand(command)) _scheduleRefresh();
+      if (await _sendCommand(command)) {
+        // Wait for oscilloscope to process the command
+        await Future.delayed(const Duration(milliseconds: _refreshDelayMs));
+        // Fetch the screen dump synchronously
+        await _acquireScreenDump(keepPanels: true);
+        // Final cooldown before next event is allowed
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
     } catch (e) {
       AppLogger().log('${knob.name} knob handler error: $e');
       if (mounted) {
@@ -1763,7 +1772,8 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
         );
       }
     } finally {
-      if (mounted) setState(() => _isProcessingSoftKey = false);
+      _isProcessingEvent = false;
+      if (mounted) setState(() {});
     }
     _knobPreviousValues[knob] = newValue;
   }
@@ -1771,12 +1781,20 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   /// Generic handler for knob tap/click.
   /// Sends `$$SY_FP <cmd>,0`.
   Future<void> _handleKnobTapped(KnobId knob) async {
-    if (!_isOnline || _isProcessingSoftKey) return;
+    if (!_isOnline || _isProcessingEvent) return;
 
-    setState(() => _isProcessingSoftKey = true);
+    _isProcessingEvent = true;
+    if (mounted) setState(() {});
     try {
       final command = '\$\$SY_FP ${knob.scpiCommandNumber},0';
-      if (await _sendCommand(command)) _scheduleRefresh();
+      if (await _sendCommand(command)) {
+        // Wait for oscilloscope to process the command
+        await Future.delayed(const Duration(milliseconds: _refreshDelayMs));
+        // Fetch the screen dump synchronously
+        await _acquireScreenDump(keepPanels: true);
+        // Final cooldown before next event is allowed
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
     } catch (e) {
       AppLogger().log('${knob.name} knob tap handler error: $e');
       if (mounted) {
@@ -1788,7 +1806,8 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
         );
       }
     } finally {
-      if (mounted) setState(() => _isProcessingSoftKey = false);
+      _isProcessingEvent = false;
+      if (mounted) setState(() {});
     }
   }
 
@@ -1830,9 +1849,10 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   /// Generic handler for any button press (menu, vertical, horizontal, trigger, channel).
   /// Looks up the SCPI command from [_buttonCommands] and sends it.
   Future<void> _handleButtonPress(String buttonLabel) async {
-    if (_isProcessingSoftKey || !_isOnline) return;
+    if (_isProcessingEvent || !_isOnline) return;
 
-    setState(() => _isProcessingSoftKey = true);
+    _isProcessingEvent = true;
+    if (mounted) setState(() {});
     try {
       final command = _buttonCommands[buttonLabel];
       if (command == null) {
@@ -1847,7 +1867,14 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
         }
         return;
       }
-      if (await _sendCommand(command)) _scheduleRefresh();
+      if (await _sendCommand(command)) {
+        // Wait for oscilloscope to process the command
+        await Future.delayed(const Duration(milliseconds: _refreshDelayMs));
+        // Fetch the screen dump synchronously
+        await _acquireScreenDump(keepPanels: true);
+        // Final cooldown before next event is allowed
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
     } catch (e) {
       AppLogger().log('Button "$buttonLabel" handler error: $e');
       if (mounted) {
@@ -1859,7 +1886,8 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
         );
       }
     } finally {
-      if (mounted) setState(() => _isProcessingSoftKey = false);
+      _isProcessingEvent = false;
+      if (mounted) setState(() {});
     }
   }
 
