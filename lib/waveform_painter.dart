@@ -31,12 +31,11 @@ class WaveformBasePainter extends CustomPainter {
       Paint()..color = const Color(0xFF0A192F),
     );
 
-    _drawGrid(canvas, size);
-
     final hasData = (ch1 != null && ch1!.points.isNotEmpty) ||
         (ch2 != null && ch2!.points.isNotEmpty);
 
     if (!hasData) {
+      _drawGridFallback(canvas, size);
       _drawNoDataHint(canvas, size);
       return;
     }
@@ -64,6 +63,35 @@ class WaveformBasePainter extends CustomPainter {
     final double visibleTSpan = dataTRange / zoom.zoomFactor;
     final double visibleTMin = centerTime - visibleTSpan / 2;
     final double visibleTMax = centerTime + visibleTSpan / 2;
+
+    // Determine the visible voltage range for the grid.
+    // Use the first enabled channel with data; prefer CH1 over CH2.
+    late final double gridVMin;
+    late final double gridVMax;
+    if (ch1Enabled && ch1 != null && ch1!.points.isNotEmpty) {
+      final double vdiv = params.vdivCh1 ?? 1.0;
+      final double voffset = params.voffsetCh1 ?? 0.0;
+      final double vMax = voffset + 4 * vdiv;
+      final double vMin = voffset - 4 * vdiv;
+      final double vRange = vMax - vMin;
+      final double centerVoltage = vMin + zoom.panY * vRange;
+      final double visibleVRange = vRange / zoom.zoomFactor;
+      gridVMin = centerVoltage - visibleVRange / 2;
+      gridVMax = centerVoltage + visibleVRange / 2;
+    } else {
+      final double vdiv = params.vdivCh2 ?? 1.0;
+      final double voffset = params.voffsetCh2 ?? 0.0;
+      final double vMax = voffset + 4 * vdiv;
+      final double vMin = voffset - 4 * vdiv;
+      final double vRange = vMax - vMin;
+      final double centerVoltage = vMin + zoom.panY * vRange;
+      final double visibleVRange = vRange / zoom.zoomFactor;
+      gridVMin = centerVoltage - visibleVRange / 2;
+      gridVMax = centerVoltage + visibleVRange / 2;
+    }
+
+    // Draw zoom/pan-aware grid.
+    _drawGrid(canvas, size, visibleTMin, visibleTMax, gridVMin, gridVMax);
 
     if (ch1Enabled && ch1 != null && ch1!.points.isNotEmpty) {
       final double vdiv = params.vdivCh1 ?? 1.0;
@@ -94,7 +122,136 @@ class WaveformBasePainter extends CustomPainter {
     }
   }
 
-  void _drawGrid(Canvas canvas, Size size) {
+  /// Compute a "nice" round interval for grid line spacing.
+  /// Given a raw interval (range / targetDivisions), pick the nearest
+  /// round number from the 1-2-5-10 sequence.
+  static double _niceInterval(double raw) {
+    final double exponent = (math.log(raw) / math.ln10).floorToDouble();
+    final double fraction = raw / math.pow(10.0, exponent);
+    final double niceFraction;
+    if (fraction < 1.5) {
+      niceFraction = 1.0;
+    } else if (fraction < 3.5) {
+      niceFraction = 2.0;
+    } else if (fraction < 7.5) {
+      niceFraction = 5.0;
+    } else {
+      niceFraction = 10.0;
+    }
+    return niceFraction * math.pow(10.0, exponent);
+  }
+
+  /// Draw the grid scaled to the visible time/voltage range.
+  /// Grid lines are positioned at round physical values so they
+  /// move with pan and scale with zoom.
+  void _drawGrid(Canvas canvas, Size size,
+      double visibleTMin, double visibleTMax,
+      double visibleVMin, double visibleVMax) {
+    final double visibleTRange = visibleTMax - visibleTMin;
+    final double visibleVRange = visibleVMax - visibleVMin;
+    if (visibleTRange <= 0 || visibleVRange <= 0) return;
+
+    // Compute nice grid intervals – aim for ~14 horizontal, ~8 vertical lines.
+    final double tInterval = _niceInterval(visibleTRange / _hDivisions);
+    final double vInterval = _niceInterval(visibleVRange / _vDivisions);
+    // Sub-intervals for finer grid lines at 1/5 of the main interval.
+    final double tSubInterval = tInterval / 5.0;
+    final double vSubInterval = vInterval / 5.0;
+
+    // Helper: map time → pixel X, voltage → pixel Y.
+    double timeToPx(double t) =>
+        (t - visibleTMin) / visibleTRange * size.width;
+    double voltageToPy(double v) =>
+        (visibleVMax - v) / visibleVRange * size.height;
+
+    // --- Minor grid lines (sub-divisions) ---
+    final Paint minorPaint = Paint()
+      ..color = Colors.white.withAlpha(30)
+      ..strokeWidth = 0.5
+      ..isAntiAlias = true
+      ..style = PaintingStyle.stroke;
+
+    // Vertical minor lines (time sub-divisions)
+    double tSub = (visibleTMin / tSubInterval).ceil() * tSubInterval;
+    while (tSub <= visibleTMax) {
+      // Skip positions where a major line will be drawn.
+      final double remainder =
+          (tSub / tInterval) - (tSub / tInterval).roundToDouble();
+      if (remainder.abs() > 0.001) {
+        final double x = timeToPx(tSub);
+        if (x >= 0 && x <= size.width) {
+          canvas.drawLine(Offset(x, 0), Offset(x, size.height), minorPaint);
+        }
+      }
+      tSub += tSubInterval;
+    }
+
+    // Horizontal minor lines (voltage sub-divisions)
+    double vSub = (visibleVMin / vSubInterval).ceil() * vSubInterval;
+    while (vSub <= visibleVMax) {
+      final double remainder =
+          (vSub / vInterval) - (vSub / vInterval).roundToDouble();
+      if (remainder.abs() > 0.001) {
+        final double y = voltageToPy(vSub);
+        if (y >= 0 && y <= size.height) {
+          canvas.drawLine(Offset(0, y), Offset(size.width, y), minorPaint);
+        }
+      }
+      vSub += vSubInterval;
+    }
+
+    // --- Major grid lines ---
+    final Paint majorPaint = Paint()
+      ..color = Colors.white.withAlpha(77)
+      ..strokeWidth = 1.0
+      ..isAntiAlias = true
+      ..style = PaintingStyle.stroke;
+
+    // Vertical major lines (time divisions)
+    double t = (visibleTMin / tInterval).ceil() * tInterval;
+    while (t <= visibleTMax) {
+      final double x = timeToPx(t);
+      if (x >= 0 && x <= size.width) {
+        canvas.drawLine(Offset(x, 0), Offset(x, size.height), majorPaint);
+      }
+      t += tInterval;
+    }
+
+    // Horizontal major lines (voltage divisions)
+    double v = (visibleVMin / vInterval).ceil() * vInterval;
+    while (v <= visibleVMax) {
+      final double y = voltageToPy(v);
+      if (y >= 0 && y <= size.height) {
+        canvas.drawLine(Offset(0, y), Offset(size.width, y), majorPaint);
+      }
+      v += vInterval;
+    }
+
+    // --- Center crosshair (slightly brighter) ---
+    final Paint centerPaint = Paint()
+      ..color = Colors.white.withAlpha(120)
+      ..strokeWidth = 1.0
+      ..isAntiAlias = true
+      ..style = PaintingStyle.stroke;
+
+    // Horizontal center line at 0 V
+    const double centerV = 0.0;
+    if (centerV >= visibleVMin && centerV <= visibleVMax) {
+      final double cy = voltageToPy(centerV);
+      canvas.drawLine(Offset(0, cy), Offset(size.width, cy), centerPaint);
+    }
+
+    // Vertical center line at t=0 (trigger point)
+    const double centerT = 0.0;
+    if (centerT >= visibleTMin && centerT <= visibleTMax) {
+      final double cx = timeToPx(centerT);
+      canvas.drawLine(Offset(cx, 0), Offset(cx, size.height), centerPaint);
+    }
+  }
+
+  /// Fallback grid drawn when no waveform data is available.
+  /// Keeps the original static behaviour.
+  void _drawGridFallback(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = Colors.white.withAlpha(77)
       ..strokeWidth = 1.0
