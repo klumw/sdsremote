@@ -220,10 +220,10 @@ The **Profiles** feature allows you to save and restore the configuration of you
 
 ### Application Directory
 
-The application directory is the place where images,csv and profile files are stored.  
+The application directory is the place where images, csv and profile files are stored.  
 The directory is OS specific:
 
-* **Linux:** *~/.config/sdsremote*  
+* **Linux:** *~/.local/share/sdsremote/*  
 * **Windows:** *%LocalAppData%\sdsremote*
 
 ---
