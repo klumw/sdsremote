@@ -122,31 +122,13 @@ class WaveformBasePainter extends CustomPainter {
     }
   }
 
-  /// Find a "nice" round number close to [raw] for grid spacing.
-  ///
-  /// Returns a value like 1, 2, 5, 10, 20, 50, 100, ...
-  /// (or 0.1, 0.2, 0.5, 0.01, etc.) that produces clean grid lines.
-  static double _niceInterval(double raw) {
-    final exponent = (math.log(raw) / math.ln10).floorToDouble();
-    final fraction = raw / math.pow(10, exponent);
-    final double niceFraction;
-    if (fraction < 1.5) {
-      niceFraction = 1.0;
-    } else if (fraction < 3.5) {
-      niceFraction = 2.0;
-    } else if (fraction < 7.5) {
-      niceFraction = 5.0;
-    } else {
-      niceFraction = 10.0;
-    }
-    return niceFraction * math.pow(10, exponent);
-  }
-
   /// Draw the grid scaled to the visible time/voltage range.
   ///
-  /// Grid lines are drawn at fixed physical intervals ("nice" round numbers
-  /// like 1 ms, 5 ms, 0.5 V, 2 V, etc.) so they move with pan and scale
-  /// with zoom — exactly like a real oscilloscope graticule.
+  /// The grid always draws exactly [_hDivisions] horizontal and [_vDivisions]
+  /// vertical cells using the exact visible range divided by the division
+  /// count. Since the widget is constrained to aspectRatio: 14/8 (see
+  /// [main.dart]), this guarantees perfectly square grid cells at any
+  /// zoom/pan level — like a real oscilloscope graticule.
   ///
   /// Minor sub-division lines (1/5 of the main interval) provide finer
   /// detail when zoomed in.
@@ -157,12 +139,11 @@ class WaveformBasePainter extends CustomPainter {
     final double visibleVRange = visibleVMax - visibleVMin;
     if (visibleTRange <= 0 || visibleVRange <= 0) return;
 
-    // Compute nice round intervals for grid spacing.
-    // Aim for roughly _hDivisions cells across the visible range.
-    final double rawTInterval = visibleTRange / _hDivisions;
-    final double rawVInterval = visibleVRange / _vDivisions;
-    final double tMajorInterval = _niceInterval(rawTInterval);
-    final double vMajorInterval = _niceInterval(rawVInterval);
+    // Use exact divisions to guarantee exactly _hDivisions × _vDivisions
+    // grid cells. Since the widget is constrained to aspectRatio: 14/8,
+    // this produces perfectly square grid cells at any zoom/pan level.
+    final double tMajorInterval = visibleTRange / _hDivisions;
+    final double vMajorInterval = visibleVRange / _vDivisions;
     final double tMinorInterval = tMajorInterval / 5.0;
     final double vMinorInterval = vMajorInterval / 5.0;
 
