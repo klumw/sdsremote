@@ -218,6 +218,14 @@ The **Profiles** feature allows you to save and restore the configuration of you
 7. Save configuration.  
 8. Verify status is `ONLINE`.
 
+### Application Directory
+
+The application directory is the place where images,csv and profile files are stored.
+The directory is OS specific:
+
+* **Linux:** *~/.config/sdsremote*  
+* **Windows:** *%LocalAppData%\sdsremote*
+
 ---
 
 ## 7. Troubleshooting (Non-AI)
