@@ -170,7 +170,7 @@ Here's a list of LLMs that are proven to work with the application:
 > Use **send command** syntax to send SCPI commands.
 ---
 
-### 4.4 AI TroubleshootingR
+### 4.4 AI Troubleshooting
 
 * **AI Disabled**
   * Check AI config settings
@@ -220,7 +220,7 @@ The **Profiles** feature allows you to save and restore the configuration of you
 
 ### Application Directory
 
-The application directory is the place where images,csv and profile files are stored.
+The application directory is the place where images,csv and profile files are stored.  
 The directory is OS specific:
 
 * **Linux:** *~/.config/sdsremote*  
