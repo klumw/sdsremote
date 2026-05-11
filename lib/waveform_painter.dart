@@ -122,12 +122,13 @@ class WaveformBasePainter extends CustomPainter {
     }
   }
 
-  /// Compute a "nice" round interval for grid line spacing.
-  /// Given a raw interval (range / targetDivisions), pick the nearest
-  /// round number from the 1-2-5-10 sequence.
+  /// Find a "nice" round number close to [raw] for grid spacing.
+  ///
+  /// Returns a value like 1, 2, 5, 10, 20, 50, 100, ...
+  /// (or 0.1, 0.2, 0.5, 0.01, etc.) that produces clean grid lines.
   static double _niceInterval(double raw) {
-    final double exponent = (math.log(raw) / math.ln10).floorToDouble();
-    final double fraction = raw / math.pow(10.0, exponent);
+    final exponent = (math.log(raw) / math.ln10).floorToDouble();
+    final fraction = raw / math.pow(10, exponent);
     final double niceFraction;
     if (fraction < 1.5) {
       niceFraction = 1.0;
@@ -138,12 +139,17 @@ class WaveformBasePainter extends CustomPainter {
     } else {
       niceFraction = 10.0;
     }
-    return niceFraction * math.pow(10.0, exponent);
+    return niceFraction * math.pow(10, exponent);
   }
 
   /// Draw the grid scaled to the visible time/voltage range.
-  /// Grid lines are positioned at round physical values so they
-  /// move with pan and scale with zoom.
+  ///
+  /// Grid lines are drawn at fixed physical intervals ("nice" round numbers
+  /// like 1 ms, 5 ms, 0.5 V, 2 V, etc.) so they move with pan and scale
+  /// with zoom — exactly like a real oscilloscope graticule.
+  ///
+  /// Minor sub-division lines (1/5 of the main interval) provide finer
+  /// detail when zoomed in.
   void _drawGrid(Canvas canvas, Size size,
       double visibleTMin, double visibleTMax,
       double visibleVMin, double visibleVMax) {
@@ -151,12 +157,14 @@ class WaveformBasePainter extends CustomPainter {
     final double visibleVRange = visibleVMax - visibleVMin;
     if (visibleTRange <= 0 || visibleVRange <= 0) return;
 
-    // Compute nice grid intervals – aim for ~14 horizontal, ~8 vertical lines.
-    final double tInterval = _niceInterval(visibleTRange / _hDivisions);
-    final double vInterval = _niceInterval(visibleVRange / _vDivisions);
-    // Sub-intervals for finer grid lines at 1/5 of the main interval.
-    final double tSubInterval = tInterval / 5.0;
-    final double vSubInterval = vInterval / 5.0;
+    // Compute nice round intervals for grid spacing.
+    // Aim for roughly _hDivisions cells across the visible range.
+    final double rawTInterval = visibleTRange / _hDivisions;
+    final double rawVInterval = visibleVRange / _vDivisions;
+    final double tMajorInterval = _niceInterval(rawTInterval);
+    final double vMajorInterval = _niceInterval(rawVInterval);
+    final double tMinorInterval = tMajorInterval / 5.0;
+    final double vMinorInterval = vMajorInterval / 5.0;
 
     // Helper: map time → pixel X, voltage → pixel Y.
     double timeToPx(double t) =>
@@ -164,40 +172,33 @@ class WaveformBasePainter extends CustomPainter {
     double voltageToPy(double v) =>
         (visibleVMax - v) / visibleVRange * size.height;
 
-    // --- Minor grid lines (sub-divisions) ---
+    // --- Minor grid lines (sub-divisions at 1/5 of major interval) ---
     final Paint minorPaint = Paint()
       ..color = Colors.white.withAlpha(30)
       ..strokeWidth = 0.5
       ..isAntiAlias = true
       ..style = PaintingStyle.stroke;
 
-    // Vertical minor lines (time sub-divisions)
-    double tSub = (visibleTMin / tSubInterval).ceil() * tSubInterval;
-    while (tSub <= visibleTMax) {
-      // Skip positions where a major line will be drawn.
-      final double remainder =
-          (tSub / tInterval) - (tSub / tInterval).roundToDouble();
-      if (remainder.abs() > 0.001) {
-        final double x = timeToPx(tSub);
-        if (x >= 0 && x <= size.width) {
-          canvas.drawLine(Offset(x, 0), Offset(x, size.height), minorPaint);
-        }
+    // Find the first minor line inside the visible range.
+    final double tMinorStart = (visibleTMin / tMinorInterval).ceil() * tMinorInterval;
+    for (double t = tMinorStart; t <= visibleTMax; t += tMinorInterval) {
+      // Skip positions that fall on a major line.
+      final double remainder = (t / tMajorInterval).roundToDouble();
+      if ((t - remainder * tMajorInterval).abs() < tMinorInterval * 0.01) continue;
+      final double x = timeToPx(t);
+      if (x >= 0 && x <= size.width) {
+        canvas.drawLine(Offset(x, 0), Offset(x, size.height), minorPaint);
       }
-      tSub += tSubInterval;
     }
 
-    // Horizontal minor lines (voltage sub-divisions)
-    double vSub = (visibleVMin / vSubInterval).ceil() * vSubInterval;
-    while (vSub <= visibleVMax) {
-      final double remainder =
-          (vSub / vInterval) - (vSub / vInterval).roundToDouble();
-      if (remainder.abs() > 0.001) {
-        final double y = voltageToPy(vSub);
-        if (y >= 0 && y <= size.height) {
-          canvas.drawLine(Offset(0, y), Offset(size.width, y), minorPaint);
-        }
+    final double vMinorStart = (visibleVMin / vMinorInterval).ceil() * vMinorInterval;
+    for (double v = vMinorStart; v <= visibleVMax; v += vMinorInterval) {
+      final double remainder = (v / vMajorInterval).roundToDouble();
+      if ((v - remainder * vMajorInterval).abs() < vMinorInterval * 0.01) continue;
+      final double y = voltageToPy(v);
+      if (y >= 0 && y <= size.height) {
+        canvas.drawLine(Offset(0, y), Offset(size.width, y), minorPaint);
       }
-      vSub += vSubInterval;
     }
 
     // --- Major grid lines ---
@@ -207,24 +208,22 @@ class WaveformBasePainter extends CustomPainter {
       ..isAntiAlias = true
       ..style = PaintingStyle.stroke;
 
-    // Vertical major lines (time divisions)
-    double t = (visibleTMin / tInterval).ceil() * tInterval;
-    while (t <= visibleTMax) {
+    // Vertical major lines (time divisions at nice intervals)
+    final double tMajorStart = (visibleTMin / tMajorInterval).ceil() * tMajorInterval;
+    for (double t = tMajorStart; t <= visibleTMax; t += tMajorInterval) {
       final double x = timeToPx(t);
       if (x >= 0 && x <= size.width) {
         canvas.drawLine(Offset(x, 0), Offset(x, size.height), majorPaint);
       }
-      t += tInterval;
     }
 
-    // Horizontal major lines (voltage divisions)
-    double v = (visibleVMin / vInterval).ceil() * vInterval;
-    while (v <= visibleVMax) {
+    // Horizontal major lines (voltage divisions at nice intervals)
+    final double vMajorStart = (visibleVMin / vMajorInterval).ceil() * vMajorInterval;
+    for (double v = vMajorStart; v <= visibleVMax; v += vMajorInterval) {
       final double y = voltageToPy(v);
       if (y >= 0 && y <= size.height) {
         canvas.drawLine(Offset(0, y), Offset(size.width, y), majorPaint);
       }
-      v += vInterval;
     }
 
     // --- Center crosshair (slightly brighter) ---
