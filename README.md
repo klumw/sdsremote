@@ -34,10 +34,10 @@ Remote control and AI enhanced operation of Siglent SDS1202X-E, SDS1104X-E, SDS1
 
 ### 2.1 Linux Debian .deb Package
 
-To install the pre-compiled Debian `.deb` package on Debian-based Linux distributions(e.g Ubuntu 24.04 or newer), download the [latest package](https://github.com/klumw/sdsremote/releases/download/0.2.0/sdsremote_0.2.0_amd64.deb) from the releases page and run the following command in your terminal:
+To install the pre-compiled Debian `.deb` package on Debian-based Linux distributions(e.g Ubuntu 24.04 or newer), download the [latest package](https://github.com/klumw/sdsremote/releases) from the releases page and run the following command in your terminal:
 
 ```bash
-sudo apt install ./sdsremote_0.2.0_amd64.deb
+sudo apt install ./sdsremote_[version]_amd64.deb
 ```
 
 Or double click the .deb file and follow the installation instructions.
@@ -48,7 +48,7 @@ Once installed, you can launch the application from your desktop environment's a
 
 ### 2.2 Windows MSI Installer
 
-For installation on Windows use the MSI installer [sdsremote_0.2.0.exe](https://github.com/klumw/sdsremote/releases/download/0.2.0/sdsremote_0.2.0.exe)
+For installation on Windows use the MSI installer [sdsremote_[version].exe](https://github.com/klumw/sdsremote/releases)
 
 ---
 
@@ -127,6 +127,7 @@ Choose the instructions for your target platform:
 The AI chat feature supports the following providers:
 
 ---
+
 | Provider |
 |------|
 | DeepSeek |
@@ -154,6 +155,7 @@ Here's a list of LLMs that are proven to work with the application:
 This software is released under the terms and conditions of the [Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0.html).
 
 **Feedback and Support**  
+
 - Review the in-app help manual for detailed troubleshooting.
 - Check the application logs at `/tmp/sds/logging/sds.log` (Linux) or `%TEMP%\sds\logging\sds.log` (Windows).
 - Submit issues or feature requests via the [sdsremote GitHub repository Issues section](https://github.com/klumw/sdsremote/issues).

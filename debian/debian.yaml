@@ -6,7 +6,7 @@ flutter_app:
 
 control:
   Package: sdsremote
-  Version: 0.2.0
+  Version: 0.2.1
   Architecture: amd64
   Priority: optional
   Depends: libgtk-3-0 | libgtk-3-0t64, libblkid1, liblzma5
