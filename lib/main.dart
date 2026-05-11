@@ -28,6 +28,7 @@ import 'src/osci_news_notification.dart';
 import 'src/osci_device_params_panel.dart';
 import 'src/osci_settings_panel.dart';
 import 'src/osci_profiles_panel.dart';
+import 'src/app_paths.dart';
 
 // ===========================================================================
 // Provider Configuration Table
@@ -918,7 +919,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
 
   void _loadProfileFiles() {
     try {
-      final dir = Directory.current;
+      final dir = AppPaths.defaultSaveDirectory;
       final files = dir
           .listSync()
           .whereType<File>()
@@ -950,7 +951,8 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       final data = await instr.readRawResponse('PNSU?');
       final content = utf8.decode(data, allowMalformed: true);
 
-      final file = File('$name.lss');
+      final dir = await AppPaths.getOrCreateDefaultDirectory();
+      final file = File('${dir.path}/$name.lss');
       await file.writeAsString(content);
 
       _loadProfileFiles();
@@ -974,7 +976,8 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
 
   Future<void> _loadProfile(String fileName) async {
     try {
-      final file = File(fileName);
+      final dir = AppPaths.defaultSaveDirectory;
+      final file = File('${dir.path}/$fileName');
       if (!await file.exists()) throw Exception('File not found');
 
       final xml = await file.readAsString();
@@ -1006,7 +1009,8 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
 
   Future<void> _deleteProfile(String fileName) async {
     try {
-      final file = File(fileName);
+      final dir = AppPaths.defaultSaveDirectory;
+      final file = File('${dir.path}/$fileName');
       if (await file.exists()) {
         await file.delete();
       }
@@ -1251,7 +1255,8 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
 
   Future<void> _saveScreenDump() async {
     try {
-      final file = File('screen_dump.png');
+      final dir = await AppPaths.getOrCreateDefaultDirectory();
+      final file = File('${dir.path}/screen_dump.png');
       await file.writeAsBytes(_screenDump!);
       if (mounted) {
         ScaffoldMessenger.of(
@@ -1297,7 +1302,8 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
         ),
       );
 
-      final file = File('waveform.png');
+      final dir = await AppPaths.getOrCreateDefaultDirectory();
+      final file = File('${dir.path}/waveform.png');
       await file.writeAsBytes(pngBytes);
 
       // If "Save with parameters" is enabled, also save waveform data as CSV
@@ -1349,7 +1355,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
           csvBuffer.writeln('$time,$ch1V,$ch2V');
         }
 
-        final csvFile = File('waveform_data.csv');
+        final csvFile = File('${dir.path}/waveform_data.csv');
         await csvFile.writeAsString(csvBuffer.toString());
       }
 
