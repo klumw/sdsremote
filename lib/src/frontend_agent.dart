@@ -140,7 +140,7 @@ class FrontendAgent {
   final Agent _frontendAgent;
 
   /// The chat history for multi-turn conversations.
-  final List<ChatMessage> _history = [];
+  List<ChatMessage> _history = [];
 
   /// Maximum number of tool calls allowed per user input for the instrument
   /// (VXI-11) sub-agent. Only applies to the sub-agent; the frontend agent
@@ -288,6 +288,11 @@ class FrontendAgent {
         ChatMessage.user(prompt),
         ChatMessage.model(fullOutput),
       ]);
+      // Keep history at max 4 entries: system prompt (index 0) + 3 most recent.
+      // This prevents unbounded token growth while retaining recent context.
+      if (_history.length > 4) {
+        _history = [_history[0], ..._history.sublist(_history.length - 3)];
+      }
     }
   }
 

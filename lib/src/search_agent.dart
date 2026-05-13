@@ -362,6 +362,15 @@ class SearchAgent with MaxToolCallsHandler {
         ChatMessage.user(prompt),
         ChatMessage.model(fullOutput),
       ]);
+      // The search agent must not retain history between calls. Keep only the
+      // system prompt (if any) so each query starts fresh.
+      if (_history.length > 1) {
+        final systemPrompt = _history[0];
+        _history.clear();
+        _history.add(systemPrompt);
+      } else {
+        _history.clear();
+      }
     }
   }
 
