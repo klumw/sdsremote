@@ -1,6 +1,6 @@
 Knowledgebase for SDS1000X-E Oscilloscopes
 
-## Introduction
+## Introduction (models, bandwidth, sample rate)
 
 This user knowledge base includes important safety and installation information related to the SDS1000X -E and SDS1000X -U series oscilloscopes , and includes simple tutorials for basic operation of the oscilloscope.
 
@@ -15,67 +15,67 @@ The series includes the following models:
 
 
 
-## General Safety Summary
+## General Safety Summary (precautions, electric shock, grounding)
 
 Carefully read the following safety precautions to avoid any personal injury or damage to the instrument and any products connected to it. To avoid potential hazards, please use the instrument as specified.
 
-## Use Proper Power Line
+## Use Proper Power Line (power cord)
 
 Only the power cord designed for the instrument and authorized by local country could be used.
 
-## Ground the Instrument
+## Ground the Instrument (protective earth, electric shock)
 
 The instrument is grounded through the protective earth conductor of the power line. To avoid electric shock, please make sure the instrument is grounded correctly before connecting its input or output terminals.
 
-## Connect the Signal Wire Correctly
+## Connect the Signal Wire Correctly (signal wire, earth potential)
 
 The potential of the signal wire is equal to the earth, so do not connect the signal wire to a high voltage.
 
-## Look Over All Terminals’ Ratings
+## Look Over All Terminals' Ratings (fire, electric shock)
 
 To avoid fire or electric shock, please look over all ratings and sign instruction of the instrument. Before connecting the instrument, please read the manual carefully to gain more information about the ratings.
 
-## Use Proper Overvoltage Protection
+## Use Proper Overvoltage Protection (thunderstorm, electrical shock)
 
 Make sure that no overvoltage (such as that caused by a thunderstorm) can reach the product, or else the operator might expose to danger of electrical shock.
 
-## Electrostatic Prevention
+## Electrostatic Prevention (ESD, static discharge)
 
 Operate in an electrostatic discharge protective area environment to avoid damages induced by static discharge. Always ground both the internal and external conductors of the cable to release static before connecting.
 
-## Keep Well Ventilation
+## Keep Well Ventilation (temperature, fan)
 
 Inadequate ventilation may cause increasing of temperature, which will eventually damage the instrument. So keep well ventilation and inspect the intake and fan regularly.
 
-## Avoid Circuit or Components Exposed
+## Avoid Circuit or Components Exposed (exposed contacts)
 
 Do not touch exposed contacts or components when the power is on.
 
-## Use proper Fuse
+## Use proper Fuse (specified fuse)
 
 Use only the specified fuse.
 
-## Do Not Operate Without Covers
+## Do Not Operate Without Covers (panels removed)
 
 Do not operate the instrument with covers or panels removed.
 
-## Do Not Operate With Suspected Failures
+## Do Not Operate With Suspected Failures (maintenance, qualified service)
 
 If you suspect damage occurs to the instrument, have it inspected by qualified service personnel before further operations. Any maintenance, adjustment or replacement especially to circuits or accessories must be performed by SIGLENT authorized personnel.
 
-## Do Not Operate in Wet Conditions
+## Do Not Operate in Wet Conditions (humid environment, short circuit)
 
 In order to avoid short circuiting to the interior of the device or electric shock, please do not operate in a humid environment.
 
-## Do Not Operate in an Explosive Atmosphere
+## Do Not Operate in an Explosive Atmosphere (explosive atmosphere)
 
 In order to avoid damages to the device or personal injuries, it is important to operate the device away from an explosive atmosphere.
 
-## Keep Product Surfaces Clean and Dry
+## Keep Product Surfaces Clean and Dry (dust, moisture)
 
 To avoid the influence of dust and/or moisture in air, please keep the surface of device clean and dry.
 
-## Handling Safety
+## Handling Safety (transportation, probe assemblies, UL 61010)
 
 Please handle with care during transportation to avoid damages to buttons, knob interfaces and other parts on the panels.
 Only probe assemblies which meet the manufacturer's specifications shall be used. When use 2X/…/10000X probe assemblies, the probe assemblies shall be insulated from the measured circuits by double or reinforced insulation.
@@ -83,63 +83,63 @@ All probe assemblies should meet the requirements of UL 61010-031 and CAN/CSA-C2
 Not to position the equipment so that it is difficult to operate the disconnecting device (detachable plug).
 If the equipment is used in a manner not specified by the manufacturer, the protection provided by the equipment may be impaired
 
-## Working Environment
+## Working Environment (indoor use, clean, dry)
 
-## Environment use
+## Environment use (indoor)
 
 This instrument is intended for indoor use and should be operated in a clean, dry environment .
 
-## Temperature
+## Temperature (operating, non-operating, ambient)
 
 Operating: 0℃ to +40℃
 Non-operation:-20℃ to +60℃
 Note: Direct sunlight, radiators, and other heat sources should be taken into account when assessing the ambient temperature.
 
-## Humidity
+## Humidity (RH, operating, non-operating)
 
 Operating: 85% RH, 40 ℃, 24 hours
 Non-operating: 85% RH, 65 ℃, 24 hours
 
-## Altitude
+## Altitude (operating, non-operating)
 
 Operating: less than 3 Km
 Non-operation: less than 15 Km
 
-## Installation (overvoltage) Category
+## Installation (overvoltage) Category (mains, category II)
 
 This product is powered by mains conforming to installation (overvoltage) category II.
 
-## Overvoltage WARNING
+## Overvoltage WARNING (thunderbolt, electric shock)
 
 Make sure that no overvoltage (such as that caused by thunderbolt) can reach the product, or else the operator might expose to danger of electric shock.
 
-## Installation (overvoltage) Category Definitions
+## Installation (overvoltage) Category Definitions (signal level, AC line, transient voltage)
 
 Installation (overvoltage) category I refers to signal level which is applicable to equipment measurement terminals connected to the source circuit. In these terminals, precautions are done to limit the transient voltage to the corresponding low level.
 
 Installation (overvoltage) category II refers to the local power distribution level which is applicable to equipment connected to the AC line (AC power).
 
-## Degree of Pollution
+## Degree of Pollution (Pollution Degree II, non-conductive pollution)
 
 The oscilloscopes may be operated in environments of Pollution Degree II.
 
 Note: Degree of Pollution II refers to a working environment which is dry and non -conductive pollution occurs. Occasional temporary conductivity caused by condensation is expected.
 
-## IP Rating
+## IP Rating (IP20, IEC 60529)
 
 IP20 (as defined in IEC 60529).
 
-## Ventilation Requirement
+## Ventilation Requirement (fan, cooling, clearance)
 
 This oscilloscope uses fan to force cooling. Please make sure that the air intake and exhaust areas are free from obstructions and have free air. When using the oscilloscope in a bench -top or rack setting, provide at least 10 cm clearance beside, above and behind the instrument for adequate ventilation.
 
-## Ventilation WARNING
+## Ventilation WARNING (temperature increase, intake, fan)
 
 Inadequate ventilation may cause temperature increase which would damage the instrument. So please keep the instrument well ventilated during operation and inspect the intake and fan regularly.
 
 
 
-## AC Power and Ground Connections
+## AC Power and Ground Connections (single-phase, Vrms, IEC320, safety ground)
 
 The instrument operates with a single-phase, 100 to 240 Vrms (+/-10%) AC power at 50/60 Hz (+/-5%), or single-phase 100 120 Vrms (+/-10%) AC power at 400Hz (+/-5%) .
 
@@ -156,7 +156,7 @@ Note: The instrument automatically adapts to the AC line input within the follow
 The instrument includes a grounded cord set containing a molded three-terminal
 polarized plug and a standard IEC320 (Type C13) connector for making line voltage and safety ground connection. The AC inlet ground terminal is connected directly to the frame of the instrument. For adequate protection against electrical shock hazard, the power cord plug must be inserted into a mating AC outlet containing a safety ground contact. Use only the power cord specified for this instrument and certified for the country of use.
 
-## WARNING
+## WARNING (electrical shock, protective ground, power cord)
 
 Electrical Shock Hazard!
 Any interruption of the protective ground conductor within or outside of the scope or disconnection of the safety ground terminal creates a hazardous situation.
@@ -164,62 +164,62 @@ Intentional interruption is prohibited.
 The position of the oscilloscope should allow easy access to the socket. To make the oscilloscope completely power off, unplug the instrument power cord from the AC socket.
 The power cord should be unplugged from the AC outlet if the scope is not to be used for an extended period of time.
 
-## CAUTION
+## CAUTION (front panel terminals, chassis, safety ground)
 
 The outer shells of the front panel terminals (CH1, CH2, CH3, CH4, EXT) are connected to the instrument's chassis and therefore to the safety ground.
 
-## Care
+## Care (direct sunshine, storage)
 
 Do not store or leave the instrument in direct sunshine for long periods of time.
 
-## WARNING
+## WARNING (fog, liquid, solvent)
 
 To avoid damages to the instrument or probe, please do not leave them in fog, liquid, or solvent.
 
-## Cleaning
+## Cleaning (soft cloth, LCD, corrosive liquid)
 
 Please perform the following steps to clean the instrument and probe regularly according
 to its operating conditions.
 Disconnect the instrument from all power sources, and then clean it with a soft wet cloth. Clean the loose dust on the outside of the instrument and probe with a soft cloth. When cleaning the LCD, take care to avoid scarifying it.
 
-## WARNING
+## WARNING (corrosive liquid, chemical cleanser, short circuits)
 
 To avoid damages to the surface of the instrument and probe, please do not use any corrosive liquid or chemical cleanser.
 Make sure that the instrument is completely dry before restarting it to avoid short circuits or personal injuries.
 
-## Safety Compliance
+## Safety Compliance (UL 61010, CAN/CSA, safety standards)
 
 This section lists the safety standards with which the product complies.
 
-## U.S. nationally recognized testing laboratory listing
+## U.S. nationally recognized testing laboratory listing (UL 61010, NRTL)
 
 - ■ UL 61010 -1:2012/R:2018 -11. Safety Requirements for Electrical Equipment for Measurement, Control, and Laboratory Use – Part 1: General Requirements.
 - ■ UL 61010 -2 -030:2018. Safety Requirements for Electrical Equipment for Measurement, Control, and Laboratory Use – Part2-030: Particular requirements for testing and measuring circuits.
 
-## Canadian certification
+## Canadian certification (CAN/CSA, C22.2)
 
 - ■ CAN/CSA -C22.2 No. 61010 -1:2012/A1:2018 -11. Safety Requirements for Electrical Equipment for Measurement, Control, and Laboratory Use – Part 1: General Requirements.
 - ■ CAN/CSA -C22.2 No. 61010 -2 -030:2018. Safety Requirements for Electrical Equipment for Measurement, Control, and Laboratory Use – Part 2-030: Particular requirements for testing and measuring circuits.
 
 
-## Prepare for Using Adjust the Supporting Legs
+## Prepare for Using Adjust the Supporting Legs (stands, tilt)
 
 Adjust the supporting legs properly to use them as stands to tilt the oscilloscope upwards for stable placement of the oscilloscope as well as better operation and observation.
 
-## Prepare for Using Connect the Power Supply
+## Prepare for Using Connect the Power Supply (power cord, 100-240V)
 
 The power requirements of the oscilloscope are 100-240 V, 50/60Hz or 100-120 V, 400Hz. Please use the power cord supplied with the accessories to connect the oscilloscope to the power source.
 
-## Prepare for Using Power-on Inspection
+## Prepare for Using Power-on Inspection (self-test, relay switching, welcome screen)
 
 When the oscilloscope is energized, press the power key at the lower-left corner of the front panel to start the oscilloscope. During the start-up process, the oscilloscope performs a series of self-tests and you can hear the sound of relay switching. After the self-test is finished, the welcome screen is displayed.
 
-## Prepare for Using Connect the Probe
+## Prepare for Using Connect the Probe (BNC, probe tip, ground alligator clip)
 
 1. Connect the BNC terminal of the probe to a channel BNC connector of the oscilloscope at the front panel.
 2. Connect the probe tip to the circuit point to be tested and connect the ground alligator clip of the probe to the circuit ground terminal.
 
-##Prepare for Using Function Inspection
+## Prepare for Using Function Inspection (Default button, Auto Setup, square waveform)
 
 1. Press the Default button on the front panel to restore the instrument to its default configuration.
 2. Connect the ground alligator clip of the probe to the "Ground Terminal" under the probe compensation signal output terminal.
@@ -230,7 +230,7 @@ When the oscilloscope is energized, press the power key at the lower-left corner
 
 To avoid electric shock during the use of probe, please make sure that the insulated wire of the probe is in good condition and do not touch the metallic part of the probe when the probe is connected to high voltage source
 
-## Probe Compensation
+## Probe Compensation (10X, low-frequency compensation, perfectly compensated)
 
 When the probes are used for the first time, you should compensate the probes to match the input channels of the oscilloscope. Non-compensated or poorly
 
@@ -241,7 +241,7 @@ compensated probes may cause measurement inaccuracy or error. The probe compensa
 3. Check the waveforms displayed and compare them with the following:
 4. Use a nonmetallic driver to adjust the low-frequency compensation adjustment hole on the probe until the waveform displayed is as the "Perfectly compensated" in the figure above.
 
-## Front Panel Overview
+## Front Panel Overview (LCD, knobs, buttons, connectors)
 
 |   NO. | Description           |   NO. | Description                           |
 |-------|-----------------------|-------|---------------------------------------|
@@ -281,125 +281,125 @@ compensated probes may cause measurement inaccuracy or error. The probe compensa
 |    10 | Default                     |       |                                       |
 |    11 | Vertical Control, Math, REF |       |                                       |
 
-## Rear Panel Overview
+## Rear Panel Overview (handle, LAN, USB, Pass/Fail, AC power)
 
-## 1. Handle
+## 1. Handle (carrying)
 
 Pull up the handle vertically for easy carrying of the instrument. When you do not need the handle, press it down.
 
-## 2. Safety lock Hole
+## 2. Safety lock Hole (security lock, Kensington)
 
 You can lock the instrument to a fixed location using the security lock (please buy it yourself) via the lock hole.
 
-## 3. LAN
+## 3. LAN (network, remote control)
 
 The instrument can be connected to network via this interface to perform remote control.
 
-## 4. Pass/Fail or Trigger Out
+## 4. Pass/Fail or Trigger Out (BNC, waveform capture rate, test pulse)
 
 The BNC port can output a signal that reflects the current waveform capture rate of the oscilloscope at each trigger or a pass/fail test pulse.
 
-## 5. USB Device
+## 5. USB Device (SCPI, remote control)
 
 The oscilloscope support SCPI remote control commands, user can control the oscilloscope through this interface.
 
-## 1. Handle
+## 1. Handle (carrying)
 
 Pull up the handle vertically for easy carrying of the instrument. When you do not need the handle, press it down.
 
-## 2. LAN
+## 2. LAN (network, remote control)
 
 The instrument can be connected to network via this interface to perform remote control.
 
-## 3. USB Device
+## 3. USB Device (SCPI, remote control)
 
 The oscilloscope support SCPI remote control commands, user can control the oscilloscope through this interface
 
-## 4. USB Host
+## 4. USB Host (function generators, SDG, SAG1021I)
 
 Communicate with external function generators (SIGLENT SDG and SAG1021I)
 
-## 5. Safety lock Hole
+## 5. Safety lock Hole (security lock)
 
 You can lock the instrument to a fixed location using the security lock (please buy it yourself) via the lock hole.
 
-## 6. AC Power Socket
+## 6. AC Power Socket (power cord, 100-240V)
 
 AC power input terminal. The power requirements of this oscilloscope are 100 -240 V, 50/60/400 Hz. Use the power cord provided with the instrument to connect it to AC power.
 
-## 7. Pass/Fail or Trigger Out
+## 7. Pass/Fail or Trigger Out (BNC, waveform capture rate, test pulse)
 
 The BNC port can output a signal that reflects the current waveform capture rate of the oscilloscope at each trigger or a pass/fail test pulse.
 
 
-## LAN
+## LAN (network, remote control)
 
 The instrument can be connected to network via this interface to perform remote control.
 
-## 5. Pass/Fail or Trigger Out
+## 5. Pass/Fail or Trigger Out (BNC, waveform capture rate, test pulse)
 
 The BNC port can output a signal that reflects the current waveform capture rate of the oscilloscope at each trigger or a pass/fail test pulse.
 
-## 6. AC Power Socket
+## 6. AC Power Socket (power cord, 100-240V)
 
 AC power input terminal. The power requirements of this oscilloscope are 100 -240 V, 50/60/400 Hz. Use the power cord provided with the instrument to connect it to AC power.
 
-## Horizontal
+## Horizontal (roll mode, timebase, search function, white triangle)
 
 Quickly enter the roll mode. The timebase range is from 50mS/div to 100S/div.
 
 Enable or disable search function. This function can search for the events that users specify in the acquired data, the results are displayed with white triangle symbol.
 
-## Horizontal Position Knob 
+## Horizontal Position Knob (horizontal delay, trigger point, reset)
 
 adjust horizontal position. Turn the knob to change the horizontal delay time , waveforms of all channels will move horizontally with the trigger point. Press down this knob to quickly reset the horizontal delay to Zero .
 
-## Horizontal Scale Knob
+## Horizontal Scale Knob (time base, zoom, expanded, compressed)
 
 adjust the horizontal time base. Turn clockwise to reduce the time base and turn counterclockwise to increase the time base. During the modification, waveforms of all the channels will be displayed in expanded or compressed mode and the time base message at the upper-left side of the screen would change accordingly. Press down this knob to quickly turn on Zoom function.
 
-## Vertical
+## Vertical (analog input channels, colors, channel connectors)
 
 Analog input channels. The two channels are marked by different colors which are also used to mark both the corresponding waveforms on the screen and the channel input connectors . 1
 
-## Vertical Position Knob
+## Vertical Position Knob (vertical position, reset to zero)
 
  adjust the vertical position of the current channel waveform. Turn clockwise to increase the position and turn counterclockwise to decrease. During the modification, the waveform would move up and down and the position message at the lower-left corner of the screen would change accordingly. Press down this knob to quickly reset the vertical position to zero. Zero
 
-## Vertical Variable Knob 
+## Vertical Variable Knob (vertical scale, coarse, fine)
 
 adjust the vertical scale of the current channel. Turn clockwise to decrease the scale and turn counterclockwise to increase. During the modification, the amplitude of the waveform would enlarge or reduce and the scale information at the right side of the screen would change accordingly. Press down this knob to quickly switch the vertical scale adjustment modes between "Coarse" and "Fine". Variahle
 
-## MATH button
+## MATH button (addition, subtraction, multiplication, FFT, differential, integral, square root)
 
 press the button to enter the MATH function menu. The oscilloscope provides addition, subtraction, multiplication, FFT, differential, integral and square root operations. Math
 
-## REF button
+## REF button (reference waveform, compare, digital channels)
 
 press the button to enter the REF function menu. A reference waveform can be displayed and compared against other waveforms. Ref
 :Press the button to open the digital channel function menu (Optional function). The SDS1000X-E (4-channel scope) supports 16 digital channels. Digital
 
-## Trigger
+## Trigger (trigger mode, auto, normal, single, advanced trigger)
 
 press the button to enter the TRIGGER function menu. The oscilloscope provides abundant advanced trigger functions
 press the button to set the trigger mode to Auto, Normal, Single.
 
-## Trigger Level Knob
+## Trigger Level Knob (trigger level, 50%, reset)
 
 adjust the trigger level. Turn clockwise to increase the level and turn counterclockwise to reduce the level. During the modification, the trigger level line would move up and down and the value in the trigger level message box at the up-right corner of the screen would change accordingly. Press down the knob to quickly reset the trigger level to center of the waveform . 50%
 
-## Run Control
+## Run Control (auto setup, run stop, acquisition state)
 
-## Auto Setup
+## Auto Setup (auto setting, vertical scale, horizontal time base, trigger mode)
 
 press this key to enable the waveform auto setting function. The oscilloscope will automatically adjust the vertical scale, horizontal time base and trigger mode according to the input signal to realize optimum waveform display.
 
-## Run Stop
+## Run Stop (acquisition, run, stop, yellow, red)
 
 press the button to set the acquisition state to Run or Stop. In RUN state, the key is illuminated in yellow.
 In STOP state, the key is illuminated in red.
 
-## 1.Universal Knob Adjust the waveform intensity.
+## 1.Universal Knob Adjust the waveform intensity (Display/Persist, intensity)
 
 You can press the Display/Persist button; press the Next Page soft key to go to the second page of the DISPLAY function menu; press the Intensity soft key and then turn the Universal Knob to adjust the waveform intensity.
 
@@ -407,15 +407,15 @@ You can press the Display/Persist button; press the Next Page soft key to go to 
 
 In menu operation, press any menu soft key and turn the Universal Knob to select the desired submenu under the menu and push down the knob to confirm the current submenu. Turn clockwise to up the intensity and counterclockwise to down.
 
-## 3.Universal Knob Modify parameters
+## 3.Universal Knob Modify parameters (parameter modification, scale, offset)
 
 After having chosen a parameter, turn the Universal Knob to modify the value. Turn clockwise to increase the intensity and counterclockwise to reduce. In addition, it can also be used to adjust scale and offset of MATH and REF.
 
-## 4.Universal Knob Choose file or directory or input filename.
+## 4.Universal Knob Choose file or directory or input filename (file system, character selection)
 
 After having entered the file system, turn the Universal Knob to select the desired file or directory. When inputting filename, turn the Universal Knob to select the desired character and the push the knob to confirm.
 
-## Menu
+## Menu (Cursors, Display, Utility, Measure, Acquire, Save/Recall, History, Decode)
 
 - : Press to enter the CURSOR function menu. The oscilloscope provides manual and track cursor mode. Cursors
 - : Press to enter the DISPLAY function menu and quickly enable the persist function. User can set the grid, intensity , graticule , and transparence . Display Persist
@@ -432,41 +432,41 @@ After having entered the file system, turn the Universal Knob to select the desi
 | : Press the button to enter the DECODE function menu. The oscilloscope  supports I2C, SPI, UART, CAN and LIN serial bus decode.                                                                                       |
 | : Press the button to turn off or turn on the navigate function. SDS1000X - E (4-channel scope) and SDS1000X-U support three navigate  types: time, search event, history frame.                                      |
 
-## Help
+## Help (online help, multi-language, button press)
 
 The oscilloscope has an on line help function that supplies multi-language help information.
 You can access the help function by pressing any button for 2 seconds and a help window will explain the function. Also all of the submenus include help information.
 
-## 2. Channel Label/Waveform
+## 2. Channel Label/Waveform (channel colors, waveform color)
 
 Different channels are marked by different colors and the color of the waveform complies with the color of the channel.
 
-## 3. Trigger Status
+## 3. Trigger Status (Ready, Auto, Stop, Arm, Trig'd, FStop)
 
 Available trigger status includes Ready, Auto, Stop, Arm, Trig'd, FStop .
 
-## 4. Horizontal Time Base
+## 4. Horizontal Time Base (time per grid, HORIZONTAL SCALE Knob, ns to s)
 
 -  Represent the time per grid on the horizontal axis on the screen.
 -  Use the HORIZONTAL SCALE Knob to adjust the parameter. The available range is from 1.0 ns to 100 s for SDS1000X-E; while from 2.0 ns to 100s for SDS1000X -U .
 
-## 5. Horizontal Position (Delay)
+## 5. Horizontal Position (Delay) (trigger delay, reset to zero)
 
 Turn the Horizontal Position Knob to adjust the parameter. Push the knob to set the value to 0 automatically.
 
-## 6. Trigger Delay Label
+## 6. Trigger Delay Label (trigger delay indication)
 
 Indicate the trigger delay on the waveform.
 
-## 7. Frequency Counter
+## 7. Frequency Counter (frequency value, trigger channel)
 
 Display the frequency value of the trigger channel.
 
-## 8. Sampling Rate/ Memory Depth
+## 8. Sampling Rate/ Memory Depth (Sa, Curr, sample rate, memory depth)
 
 Display the current sampling rate and memory depth. Sa means the current sampling rate and Curr means the current memory depth.
 
-## 9. Trigger Setup
+## 9. Trigger Setup (trigger type, source, condition, coupling, level)
 
 Trigger Type: display the current trigger type. The trigger type names display by the abbreviation when the name is too long to display.
 Trigger source: display the currently trigger source. Different channels display in different color.
@@ -474,36 +474,36 @@ Trigger condition: display the current trigger condition.
 Trigger coupling: display the current trigger coupling. Available trigger coupling mode: DC, AC, HF Reject, LF Reject .
 Trigger level: display the current value of trigger level. Push the knob to set the trigger to the 50% of the waveform amplitude automatically.
 
-## 10. Channel Setup
+## 10. Channel Setup (probe attenuation, input impedance, 1MΩ)
 
 Probe attenuation factor: display the current probe attenuation factor of the channel. Available probe attenuation factors: 0.1X, 0.2X, 0.5X, 1X …properties 2000X, 5000X, 10000X.
 Input impedance: display the current input impedance of the channel. Input impedance that available: 1MΩ.
 
-## Channel coupling
+## Channel coupling (DC, AC, GND)
 
 display the current channel coupling of the channel . Channel coupling that available: DC, AC, and GND.
 
-## Vertical Scale
+## Vertical Scale (Vertical Scale Knob, volts per division)
 
 display the current vertical scale of the channel. Turn the Vertical Scale Knob to adjust the value.
 
-## 11. Trigger Level Label
+## 11. Trigger Level Label (trigger level position, +4.5div, -4.5div)
 
 Display the position of trigger level, the color is the same to the trigger channel. It can move from +4.5div to -4.5div of the screen center.
 
 
-## 13. Menu
+## 13. Menu (function menu, soft key)
 
 Display the corresponding function menu of the selected button. Press the corresponding soft key to set the oscilloscope.
 
-## Security Lock
+## Security Lock (lock hole, key, fixed location)
 
 If needed, you can use the security lock (please buy it yourself) to lock the oscilloscope to a fixed location. The method is as follows, align the lock with the lock hole and plug it into the lock hole vertically, turn the key clockwise to lock the oscilloscope and then pull the key out.
 
-## Vertical System
+## Vertical System (analog channels, vertical control, CH1)
 
 
-## Vertical System Enable the Channel
+## Vertical System Enable the Channel (CH1, vertical control area, channel label)
 
 The oscilloscope provides 2/4 analog input channels and provides independent vertical control system for each channel. As the vertical system setting methods of every channel is the same, this chapter takes CH1 as an example to introduce the setting method of the vertical system.
 
@@ -515,7 +515,7 @@ After the channel is turned on, modify the parameters such as the vertical scale
 
 Note: to turn off the channel, press the channel button twice.
 
-## Vertical System Adjust Scale
+## Vertical System Adjust Scale (coarse, fine, 1-2-5 step, vertical resolution)
 
 The vertical scale can be adjusted in Coarse or Fine mode.
 
@@ -531,7 +531,7 @@ The scale information in the channel label at the right side of the screen will 
 
 Note: push the VERTICAL Variable Knob to quickly switch between Coarse and Fine adjustments.
 
-## Vertical Position
+## Vertical Position (Volts Pos, vertical position range)
 
 Turn the VERTICAL Position Knob to adjust the vertical position of the channel waveform. Turn the knob clockwise to increase the vertical position and the channel waveform moves up while counterclockwise to reduce the vertical position and the waveform moves down. Push the knob to set the vertical position of the channel waveform to zero.
 
@@ -545,7 +545,7 @@ During the adjustment, the vertical position information Volts Pos displays at t
 | SDS1000X - U   | 1mV/div ~ 200 mV/div    | ±2 V                         |
 | SDS1000X - U   | 206 mV/div ~ 10 V/div   | ±100 V                       |
 
-## Coupling
+## Coupling (DC, AC, GND, filter, coupling mode)
 
 Set the coupling mode to filter out the undesired signals. For example, the signal under test is a square waveform with DC offset.
 
@@ -557,7 +557,7 @@ Press the CH1 button on the front panel; then press the Coupling softkey and tur
 
 The current coupling mode is displayed in the channel label at the right side of the screen. You can also press the Coupling softkey y continuously to switch the coupling mode.
 
-## Bandwidth Limit
+## Bandwidth Limit (Full, 20M, noise reduction, high frequency)
 
 Set the bandwidth limit to reduce display noise. For example, the signal under test is a pulse with high frequency oscillation.
 
@@ -566,7 +566,7 @@ Set the bandwidth limit to reduce display noise. For example, the signal under t
 
 Press the CH1 button on the front panel; then press the BW Limit softkey to select Full or 20M. The default setup is Full. When bandwidth limit is enabled, the character B will be displayed in the channel label at the right side of the screen.
 
-## Probe attenuation
+## Probe attenuation (attenuation factor, probe ratio, custom)
 
 Set the probe attenuation factor to match the type of the probe that you are using to ensure correct vertical readouts.
 Press the CH1 button on the front panel; then press the Probe softkey and turn the Universal Knob to select the desired value and push the knob to confirm. The default setup is 1X .
@@ -589,7 +589,7 @@ The table shows the probe attenuation factor
 
 You can also customize the probe attenuation factor . Press the Probe softkey, select Custom , and then press the Custom softkey to select Custom or Custom Fine . First, select Custom and turn the Universal Knob to achieve rough adjustment; and then select Custom Fine and turn the Universal Knob to achieve fine adjustment.
 
-## Channel Unit
+## Channel Unit (V, A, amplitude display unit)
 
 Select the amplitude display unit for the current channel. The available units are V and A. When the unit is changed, the unit displayed in the channel label will change accordingly.
 
@@ -599,7 +599,7 @@ Select the amplitude display unit for the current channel. The available units a
 
 The default setup is V.
 
-## Channel Deskew
+## Channel Deskew (deskew, ±100ns)
 
 The valid range of each analog channel is ±100ns .
 
@@ -607,18 +607,18 @@ The valid range of each analog channel is ±100ns .
 2. Press the Next Page softkey to enter the second page of the CH1 function menu.
 3. Press the Deskew softkey. Then turn the Universal Knob to change deskew.
 
-## Channel Invert
+## Channel Invert (invert, voltage values, trigger settings)
 
 When Invert is set to On, the voltage values of the displayed waveform are inverted. Invert affects how a channel is displayed and it keeps the trigger settings.
 Inverting a channel also changes the result of any math function selected and
 
-## Channel measure function
+## Channel measure function (measure, invert display)
 
 1. Press CH1button on the front panel to enter the CH1 function menu.
 2. Press the Next Page softkey to enter the second page of the CH1 function menu.
 3. Press the Invert softkey to turn on or off the invert display.
 
-## Channel Trace Visible/Hidden
+## Channel Trace Visible/Hidden (trace, visible, hidden)
 
 Set whether the current channel waveform is visible.
 
@@ -626,7 +626,7 @@ Set whether the current channel waveform is visible.
 2. Press the Next Page softkey to enter the second page of the CH1 function menu.
 3. Press the Trace softkey to visible or hidden the channel waveform
 
-## Channel Label
+## Channel Label (label text, source, display, 20 characters)
 
 SDS1000X-E (4-channel) supports setting label text for channels .
 
@@ -635,7 +635,7 @@ SDS1000X-E (4-channel) supports setting label text for channels .
 - 3 Press the Display softkey to turn on or off the label for the current channel.
 - 4 Press the Label Setting softkey to enter the Text Input function menu. The length of the label is limited to 20 characters. The characters beyond this length will not be displayed. When the "Display" option is set to "on", the
 
-## Horizontal Scale
+## Horizontal Scale (time base, HORIZONTAL Scale Knob, sample rate, zoom)
 
 Turn the HORIZONTAL Scale Knob on the front panel to adjust the horizontal time base. Turn clockwise to reduce the horizontal time base and turn counterclockwise to increase.
 
@@ -643,13 +643,13 @@ The time base information at the upper left corner of the screen will change acc
 
 The Horizontal Scale Knob works (in the Normal time mode) while acquisitions are running or when they are stopped. When in run mode, adjusting the horizontal scale knob changes the sample rate. When stopped, adjusting the horizontal scale knob lets you zoom into acquired data.
 
-## Horizontal Delay
+## Horizontal Delay (trigger point, delay time, memory depth)
 
 Turn the Horizontal Position Knob on the front panel , the trigger point (solid inverted triangle) will move horizontally . The trigger point moves horizontally to the right when it rotates clockwise, while moves to left when it rotates counter-clockwise . Press down this knob to quickly reset the trigger delay .
 
 When changing the horizontal delay, the delay time displayed in the information bar at the top of the screen changes in real time, indicating the distance between the time reference point and the trigger point . The amount of delay range available depends on the time/div selected and memory depth.
 
-## Roll Mode
+## Roll Mode (roll, strip chart, low-frequency, no trigger)
 
 Press the Roll button to enter the roll mode.
 
@@ -661,13 +661,13 @@ If you would like to stop the display in Roll mode, press the Run/Stop button. T
 
 Use Roll mode on low -frequency waveforms to yield a display much like a strip chart recorder. It allows the waveform to roll across the display.
 
-## Zoom Mode
+## Zoom Mode (zoom, expanded, normal time base, zoom time base, box)
 
 Zoom is a horizontally expanded version of the normal display. You can use Zoom to locate and horizontally expand part of the normal window for a more detailed (higher- resolution) analysis of signals.
 
 Press the HORIZONTAL Scale Knob on the front panel to turn on the zoom function, and press the button again to turn off the function. When Zoom function is on, the display divides in half. The top half of the display shows the normal time base window and the bottom half displays a faster Zoom time base window.
 
-## Normal time base Zoom time base
+## Normal time base Zoom time base (normal window, zoom window, expanded, box)
 
 The area of the normal display that is expanded is outlined with a box and the rest of the normal display is ghosted. The box shows the portion of the normal sweep that is expanded in the lower half.
 
@@ -675,7 +675,7 @@ To change the time base for the Zoom window, turn the Horizontal Scale Knob. The
 event, and positive values indicate you're looking at the waveform after the trigger event.
 To change the time base of the normal window, turn off Zoom; then, turn the Horizontal Scale Knob .
 
-## Run Control
+## Run Control (Run/Stop, Single, acquisition, trigger)
 
 Press the Run/Stop or Single button on the front panel to run or stop the sampling system of the scope.
 
@@ -687,13 +687,13 @@ When you press Single, the display is cleared, the trigger mode is temporarily s
 When the oscilloscope triggers, the single acquisition is displayed and the oscilloscope is stopped (the Run/Stop button is illuminated in red).
 Press Single again to acquire another waveform .
 
-## Sampling Theory
+## Sampling Theory (Nyquist, sampling frequency, aliasing, bandwidth)
 
 The Nyquist sampling theorem states that for a limited bandwidth (band- limited) signal with maximum frequency fMAX, the equally spaced sampling frequency fS must be greater than twice the maximum frequency fMAX, in order to have the signal be uniquely reconstructed without aliasing.
 
 f MAX = f S/2 = Nyquist frequency (fN) = folding frequency
 
-## Sample Rate
+## Sample Rate (2GSa/s, Nyquist Frequency, waveform distortion, aliasing, leakage)
 
 The maximum sample rate of the oscilloscope is 2GSa/s. The actual sample rate of the oscilloscope is determined by the horizontal scale. Turn the Horizontal Scale Knob to adjust the sample rate.
 
@@ -705,7 +705,7 @@ The influence on the waveform when the sample rate is too low:
 2. Waveform Confusion: when the sample rate is lower than twice the actual signal frequency (Nyquist Frequency), the frequency of the waveform rebuilt from the sample data is lower than the actual signal frequency. The most common aliasing is the jitter on fast edge.
 3. Waveform Leakage: when the sample rate is too low, the waveform rebuilt from the sample data does not reflect all the actual signal information.
 
-## Bandwidth and Sample Rate
+## Bandwidth and Sample Rate (3 dB, Gaussian frequency response, fS = 4fBW)
 
 An oscilloscope's bandwidth is typically described as the lowest frequency at which input signal sine waves are attenuated by 3 dB (- 30% amplitude error).
 
@@ -714,7 +714,7 @@ However, digital signals have frequency components above the fundamental frequen
 
 So, in practice, an oscilloscope's sample rate should be four or more times its bandwidth: f S = 4fBW. This way, there is less aliasing, and aliased frequency components have a greater amount of attenuation.
 
-## Memory Depth
+## Memory Depth (waveform points, storage ability, 14 Mpts, acquisition memories)
 
 Memory depth refers to the number of waveform points that the oscilloscope can store in a single trigger sample and it reflects the storage ability of the sample memory.
 
@@ -736,12 +736,12 @@ The relation of memory depth, sample rate and waveform length fulfills the equat
 
 Memory depth = sample rate (Sa/s) × waveform length (s/div × div)
 
-## Sampling Mode
+## Sampling Mode (real-time sample, 1GSa/s, pan, zoom)
 
 The oscilloscope only supports real-time sample. In this mode, the oscilloscope samples and displays waveform within a trigger event. The maximum real-time sample rate is 1GSa/s.
 Press the RUN/STOP button to stop the sample, the oscilloscope will hold the last display. At this point, you can still use the vertical control and horizontal control to pan and zoom the waveform.
 
-## Interpolation Method
+## Interpolation Method (Sinx/x, X, dots, connecting points)
 
 Under real -time sampling, the oscilloscope acquires the discrete sample values of the waveform being displayed. In general, a waveform of dots display type is very difficult to observe. In order to increase the visibility of the signal, the digital oscilloscope usually uses the interpolation method to display a waveform .
 
@@ -752,28 +752,28 @@ Press the Acquire button on the front panel to enter the ACQUIRE Function menu; 
 -  X: In the adjacent sample points are directly connected on a straight line. This method is only confined to rebuild on the edge of signals, such as square wave.
 -  Sinx/x: Connecting the sampling points with curves has stronger versatility. Sinx interpolation method uses mathematical processing to calculation results in the actual sample interval. This method bending signal waveform, and make it produce more realistic regular shape than pure square wave and pulse. When the sampling rate is 3 to 5 times the bandwidth of the system. Recommended Sinx/s interpolation method.
 
-## Acquisition Mode
+## Acquisition Mode (Normal, Peak Detect, Average, Eres)
 
 The acquisition mode is used to control how to generate waveform points from sample points. The oscilloscope provides the following acquisition mode: Normal, Peak Detect, Average and Eres .
 
 1. Press the Acquire button on the front panel to enter the ACQUIRE function menu;
 2. Press the Acquisition softkey; then turn the Universal Knob to select the desired acquisition mode and push down the knob to confirm. The default setup is Normal .
 
-## Normal
+## Normal (equal time interval, default)
 
 In this mode, the oscilloscope samples the signal at equal time interval to rebuild the waveform. For most of the waveforms, the best display effect can be obtained using this mode. It is the default acquisition mode.
 
-## Peak Detect
+## Peak Detect (envelope, narrow pulse, sample period)
 
 In this mode, the oscilloscope acquires the maximum and minimum values of the signal within the sample interval to get the envelope of the signal or the narrow pulse of the signal that might be lost. In this mode, signal confusion can be prevented but the noise displayed would be larger.
 In this mode, the oscilloscope can display all the pulses with pulse widths at least as wide as the sample period.
 
-## Average
+## Average (waveform average, random noise, vertical resolution, 4 to 1024)
 
 In this mode, the oscilloscope averages the waveforms from multiple samples to reduce the random noise of the input signal and improve the vertical resolution. The greater the number of averages is, the lower the noise will be and the higher the vertical resolution will be but the slower the response of the displayed waveform to the waveform changes will be.
 The available range of averages is from 4 to 1024 and the default is 16. When Average mode is selected, press Averages and turn the Universal knob or press the softkey continually to set the desired average time.
 
-## Eres
+## Eres (ultra-sample, low-pass filter, dot average, single-shot)
 
 This mode uses a kind of ultra -sample technique to average the neighboring points
 of the sample waveform to reduce the random noise on the input signal and generate much smoother waveforms on the screen. This is generally used when the sample rate of the digital converter is higher than the storage rate of the acquisition memory.
@@ -782,15 +782,15 @@ Eres mode can be used on both single- shot and repetitive signals and it does no
 
 Note: "Average" and "Eres" modes use different averaging methods. The former uses "Waveform Average" and the latter uses "Dot Average".
 
-## Horizontal Format
+## Horizontal Format (YT, XY, volt-versus-time, volt-versus-volt)
 
 Press the Acquire button on the front panel; then press the XY soft key to set the XY(On) or YT(Off) mode. The default setup is YT .
 
-## YT
+## YT (normal viewing mode, trigger point, pre-trigger, post-trigger)
 
 It is the normal viewing mode for the oscilloscope. In the Normal time mode, signal events occurring before the trigger are plotted to the left of the trigger point and signal events after the trigger plotted to the right of the trigger point.
 
-## XY
+## XY (X-axis, Y-axis, Lissajous, phase deviation, frequency relationship)
 
 XY mode changes the display from a voltversus- time display to a voltversusvolt display. Channel 1 amplitude is plotted on the X- axis and Channel 2 amplitude is plotted on the Y- axis , the two channels will be turned on or off together.
 You can use XY mode to compare frequency and phase relationships between two signals. XY mode can also be used with transducers to display strain versus displacement, flow versus pressure, volts versus current, or voltage versus frequency.
@@ -799,7 +799,7 @@ According to sinθ=A/B or C/D (wherein, θ is the phase deviation angle between 
 If the principal axis of the ellipse is within quadrant I and III, the phase deviation angle obtained should be within quadrant I and IV, namely within (0 to π/2) or (3π/2 to 2π). If the principal axis of the ellipse is within quadrant II and IV, the phase deviation angle obtained should be within quadrant II and III, namely within (π/2 to π) or (π to 3π/2).
 X -Y function can be used to measure the phase deviation occurred when the signal under test passes through a circuit network. Connect the oscilloscope to the circuit to monitor the input and output signals of the circuit.
 
-## Sequence Mode
+## Sequence Mode (acquisition mode, waveform capture rate, 400000 wfs/s, memory segment)
 
 Sequence is also a kind of acquisition mode, which does not display waveform during sampling process . It improves the waveform capture rate, and the maximal capture rate is 400 , 000 wfs/s . So it can capture the small probability event effectively .
 
@@ -822,7 +822,7 @@ Do the following steps to replay the sequence waveform under history mode:
 5. Press the softkey to stop replay.
 6. Press the softkey to replay the waveform from the current frame to the last frame.
 
-## Trigger
+## Trigger (trigger condition, stable trigger, acquisition memory, trigger types)
 
 For trigger, you set certain trigger condition according to the requirement and when a waveform in the waveform stream meets this condition, the oscilloscope captures this waveform as well as the neighboring part and displays them on the screen. For digital oscilloscope, it displays waveform continuously no matter whether it is stably triggered, but only stable trigger can ensures stable display. The trigger circuit ensures that every time base sweep or acquisition starts from the input signal and the user-defined trigger condition, namely every sweep is synchronous to the acquisition and the waveforms acquired overlap to display stable waveform.
 
@@ -832,7 +832,7 @@ Trigger setting should be based on the features of the input signal, thus you ne
 
 The oscilloscope provides abundant advanced trigger functions which can help you to focus on the desired waveform details. These trigger types are edge, slope, pulse, video, window, interval, dropout, runt, pattern and serial trigger. This chapter will mainly introduce all these trigger functions which mentioned above in details and tell you how to set the trigger conditions to capture desired waveform.
 
-## Trigger Source
+## Trigger Source (analog channels, EXT, EXT/5, AC Line)
 
 The 2 -channel oscilloscope's trigger source includes analog channels, EXT , EXT/5 and AC Line . The 4 -channel oscilloscope's trigger source includes analog channels and AC Line .
 
@@ -840,21 +840,21 @@ Press the Setup button on the front panel to enter the TRIGGER function menu; pr
 
 The current trigger source is displayed at the upper right corner of the screen. Select channel with signal input as trigger source to obtain stable trigger.
 
-## Analog channel input
+## Analog channel input (trigger source, analog channels)
 
 Signals input from analog channels can all be used as the trigger source.
 
-## External trigger input
+## External trigger input (EXT TRIG, trigger level, -8 div to +8 div)
 
 External trigger source can be used to connect external trigger signal to the EXT TRIG channel when all of the four channels are sampling data. The trigger signal (such as external clock and signal of the circuit to be tested) will be connected to EXT and EXT/5 trigger source via the [EXT TRIG] connector. EXT/5 trigger source attenuates the signal by a factor of 5. It extends the trigger level. You can set the trigger condition within the range of trigger level (-8 div to +8 div).
 
-## AC line
+## AC line (AC power, power supply, transformer)
 
 The trigger signal is obtained from the AC power input of the oscilloscope. This kind of signals can be used to display the relationship between signal (such as illuminating device) and power (power supply device). For example, it is mainly used in related measurement of the power industry to stably trigger the waveform output from the transformer of a transformer substation.
 
 Note: to select stable channel waveform as the trigger source to stabilize the display.
 
-## Trigger Mode
+## Trigger Mode (auto, normal, single, pre-trigger, post-trigger, FIFO)
 
 The oscilloscope's trigger mode includes auto, normal and single. Trigger mode affects the way in which the oscilloscope searches for the trigger
 
@@ -884,14 +884,14 @@ The Single trigger mode is appropriate when:
 
 Note: You can force the oscilloscope to trigger by pressing the Single button twice. The trigger status in the upper left corner of the screen will be displayed as "FStop".
 
-## Trigger Level
+## Trigger Level (trigger level, slope, 50%, trigger level icon)
 
 Trigger level and slope define the trigger point,
 You can adjust the trigger level for a selected analog channel by turning the Trigger Level Knob .
 You can push the Trigger Level Knob to set the level to the waveform's 50% value immediately. If AC coupling is used, pushing the Trigger Level knob sets the trigger level to about 0 V.
 The position of the trigger level for the analog channel is indicated by the trigger level icon (if the analog channel is on) at the left side of the display. The value of the analog channel trigger level is displayed in the upperright corner of the display.
 
-## Trigger Coupling
+## Trigger Coupling (DC, AC, LF Reject, HF Reject)
 
 Press the Setup button on the front panel to enter the TRIGGER function menu, and then press the Coupling softkey and turn the Universal Knob or press the Coupling softkey continually to select the desired coupling mode.
 
@@ -903,7 +903,7 @@ The oscilloscope provides 4 kinds of trigger coupling modes:
 -  HF Reject: reject the high frequency components higher 1.2 MHz)
 Note: trigger coupling has nothing to do with the channel coupling.
 
-## Trigger Holdoff
+## Trigger Holdoff (holdoff time, re-arming, complex waveforms, pulse series)
 
 Trigger holdoff can be used to stably trigger the complex waveforms (such as pulse series). Holdoff time is the amount of time that the oscilloscope waits before re -arming the trigger circuitry. The oscilloscope will not trigger until the holdoff time expires.
 
@@ -919,7 +919,7 @@ The correct holdoff setting is typically slightly less than one repetition of th
 
 Note: adjust the time scale and horizontal position will not affect the holdoff time.
 
-## Noise Rejection
+## Noise Rejection (hysteresis, trigger sensitivity, noisy signal)
 
 Noise Reject adds additional hysteresis to the trigger circuitry. By increasing the trigger hysteresis band, you reduce the possibility of triggering on noise. However, this also decreases the trigger sensitivity so that a slightly larger signal is required to trigger the oscilloscope.
 
@@ -930,7 +930,7 @@ If the signal you are probing is noisy, you can set up the oscilloscope to reduc
 2. Remove the noise from the trigger path by setting trigger coupling to LF Reject , HF Reject or turning on Noise Reject .
 3. Set the Acquisition option to Average to reduce noise on the displayed waveform.
 
-## Trigger Types
+## Trigger Types (edge, slope, pulse, video, window, interval, dropout, runt, pattern)
 
 The oscilloscope provides abundant advanced trigger functions, including various serial bus triggers.
 
@@ -944,7 +944,7 @@ The oscilloscope provides abundant advanced trigger functions, including various
 -  Runt trigger
 -  Pattern trigger
 
-## Edge Trigger
+## Edge Trigger (rising, falling, alternating, trigger level)
 
 Edge trigger distinguishes the trigger points by seeking the specified edge (rising, falling, alternating) and trigger level.
 
@@ -956,7 +956,7 @@ Edge trigger distinguishes the trigger points by seeking the specified edge (ris
 Holdoff, coupling and noise reject can be set in edge trigger, see the sections " Trigger Holdoff", "Trigger Coupling" and "Noise Rejection" for details.
 Note: Press the Auto Setup button will set the trigger type to Edge and slope to rising.
 
-## Slope Trigger
+## Slope Trigger (positive slope, negative slope, trigger level A/B, limit range)
 
 The slope trigger looks for a rising or falling transition from one level to another level in greater than or less than a certain amount of time.
 In the oscilloscope, positive slope time is defined as the time difference between the two crossing points of trigger level line A and B with the positive edge as shown in the figure below.
@@ -974,7 +974,7 @@ In the oscilloscope, positive slope time is defined as the time difference betwe
 
 Coupling and noise reject can be set in slope trigger, see the sections " Trigger Coupling" and "Noise Rejection" for details.
 
-## Pulse Trigger
+## Pulse Trigger (positive pulse, negative pulse, pulse width, polarity)
 
 Trigger on the positive or negative pulse with a specified width.
 1. Press the Setup button on the front panel to enter the TRIGGER function menu.
@@ -990,7 +990,7 @@ For example, for a positive pulse, if you set t (pulse real width) ≥100ns and 
 -  --][--(outside a range of time value): trigger when the positive or negative pulse time of the input signal is greater than the specified upper limit of time and lower than the specified lower limit of time value.
 Coupling and noise reject can be set in pulse trigger, see the sections " Trigger Coupling" and "Noise Rejection" for details.
 
-## Video Trigger
+## Video Trigger (NTSC, PAL, HDTV, custom, sync pulse, field, line)
 
 Video triggering can be used to capture the complicated waveforms of most standard analog video signals. The trigger circuitry detects the vertical and horizontal interval of the waveform and produces triggers based on the video trigger settings you have selected.
 
@@ -1062,7 +1062,7 @@ The following are exercises to familiarize you with video triggering.
 -  To trigger on a specific line of video
 -  To use Custom video trigger
 
-## To Trigger on a Specific Line of Video
+## To Trigger on a Specific Line of Video (NTSC, field, line, sync amplitude)
 
 Video triggering requires greater than 1/2 division of sync amplitude with any analog channel as the trigger source.
 
@@ -1076,7 +1076,7 @@ The example below set to trigger on field 2, line 124 using the NTSC video stand
 
 Field softkey and then turn the Universal Knob to select 1 and push the knob to confirm
 
-## To Use Custom Video Trigger
+## To Use Custom Video Trigger (frame rate, line range, interlace, of field)
 
 Custom video trigger supports frame rate of 25Hz, 30Hz, 50Hz and 60Hz, and the line range is available from 300 to 2000. The steps below show how to set custom trigger.
 
@@ -1090,7 +1090,7 @@ Custom video trigger supports frame rate of 25Hz, 30Hz, 50Hz and 60Hz, and the l
 8.  Press the Type softkey to select Select or Any .
 9.  If the Type option set to Select, press the Line softkey; turn the Universal Knob to select the desired value. Press the Field softkey; turn the Universal Knob to select the desired value.
 
-## Window Trigger
+## Window Trigger (high trigger level, low trigger level, absolute, relative)
 
 Windows trigger provides a high trigger level and a low trigger level. The instrument triggers when the input signal passes through the high trigger level or the low trigger level.
 
@@ -1099,7 +1099,7 @@ There are two kinds of window types: Absolute and Relative. They have different 
 -  If the upper trigger level is within the waveform amplitude range while the lower trigger level is out of the waveform amplitude range, the oscilloscope will trigger on rising edge only.
 -  If the lower trigger level is within the waveform amplitude range while the upper trigger level is out of the waveform amplitude range, the oscilloscope will trigger on falling edge only.
 
-## To set window trigger via Absolute window type:
+## To set window trigger via Absolute window type (absolute, lower, upper)
 
 1. Press the Setup button on the front panel to enter the TRIGGER function menu.
 2. Press the Type softkey; then use the Universal Knob to select Window and push down the knob to confirm.
@@ -1108,7 +1108,7 @@ There are two kinds of window types: Absolute and Relative. They have different 
 5. Press the Lower Upper softkey to select Lower or Upper trigger level; then turn the Trigger Level Knob to adjust the position. The trigger level values are displayed at the upper right corner of the screen.
 The Lower trigger level cannot be upper than the upper trigger level. In the trigger state message box, L1 means the upper trigger level while L2 means the lower trigger level.
 
-## To set window trigger via Relative window type:
+## To set window trigger via Relative window type (relative, center, delta)
 
 1. Press the Setup button on the front panel to enter the TRIGGER system function menu.
 2. Press the Type softkey; then use the Universal Knob to select Window and push down the knob to confirm.
@@ -1118,7 +1118,7 @@ The Lower trigger level cannot be upper than the upper trigger level. In the tri
 6. In the trigger state message box, C means Center, the center value of the lower and upper trigger levels; D means Delta, the difference between the lower (or upper) trigger level and the trigger level center.
 Coupling and noise reject can be set in Window trigger, see the sections " Trigger Coupling" and "Noise Rejection" for details.
 
-## Interval Trigger
+## Interval Trigger (neighboring edges, time limit, limit range)
 
 Trigger when the times difference between the neighboring rising or falling edges meets the time limit (&lt;=, &gt;= , [--, --] , --][--).
 
@@ -1136,15 +1136,15 @@ To set interval trigger:
 6. Press the Time Setting softkey (&lt;=, &gt;= , [--, --] , --][--), turn the Universal Knob to select the desired value.
 Coupling and noise reject can be set in interval trigger, see the sections " Trigger Coupling" and "Noise Rejection" for details.
 
-## Dropout Trigger
+## Dropout Trigger (edge, state, timeout, trigger level)
 
 Dropout trigger includes two types: edge and state .
 
-## Trigger Edge
+## Trigger Edge (time interval, rising edge, falling edge, timeout)
 
 Trigger when the time interval (△T) from when the rising edge (or falling edge) of the input signal passes through the trigger level to when the neighboring rising edge (or falling edge) passes through the trigger level is greater than the timeout time set, as shown in the figure below.
 
-## Trigger State
+## Trigger State (time interval, timeout, edge, state)
 
 Trigger when the time interval (△T) from when the rising edge (or falling edge) of the input signal passes through the trigger level to when the neighboring falling edge (or rising edge) passes through the trigger level is greater than the timeout time set, as shown in the figure below.
 To set edge Dropout trigger:
@@ -1167,13 +1167,13 @@ To set state Dropout trigger:
 
 Coupling and noise reject can be set in dropout trigger, see the sections " Trigger Coupling" and "Noise Rejection" for details.
 
-## Runt Trigger
+## Runt Trigger (runt pulse, lower threshold, upper threshold, polarity)
 
 The Runt trigger looks for pulses that cross one threshold but not another as shown in the picture below.
 -  A positive runt pulse across through a lower threshold but not an upper threshold.
 -  A negative runt pulse across through an upper threshold but not a lower threshold.
 
-## To trigger on runt pulse
+## To trigger on runt pulse (Polarity, Limit Range, Time Setting, Lower, Upper)
 
 1. Press the Setup button on the front panel to enter the TRIGGER system function menu.
 2. Press the Type softkey; then turn the Universal Knob to select Runt and push down the knob to confirm.
@@ -1184,7 +1184,7 @@ The Runt trigger looks for pulses that cross one threshold but not another as sh
 7. Press the Next Page softkey to enter the second page of the TRIGGER system function menu. Press the Lower Upper softkey to select Lower or Upper trigger level, and the turn the Universal Knob to set the position.
 Coupling and noise reject can be set in runt trigger, see the sections " Trigger Coupling" and "Noise Rejection" for details.
 
-## Pattern Trigger
+## Pattern Trigger (logical AND, OR, NAND, NOR, low, high, invalid, don't care)
 
 The Pattern trigger identifies a trigger condition by looking for a specified pattern. The pattern trigger can be expanded to incorporate delays similar to other triggers. Pattern durations are evaluated using a timer. The timer starts on the last edge that makes the pattern "true". Potential triggers occur on the first edge that makes the pattern false, provided that the time qualifier criterion has been met. The oscilloscope provides 4 patterns: logical AND, OR, NAND and NOR combination of the channels. Each channel can set to low, high or invalid.
 Do the following steps to set pattern trigger:
@@ -1203,7 +1203,7 @@ Do the following steps to set pattern trigger:
 7. Press the Holdoff Close softkey to turn on the Holdoff function; then turn the Universal Knob to select the desired value.
 Holdoff can be set in pattern trigger, see the sections " Trigger Holdoff" for details.
 
-## Serial Triggers and Decode
+## Serial Triggers and Decode (I2C, SPI, UART, CAN, LIN, serial bus)
 
 The oscilloscope provides I2C, SPI, UART, CAN and LIN serial trigger and decode. This chapter introduces the method of triggering and decoding these serial signals in details .
 
@@ -1215,11 +1215,11 @@ The contents of this chapter:
 -  CAN Trigger and Decode
 -  LIN Trigger and Decode
 
-## I2C Trigger and Serial Decode
+## I2C Trigger and Serial Decode (Inter-IC bus, SDA, SCL, threshold)
 
 Please in order of "Setup for I2C Signals", "I2C Trigger " and "I2C Serial Decode" to trigger and decode the signals.
 
-## Setup for I2C Signals
+## Setup for I2C Signals (SDA, SCL, threshold voltage, clock signal, data signal)
 
 Setting the I2C (Inter-IC bus) signal includes two steps: connecting the serial data signal (SDA) and serial clock signal (SCK) to oscilloscope, specifying the threshold voltage of each input signal.
 
@@ -1236,11 +1236,11 @@ Setting the I2C (Inter-IC bus) signal includes two steps: connecting the serial 
 (Tips: SDA should keep stable during the whole high clock cycle, otherwise it will be interpreted as a start or stop condition (data transitioning while the clock is high))
 7. Press the softkey to return previous menu.
 
-## I2C Trigger
+## I2C Trigger (Start, Stop, Restart, No Ack, EEPROM, 7 Addr&Data, 10 Addr&Data, Data Length)
 
 This part introduces the nine kinds of trigger conditions (Start, Stop, Restart, No Ack, EEPROM, 7 Addr&amp;Data, 10 Addr&amp;Data and Data Length) and the methods of setting them.
 
-## I2C Trigger Conditions
+## I2C Trigger Conditions (Start, Stop, Restart, No Ack, EEPROM, address, data)
 
 -  Start Condition — the oscilloscope will be triggered when SDA signal transitions from high to low while the SCL clock is high. If it is chosen as the condition of trigger (including frame triggers), a restart will be treated as a "Start condition".
 -  Stop Condition— the oscilloscope will be triggered when SDA transitions from low to high while the SCL is high.
@@ -1260,7 +1260,7 @@ This part introduces the nine kinds of trigger conditions (Start, Stop, Restart,
 
 -  Data Length — When SDA data ' s length is equal to the value of Byte Length and address ' s length is the same as set value, the oscilloscope will be triggered. Byte length is in the range of 1 to 12 bits.
 
-## I2C Operation Steps
+## I2C Operation Steps (Setup, Protocol, Trigger Setting, Condition)
 
 1. Press the Setup to enter the TRIGGER function menu.
 2. Press the Type and select Serial .
@@ -1279,7 +1279,7 @@ This part introduces the nine kinds of trigger conditions (Start, Stop, Restart,
 - a. Press the Address to set the SDA address length 7bit or 10 bit.
 - b. Press the Byte Length softkey and set the byte length by Universal Knob . The range of the Byte Length is 1 to 12.
 
-## I2C Serial Decode
+## I2C Serial Decode (Decode, Display, List, Format, Copy Setting)
 
 After completing the setup of I2C signal and trigger, we will decode I2C signals. Operation steps as follows.
 1. Press Decode→ Decode . Select one of the options from the Decode1 and Decode2 .
@@ -1295,7 +1295,7 @@ After completing the setup of I2C signal and trigger, we will decode I2C signals
 6. Press the Copy Setting to enter the COPY function menu to synchronize the corresponding bus configuration and trigger configuration .
 7. Press the Tips Info to turn on or off the decoding limit prompt. When the decoding frame number reaches the maximum, it will pop up " Decoding to maximum frame number limitation! "
 
-## I2C, The frames of decoding result
+## I2C, The frames of decoding result (address, W/R, data, no acknowledgement)
 
 -  The address value is displayed at the beginning of a frame. The write address is displayed in green, and read address in yellow .
 -  W/R bit is represented by (W) and (R), following the address value.
@@ -1304,18 +1304,18 @@ After completing the setup of I2C signal and trigger, we will decode I2C signals
 -  Indicates there is not enough space on the display to show the complete content of a frame, and some content is hidden.
 
 
-## The lists of decoding result:
+## The lists of decoding result (Time, Address, R/W, Data)
 
 -  Time — the horizontal displacement between current frame and trigger position.
 -  Address — the address of a frame.
 -  R/W — — the type of a frame (write or read).
 -  Data — the value of data.
 
-## SPI Trigger and Serial Decode
+## SPI Trigger and Serial Decode (Serial Peripheral Interface, CLK, MISO, MOSI, CS)
 
 Please in order of "Setup for SPI Signals", "SPI Trigger " and "SPI Serial Decode" to trigger and decode the signals.
 
-## Setup for SPI Signals
+## Setup for SPI Signals (CLK, MISO, MOSI, CS, threshold, edge select)
 
 Setting the SPI (Serial Peripheral Interface) signal includes two steps: connecting the CLK, MISO, MOSI and CS signals to oscilloscope; specifying the parameters of each input signal.
 
@@ -1339,7 +1339,7 @@ level by Universal Knob. The threshold voltage level is for decoding, and it wil
 
 - d. Press the softkey to return previous menu.
 
-## 7.SPI, Set MOSI
+## 7.SPI, Set MOSI (Master-Out Slave-In, threshold, channel)
 
 - a. Press the MOSI softkey to enter the MOSI menu.
 - b. Press the MOSI softkey to select the channel that is connected to the SPI MOSI signal.
@@ -1347,14 +1347,14 @@ level by Universal Knob. The threshold voltage level is for decoding, and it wil
 - d. Press the softkey to return previous menu.
 
 
-## 8.SPI, Set CS
+## 8.SPI, Set CS (chip select, Cs Type, polarity)
 
 - a. Press the CS softkey to enter the MOSI menu .
 - b. Press the Cs Type softkey to select the chip select type.
 - c. Modify the Cs type ' s value.
 - d. Press the softkey to return previous menu.
 
-## SPI, Example
+## SPI, Example (data width, bit order, CS polarity, clock timeout)
 
 Connect the data, CLK and ~CS signals of a SPI bus respectively to C1, C2 and C3. Data width = 8 -bit, Bit order = MSB, CS polarity = ~CS, and 12 data bytes are transmitted in one frame.
 
@@ -1362,7 +1362,7 @@ In the SPI trigger signal menu, set the source and threshold of CLK, MISO and CS
 When the CS type is set to Clock Timeout, the clock idle time between frames is T3 , the clock period is T1, then set the timeout to a value between T1 and T3：
 If the data width is set to be greater than 8 bits (such as 16 bits), the clock idle time between 8 -bit data packets T2, and then set the timeout time to a value between T1/2+T2 and T3 .
 
-## SPI Trigger
+## SPI Trigger (MISO, MOSI, data length, bit value, bit order)
 
 This part will provide a brief introduction and description for the operation of the SPI trigger.
 
@@ -1396,7 +1396,7 @@ Table 3 Menu Explanations of the SPI Bit value
 | Bit Value        | 1          | Low voltage level            |
 | Bit Value        | X          | Don’t care the voltage level |
 
-## SPI Serial Decode
+## SPI Serial Decode (Decode, Configure, Display, List, Format)
 
 After completing the setup of SPI signal and trigger, we will decode SPI signals. Operation steps as follows.
 
@@ -1413,36 +1413,36 @@ After completing the setup of SPI signal and trigger, we will decode SPI signals
 7. Press the Copy Setting to enter the COPY function menu to synchronize the corresponding bus configuration and trigger configuration .
 8. Press the Tips Info to turn on or off the decoding limit prompt. When the decoding frame number reaches the maximum, it will pop up " Decoding to maximum frame number limitation! "
 
-## SPI Decode,The frames of decoding result
+## SPI Decode, The frames of decoding result (MISO, MOSI, data values)
 
 -  The data values are displayed in frames and are shown in white. Support 4~96 bit data display.
 -  MISO — — the decoding result of "Master-In, Slave-Out" line.
 -  MOSI — — the decoding result of "Master-Out, Slave-In" line.
 -  Indicates there is not enough space on the display to show the complete content of a frame, and some content is hidden.
 
-## The lists of decoding result
+## The lists of decoding result (Time, MISO, MOSI)
 
 -  Time — the horizontal displacement between current frame and trigger position.
 -  MISO — — the decoding result of "Master-In, Slave-Out" line.
 -  MOSI — — the decoding result of "Master-Out, Slave-In" line.
 
-## UART Trigger and Serial Decode
+## UART Trigger and Serial Decode (RX, TX, baud rate, parity, stop bit)
 
 Please in order of "Setup for UART Signals" , " UART Trigger " and " UART Serial Decode" to trigger and decode the signals.
 
-## Setup for UART Signals
+## Setup for UART Signals (RX, TX, threshold, baud rate, data length, parity, stop bit, bit order, idle level)
 
 1. Press the Decode key to enter the DECODE function menu.
 2. Press the Decode softkey and select the desired slot (Decode1 or Decode2).
 3. Press the Protocol softkey and then select UART by turning Universal Knob .
 4. Press the Signal softkey to enter the SIGNAL menu as below shows .
 
-## 5. UART, Set RX
+## 5. UART, Set RX (receive, threshold, channel)
 
 - a. Press the RX to select the channel that is connected to the RX signal.
 - b. Press the first Threshold key y to set the RX signal's threshold voltage level by Universal Knob . The threshold voltage level is for decoding, and it will be regard as the trigger voltage level when set the trigger type to serial.
 
-## 6. UART, Set TX
+## 6. UART, Set TX (transmit, threshold, channel)
 
 - a. Press the TX to select the channel that is connected to the TX signal.
 - b. Press the second Threshold key y to set the TX signal's threshold voltage level by Universal Knob . The threshold voltage level is for decoding, and it will be regard as the trigger voltage level when set the trigger type to serial.
@@ -1458,7 +1458,7 @@ Please in order of "Setup for UART Signals" , " UART Trigger " and " UART Serial
 14. Press the Bit Order softkey to select the bit order (LSB or MSB).
 15. Press the Idle Level softkey to set the idle level (LOW or HIGH).
 
-## UART Trigger
+## UART Trigger (Start, Stop, Data, Error, compare type)
 
 This part shows a brief introduction and description for the operation of the UART trigger.
 
@@ -1475,7 +1475,7 @@ This part shows a brief introduction and description for the operation of the UA
 - b. Press the Value softkey to set data's value. Data ' s value is in range of 0x00 to 0xff.
 8.  ERROR — if the parity check has been set, and the bit of parity check is error, the oscilloscope will be triggered.
 
-## UART Serial Decode
+## UART Serial Decode (Decode, Display, Configure, List, Format)
 
 After completing the setup of UART signal and trigger, we will decode UART signals. Operation steps as follows.
 
@@ -1491,13 +1491,13 @@ After completing the setup of UART signal and trigger, we will decode UART signa
 6. Press the Copy Setting to enter the COPY function menu to synchronize the corresponding bus configuration and trigger configuration .
 7. Press the Tips Info to turn on or off the decoding limit prompt. When the decoding frame number reaches the maximum, it will pop up " Decoding to maximum frame number limitation! "
 
-## UART Decode, The frames of decoding result
+## UART Decode, The frames of decoding result (RX, TX)
 
 -  RX — — the decoding result of the data received .
 -  TX — — the decoding result of the data transmitted.
 -  Indicates there is not enough space on the display to show the complete content of a frame, and some content is hidden.
 
-## UART Decoede, The lists of decoding result:
+## UART Decode, The lists of decoding result (Time, RX, TX, RX Err, TX Err)
 
 -  Time — the horizontal displacement between current frame and trigger position.
 -  RX — the receiving channel .
@@ -1505,11 +1505,11 @@ After completing the setup of UART signal and trigger, we will decode UART signa
 -  RX Err — Parity error or unknown error in the data received .
 -  TX Err — Parity error or unknown error in the data transmitted.
 
-## CAN Trigger and Serial Decode
+## CAN Trigger and Serial Decode (Controller Area Network, baud rate, threshold)
 
 Please in order of "Setup for CAN Signals", "CAN Trigger " and " CAN Serial Decode" to trigger and decode the signals.
 
-## Setup for CAN Signals
+## Setup for CAN Signals (Source, Threshold, Baud, predefined, custom)
 
 1. Press the Decode key to enter the DECODE function menu.
 2. Press the Decode softkey and select the desired slot (Decode1 or Decode2).
@@ -1522,11 +1522,11 @@ Please in order of "Setup for CAN Signals", "CAN Trigger " and " CAN Serial Deco
 5.  The baud rate can be set as predefined value (from 5kb/s to 1Mb/s) or custom value (from 5kb/s to 1Mb/s) .
 6.  If the desired baud rate is not listed, press Baud and select custom option , press the Custom and turn the Universal Knob to set the desired baud rate.
 
-## CAN Trigger
+## CAN Trigger (Start, Remote, ID, ID+DATA, Error)
 
 This part will provide a brief introduction and description for the operation of the CAN trigger.
 
-## CAN Trigger Conditions
+## CAN Trigger Conditions (Start, Remote, ID, ID+DATA, Error)
 
 -  Start — the oscilloscope will be triggered at the start bit of a frame.
 -  Remote — the oscilloscope will be triggered by a remote frame with specified ID.
@@ -1534,7 +1534,7 @@ This part will provide a brief introduction and description for the operation of
 -  ID+DATA — the oscilloscope will be triggered by data frame that have specified ID and data.
 -  Error — the oscilloscope will be triggered by an error frame.
 
-## CAN Operation Steps
+## CAN Operation Steps (Trigger Setting, Condition, ID Bits, ID, Data)
 
 1. Press the Setup to enter the TRIGGER function menu.
 2. Press the Type and select Serial .
@@ -1554,7 +1554,7 @@ This part will provide a brief introduction and description for the operation of
 - c. Press the ID softkey and set the ID ' s value by Universal Knob .
 - d. Press the Data softkey and set the value of the first byte by Universal Knob
 
-## CAN Serial Decode
+## CAN Serial Decode (Decode, Display, Configure, List, Format)
 
 After completing the setup of can signal and trigger, we will decode CAN signals. Operation steps as follows.
 
@@ -1571,7 +1571,7 @@ After completing the setup of can signal and trigger, we will decode CAN signals
 7. Press the Tips Info to turn on or off the decoding limit prompt. When the decoding frame number reaches the maximum, it will pop up "Decoding to maximum frame number limitation!"
 
 
-## CAN Decode: The frame of decoding result
+## CAN Decode: The frame of decoding result (Arbitration, Control, Data, CRC)
 
 -  Arbitration field is displayed in frame
 -  Control field is displayed in frame
@@ -1579,7 +1579,7 @@ After completing the setup of can signal and trigger, we will decode CAN signals
 -  CRC field is displayed in frame
 -  Indicates there is not enough space on the display to show complete content of a frame and some content is hidden .
 
-## CAN Decode: The list of decoding result
+## CAN Decode: The list of decoding result (Time, Type, ID, Length, Data, CRC, ACK)
 
 -  Time — the horizontal displacement between current frame and trigger position.
 -  Type — the type of frames, " D " represents data frame, " R " represents remote frame.
@@ -1589,11 +1589,11 @@ After completing the setup of can signal and trigger, we will decode CAN signals
 -  CRC — — the value of CRC (Cyclic Redundancy Check) field.
 -  ACK — — Acknowledgment bit.
 
-## LIN Trigger and Serial Decode
+## LIN Trigger and Serial Decode (Local Interconnect Network, baud rate, threshold)
 
 Please take the order of " Setup for LIN Signals", "LIN Trigger " and "LIN Serial Decode" to trigger and decode the signals.
 
-## Setup for LIN Signals
+## Setup for LIN Signals (Source, Threshold, Baud, predefined, custom)
 
 There are two steps of setting the LIN signal, connecting the signal to oscilloscope, specifying the parameters of each input signal.
 
@@ -1609,11 +1609,11 @@ There are two steps of setting the LIN signal, connecting the signal to oscillos
 10.  The baud rate can be set as predefined value.
 11.  If the desired baud rate is not listed, select custom option , press the Custom and turn the Universal Knob to set the desired baud rate.
 
-## LIN Trigger
+## LIN Trigger (Break, ID, ID+Data, Data Error)
 
 This part will provide a brief introduction and description for the operation of the LIN trigger.
 
-## Trigger Conditions
+## Trigger Conditions (Break, ID, ID+Data, Data Error)
 
 -  Break — the oscilloscope will be triggered at the position of break field ' s break delimiter.
 -  ID (Frame ID) — the oscilloscope will be triggered at the position of identifier field ' s stop bit, if the value of a frame ' s ID is equal to specified value.
@@ -1626,7 +1626,7 @@ This part will provide a brief introduction and description for the operation of
 
 -  Data Error —the oscilloscope will be triggered when errors (such as ID check error, checksum error, sync byte field error) are detected.
 
-## Operation Steps
+## Operation Steps (Setup, Protocol, Trigger Setting, Condition, ID, DATA)
 
 1. Press the Setup button to enter the TRIGGER function menu.
 2. Press the Type and select Serial .
@@ -1641,7 +1641,7 @@ This part will provide a brief introduction and description for the operation of
 - c. Press the DATA2 softkey and set its value by turning the Universal Knob .
 
 
-## LIN Serial Decode
+## LIN Serial Decode (Decode, Display, Configure, List, Format)
 
 After completing the setup of LIN signal and trigger, we will decode LIN signals. Operation steps as follows.
 
@@ -1658,9 +1658,9 @@ After completing the setup of LIN signal and trigger, we will decode LIN signals
 7. Press the Tips Info to turn on or off the decoding limit prompt. When the decoding frame number reaches the maximum, it will pop up " Decoding to maximum frame number limitation! "
 
 
-## Interpreting LIN Decode
+## Interpreting LIN Decode (Protected Identifier, Data Length, Checksum)
 
-## The frame of decoding result
+## The frame of decoding result (Protected Identifier, Data Length, Data Field, Checksum)
 
 -  Protected Identifier Field is displayed in frame
 -  Data Length is displayed in frame
@@ -1668,7 +1668,7 @@ After completing the setup of LIN signal and trigger, we will decode LIN signals
 -  Checksum Field is displayed in frame.
 -  Indicates there is not enough space on the display to show complete content of a frame and some content is hidden .
 
-## The list of decoding result:
+## The list of decoding result (Time, ID, Data Length, ID Parity, Data, Checksum)
 
 -  Time — the horizontal displacement between current frame and trigger position.
 -  ID — — the value of frame ' s Protected Identifier Field.
@@ -1677,7 +1677,7 @@ After completing the setup of LIN signal and trigger, we will decode LIN signals
 -  Data — the value of Data Field.
 -  Checksum — the value of Checksum Field.
 
-## Reference Waveform
+## Reference Waveform (REF, analog channel, math waveform, compare)
 
 The oscilloscope can save analog channel or math waveforms to the reference waveform locations in the oscilloscope. Then, a reference waveform can be displayed and compared against other waveforms. All reference waveforms can be displayed at a time.
 
@@ -1688,7 +1688,7 @@ The contents of this chapter:
 -  Adjust REF Waveform
 -  Clear REF Waveform
 
-## Save REF Waveform to Internal Memory
+## Save REF Waveform to Internal Memory (Source, Location, Save, non-volatile)
 
 Do the following steps to save the REF waveform to internal memory:
 
@@ -1699,7 +1699,7 @@ Do the following steps to save the REF waveform to internal memory:
 
 Note: The REF waveforms are non -volatile. The REF waveform can still be saved after restarts or default operation.
 
-## Display REF Waveform
+## Display REF Waveform (Location, Display, On, four reference waveforms)
 
 To the following steps to display REF waveform:
 
@@ -1707,22 +1707,22 @@ To the following steps to display REF waveform:
 2. Press the Location softkey; then, turn the Universal Knob to select the REF waveform that you want to display.
 3. Press the Display softkey to select On to display the REF waveform on the screen. Only saved location can be displayed. The oscilloscope can display all four reference waveforms at the same time.
 
-## Adjust REF Waveform
+## Adjust REF Waveform (Scale, Position, vertical scale, vertical position)
 
 1. Please refer to the "Display REF Waveform" above to display the desired reference waveform.
 2. Press the Scale and Position softkey and turn the Universal Knob to adjust the vertical scale and position of the reference waveform. The vertical scale and position information display at the middle of the screen.
 The initial values display at the middle of the screen is the setup that when the reference waveform been saved.
 
-## Clear REF Waveform
+## Clear REF Waveform (Security Erase, overwrite, Save/Recall)
 
 The oscilloscope does not have the "Clear" option under the REF WAVE function menu. To clear the appointed reference waveform, you can save a new reference waveform to the same location to cover it. Or follow the Save/Recall → Recall → type and select Security Erase to clear the stored waveform .
 
-## Math
+## Math (addition, subtraction, multiplication, division, FFT, differential, integral, square root)
 
 The oscilloscope supports many math operations between analog channels including addition (+), subtraction (-), multiplication (*), division (/), FFT, differential (d/dt), integral (∫dt), square root (√). The resulting math waveform is displayed in white and labeled with "M". You can use cursors to measure it.
 Note: if the analog channel or the math function is cut off (waveforms do not display on the screen completely), the resulting math will also be cut off.
 
-## Units for Math Waveforms
+## Units for Math Waveforms (V, A, W, dBVrms, V/S, Wb, C)
 
 Use the channel function menu to set the unit of each channel to "V" or "A". The oscilloscope math operation includes units as below:
 
@@ -1736,11 +1736,11 @@ Use the channel function menu to set the unit of each channel to "V" or "A". The
 | integral (∫dt)                 | Wb, C                                                                                                            |
 | square root (  )               | V ∧ 1/2 or A∧1/2                                                                                                 |
 
-## Math Operators
+## Math Operators (arithmetic, FFT, differential, integral, square root)
 
 The oscilloscope supports math count operation (Addition, subtraction, multiplication, division), FFT (Fourier transform) operation and math function operation (differential, integral, square root).
 
-## MATH Addition or Subtraction
+## MATH Addition or Subtraction (Source A, Source B, add, subtract, invert)
 
 Math operators perform arithmetic operations add or subtract operation on any two analog input channels. When you select addition or subtraction, the Source A and Source B values are added or subtracted point by point, and the result is displayed.
 
@@ -1749,7 +1749,7 @@ Math operators perform arithmetic operations add or subtract operation on any tw
 3. Press the Operator softkey and then turn the Universal Knob to select + or -to make addition or subtraction operation. The resulting math waveform is displayed in white and labeled with "M".
 4. If you want to invert the math waveform, press the Invert button and set the option to On to invert the display of the math waveform.
 
-## MATH Multiplication and Division
+## MATH Multiplication and Division (Source A, Source B, multiply, divide, invert)
 
 Math operators perform arithmetic operations multiplication or division operation on any two analog input channels. When you select multiplication or division, the Source A and Source B values are multiplied or divided point by point and the result is displayed.
 
@@ -1757,7 +1757,7 @@ Math operators perform arithmetic operations multiplication or division operatio
 2. Press the Source A and Source B softkey respectively, and then turn the Universal Knob to select the source to do math operation. Multiplication or Division can be applied between analog channels.
 3. Press the Operator softkey and then turn the universal to select * or / to make multiplication or division operation. The resulting math waveform is displayed in white and labeled with "M".
 4. If you want to invert the math waveform, press the Invert button and set the option to On to invert the display of the math waveform.
-## MATH FFT Operation
+## MATH FFT Operation (fast Fourier transform, frequency domain, dBV, spectrum)
 
 FFT is used to compute the fast Fourier transform using analog input channels . FFT takes the digitized time record of the specified source and transforms it to the frequency domain. When the FFT function is selected, the FFT spectrum is plotted on the oscilloscope display as magnitude in dBV versus frequency. The readout for the horizontal axis changes from time to frequency (Hertz) and the vertical readout changes from V to dB.
 
@@ -1767,7 +1767,7 @@ FFT operation can facilitate the following works:
 -  Measure the characteristics of the noise in DC power
 -  Analyze vibration
 
-## display a FFT waveform
+## Display a FFT waveform (Source, Config, Window, Rectangle, Hanning, Hamming, Flat Top, Blackman)
 
 1. Press the Math button on the front panel to open the MATH function menu.
 2. Press the Operator softkey and then turn the Universal Knob to select FFT . The resulting math waveform is displayed in white and labeled with "M".
@@ -1821,15 +1821,15 @@ Markers: Customize the marker locations on the FFT waveform based on search conf
 -  Signals with DC components or deviation would cause error or deviation of the FFT waveform components. To reduce the DC components, set the Channel Coupling to AC .
 -  To reduce the random noise and aliasing frequency components of repetitive or single pulse, set the Acquisition of the oscilloscope to Average.
 
-## measure FFT waveform
+## measure FFT waveform (Cursors, X1, X2, Y1, Y2, frequency, amplitude)
 To make cursor measurements, press the Cursors button, and then press the Mode softkey to select On to turn the cursors, Use the X1 and X2 cursors to measure frequency values and the difference between two frequency values (ΔX). Use the Y1 and Y2 cursors to measure amplitude in dB and difference in amplitude (ΔY). You can find the frequency value at the first occurrence of the waveform maximum by using the X at Max Y measurement.
 Note: please refer to the cursors chapter to obtain the method of using cursors.
 
-## Math Function Operation
+## Math Function Operation (differential, integral, square root)
 
 The oscilloscope supports math function operation including differential (d/dt), integral (∫dt) and square root ( ).
 
-## Math Differentiate
+## Math Differentiate (d/dt, discrete time derivative, slew rate, instantaneous slope)
 
 d/dt (differentiate) calculates the discrete time derivative of the selected source.
 
@@ -1845,21 +1845,21 @@ You can use differentiate to measure the instantaneous slope of a waveform. For 
 
 Note: Because differentiation is very sensitive to noise, it is helpful to set acquisition mode to Average .
 
-## Math Integrate
+## Math Integrate (∫dt, integral, energy, voltseconds, area under waveform)
 
 dt (integrate) calculates the integral of the selected source. You can use integrate to calculate the energy of a pulse in voltseconds or measure the area under a waveform.
 
 
-## MATH Square Root
+## MATH Square Root (square root, holes, zero values)
 
 Square root ( ) calculates the square root of the selected source.
 Where the transform is undefined for a particular input, holes (zero values) appear in the function output.
 
-## Cursors
+## Cursors (X cursors, Y cursors, voltage, time, measurements)
 
 Cursors are horizontal and vertical markers that indicate X -axis values and Y -axis values on a selected waveform source. You can use cursors to make custom voltage, time measurements on oscilloscope signals.
 
-## X Cursors
+## X Cursors (vertical dashed lines, time, frequency, X1, X2, ΔT)
 
 X cursors are vertical dashed lines that adjust horizontally and can be used to measure time (when the source is FFT waveform, X cursors measure frequency) .
 X1 cursor is the left (default position) vertical dotted line; it can be moved to any place of the screen.
@@ -1867,7 +1867,7 @@ X2 cursor is the right (default position) vertical dotted line; it can be moved 
 Use the Universal Knob to set the X1 and X2 cursor values and the values are displayed in the cursors box in the upper-left corner of the screen along with the difference between X1 and X2 (△T) and 1/△T.
 When set cursor type to X2-X1, use Universal Knob will move the X1 and X2 cursors together. The value under the menu option is the difference between the X1 and X2 cursors.
 
-## Y Cursors
+## Y Cursors (horizontal dotted lines, voltage, current, Y1, Y2, ΔY)
 
 Y cursors are horizontal dotted lines that adjust vertically and can be used to measure voltage (V) or current (A). When the cursors source is the math function, the unit will match the math function.
 Y1 cursor is the top (default position) horizontal dotted line; it can be moved to any vertical place of the screen.
@@ -1876,7 +1876,7 @@ Use the Universal Knob to set the Y1 and Y2 cursor values and the values are dis
 
 When set cursor type to Y2-Y1, use Universal Knob will move the Y1 and Y2 cursors together. The value under the menu option is the difference between the Y1 and Y2 cursors.
 
-## Make Cursor Measurements
+## Make Cursor Measurements (Manual, Track, Source, X Ref, Y Ref, transparence)
 
 1. Press the Cursors button on the front panel to enter the CURSOR function menu.
 2. Press the Mode softkey and set the cursors mode to Manual or Track .
@@ -1890,7 +1890,7 @@ When set cursor type to Y2-Y1, use Universal Knob will move the Y1 and Y2 cursor
 10.  To adjust the transparence of the cursors message box, press the Display/Persist button and go to the second page, press the Transparence (20% to 80%) softkey and then turn the Universal Knob to adjust the transparence to the desired value.
 
 
-## Measure
+## Measure (38 waveform parameters, voltage, time, delay, statistics)
 
 The oscilloscope provides measurements of 38 waveform parameters and the statistics. It contains voltage, time and delay parameters.
 Voltage and time parameters are under Type option. The results of the last four selected measurements are displayed at the bottom of screen and above the menu. Delay parameters are under the All Measure submenu. Set the Delay option to On to display all the delay parameters.
@@ -1904,7 +1904,7 @@ The contents of this chapter:
 -  Gate measurement
 
 
-## Voltage Measurements
+## Voltage Measurements (Peak-Peak, Maximum, Minimum, Amplitude, Top, Base, Mean, Stdev, Rms, Overshoot, Preshoot)
 
 Voltage measurements include 17 kinds of voltage parameter measurements.
 1. Peak -Peak: Difference between maximum and minimum data values .
@@ -1923,7 +1923,7 @@ Voltage measurements include 17 kinds of voltage parameter measurements.
 14. Preshoot: Preshoot is distortion that precedes a major edge transition expressed as a percentage of Amplitude. The X cursors show which edge is being measured (edge closest to the trigger reference point).
 15. Level@X: the voltage value between the trigger point and the vertical position of the channel
 
-## Time Measurements
+## Time Measurements (Period, Frequency, +Width, -Width, Rise Time, Fall Time, +Duty, -Duty, Delay)
 
 Time measurements include 11 kinds of time parameter measurements.
 1. Period: Period for every cycle in waveform at the 50% level, and positive slope .
@@ -1938,7 +1938,7 @@ Time measurements include 11 kinds of time parameter measurements.
 8. Delay：Time from the trigger to the first transition at the 50% crossing .
 9. T@L： Time from trigger of each transition at a specific level and slope, include: Current, Max, Min, Mean, and Std-dev .
 
-## Delay Measurements
+## Delay Measurements (Phase, FRFR, FRFF, FFFR, FFFF, FRLR, FRLF, FFLR, FFLF, Skew)
 
 Delay measurements measure the time different between arbitrary two channels, including 10 kinds of delay measurements.
 1. Phase: Calculate the phase difference between two edges .
@@ -1952,7 +1952,7 @@ Delay measurements measure the time different between arbitrary two channels, in
 9. FFLF: Time from the first falling edge of channel A to the last falling edge of channel B .
 10. Skew：Time of source A edge minus time of nearest source B edge.
 
-## Add Measurement
+## Add Measurement (Source, Type, Statistics, measurement parameters)
 
 Perform the steps below and select voltage or time parameters to make automatic measurement.
 
@@ -1966,13 +1966,13 @@ The measurement display area can display 4 measurement parameters at most, and t
 
 Note: if the parameter does not match the measure condition, it will display as "****"
 
-## Clear Measurement
+## Clear Measurement (selective clearing, clear all, recover)
 
 SDS1000X -E (4-channel) supports selective clearing of measurement parameters that are displaying on the screen . SDS1000X -E (2 channel) and SDS1000X-U only support one key to clear all measurement items .
 
 Press the Clear softkey to call up the clear measurement box. Rotate and press the Universal Knob to clear a measurement or all measurement. Press Recover to recover the selected measurement .
 
-## All Measurement
+## All Measurement (all voltage, all time, All Measure, source)
 
 All measurement could measure all the voltage and time parameters of the current measurement source and display the results on the screen.
 Do the following steps to make all parameters measurement.
@@ -1981,7 +1981,7 @@ Do the following steps to make all parameters measurement.
 2. Press the All Measure softkey to select On .
 3. Press the Source softkey to select the measure source .
 
-## Gate Measurement
+## Gate Measurement (Gate A, Gate B, upper limits, lower limits)
 
 The SDS1000X -E/SDS1000X -U support gate measurement and perform the selected measurement within the upper and lower limits of the gate. Setting the gate will affect the measurement of all voltage, time, and delay parameters.
 1. Press Measure → Gate → On to open the gate measurement.
@@ -1989,23 +1989,23 @@ The SDS1000X -E/SDS1000X -U support gate measurement and perform the selected me
 3. Press the Gate B to move the position of gate B by the Universal Knob .
 4. Press the Gate A -B to move the positions of the gate A and B simultaneously by the Universal Knob .
 
-## Display
+## Display (display type, color, persistence, grid, intensity, brightness, transparence)
 
 You can set the display type, color, persistence, grid type, waveform intensity, grid brightness and transparence.
 
-## Display Type
+## Display Type (Vectors, Dots, sample points, lines)
 
 Press the Display button on the front panel, and then press the Type softkey to select Vectors or Dots display type.
 -  Vectors: the sample points are connected by lines and displayed. Normally, this mode can provide the most vivid waveform to view the steep edge of the waveform (such as square waveform).
 -  Dots: display the sample points directly. You can directly view each sample point and use the cursor to measure the X and Y values of the sample point.
 
-## Color Grade
+## Color Grade (color temperature, appearing probability, cold, warm)
 
 Color temperature adopts the change of waveforms' color to reflect the change of the waveforms' appearing probability. The greater the probability that the waveform appears, the warmer the color is; the smaller the waveform appears, the colder the color is.
 
 The picture below shows the change of color from cold to warm. Press the Display button on the front panel, and then press the Color Grade softkey and set the option to On to turn on the color temperature function. You can compare the waveform's color with the picture below to just the probability that the waveform appears.
 
-## Persistence
+## Persistence (Variable, Infinite, previous acquisitions, intensity, noise, jitter)
 
 With persistence, the oscilloscope updates the display with new acquisitions, but does not immediately erase the results of previous acquisitions. All previous acquisitions are displayed with reduced intensity. New acquisitions are shown in their normal color with normal intensity.
 
@@ -2023,11 +2023,11 @@ accumulate acquisitions again.
 
 4. To return to the normal display mode, turn off persist and the previous acquisitions will be clear at once.
 
-## Clear Display
+## Clear Display (clear waveforms, acquire new waveforms)
 
 Press the Display button on the front panel to enter the DISPLAY function menu; press the Clear Display softkey to clear all the waveforms displaying on the screen and acquire and display new waveforms.
 
-## Display Grid Type
+## Display Grid Type (14X8, 2X2, without grid)
 
 To select grid type
 
@@ -2040,7 +2040,7 @@ Display 14X8 grid type
 Display 2X2 grid type
 Display without grid
 
-## Display Intensity
+## Display Intensity (waveform intensity, 0% to 100%, noise, infrequent events)
 
 Do the following steps to adjust waveform intensity:
 
@@ -2052,14 +2052,14 @@ Increasing the intensity lets you see the maximum amount of noise and infrequent
 
 Note: Waveform intensity adjustment affects analog channel waveforms only (not math waveforms, reference waveforms, digital waveforms, etc.).
 
-## Grid Brightness
+## Grid Brightness (graticule, 0% to 100%)
 
 Do the following steps to adjust the grid brightness:
 1. Press the Display button on the front panel to enter the DISPLAY function menu.
 2. Press the Next Page softkey to go to the second page of the Display function menu.
 3. Press the Graticule softkey; and then turn the Universal Knob to select the desired value. The default value is 40%, and the range is from 0% to 100%.
 
-## Transparence
+## Transparence (message box, cursor, measure, Pass/Fail, 20% to 80%)
 
 Transparence can be used to adjust the transparence of the message box of cursor, measure, Pass/Fail and all pop-up menus to an appropriate value to observe the date more conveniently.
 
@@ -2069,62 +2069,62 @@ Under Cursor or Measure or any other menu operation, if want to change the trans
 2. Press the Next Page softkey to go to the second page of the Display function menu.
 3. Press the Transparence softkey; and then turn the Universal Knob to select the desired value. The default value is 80%, and the range is from 20% to 80%.
 
-## Save and Recall
+## Save and Recall (setups, waveforms, pictures, CSV, internal memory, USB)
 
 Oscilloscope setups, waveforms, pictures, and CSV files can be saved to internal oscilloscope memory or to a USB storage device. The saved setups, waveforms can be recalled later. The oscilloscope provides an USB Host interface on the front panel to connect an USB device for external storage.
 
-## Save Types
+## Save Types (setups, waveforms, images, CSV, binary, Matlab)
 
 The oscilloscope supports setups, waveforms, images and CSV files storage. The default save type is setups.
 
-## 1. Savetype Setups
+## 1. Savetype Setups (xml, internal memory, 20 setting files)
 
 It's the default storage type of the oscilloscope . It saves the settings of the oscilloscope in internal or external memory in "*.xml" format. At most 20 setting files (from No.1～No.20) can be stored in internal memory. The stored settings can be recalled.
 
-## REF waveform Reference
+## REF waveform Reference (REF format, REFA, REFB)
 
 The oscilloscope saves the waveform data in external memory in "*.REF" format. The data of the channel is you select channel. At recall, the data will be displayed on the screen by REFA or REFB .
 
-## 3 BMP
+## 3 BMP (bmp, screen image, external memory)
 
 The oscilloscope saves the screen image in external memory in "*.bmp" format. You can specify the file name and saving directory under the same directory using the same file name. The recall of image is not supported.
 
-## 4 JPG
+## 4 JPG (jpg, screen image, external memory)
 
 The oscilloscope saves the screen image in external memory in "*.jpg" format. You can specify the file name and saving directory under the same directory using the same file name. The recall of image is not supported.
 
-## 5 PNG
+## 5 PNG (png, screen image, external memory)
 
 The oscilloscope saves the screen image in external memory in "*.png" format. You can specify the file name and saving directory under the same directory using the same file name. The recall of image is not supported.
 
-## 6 . Binary
+## 6 . Binary (BIN, waveform data, all channels)
 
 The oscilloscope saves the waveform data in external memory in "*.BIN" format. The data of all the channels turned on can be saved in the same file. The recall of binary is not supported.
 
-## 7. CSV
+## 7. CSV (CSV, waveform data, Param Save)
 
 The oscilloscope saves the waveform data in external memory in "*.CSV" format. The stored files contain the waveform data of the displayed analog channels and the main setting information of the oscilloscope. The recall of CSV file is not supported.
 Set the save type to CSV, and set the Param Save option to On or Off to turn on or of the parameters storage function.
 
-## 8 . Matlab
+## 8 . Matlab (DAT, waveform data, all channels)
 
 The oscilloscope saves the waveform data in external memory in "*.DAT" format. The data of all the channels turned on can be saved in the same file. The recall of Matlab file is not supported.
 
-## 9 . To Default Key y
+## 9 . To Default Key (factory config, user set config)
 
 The oscilloscope saves the factory config and user set config . Then you can select the default function is the factory config or user set config .
 
-## 10. FileConverter
+## 10. FileConverter (binary to CSV, bin, slg, mlg, spreadsheet)
 
 The mini tool is used to convert stored binary files to CSV format for viewing with a spreadsheet program. It supports for file of waveform data (*.bin), file of sample logger(*.slg) and file of measure logger (*.mlg) to convert .
 
 This is ideal when collecting large datasets. For a waveform frame with deep memory such as 14 Mpts, to save directly as a CSV file will take long time and will occupy a large amount of memory on a USB storage device. It's recommended to save the data as binary file and then convert it to CSV file on a computer.
 
-## Internal Save and Recall
+## Internal Save and Recall (Setups, internal memory, save, recall)
 
 Internal save and recall support Setups in Save/Recall. In the following part, the save and recall method and procedures are introduced.
 
-## Save the specified oscilloscope setting in internal memory.
+## Save the specified oscilloscope setting in internal memory (Save, Type, Setup, Internal, Press to Save)
 
 1. Connect the signal to the oscilloscope and obtain stable display.
 2. Press Save/Recall button on the front panel to enter the SAVE/RECALL function menu.
@@ -2134,7 +2134,7 @@ Internal save and recall support Setups in Save/Recall. In the following part, t
 6. Press the Setup softkey button; and then turn the Universal Knob to select the location to save. The internal memory can save as many as 20 setup files, from No.1～No.20.
 7. Press the Press to Save softkey to save the current setup to the appointed location. After a few seconds, it will pop-up the message "Saved to internal file NO.x! "
 
-## Load the specified type of file in internal memory.
+## Load the specified type of file in internal memory (Recall, Type, Setup, Internal, Press to Recall)
 
 If want to recall the setup after having finished the steps above, please do the following steps:
 
@@ -2146,11 +2146,11 @@ If want to recall the setup after having finished the steps above, please do the
 
 Note: if need to delete a setup file in the memory, please save a new setup to the same location to overwrite it.
 
-## External save and recall
+## External save and recall (USB flash, external storage, file system)
 
 Before using external storage and recall, make sure that the USB flash device is connected correctly. External storage supports all the types of files in save , but in recall, images and CSV are not supported.
 
-## Save the specified type of file in the external USB flash device.
+## Save the specified type of file in the external USB flash device (Save, Type, External, New, file name)
 
 1. Press the Save/Recall button on the front panel to enter the SAVE/RECALL function menu.
 2. Press the Save softkey to enter the SAVE menu.
@@ -2161,7 +2161,7 @@ Before using external storage and recall, make sure that the USB flash device is
 7. After the save position is selected, press the New softkey y to turn on the interface as shown in the figure below. Refer to the descriptions in "To Create a new file or fold" to create a new file name.
 8. Press the Press to Save softkey to save the current setup to the external USB storage device .
 
-## Load the specified type of file in the external USB storage device
+## Load the specified type of file in the external USB storage device (Recall, Type, External, file selection)
 
 1. Press the Save/Recall button on the front panel to enter the SAVE/RECALL function menu.
 2. Press the Recall softkey to enter the RECALL menu.
@@ -2170,7 +2170,7 @@ Before using external storage and recall, make sure that the USB flash device is
 5. Press the Press to Recall softkey to enter the SAVE/RECALL file system.
 6. Turn the Universal Knob to select the file to be recalled, press the Press to Recall softkey to recall the reference or setup .
 
-## Disk Management
+## Disk Management (create, delete, rename, file, folder)
 
 Disk management aim at the save and recall operations after the oscilloscope is connected with a USB storage device. Before using external disk, make sure that the USB storage device is connected correctly.
 
@@ -2179,7 +2179,7 @@ Execute the following operations through the disk management menu:
 -  Delete a File or Folder
 -  Rename a File or Folder
 
-## Create a New File or Folder
+## Create a New File or Folder (New, name input, keyboard, English input)
 
 This operation is only valid in external storage. The oscilloscope supports English input method. The file name or folder name can contain letters, numbers, underscores and spaces. Let's use an example to introduce how to create a file or folder.
 
@@ -2191,7 +2191,7 @@ Example: create a file or folder named “SDS105X ”
 4. Press the New softkey to open the interface shown as the figure below. It divides into two parts: name input area and keyboard area.
 5. To delete the name in the name input area, press the Backspace softkey continuously to delete the character one by one.
 
-## Delete a File or Folder
+## Delete a File or Folder (Delete, external storage)
 
 This operation is only valid in external storage.
 
@@ -2200,7 +2200,7 @@ This operation is only valid in external storage.
 3. Press the Press to Save or Press to Recall softkey to enter the SAVE/RECAL file system .
 4. Turn the Universal Knob to select the file or folder to be deleted, and then press the Delete softkey. Then the file or folder will be deleted.
 
-## Rename a File or Folder
+## Rename a File or Folder (Rename, external storage, U disk)
 
 This operation is only valid with external storage (U disk storage), and only files of the corresponding type format can be renamed.
 
@@ -2209,11 +2209,11 @@ This operation is only valid with external storage (U disk storage), and only fi
 3. Press the Press to Save or Press to Recall softkey to enter the SAVE/RECAL file system .
 4. Turn the Universal Knob to select the file or folder to be rename, and then press the Rename softkey. For details, see the instructions in "Create a New File or Folder."
 
-## Digital Channels(Option)
+## Digital Channels(Option) (MSO, SLA1016, digital probes, logic threshold)
 
 The digital channels are enabled on SDS1000X-E (4-channel scope) that have installed the MSO activation license. As an external module, SLA1016 is independent of the host, and has its own system , so it needs to be upgraded if necessary .
 
-## Connect the Digital Probes
+## Connect the Digital Probes (digital probe cable, fly line, grabber, ground)
 
 1. If necessary, turn off the power supply to the device-under-test.
 2.  Turning off the power to the device-under-test prevents damage that might occur if you accidentally short lines together while connecting probes. You can leave the oscilloscope powered on because no voltage appears at the probes.
@@ -2227,39 +2227,39 @@ There are two indicators on the side of the SLA1016, one is red (Power), another
 -  The red indicator: If SLA1016 ' s power is normal, this indicator turns on, or else it blinks or turns off.
 -  The green indicator: When the SLA1016 is connect to the oscilloscope, this indicator turns on for seconds then turns off, and then blinks, and finally keeps the light on. When data is transferred between the SLA1016 and the oscilloscope, the indicator blinks.
 
-## Acquire Digital Waveform
+## Acquire Digital Waveform (Digital button, sample, logic threshold)
 
 Press the Digital button on the front panel to open the digital channels and start acquiring digital channel waveforms.
 
 For digital channels, each time the oscilloscope takes a sample it compares the input voltage to the logic threshold. If the voltage is above the threshold, the oscilloscope stores a 1 in the sample memory; otherwise, it stores a 0.
 
-## Digital Channels Height
+## Digital Channels Height (Low, Middle, High, spread out, compress)
 
 1. Press the Digital button on the front panel to open the DIGITAL function menu.
 2. Press the Channel High softkey to select Low, Middle, High display type.
 
 The display type control lets you spread out or compress the digital traces vertically on the display for more convenient viewing.
 
-## Digital Channels Position
+## Digital Channels Position (Control, Active, Position, reposition)
 
 1. Press the Digital button on the front panel to open the DIGITAL function menu and display the digital channel waveforms.
 2. Press the Control softkey select the Active then turn the Universal Knob to select the channel that you wish to reposition. The selected waveform is highlighted in red.
 3. Press the Control softkey select the Position then turn the Universal Knob to move the selected channel to any position.
 
-## Single Digital Channel
+## Single Digital Channel (Channel Control, Dx)
 
 1. Press the Digital button on the front panel to open the DIGITAL function menu.
 2. Press the Channel Control softkey, then turn the Universal Knob to select the desired channel such as Dx and push down the knob to confirm.
 3. Press the Dx softkey to select On or Off to switch the selected channel on or off.
 
-## All Digital Channels
+## All Digital Channels (Channel Group, all channels)
 
 1. Press the Digital button on the front panel to open the DIGITAL function menu.
 2. Press the Channel Group softkey to select On or Off to switch all digital channels which in this group on or off.
 
 Also, under the DIGITAL function menu, press the Digital button on the front panel to switch all digital channels off.
 
-## Logic Threshold
+## Logic Threshold (TTL, CMOS, LVCMOS3.3, LVCMOS2.5, Custom, threshold voltage)
 
 1. Press the Digital button on the front panel to open the DIGITAL function menu.
 2. Press the Threshold softkey to enter the THRESHOLDS menu.
@@ -2277,7 +2277,7 @@ Also, under the DIGITAL function menu, press the Digital button on the front pan
 -  Values greater than the set threshold are high (1) and values less than the set threshold are low (0).
 -  If the D0~D7or D8~D15 softkey is set to Custom, press the Custom softkey, then turn the Universal Knob to select the desired value and push down the knob to confirm.
 
-## Digital Bus
+## Digital Bus (bus, hex, binary, Bus1, Bus2, channel group)
 
 Digital channels may be grouped and displayed as a bus, with each value displayed at the bottom of the display in hex or binary. You can create up two buses.
 
@@ -2293,16 +2293,16 @@ To configure and display each bus, do the following steps:
 8.  Under the DIGITAL function menu, press the System Display softkey to select Binary or Hex to display the bus values.
 The Sampling rate of digital channels is displayed at the right of the display.
 
-## Deskew
+## Deskew (deskew, digital channels)
 
 1. Press the Digital button on the front panel to open the DIGITAL function menu and display the digital channel waveforms.
 2. Press the Deskew softkey , and then turn the Universal Knob to select to change deskew.
 
-## System Status
+## System Status (software version, hardware version, serial number)
 
 Press Digital→ NextPage2/2 → System ,then select the System Status option to view the digital system information , including software version, hardware version, and serial number. After finished, press the return soft key to quit the interface of system information.
 
-## Software Update
+## Software Update (ads, firmware, U-disk, update)
 
 The software version file of the Digital can be updated directly via U-disk. Follow the steps below:
 1. Insert U-disk with firmware update file (*.ads) to USB host interface on the front panel of the oscilloscope . Then a message "USB Flash Drive detected! " will be displayed .
@@ -2311,15 +2311,15 @@ The software version file of the Digital can be updated directly via U-disk. Fol
 4. After the updating is finished, the Digital device will automatically disconnected and display a message "Update completed, please reconnect Digital device! "
 Note： Don't cut off the power during the Digital device is being updated！
 
-## Remove Device
+## Remove Device (Digital device removed, disconnect)
 
 Press Digital→ NextPage2/2 →Remove Device and the oscilloscope interface display "Digital device removed! " , the device can be pulled.
 
-## System Setting
+## System Setting (system status, language, sound, self-cal, update, remote interface)
 
 This function module supports the oscilloscope's system-related function, such as system status, language, sound and some other advanced setting, such as do self -cal, update and remote interface configure.
 
-## View System Status
+## View System Status (Utility, System Status, Startup Times, Software Version, FPGA Version, Hardware Version, Product Type, Serial No.)
 
 Do the following steps to view the system status:
 
@@ -2334,7 +2334,7 @@ Do the following steps to view the system status:
 9.  Serial No.: list the serial number of the oscilloscope.
 3. Press the Single button on the front panel to exit.
 
-## Do Self Cal
+## Do Self Cal (self-calibration, warm up, disconnect input channels)
 
 The self -calibration program can quickly make the oscilloscope reach the best working state to get the most precise measurement values. You can perform self -calibration at any time especially when the change of the environment
 temperature is up to or more than 5 ℃. Make sure that the oscilloscope has been warmed up or operated for more than 30 minutes before the self-calibration.
@@ -2344,17 +2344,17 @@ Do the following steps to do self-calibration:
 3. Press the Single button on the front panel to perform the self-calibration program. During the calibration, most of the keys are disabled.
 4. When the self -calibration program is finished, it will pop-out the message " Press Run/Stop key to exit". Press the Run/Stop button on the front panel to exit the calibration interface .
 
-## Quick-Cal
+## Quick-Cal (quick calibration, temperature, measurement deviation)
 
 Quick calibration can correct the measurement deviation caused by temperature, so that you can get more accurate measurements .
 If the ambient temperature of your current operating oscilloscope is unstable, press Utility → Quick-Cal softkey to select On to enable quick calibration.
 
-## Set Sound
+## Set Sound (beeper, function key, menu softkey, prompt message)
 
 When the sound is enabled, you can hear the sound of the beeper when you press a function key or a menu softkey or when the prompt message pops up.
 Press the Utility button on the front panel to enter the UTILITY function menu; then press Sound softkey to select or to turn on or off the sound.
 
-## Set Language
+## Set Language (Simplified Chinese, English, French, German, Spanish, Russian, Italian, Portuguese)
 
 The oscilloscope supports multiple language menu, Chinese/English help and prompt messages.
 
@@ -2362,13 +2362,13 @@ The oscilloscope supports multiple language menu, Chinese/English help and promp
 2. Press the Language softkey; and then turn the Universal Knob to select the desired language. Then push down the knob to select the language.
 The languages that currently available are Simplified Chinese, Traditional Chinese, English, French, German, Spanish, Russian, Italian, and Portuguese.
 
-## Pass/Fail Test
+## Pass/Fail Test (mask, compliance, test results, TRIG OUT, beeper)
 
 One way to verify a waveform's compliance to a particular set of parameters is to use pass/fail testing. A pass/fail defines a region of the oscilloscope's display in which the waveform must remain in order to comply with chosen parameters. Compliance to the mask is verified point- bypoint across the display.
 
 The test results can be displayed on the screen as well as be declared through the system sound or the pulse signal output from the [TRIG OUT] connector at the rear panel. Pass/Fail test operates on displayed analog channels; it does not operate on channels that are not displayed.
 
-## Set and Perform Pass/Fail Test
+## Set and Perform Pass/Fail Test (Enable Test, Source, Mask Setting, X Mask, Y Mask, Create Mask, Stop On Fail, Output)
 
 Do the following steps to set and perform pass/fail test:
 
@@ -2397,11 +2397,11 @@ Do the following steps to set and perform pass/fail test:
 18.  : Current state is stop; press the softkey to start the pass/fail test.
 19.  : Current state is running; press the softkey to stop the pass/fail test.
 
-## Save and Recall Test Mask
+## Save and Recall Test Mask (msk, internal Flash, external USB)
 
 Users can save the current test mask to the internal Flash memory or external USB flash device. The file format of the test mask file is "*.msk".
 
-## Save Test Mask to Internal Memory
+## Save Test Mask to Internal Memory (Location, Internal, Save, Pass/Fail_mask_data.msk)
 
 1. Press the Utility button on the front panel to enter the UTILITY function menu.
 2. Press the Next Page softkey to go to the second page of the UTILITY function menu.
@@ -2415,7 +2415,7 @@ Users can save the current test mask to the internal Flash memory or external US
 10. A few second later, it will pop-out the message "Save to file Pass/Fail\_mask\_data.msk! "
 Note: the internal memory can only save one test mask; save a new test mask will cover the old one.
 
-## Recall Test Mask from Internal Memory
+## Recall Test Mask from Internal Memory (Location, Internal, Load)
 
 1. Press the Utility button on the front panel to enter the UTILITY function menu.
 2. Press the Next Page softkey to go to the second page of the UTILITY function menu.
@@ -2426,7 +2426,7 @@ Note: the internal memory can only save one test mask; save a new test mask will
 7. Press the Load softkey to recall the saved interval memory.
 8. A few second later, it will pop-out the message "Recalled the Successfully!" and the saved mask will be displayed on the screen.
 
-## Save Test Mask to External Memory
+## Save Test Mask to External Memory (Location, External, Save, file system)
 
 Do the following steps to save the test mask to external memory:
 
@@ -2441,7 +2441,7 @@ Do the following steps to save the test mask to external memory:
 9. Press the Save softkey to enter the file SAVE/RECALL system.
 10. Save the test mask file refer to the "Save to file XXX.msk " chapter.
 
-## Recall Test Mask from External Memory
+## Recall Test Mask from External Memory (Location, External, Load, RGU postfix)
 
 Do the following steps to save the test mask f external memory:
 
@@ -2454,21 +2454,21 @@ Do the following steps to save the test mask f external memory:
 7. Press the Load softkey to enter the file SAVE/RECALL system.
 8. Select the desired test mask file with a RGU postfix using the Universal Knob; and then press the Load softkey.
 
-## Arbitrary Waveform Generator(Option)
+## Arbitrary Waveform Generator(Option) (AWG, standard waveform, Arb, EasyWave)
 
 SDS1000X-E (4-channel) support an external Arbitrary Waveform Generator (AWG), which can easily and quickly provide multiple input signals to users.
 
 The AWG provides two kinds of waveforms: the standard waveform and the Arb. The Arb single consists of two types: the system ' s built -in waveforms and the stored waveforms.
 Built -in waveforms are stored in the internal non -volatile memory . It is includes: Common, Math, Engine, Window , and Trigo . Users may also edit the arbitrary waveform by PC which has installed the EasyWave, or import the waveform by U disk that had stored edited waveform.
 
-## Waveform Output
+## Waveform Output (USB cable, AWG device connection, Output, frequency, amplitude)
 
 Connect AWG with USB cable, and the oscilloscope interface indicates "AWG device connection success", Press the Utility → Next Page4/4→ AWG , to enter the function menu interface of the AWG system as shown below , including: Output, Wave, Setting, System, and Remove Device.
 Press Output softkey to open or close the AWG output .When the output is on, the upper right corner of the oscilloscope interface will displays the corresponding waveform frequency and amplitude information of AWG output wave .
 
-## Set Wave type
+## Set Wave type (Sine, Square, Ramp, Pulse, Noise, DC, Arb)
 
-## To set standard waveform
+## To set standard waveform (Sine, Square, Ramp, Pulse, Noise, DC, frequency, amplitude, offset)
 
 Press the Utility→ Next Page4/4→AWG → Wave Type, Rotate the Universal Knob to the Sine wave. Then press the knob to select the interface shown as below:
 The following table shows the waveform type and its corresponding characteristics .
@@ -2484,35 +2484,35 @@ According to the selected waveform, to set the waveform parameters through Unive
 | DC           | Offset value.                                                                      |                       |                       | ± 3.0V             |
 | Arb          | Frequency//Period/Amplitude/H igh-Level/Offset/Low-Level value                     |                       |                       |                    |
 
-## To set Arb waveform
+## To set Arb waveform (Stored Arb, Built-in Arb, EasyWave, U disk)
 
 Press the Utility→Next Page4/4→AWG→Wave Type , then select the Arb, and it has two types:
 
-## Stored Arb
+## Stored Arb (EasyWave, remote interface, internal storage, external storage)
 
 Users can edit the Arb through the PC which has installed the EasyWave software. Send the edited Arb to the instrument through remote interface , and the Arb will be stored in the instrument . Or read from the U disk which has stored the Arb. Choose Wave Type→ Arb→ Arb Type→ Stored , enter the Stored Arb interface and invoke the waveform in the internal storage and external storage device.
 
-## Built -in Arb
+## Built -in Arb (Common, Math, Engine, Window, Trigo)
 
 Choose Wave Type→ Arb →Arb Type→ Built-in to enter the following interface , Rotate the knob to move the cursor, press the knob to select to the desired waveform , and then return back to Built -in waveform interface.
 
-## Output Load
+## Output Load (High-Z, 50Ω)
 
 Press Utility→ NextPage4/4→ AWG → Setting→ Output Load to set High-Z or 50Ω .
 
-## Sync Output
+## Sync Output (Aux In/Out, CMOS signal, same frequency)
 
 Press Utility→ NextPage4/4→ AWG→ Setting→ Sync Output , the AWG provides Sync output through the [Aux In/Out] connector on the rear panel. When the Sync Output is on, the port can output a CMOS signal with the same frequency as basic waveforms (except the Noise and DC), arbitrary waveforms, and modulated waveforms (except external modulation).
 
-## OVP (Over Voltage Protection)
+## OVP (Over Voltage Protection) (overvoltage protection, output disabled)
 
 Press Utility→NextPage4/4→AWG→ Setting→ OVP to turn on or off the function. If the state is set to ON, overvoltage protection of AWG output port take effect once the condition is meeting (the absolute value of input voltage is higher than 4V±0.5V). When overvoltage protection occurs, a message will be displayed and the output is disabled.
 
-## Default button
+## Default button (Sine, 1.000 KHz, 4.000Vpp, 0.0mVdc, High-Z)
 
 Press Utility →NextPage4/4→ AWG→ Setting→ Default to recover the default values of AWG (Sine, 1.000 KHz, 4.000Vpp, 0.0mVdc, High-Z, Sync output off, OVP On).
 
-## Zero Adjust
+## Zero Adjust (Auto mode, Manual mode, calibrate)
 
 Press Utility→ NextPage4/4→ AWG→ Setting→ Zero Adjust. The AWG can be calibrated by using Auto mode or Manual mode. The adoption standard of AWG calibrated is: when AWG outputs 0V DC signal, the corresponding channel at 1mv/div gear' mean value of oscilloscope is rang in ±1mv.
 
@@ -2525,12 +2525,12 @@ Take channel 2 as an example:
 - b. Adjust the voltage of channel 2 channel to 1mv/div, and make the waveform visible in the oscilloscope interface, press the Measure and measure the mean value of channel 2.
 - c. Press the Manual and rotate the knob to adjust the waveform, so that the mean value of the observed CH2 will be in the range of ±1mv, and then press the Save, the oscilloscope displays "Zero Adjust Success!".
 
-## System Status
+## System Status (software version, hardware version, serial number)
 
 Press Utility→NextPage4/4→AWG→System , then select the System Status option to view the AWG's system information, including software version, hardware version,
 and serial number. After finished, press the return softkey to exit the system information page.
 
-## Software Update
+## Software Update (ads, firmware, U-disk, update)
 
 The software version file of the AWG can be updated directly via U-disk. Follow the steps below:
 
@@ -2540,11 +2540,11 @@ The software version file of the AWG can be updated directly via U-disk. Follow 
 4. After the updating is finished, the AWG will automatically disconnected and display a message "Update completed, please reconnect AWG device! "
 Note： Don't cut off the power during the AWG is being updated！
 
-## Remove Device
+## Remove Device (AWG device removed, disconnect)
 
 Press Utility→NextPage4/4→AWG→Remove Device, and the oscilloscope interface display "AWG device removed!", the device can be pulled.
 
-## USB Device
+## USB Device (USBTMC, NI Vista, EasyScopeX, USB ID)
 
 Do the following steps to set the oscilloscope to communicate with PC via USB:
 
@@ -2555,7 +2555,7 @@ Do the following steps to set the oscilloscope to communicate with PC via USB:
 5. Press the USB Device softkey to view the USB ID.
 6. Use EasyScopeX or NI Vista to communicate with the oscilloscope.
 
-## LAN Setup
+## LAN Setup (network cable, IP address, DHCP, subnet mask, gateway)
 
 Do the following steps to set the oscilloscope to communicate with PC via LAN:
 
@@ -2572,7 +2572,7 @@ Do the following steps to set the oscilloscope to communicate with PC via LAN:
 11.  Press the Save softkey to save the current setting.
 7. Use EasyScopeX or NI Vista to communicate with the oscilloscope.
 
-## WLAN(4-channel only)
+## WLAN(4-channel only) (wireless network adapter, SSID, PSK, WiFi)
 
 SDS1000X -E (4-channel) supports this function. Do the following steps to set the oscilloscope to communicate with PC via WLAN:
 
@@ -2593,11 +2593,11 @@ On: you can set the SSID and PSK manually.
 8. Return to the I/O SET menu . Press the IP Set softkey to finish the IP configuration(see " To Set the LAN " )
 9. Use EasyScopeX or NI Vista to communicate with the oscilloscope.
 
-## Web Server (4-Channel only)
+## Web Server (4-Channel only) (web browser, IP address, web interface)
 
 SDS1000X -E (4-channel) provide the web server function; you can access and control the oscilloscope using a web browser. Connect the oscilloscope to your LAN (or WLAN), then type the oscilloscope's IP address in the web browser. The oscilloscope's web interface is displayed.
 
-## Set Password (4-Channel only)
+## Set Password (4-Channel only) (Password, Reset, Save)
 
 1. Press the Utility button on the front panel to enter the UTILITY function menu.
 2. Press the WebServer softkey on the fourth page of utility function menu to enter the WEBSERVER menu .
@@ -2605,7 +2605,7 @@ SDS1000X -E (4-channel) provide the web server function; you can access and cont
 4.  Reset: press this softkey to reset the password.
 5.  Save: After setting a new password, press this softkey to make the password effective .
 
-## Web Browser (4-channel only)
+## Web Browser (4-channel only) (IP address, instrument control, screenshot, firmware upgrade)
 
 - 1 Input the IP address of the instrument
 - 2 Information of the instrument
@@ -2618,7 +2618,7 @@ SDS1000X -E (4-channel) provide the web server function; you can access and cont
 - 6 Click here to download the mini tool for converting bin file to csv file
 - 7 Click here to perform a firmware upgrade
 
-## Counter -Frequency, Period and Totalizer
+## Counter -Frequency, Period and Totalizer (counter, frequency, period, totalizer, statistics)
 
 SDS1000X-E (4-channel) supports counter function, which is used to measure the frequency and period of a signal or count the events happening within it. The counter is asynchronous to the acquisition system of the oscilloscope. It can work well even if the acquisition of the oscilloscope is stopped (indicated by a red colored Run/Stop button)
 
@@ -2647,11 +2647,11 @@ When statistics are enabled, the counter will increment the data and display the
 -  Count: Number of counts obtained
 Press the Clear Sweeps button or Reset Statistics softkey to clear and restart statistics.
 
-## Data Logger
+## Data Logger (Sample logger, Measure logger, waveform data, measurement value)
 
 SDS1000X-E (4-channel) supports Sample logger and Measure logger, which can record waveform data and measurement value .
 
-## Sample Logger
+## Sample Logger (original points, real time, low-speed signals, replay)
 
 The Sample logger can record the original points of waveform in real time at equal intervals to realize the long-time observation of low-speed signals. The recorded data can be stored in the internal or external storage device in real time. After stopping recording, users can replay the waveform on the oscilloscope, also can export the recorded data and then analyze on the PC.
 
@@ -2669,7 +2669,7 @@ Press the Sample Logger softkey to enter the sample logger interface. At this ti
 |     7 | Sample rate and recorded points of waveform |
 |     8 | Storage location                            |
 
-## Record Waveform
+## Record Waveform (Record, Setting, Rate, Internal, External, Start, Stop)
 
 - 1 Press the Record softkey to enter the RECORD function menu.
 - 2 Press the Setting softkey to enter the SETTINGS function menu. Press the Rate softkey to set the sampling rate of the waveform. Press the Record to softkey to set the storage location of the recorded data:
@@ -2683,7 +2683,7 @@ Press the Sample Logger softkey to enter the sample logger interface. At this ti
 
 Note: When recording to external, the waveform data will be stored to the external in real time. Please do not pull out the U disk during the recording process!
 
-## Recall Recorded Waveform
+## Recall Recorded Waveform (Recall, Recall from, storage path)
 
 - 1 Press the Recall softkey to enter the RECALL function menu.
 - 2 Press the Recall from softkey to select the storage path .
@@ -2692,20 +2692,20 @@ Note: When recording to external, the waveform data will be stored to the extern
 
 enter the CONTROL menu automatically.
 
-## Display Control
+## Display Control (Horizontal Ref, Horizontal Scale, Horizontal Position, View all, Cursors)
 
 - 1 Press the Horizontal Ref softkey to set the horizontal reference position.
 - 2 Rotate the Horizontal Scale knob to zoom the waveform with the horizontal reference as the center. Rotate the Horizontal Position knob to move the waveform.
 - 3 Press the View all softkey to return to the initial configuration to view all waveforms .
 - 4 After recalling the waveform, press the Cursors button to turn on the cursor function, which can measure and analyze the waveform on the screen. Please refer to the chapter "Cursors" for operation.
 
-## Manage Internal Record
+## Manage Internal Record (Export Internal Data, Delete Internal Data, slg, fileconverter)
 
 - 1 Press the Manage softkey to enter the MANAGE function menu.
-- 2 Press the Export Internal Data softkey to export the internal record to the external storage device. See the chapter "Save and Recall" for operation. The file format ( * . slg) is described in detail in the document "How to Extract Data from the Binary File.docx". Please download from SIGLENT website. The oscilloscope provides a tool named fileconverter to convert the waveform file (*.slg) to CSV format. You can download it from the Save/Recall menu or the webserver.
+- 2 Press the Export Internal Data softkey to export the internal record to the external storage device. See the chapter "Save and Recall" for operation. The file format ( *.slg) is described in detail in the document "How to Extract Data from the Binary File.docx". Please download from SIGLENT website. The oscilloscope provides a tool named fileconverter to convert the waveform file (*.slg) to CSV format. You can download it from the Save/Recall menu or the webserver.
 - 3 Press the Delete Internal Data softkey to delete the internal record .
 
-## Measure Logger
+## Measure Logger (measured value, long-time measurement, trend, 4 traces)
 
 The Measure logger can record the measured value of waveform in real time to realize the long-time measurement trend observation of low-speed signal. The measurement data is recorded in the internal, and can be stored to the internal or external storage device after stopping recording. It can support up to 4 traces of data at the same time.
 
@@ -2726,18 +2726,18 @@ Turn on the measure function and add measurement items, then press Utility → N
 |------|--------------------------------------------|
 |   11 | Upper and lower scale of measurement items |
 
-## Start/Stop Recording
+## Start/Stop Recording (Setting, record interval, record trace, Start, Stop)
 
 - 1 Press the Setting softkey to enter the SETTINGS function menu. Set record interval, record trace and the corresponding measurement item.
 - 2 After setting, press the Return softkey to return to the previous menu.
 - 3 Press the Start softkey to start to record, the record status in the top information bar is displayed as "Run". During the recording process, the measure logger automatically adjusts the horizontal scale to show the trace. Users also can turn the horizontal scale/position knob to enter the manual mode to zoom and move the recording trace.
 - 4 Press the Stop softkey to stop recording, the record status in the top information bar is displayed as " Stop".
 
-## Display Control
+## Display Control (All, single trace, Horizontal Ref, Cursors)
 
 - 1 Press the Display softkey to select All , all traces are displayed in the waveform area . When a trace is selected, only the selected trace is displayed in the waveform area. Press the channel button corresponding to the trace to switch all/individual display.
 
-## Single Trace Display
+## Single Trace Display (Select, Strategy, Fixed Position, Fixed Time, Track Mode)
 
 - 2 Press the Horizontal Ref softkey to set the horizontal reference position.
 - 3 Press the Cursors button to turn on the cursors function. Move the cursor to obtain the measured value of each point.
@@ -2752,7 +2752,7 @@ Turn on the measure function and add measurement items, then press Utility → N
 -  Minimum: Track the minimum value of the data within a pixel where T -Cursors are located.
 -  Peak: Track the data with the maximum deviation from the overall average value in a pixel where T-Cursors are located. When two cursors are at the same position, T1 will track the maximum value and T2 will track the minimum value.
 
-## Storage Measurement Record
+## Storage Measurement Record (Save/Recall, Save to, Internal, External, mlg, CSV, MATLAB)
 
 - 1 Press the Save/Recall softkey to enter the SAVE/RECALL function menu .
 - 2 Press the Save softkey to enter the SAVE menu .
@@ -2761,17 +2761,17 @@ Turn on the measure function and add measurement items, then press Utility → N
 -  External: The measurement data can be saved as binary data(*.mlg), CSV data or MATLAB data
 - 4 Press the Press to save softkey to save.
 
-## Recall Measurement Record
+## Recall Measurement Record (Recall from, Internal, External, binary, MATLAB)
 
 - 1 Press Save/Recall → Recall to enter the RECALL function menu.
 - 2 Press the Recall from softkey to select where to recall . Only binary files can be recalled from internal; while binary files or MATLAB files can be recalled from external. If the current data is not saved, it will be covered by the recalled the data.
 - 3 Press the Press to Recall softkey to recall .
 
-## Manage Internal Record
+## Manage Internal Record (Export, Delete, Sample Logger)
 
 Export or delete the internal record , it is similar to " Manage Internal Record" of Sample Logger .
 
-## Update Firmware and Configuration
+## Update Firmware and Configuration (firmware, configuration, USB flash, ADS, CFG)
 
 The firmware and configuration can be updated directly via USB flash driver.
 Do the following steps to update the firmware:
@@ -2796,11 +2796,11 @@ Do the following steps to update the configuration:
 7. After finish the update, the screen will pop-out the message "Firmware decompressed. Please restart and wait… "
 8. Restart the oscilloscope to finish the configuration update.
 
-## Do Self-Test
+## Do Self-Test (screen test, keyboard test, LED test)
 
 Self-tests include screen test, keyboard test, and LED test. Self-tests used to test the screen, buttons, knobs and LED lights whether works well.
 
-## Screen Test
+## Screen Test (pure red, green, blue, chromatic aberration, stain, scratch)
 
 1. Press the Utility button on the front panel to enter the UTILITY function menu.
 2. Press the Next Page softkey to go to the third page of the UTILITY function menu.
@@ -2810,7 +2810,7 @@ Press 'Single' key to continue,press 'Run/Stop' key to exit
 5. Press the Single button on the front panel continually as it says in the picture above. The screen displays green, blue and red again. It is easy to check chromatic aberration, stain and scratch of the screen under the condition.
 6. Press the Run/Stop button on the front panel to exit the screen test program.
 
-## Keyboard Test
+## Keyboard Test (knobs test, keys test, Run/Stop)
 
 Keyboard test is used to test that if the keys or the knobs work well.
 
@@ -2825,7 +2825,7 @@ Do the following steps to do keyboard test:
 7. Keys test: the first time to press the key to light it up, and a second press to die out. Test every button randomly.
 8. Press the Run/Stop button 3 times to exit the keyboard test program.
 
-## LED Test
+## LED Test (button lights, Run/Stop, red, green)
 
 LED test is used to test that if the button lights work well.
 
@@ -2836,7 +2836,7 @@ LED test is used to test that if the button lights work well.
 5. According to the prompting information displaying on the screen, press the Single button continually to light the button lights one by one. The first time to press the Single button, the Run/Stop button displays red, and the second press the Run/Stop button displays green. Then the other button lights will be lighted one by one. At last all the lights will be lighted at the same time.
 6. Press the Run/Stop button to exit the LED test program.
 
-## Screen Saver
+## Screen Saver (idle state)
 
 When the oscilloscope enters the idle state and holds for a certain period of time, the screen saver program will be enabled.
 
@@ -2847,31 +2847,31 @@ Do the following steps to set the screen saver time:
 3. Press the Screen Saver softkey; and then turn the Universal Knob to select the desired screen saver time. The screen saver time can be set to 1min , 5min , 10min , 30min, and 1hour. Also you can select Off to turn off the screen saver function
 4. Press the any button on the front to exit the screen saver program.
 
-## Date/Time
+## Date/Time (date, time, Display, NTP, time zone)
 
 SDS1000X -E (4-channel) supports setting date and time. After restarting the oscilloscope, you need to reset the system time.
 
 - 1 Press Utility → NextPage3/4 → Date/Time to enter the DATA/TIME function menu.
 - 2 Press the Display softkey to select On to display the date and time .
 
-## Set Date/Time
+## Set Date/Time (Date, Time, year, month, day)
 
 Press the Date/Time softkey to enter the Data/Time setting menu. Press the Date softkey and press the Universal Knob to select year, month or day, then rotate the Universal Knob to change value. Modifying the time is similar to the date .
 
-## Set Time Zone
+## Set Time Zone (Time Zone, Confirm)
 
 - 1 Press the Time Zone softkey to enter the Time Zone function menu, and pop up time zone page.
 - 2 Rotate the Universal Knob to select the time zone.
 - 3 Press the Confirm softkey to confirm the selection .
 
-## Set NTP
+## Set NTP (Server IP, Sync, Power On Sync, Periodic Sync, Interval)
 
 - 1 Press the NTP softkey to enter the NTP function menu,
 - 2 Press the Server IP softkey to set the server IP address according to the prompt and press the Sync softkey to synchronize the time .
 - 3 Press the Power On Sync softkey to select On or Off . When set to On , the oscilloscope will automatically synchronize the time after the power on.
 - 4 Press the Periodic Sync softkey to select On; press the Interval softkey and rotate Universal Knob to set the value .
 
-## Reference Position
+## Reference Position (Fixed Offset, Fixed Position, Fixed Delay, vertical, horizontal)
 
 The reference position setting determines the physical point that the oscilloscope uses during vertical and horizontal scale changes. In some situations, it is more convenient to use a fixed position on the display.
 
@@ -2889,14 +2889,14 @@ Fixed Position: when the timebase is changed, the oscilloscope will keep the hor
 
 Fixed Delay: when the timebase is changed, the oscilloscope will have the horizontal offset indicator move with the trigger point.
 
-## Power On Line
+## Power On Line (Enable, Disable, auto start)
 
 Press the Utility button on the front panel; then; press Power On Line softkey to select Enable or Disable .
 
 -  Enable: when the oscilloscope is energized, the oscilloscope will start automatically by itself.
 -  Disable: when the oscilloscope is energized; then; press the power key at the lower -left corner of the front panel to start the oscilloscope.
 
-## Option Management - Install License
+## Option Management - Install License (license, option, install, Type, module)
 
 The SDS1000X-E and SDS1000X-U provide multiple options to fulfill your measurement requirements. Please contact your SIGLENT sales representative or SIGLENT technical support to order the corresponding options. You can view the options currently installed on the oscilloscope or activate the newly purchased option license codes through this menu.
 
@@ -2913,11 +2913,11 @@ Do the following steps to install the option on the oscilloscope:
 -  Press the Clean softkey or the Backspace softkey to delete the incorrect character.
 6. Press the Information softkey to view the option information.
 
-## Bode Plot II (4-channel only)
+## Bode Plot II (4-channel only) (gain, phase, sweep, DUT, arbitrary waveform generator)
 
 The bode plot application for the SDS1000X-E (4-channel only) control an external arbitrary waveform generator(only Siglent's arbitrary waveform generator can be supported) to sweep a sine wave across a range of frequencies while measuring the input to and output from a device under test (DUT). At each frequency point, gain and phase are measured and displayed on the Bode plot.
 
-## Perform Bode Plot (4-channel only)
+## Perform Bode Plot (4-channel only) (Config, Run, sweep, parameters)
 
 The following steps briefly describe how to perform the Bode Plot:
 1. Press the Utility button on the front panel to enter the UTILITY function menu, and then press the Next Page softkey to enter the second page.
@@ -2926,7 +2926,7 @@ The following steps briefly describe how to perform the Bode Plot:
 4. Press the Run softkey to perform the test.
 
 
-## Example Simple Sweep Operation
+## Example Simple Sweep Operation (Source, Sweep Mode, Simple, Set Sweep, Set Stimulus, Set Channel)
 
 1. Press Utility button on the front panel to enter the UTILITY function menu, and then press the Next Page soft key to enter the second page. Press Bode Plot Ⅱ to enter the BODE PLOT function menu. Press Config to enter Configure menu.
 2. Press Source to enter Source menu to select the waveform generator. In this example, press Interface to select "USB", and then press Connection Test to verify setting. Then return to the Configure menu .
@@ -2937,7 +2937,7 @@ their default setting. Then return to the Configure menu.
 6. Press Set Channel to enter Set Channel menu. In this example, set DUT Input to " CH1 " , and DUT Output 1 to " CH2 " . Other DUT Output remains " None " . Since we want to maximize measurement dynamic range, set Channel Gain to " Auto " . Then return to the Configure menu.
 7. Configuration was done. Return to root menu and press Run, and wait for the sweep to complete.
 
-## Example Vari -level Sweep Operation
+## Example Vari-level Sweep Operation (Vari-level, profile, joints, spreadsheet, linear interpolation)
 
 1. Press Utility button on the front panel to enter the UTILITY function menu, and then press the Next Page soft key to enter the second page. Press Bode Plot Ⅱ to enter the BODE PLOT function menu. Press Config to enter Configure menu.
 2. Press Source to enter Source menu to select the waveform generator. In this example, press Interface to select "USB", and then press Connection Test to verify setting. Then return to the Configure menu .
@@ -2952,11 +2952,11 @@ their default setting. Then return to the Configure menu.
 11. Return to Configure menu and press Set Channel. Set DUT Input to " CH1 " and DUT Output 1 to " CH2 " , and Channel Gain to " Auto " .
 12. Configuration was done. Return to the root menu and press Run and wait for the sweep to complete.
 
-## Search
+## Search (search events, white triangle, YT mode, Roll mode, zoom)
 
 SDS1000X -E (4-channel）and SDS1000X-U provide search function. This function can search for the events that users specify in the acquired data, the results are displayed with white triangle symbol. In the YT mode or the Roll mode with the acquisition in stop, the maximum search events number is 700.In the Roll mode with acquisition in run, the maximum search events number is unlimited. The waveform can be zoomed when search function is enabled.
 
-## Setting
+## Setting (Edge, Slope, Pulse, Interval, Runt, Copy Setting, Thresholds)
 
 1. Press the Search button on the front panel to enter the SEARCH function menu .
 2. Press the Mode softkey and then use the Universal Knob to select the desired search type. SDS1000X-E and SDS1000X-U provide five search types: Edge, Slope, Pulse, Interval and Runt.
@@ -2977,16 +2977,16 @@ SDS1000X -E (4-channel）and SDS1000X-U provide search function. This function c
 4.  Cancel Copy: undo a copy .
 5. Press the Thresholds softkey to enter THRESHOLDS function menu, then, to set channel search thresholds.
 
-## Results
+## Results (EVENT NUM, total events, current event)
 
 When the acquisition is started, “EVENT NUM: 7” means total events number.
 When the acquisition is stop, "EVENT NUM: 4/7" means current event number/total events number, the current event is the closest event to the middle of the screen.
 
-## Navigate
+## Navigate (Search Event, Time, History Frame)
 
 SDS1000X -E(4-channel） and SDS1000X-U provide three navigate type: Search Event, Time, History Frame.
 
-## Time Navigate
+## Time Navigate (Time, navigation keys, play backward, stop, play forward)
 
 1. Press the Navigate on the front panel to enter the NAVIGATE function menu.
 2. Press the Type softkey In the NAVIGATE function menu, then select Time .
@@ -2994,7 +2994,7 @@ SDS1000X -E(4-channel） and SDS1000X-U provide three navigate type: Search Even
 - a. Press the Time softkey, then, turn the Universal Knob to select the desired value or press the Universal Knob then enter the value by the pop keyboard.
 - b. Press the navigation keys ◀■▶ on the front panel to play backward, stop, or play forward in time. You can press the ◀ or ▶ keys multiple times to speed up the playback. There are three speed levels: Low Speed, Medium Speed, and High Speed.
 
-## History Frame Navigate
+## History Frame Navigate (History, Frame Num, navigation keys)
 
 When the History function is enabled, you can use the navigation controls to play through the acquired frames.
 
@@ -3004,7 +3004,7 @@ When the History function is enabled, you can use the navigation controls to pla
 - a. Turn the Universal Knob to select the desired number or press the Universal Knob then enter the number by the pop keyboard.
 - b. Press the navigation keys ◀■▶ on the front panel to play backward, stop, or play forward.
 
-## Search Event Navigate
+## Search Event Navigate (Search, Event Num, navigation keys)
 
 When the Search function is enabled and acquisitions are stopped, you can use the navigation controls to go to found search events
 
@@ -3014,7 +3014,7 @@ When the Search function is enabled and acquisitions are stopped, you can use th
 - a. Press the Event Num softkey , then, turn the Universal Knob to select the desired value or press the Universal Knob then enter the value by the pop keyboard.
 - b. Press the Navigate keys ◀ ▶ on the front panel to go to the previous or next search event.
 
-## History
+## History (record waveforms, Run/Stop, YT, frame, timestamp, replay)
 
 The history function can record the waveforms of the input channels before press the Run/Stop button. In run state, the oscilloscope records input waveform continually; when fill up the memory (reach the maximal frame), the new frames will cover the old frames and keep the latest frames.
 
@@ -3037,12 +3037,12 @@ Do the following steps to record and replay waveform:
 5. Press the softkey to stop replay.
 6. Press the softkey to replay the waveform from the current frame to the last frame.
 
-## Factory Setup
+## Factory Setup (Factory Setup, Default button, Save/Recall)
 
 Press Save/Recall function key, then press Save menu select To Default Key set the type to Factory Setup. Then press the Default button on the front to set the oscilloscope to the leave factory setup. Another way is press Save/Recall function key, then press Recall menu select Factory Default to recall.
 
 
-## 1. The screen is still dark (no display) after power on
+## 1. The screen is still dark (no display) after power on (power connection, fuse, power switch)
 
 - 1) Check whether the power is correctly connected.
 - 2) Check whether the power switch is really on.
@@ -3059,7 +3059,7 @@ Press Save/Recall function key, then press Save menu select To Default Key set t
 
 Check whether the attenuation coefficient of the channel complies with the attenuation ratio of the probe.
 
-## 4. There is waveform display but not stable
+## 4. There is waveform display but not stable (trigger source, trigger type, holdoff)
 
 - 1) Check the trigger signal source: check whether the Source item at the trigger panel complies with the signal channel actually used.
 - 2) Check the trigger type: general signals should use "Edge" trigger and video signal should use "Video" trigger. Only when the proper trigger type is used, can the waveform be displayed stably.
@@ -3070,16 +3070,16 @@ Check whether the mode at the trigger panel (TRIGGER) is on “Normal” or
 "Single" and whether the trigger level exceeds the waveform range. If yes, set the trigger level to the middle or set the mode to "Auto".
 Note: using AUTO could automatically finish the above setting.
 
-## 6. The display of waveform is ladder-like
+## 6. The display of waveform is ladder-like (horizontal time base, Vectors, Dots)
 
 - 1) The horizontal time base might be too low. Increase the horizontal time base to increase the horizontal resolution and improve the display.
 - 2) If the display Type is "Vectors", the lines between the sample points may cause ladder -like display. Set Type to "Dots" to solve the problem.
 
-## 7. Fail to connect PC through USB
+## 7. Fail to connect PC through USB (IO Setting, USB Device)
 
 Check the IO Setting in Utility to make sure whether the setting in USB Device matches the device currently connected. If needed, restart the oscilloscope.
 
-## 8. The USB storage device cannot be recognized
+## 8. The USB storage device cannot be recognized (flash storage, USB interface)
 
 - 1) Check whether the USB storage device can work normally.
 - 2) Make sure whether the USB interface can work normally.
@@ -3088,7 +3088,7 @@ Check the IO Setting in Utility to make sure whether the setting in USB Device m
 - 5) If the USB storage device still cannot be used normally, please contact SIGLENT .
 ---
 
-## Digital Oscilloscopes Series
+## Digital Oscilloscopes Series (SDS1000CML, SDS1000DL, SDS1000CNL, SDS1000X, SDS2000, SPO)
 
 | Applicable to the following models       |
 |------------------------------------------|
@@ -3107,12 +3107,12 @@ SPO oscilloscopes models are in the table below.
 | SDS1000X/1000X+/SDS1000X - E |
 | SDS2000/2000X                |
 
-## What is an SPO model?
+## What is an SPO model? (Super Phosphor Oscilloscope, high capture rate, intensity grading, color temperature, deep memory)
 
 SPO model uses Siglent-innovated waveform acquisition and graphics processing engine which supports high capture rate, multilevel intensity grading and color temperature display, with deep memory storage and the use of new digital trigger technology supports rich trigger types and precise trigger. All of these technologies are collectively known as SPO (Super Phosphor Oscilloscope) technology.
 
 
-## SCPI Command Syntax
+## SCPI Command Syntax (colon, braces, square brackets, ellipsis, placeholder)
 
 - : = A colon followed by an equals sign separates a placeholder from the description of the type and range of values that may be used in a command instead of the placeholder.
 - {} Braces enclose a list of choices, one of which one must be made.
@@ -3130,7 +3130,7 @@ The first line shows the formal appearance of the command, with &lt;channel&gt; 
 Always use the command short form, e.g. for a query ‚ C1:WFV,DAT2 ' instead of ‚ C1:WAVEFORM ' . For Channel 1 and Channel 2 always use C1 and C2.
 
 
-## SCPI Commands &amp; Queries
+## SCPI Commands &amp; Queries (short form, long form, subsystem, ACQW, ALST, ARM, ATTN, BWL, CPL, TDIV, TRSE, WF)
 
 | Short Form   | Long Form       | Subsystem     | What the Command or  Query Does                             |
 |--------------|-----------------|---------------|-------------------------------------------------------------|

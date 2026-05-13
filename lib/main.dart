@@ -217,6 +217,13 @@ WaveformData? _convertChannel({
 // ===========================================================================
 
 Level _getRequestedLogLevel(List<String> args) {
+  // 1. Check --dart-define=loglevel=VALUE (compile-time constant).
+  const dartDefineLevel = String.fromEnvironment('loglevel');
+  if (dartDefineLevel.isNotEmpty) {
+    return AppLogger.parseLevel(dartDefineLevel);
+  }
+
+  // 2. Check runtime CLI arguments (--loglevel=VALUE or --loglevel VALUE).
   final cliArgs = args.isNotEmpty ? args : Platform.executableArguments;
   for (var index = 0; index < cliArgs.length; index++) {
     final arg = cliArgs[index];

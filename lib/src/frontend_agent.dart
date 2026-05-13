@@ -128,9 +128,6 @@ Tool<Map<String, dynamic>> _createSearchAgentTool(
 /// ```
 class FrontendAgent {
 
-  /// Default maximum number of tool calls per user input for the frontend agent.
-  static const int defaultMaxToolCalls = 3;
-
   /// Default maximum number of tool calls per user input for the instrument
   /// (VXI-11) sub-agent.
   static const int defaultInstrumentToolCalls = 10;
@@ -145,11 +142,10 @@ class FrontendAgent {
   /// The chat history for multi-turn conversations.
   final List<ChatMessage> _history = [];
 
-  /// Maximum number of tool calls allowed per user input for the frontend agent.
-  final int maxToolCalls;
-
   /// Maximum number of tool calls allowed per user input for the instrument
-  /// (VXI-11) sub-agent.
+  /// (VXI-11) sub-agent. Only applies to the sub-agent; the frontend agent
+  /// itself does not enforce a tool call limit — the sub-agents' limits
+  /// prevent runaway loops.
   final int instrumentToolCalls;
 
   /// Maximum number of tool calls allowed per user input for the knowledgebase
@@ -183,13 +179,15 @@ class FrontendAgent {
   /// The [searchToolCalls] parameter limits the number of tool calls per
   /// user input for the knowledgebase search sub-agent.
   /// Defaults to [defaultSearchToolCalls] (10).
+  ///
+  /// Note: [maxToolCalls] (frontend-level) has been removed — the sub-agents'
+  /// limits are sufficient. The frontend agent streams all responses as-is.
   FrontendAgent({
     String model = 'deepseek:deepseek-v4-flash',
     String? systemPrompt,
     String? vxi11Host,
     String knowledgebasePath = 'docs/knowledgebase.md',
     List<Tool>? tools,
-    this.maxToolCalls = defaultMaxToolCalls,
     this.instrumentToolCalls = defaultInstrumentToolCalls,
     this.searchToolCalls = defaultSearchToolCalls,
   }) : _frontendAgent = Agent(
@@ -265,184 +263,32 @@ class FrontendAgent {
   /// The conversation history is automatically maintained for multi-turn
   /// conversations.
   ///
-  /// Tool calls are counted and limited to [maxToolCalls] per input.
-  /// When the limit is reached, the agent is forced to respond without
-  /// further tool calls.
+  /// Tool call limits are enforced by the sub-agents ([SearchAgent],
+  /// [InstrumentAgent]). The frontend agent itself does not impose a limit.
   Stream<String> sendStream(String prompt) async* {
     final logger = AppLogger(
       agentName: 'FrontendAgent',
       toolName: 'sendStream',
     );
-    logger.debug(
-      '[DEBUG FrontendAgent.sendStream] _history has ${_history.length} '
-      'messages:',
-    );
-    for (var i = 0; i < _history.length; i++) {
-      final msg = _history[i];
-      logger.debug(
-        '[DEBUG FrontendAgent.sendStream]   [$i] role=${msg.role} '
-        'text="${msg.text.substring(0, msg.text.length > 80 ? 80 : msg.text.length)}"'
-        '${msg.hasToolCalls ? ' hasToolCalls' : ''}'
-        '${msg.hasToolResults ? ' hasToolResults' : ''}',
-      );
-    }
-    logger.logToolCall(
-      input: {'prompt': prompt},
-      output: {},
-    );
     final chunks = <String>[];
-    var toolCallCount = 0;
-    var chunkIndex = 0;
-
-    // Collect ALL messages from ALL chunks to preserve the full conversation
-    // history including tool call and tool result messages. This ensures the
-    // LLM sees consistent history across turns, preventing empty responses
-    // caused by missing tool call/result context.
-    final allMessages = <ChatMessage>[];
 
     await for (final chunk
         in _frontendAgent.sendStream(prompt, history: _history)) {
-      chunkIndex++;
-      logger.debug(
-        '[DIAG FrontendAgent.sendStream] Chunk #$chunkIndex: '
-        'output="${chunk.output}" (len=${chunk.output.length}), '
-        'messages=${chunk.messages.length}, '
-        'finishReason=${chunk.finishReason}, '
-        'usage=${chunk.usage}',
-      );
-
-      // Collect all messages from this chunk for history preservation.
-      allMessages.addAll(chunk.messages);
-
-      // Log the text of each message in the chunk
-      for (var i = 0; i < chunk.messages.length; i++) {
-        final msg = chunk.messages[i];
-        final textPreview = msg.text.length > 120
-            ? '${msg.text.substring(0, 120)}...'
-            : msg.text;
-        logger.debug(
-          '[DIAG FrontendAgent.sendStream]   Msg[$i]: '
-          'role=${msg.role}, '
-          'text="$textPreview", '
-          'hasToolCalls=${msg.hasToolCalls}, '
-          'hasToolResults=${msg.hasToolResults}, '
-          'partsCount=${msg.parts.length}',
-        );
-        // Log individual parts
-        for (var p = 0; p < msg.parts.length; p++) {
-          final part = msg.parts[p];
-          logger.debug(
-            '[DIAG FrontendAgent.sendStream]     Part[$p]: '
-            'type=${part.runtimeType}',
-          );
-          if (part is ToolPart) {
-            logger.debug(
-              '[DIAG FrontendAgent.sendStream]       toolName=${part.toolName}, '
-              'kind=${part.kind}, '
-              'callId=${part.callId}',
-            );
-          }
-        }
-      }
-
-      // Log tool calls and tool results from chunk messages.
-      for (final msg in chunk.messages) {
-        if (msg.role == ChatMessageRole.model && msg.hasToolCalls) {
-          toolCallCount++;
-          for (final toolCall in msg.toolCalls) {
-            logger.logToolCall(
-              input: {
-                'tool': toolCall.toolName,
-                'callId': toolCall.callId,
-                'arguments': toolCall.arguments,
-              },
-              output: {},
-            );
-          }
-        }
-        if (msg.hasToolResults) {
-          for (final toolResult in msg.toolResults) {
-            logger.logToolCall(
-              input: {
-                'tool': toolResult.toolName,
-                'callId': toolResult.callId,
-              },
-              output: {
-                'result': toolResult.result,
-              },
-            );
-          }
-        }
-      }
-
-      // If we've exceeded the max tool calls, inject tool result messages
-      // for the actual tool calls from this chunk so the conversation history
-      // stays consistent for the next turn. Without this, the orphaned tool
-      // call messages would cause API validation errors like "assistant message
-      // with 'tool_calls' must be followed by tool messages responding to each
-      // 'tool_call_id'".
-      if (toolCallCount > maxToolCalls) {
-        logger.debug(
-          '[DIAG FrontendAgent.sendStream] BREAKING: '
-          'toolCallCount=$toolCallCount > maxToolCalls=$maxToolCalls',
-        );
-        for (final msg in chunk.messages) {
-          if (msg.role == ChatMessageRole.model && msg.hasToolCalls) {
-            final toolResultParts = msg.toolCalls.map((tc) => ToolPart.result(
-              callId: tc.callId,
-              toolName: tc.toolName,
-              result: '{"error": "Maximum tool calls ($maxToolCalls) reached. '
-                  'Please respond with what you have so far."}',
-            )).toList();
-            final toolResultMessage = ChatMessage(
-              role: ChatMessageRole.user,
-              parts: toolResultParts,
-            );
-            _history.add(toolResultMessage);
-          }
-        }
-        break;
-      }
-
       chunks.add(chunk.output);
       yield chunk.output;
     }
 
-    logger.debug(
-      '[DIAG FrontendAgent.sendStream] Stream ended. '
-      'Total chunks=$chunkIndex, '
-      'toolCallCount=$toolCallCount, '
-      'chunks collected=${chunks.length}, '
-      'allMessages collected=${allMessages.length}',
-    );
-    for (var i = 0; i < chunks.length; i++) {
-      logger.debug(
-        '[DIAG FrontendAgent.sendStream]   chunks[$i]="'
-        '${chunks[i].length > 80 ? chunks[i].substring(0, 80) : chunks[i]}" '
-        '(len=${chunks[i].length})',
-      );
+    // Only add the user prompt and final text response to _history.
+    // The dartantic_ai Agent internally manages tool call/result message pairs
+    // in its StreamingState. Adding them here would cause duplicates and
+    // "tool result without matching tool call" API errors on subsequent calls.
+    final fullOutput = chunks.join();
+    if (fullOutput.isNotEmpty) {
+      _history.addAll([
+        ChatMessage.user(prompt),
+        ChatMessage.model(fullOutput),
+      ]);
     }
-
-    // Reconstruct the full conversation history from all collected messages.
-    // This preserves tool call and tool result messages across turns, which
-    // is essential for the LLM to understand the conversation context.
-    if (allMessages.isNotEmpty) {
-      _history.addAll(allMessages);
-    } else {
-      // Fallback: if no messages were collected (shouldn't happen), use the
-      // text-only approach as a safety net.
-      final fullOutput = chunks.join();
-      if (fullOutput.isNotEmpty) {
-        _history.addAll([
-          ChatMessage.user(prompt),
-          ChatMessage.model(fullOutput),
-        ]);
-      }
-    }
-    logger.logToolCall(
-      input: {'prompt': prompt},
-      output: {'response': chunks.join()},
-    );
   }
 
   /// Clears the conversation history.

@@ -25,12 +25,14 @@ class AiChatService {
   /// The [apiKey] is the environment variable name for the API key
   /// (e.g., "DEEPSEEK_API_KEY", "OPENAI_API_KEY"). The [apiToken] is the
   /// actual API token value (e.g., "sk-...").
+  ///
+  /// The frontend agent's own tool call limit was removed in favor of
+  /// sub-agent limits ([instrumentToolCalls], [searchToolCalls]).
   void configure({
     required String apiKey,
     required String apiToken,
     String model = 'deepseek:deepseek-v4-flash',
     String? vxi11Host,
-    int? maxToolCalls,
     int? instrumentToolCalls,
     int? searchToolCalls,
   }) {
@@ -42,7 +44,6 @@ class AiChatService {
     final logger = AppLogger(agentName: 'AiChatService', toolName: 'configure');
     logger.debug(
       'Configuring FrontendAgent: model=$model, vxi11Host=$vxi11Host, '
-      'maxToolCalls=$maxToolCalls, '
       'instrumentToolCalls=$instrumentToolCalls, '
       'searchToolCalls=$searchToolCalls',
     );
@@ -57,7 +58,6 @@ class AiChatService {
       _agent = FrontendAgent(
         model: model,
         vxi11Host: vxi11Host,
-        maxToolCalls: maxToolCalls ?? FrontendAgent.defaultMaxToolCalls,
         instrumentToolCalls: instrumentToolCalls ?? FrontendAgent.defaultInstrumentToolCalls,
         searchToolCalls: searchToolCalls ?? FrontendAgent.defaultSearchToolCalls,
       );
