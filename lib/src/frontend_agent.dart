@@ -265,24 +265,102 @@ class FrontendAgent {
   ///
   /// Tool call limits are enforced by the sub-agents ([SearchAgent],
   /// [InstrumentAgent]). The frontend agent itself does not impose a limit.
+  ///
+  /// **Buffering behavior**: When the frontend agent's underlying LLM decides
+  /// to call a tool (e.g. `search_agent` or `scpi_instrument_agent`), it often
+  /// first streams intermediate "thinking aloud" text like "Let me search for
+  /// that information..." before making the tool call. This text is buffered
+  /// and discarded if a tool call follows, so the user only sees the final
+  /// answer after all tool calls complete. Text that arrives without any
+  /// preceding tool call in the same response is streamed immediately.
   Stream<String> sendStream(String prompt) async* {
-    final logger = AppLogger(
-      agentName: 'FrontendAgent',
-      toolName: 'sendStream',
-    );
-    final chunks = <String>[];
+    // Buffer for text chunks that may be discarded if followed by tool calls.
+    final textBuffer = <String>[];
+    // Accumulator for the final output (used for history management).
+    final allChunks = <String>[];
+    // Whether we've seen a tool call in the current response cycle.
+    var hasSeenToolCall = false;
+    // Whether we've already flushed the buffer (after tool calls complete).
+    var hasFlushedAfterTools = false;
 
     await for (final chunk
         in _frontendAgent.sendStream(prompt, history: _history)) {
-      chunks.add(chunk.output);
-      yield chunk.output;
+      // Check if this chunk contains tool call messages.
+      final hasToolCalls = chunk.messages.any((msg) => msg.hasToolCalls);
+
+      if (hasToolCalls) {
+        // The model decided to call a tool. Discard any buffered "thinking
+        // aloud" text — it was just the model's intermediate reasoning before
+        // deciding to use a tool.
+        textBuffer.clear();
+        hasSeenToolCall = true;
+        hasFlushedAfterTools = false;
+      }
+
+      // Check if this chunk contains tool result messages (responses from
+      // tool execution). After tool results, the model will produce its final
+      // answer in subsequent chunks.
+      final hasToolResults = chunk.messages.any((msg) => msg.hasToolResults);
+
+      if (hasToolResults) {
+        // Tool results are coming back. The next text chunks will be the
+        // model's actual answer. Reset the flag so we flush the buffer.
+        hasFlushedAfterTools = false;
+      }
+
+      // If this chunk has text output, decide whether to buffer or yield.
+      if (chunk.output.isNotEmpty) {
+        if (hasSeenToolCall && !hasFlushedAfterTools) {
+          // We're in a post-tool-call phase. Buffer text until we see the
+          // first non-empty text after tool results — that's the real answer.
+          textBuffer.add(chunk.output);
+        } else if (!hasSeenToolCall) {
+          // No tool calls seen yet — this could be a direct answer or
+          // pre-tool-call thinking. Buffer it in case a tool call follows.
+          textBuffer.add(chunk.output);
+        } else {
+          // hasSeenToolCall && hasFlushedAfterTools: we're past the tool
+          // call cycle, streaming the final answer directly.
+          allChunks.add(chunk.output);
+          yield chunk.output;
+        }
+      }
+
+      // Detect the end of a tool-call cycle: after tool results have been
+      // processed, the next chunk with text AND no tool calls/results means
+      // the model is producing its final answer. Flush the buffer.
+      if (hasSeenToolCall &&
+          !hasFlushedAfterTools &&
+          chunk.output.isNotEmpty &&
+          !hasToolCalls &&
+          !hasToolResults) {
+        // This is the model's final answer after tools completed.
+        // Flush the buffered text.
+        hasFlushedAfterTools = true;
+        for (final buffered in textBuffer) {
+          allChunks.add(buffered);
+          yield buffered;
+        }
+        textBuffer.clear();
+      }
+    }
+
+    // After the stream ends, if there's still buffered text that was never
+    // flushed (e.g. no tool calls occurred, or the stream ended before a
+    // flush), yield it now.
+    if (textBuffer.isNotEmpty) {
+      for (final buffered in textBuffer) {
+        allChunks.add(buffered);
+        yield buffered;
+      }
+      textBuffer.clear();
     }
 
     // Only add the user prompt and final text response to _history.
     // The dartantic_ai Agent internally manages tool call/result message pairs
     // in its StreamingState. Adding them here would cause duplicates and
     // "tool result without matching tool call" API errors on subsequent calls.
-    final fullOutput = chunks.join();
+    final fullOutput = allChunks.join();
     if (fullOutput.isNotEmpty) {
       _history.addAll([
         ChatMessage.user(prompt),
