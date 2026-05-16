@@ -58,6 +58,7 @@ class Agent {
     this.chatModelOptions,
     this.embeddingsModelOptions,
     this.mediaModelOptions,
+    this.maxToolCalls,
   }) {
     _checkLoggingEnvironment();
 
@@ -110,6 +111,7 @@ class Agent {
     this.chatModelOptions,
     this.embeddingsModelOptions,
     this.mediaModelOptions,
+    this.maxToolCalls,
   }) {
     _checkLoggingEnvironment();
 
@@ -193,6 +195,13 @@ class Agent {
   late final double? _temperature;
   late final bool _enableThinking;
   late final String? _displayName;
+
+  /// Optional limit on the number of tool calls per user input.
+  ///
+  /// When set, the agent's streaming orchestrator will stop executing
+  /// tool calls once this limit is reached, returning error results so
+  /// the model can respond gracefully with what it has gathered.
+  final int? maxToolCalls;
 
   static final Logger _logger = Logger('dartantic.chat_agent');
 
@@ -337,6 +346,7 @@ class Agent {
       final state = StreamingState(
         conversationHistory: conversationHistory,
         toolMap: {for (final tool in toolsToUse ?? <Tool>[]) tool.name: tool},
+        maxToolCalls: maxToolCalls,
       );
 
       orchestrator.initialize(state);

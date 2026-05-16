@@ -11,12 +11,13 @@
 Remote control and AI enhanced operation of Siglent SDS1202X-E, SDS1104X-E, SDS1204X-E and SDS1102X-E oscilloscopes from **Linux** and **Windows**.
 
 ### Key Features
-- **Remote Oscilloscope Control**: Control your oscilloscope over a network using the VXI-11 protocol.
+- **Remote Oscilloscope Control**: Control your oscilloscope over a network using the VXI-11 protocol (USB is not supported).
 - **Waveform Acquisition & Data Export**: Capture and display waveform data from enabled channels. Save screen captures as images and export waveform data as CSV files.
+- **Device Parameter Monitoring**: View real-time parameters such as timebase, sample rate, and voltage settings. Cursor-based measurements are supported.
+
   
   ![Waveform Acquisition](docs/sdsremote_wf.png)
 - **Remote Control Panel**: Acquire and view the oscilloscope display. Remote control your oscilloscope with a virtual front panel.
-- **Device Parameter Monitoring**: View real-time parameters such as timebase, sample rate, and voltage settings. Cursor-based measurements are supported.
   
   ![Remote Control Panel](docs/sdsremote_cp.png)
 

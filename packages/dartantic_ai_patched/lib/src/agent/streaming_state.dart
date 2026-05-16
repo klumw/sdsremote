@@ -8,9 +8,15 @@ import 'tool_executor.dart';
 /// Encapsulates all mutable state required during streaming operations
 class StreamingState {
   /// Creates a new StreamingState instance
+  ///
+  /// The [maxToolCalls] parameter optionally limits the number of tool calls
+  /// allowed per user input. When exceeded, the orchestrator stops executing
+  /// further tool calls and returns error results so the model can respond
+  /// gracefully with what it has gathered so far.
   StreamingState({
     required List<ChatMessage> conversationHistory,
     required Map<String, Tool> toolMap,
+    this.maxToolCalls,
   }) : _conversationHistory = conversationHistory,
        _toolMap = toolMap;
 
@@ -41,6 +47,27 @@ class StreamingState {
 
   /// Whether we're done processing the stream
   bool done = false;
+
+  /// Maximum number of tool calls allowed per user input.
+  ///
+  /// When `null`, there is no limit on tool calls.
+  final int? maxToolCalls;
+
+  /// Running count of tool calls executed in the current conversation turn.
+  ///
+  /// This counter is checked against [maxToolCalls] before executing new
+  /// tool calls to prevent runaway tool loops.
+  int toolCallCount = 0;
+
+  /// Whether the max tool calls limit has been triggered in this turn.
+  ///
+  /// Once set to `true`, the orchestrator will stop executing any further
+  /// tool calls and force the conversation loop to end.
+  bool maxToolCallsTriggered = false;
+
+  /// Returns `true` if [toolCallCount] has reached or exceeded [maxToolCalls].
+  bool get isMaxToolCallsExceeded =>
+      maxToolCalls != null && toolCallCount >= maxToolCalls!;
 
   /// Whether to prefix the next message with a newline for better UX
   bool shouldPrefixNextMessage = false;

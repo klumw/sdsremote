@@ -68,6 +68,7 @@ class InstrumentAgent with MaxToolCallsHandler {
             ),
             if (tools != null) ...tools,
           ],
+          maxToolCalls: maxToolCalls,
         ) {
     if (systemPrompt != null) {
       _history.add(ChatMessage.system(systemPrompt));
@@ -108,47 +109,14 @@ class InstrumentAgent with MaxToolCallsHandler {
   /// further tool calls.
   Stream<String> sendStream(String prompt) async* {
     final chunks = <String>[];
-    var toolCallCount = 0;
-    var maxToolCallsReached = false;
 
     await for (final chunk in _agent.sendStream(prompt, history: _history)) {
-      // Count individual tool calls by counting ToolPart.call parts in model
-      // messages. A single model response can contain multiple tool calls.
-      for (final msg in chunk.messages) {
-        if (msg.role == ChatMessageRole.model) {
-          for (final part in msg.parts) {
-            if (part is ToolPart && part.kind == ToolPartKind.call) {
-              toolCallCount++;
-            }
-          }
-        }
-      }
-
-      // If we've exceeded the max tool calls, yield the error message once
-      // and continue consuming the stream. The LLM will see this text as a
-      // user message and produce a graceful final response in subsequent
-      // chunks. We must NOT break — we need to let that final response
-      // through so the caller gets a meaningful answer instead of just the
-      // error text.
-      if (isMaxToolCallsExceeded(toolCallCount) && !maxToolCallsReached) {
-        maxToolCallsReached = true;
-        yield 'Maximum tool calls ($maxToolCalls) reached. '
-            'Please respond with what you have so far.';
-      }
-
-      // After the limit is reached, we still yield output chunks so the
-      // LLM's final response (which contains no tool calls) is delivered.
-      if (!maxToolCallsReached) {
+      // Yield text output. Tool calls and results are handled internally
+      // by the inner Agent's orchestrator, including max tool calls
+      // enforcement.
+      if (chunk.output.isNotEmpty) {
         chunks.add(chunk.output);
         yield chunk.output;
-      } else {
-        // After the limit, only yield text output (not tool call messages).
-        // The LLM's final response to the "maximum reached" prompt will
-        // contain text parts that we want to deliver.
-        if (chunk.output.isNotEmpty) {
-          chunks.add(chunk.output);
-          yield chunk.output;
-        }
       }
     }
 

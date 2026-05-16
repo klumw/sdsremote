@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:logging/logging.dart';
@@ -238,55 +239,157 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
   }
 
   /// Executes tool calls and yields their results.
+  ///
+  /// If [state.maxToolCalls] is set and executing these tool calls would
+  /// exceed the limit, the excess calls are rejected with error results
+  /// telling the model to respond with what it has so far.
+  ///
+  /// When the limit has already been triggered
+  /// ([state.maxToolCallsTriggered]), all calls are rejected and the
+  /// conversation loop ends immediately.
   @protected
   Stream<StreamingIterationResult> executeToolCalls(
     List<ToolPart> toolCalls,
     StreamingState state,
   ) async* {
     final toolNames = toolCalls.map((t) => t.toolName).join(', ');
+
+    // Phase 1: If the limit was already triggered in a previous iteration,
+    // reject everything and stop immediately to prevent infinite retry loops.
+    // Yield a text fallback so the consumer receives SOMETHING even if the
+    // model keeps making tool calls despite the error results.
+    if (state.maxToolCallsTriggered) {
+      final message = 'Maximum tool calls (${state.maxToolCalls}) reached. '
+          'Please try rephrasing your request to be more specific.';
+      _logger.info(
+        'Max tool calls (${state.maxToolCalls}) already triggered; '
+        'force-stopping with fallback message',
+      );
+      yield StreamingIterationResult(
+        output: message,
+        messages: const [],
+        shouldContinue: false,
+        finishReason: state.lastResult.finishReason,
+        metadata: const {},
+        usage: state.lastResult.usage,
+      );
+      return;
+    }
+
     _logger.info(
       'Executing ${toolCalls.length} tool calls: [$toolNames]',
     );
 
-    registerToolCalls(toolCalls, state);
-    state.requestNextMessagePrefix();
+    // Phase 2: Check if these tool calls would exceed the limit.
+    final maxCalls = state.maxToolCalls;
+    final wouldExceed = maxCalls != null &&
+        (state.toolCallCount + toolCalls.length) > maxCalls;
 
-    final executionResults = await executeToolBatch(state, toolCalls);
+    List<ToolPart> callsToExecute;
+    List<ToolPart> callsToReject;
 
-    final toolResultParts = executionResults
-        .map((result) => result.resultPart)
-        .toList();
+    if (wouldExceed) {
+      final remaining = maxCalls - state.toolCallCount;
+      callsToExecute = toolCalls.take(remaining > 0 ? remaining : 0).toList();
+      callsToReject = toolCalls.skip(callsToExecute.length).toList();
+      state.maxToolCallsTriggered = true;
 
-    if (toolResultParts.isNotEmpty) {
-      // Copy provider-specific metadata (e.g., Google's thoughtSignatures)
-      // from the model's tool call message to the tool result message
-      final toolCallMessageMetadata = _findToolCallMessageMetadata(state);
+      _logger.info(
+        'Max tool calls ($maxCalls) limit: executing '
+        '${callsToExecute.length}, rejecting ${callsToReject.length}',
+      );
+    } else {
+      callsToExecute = toolCalls;
+      callsToReject = const [];
+    }
 
-      final toolResultMessage = ChatMessage(
+    // Execute calls within the limit
+    if (callsToExecute.isNotEmpty) {
+      state.toolCallCount += callsToExecute.length;
+
+      registerToolCalls(callsToExecute, state);
+      state.requestNextMessagePrefix();
+
+      final executionResults = await executeToolBatch(state, callsToExecute);
+
+      final toolResultParts = executionResults
+          .map((result) => result.resultPart)
+          .toList();
+
+      if (toolResultParts.isNotEmpty) {
+        // Copy provider-specific metadata (e.g., Google's thoughtSignatures)
+        // from the model's tool call message to the tool result message
+        final toolCallMessageMetadata = _findToolCallMessageMetadata(state);
+
+        final toolResultMessage = ChatMessage(
+          role: ChatMessageRole.user,
+          parts: toolResultParts,
+          metadata: toolCallMessageMetadata,
+        );
+
+        state.addToHistory(toolResultMessage);
+        state.resetEmptyAfterToolsContinuation();
+
+        yield StreamingIterationResult(
+          output: '',
+          messages: [toolResultMessage],
+          shouldContinue: true,
+          finishReason: state.lastResult.finishReason,
+          metadata: const {},
+          usage: state.lastResult.usage,
+        );
+      }
+    }
+
+    // Reject calls beyond the limit with error results.
+    // After rejecting, yield shouldContinue: true so the model gets a
+    // chance to respond to the "limit reached" errors in the next
+    // processIteration call. The maxToolCallsTriggered flag prevents
+    // infinite retry if the model keeps making tool calls.
+    if (callsToReject.isNotEmpty) {
+      final errorParts = callsToReject.map((tc) => ToolPart.result(
+        callId: tc.callId,
+        toolName: tc.toolName,
+        result: jsonEncode({
+          'error':
+              'Maximum tool calls (${state.maxToolCalls}) reached. '
+              'Please respond with what you have so far.',
+        }),
+      )).toList();
+
+      final errorMessage = ChatMessage(
         role: ChatMessageRole.user,
-        parts: toolResultParts,
-        metadata: toolCallMessageMetadata,
+        parts: errorParts,
       );
 
-      state.addToHistory(toolResultMessage);
-      state.resetEmptyAfterToolsContinuation();
+      state.addToHistory(errorMessage);
 
       yield StreamingIterationResult(
         output: '',
-        messages: [toolResultMessage],
+        messages: [errorMessage],
         shouldContinue: true,
         finishReason: state.lastResult.finishReason,
-        metadata: const {}, // Empty - metadata already streamed
+        metadata: const {},
         usage: state.lastResult.usage,
+      );
+
+      _logger.info(
+        'Max tool calls (${state.maxToolCalls}) reached; '
+        'rejected ${callsToReject.length} calls',
       );
     }
 
+    // After executing tool calls, yield shouldContinue: true so the model
+    // gets a chance to produce a follow-up text response based on the tool
+    // results. The conversation loop ends naturally when the model responds
+    // with text-only output (no further tool calls), which triggers
+    // onConsolidatedMessage to yield shouldContinue: false.
     yield StreamingIterationResult(
       output: '',
       messages: const [],
       shouldContinue: true,
       finishReason: state.lastResult.finishReason,
-      metadata: const {}, // Empty - metadata already streamed
+      metadata: const {},
       usage: state.lastResult.usage,
     );
   }

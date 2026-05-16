@@ -22,11 +22,11 @@ mixin MaxToolCallsHandler {
   /// Maximum number of tool calls allowed per user input.
   int get maxToolCalls;
 
-  /// Checks whether the tool call limit has been exceeded.
+  /// Checks whether the tool call limit has been reached or exceeded.
   ///
-  /// Returns `true` if [toolCallCount] > [maxToolCalls], `false` otherwise.
+  /// Returns `true` if [toolCallCount] >= [maxToolCalls], `false` otherwise.
   bool isMaxToolCallsExceeded(int toolCallCount) =>
-      toolCallCount > maxToolCalls;
+      toolCallCount >= maxToolCalls;
 
   /// Creates a tool result [ChatMessage] that tells the LLM the maximum number
   /// of tool calls was reached.

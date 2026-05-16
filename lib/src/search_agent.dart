@@ -29,7 +29,7 @@ class SearchAgent with MaxToolCallsHandler {
   static const _defaultKnowledgebasePath = 'docs/knowledgebase.md';
 
   /// Default maximum number of tool calls per user input.
-  static const int defaultMaxToolCalls = 10;
+  static const int defaultMaxToolCalls = 4;
 
   /// The underlying dartantic_ai Agent instance.
   final Agent _agent;
@@ -67,6 +67,7 @@ class SearchAgent with MaxToolCallsHandler {
               agentName: 'SearchAgent',
             ),
           ],
+          maxToolCalls: maxToolCalls,
         ) {
     if (systemPrompt != null) {
       _history.add(ChatMessage.system(systemPrompt));
@@ -255,24 +256,7 @@ class SearchAgent with MaxToolCallsHandler {
   /// When the limit is reached, the agent receives a tool result message
   /// telling it the limit was reached so it can respond gracefully.
   Future<String> send(String prompt) async {
-    final logger = AppLogger(
-      agentName: 'SearchAgent',
-      toolName: 'send',
-    );
-    logger.debug(
-      '[DEBUG SearchAgent.send] _history has ${_history.length} messages:',
-    );
-    for (var i = 0; i < _history.length; i++) {
-      final msg = _history[i];
-      logger.debug(
-        '[DEBUG SearchAgent.send]   [$i] role=${msg.role} '
-        'text="${msg.text.substring(0, msg.text.length > 80 ? 80 : msg.text.length)}"'
-        '${msg.hasToolCalls ? ' hasToolCalls' : ''}'
-        '${msg.hasToolResults ? ' hasToolResults' : ''}',
-      );
-    }
-
-    // Use sendStream which has the maxToolCalls enforcement,
+    // Use sendStream which delegates to the inner Agent,
     // then accumulate the results into a single string.
     final chunks = <String>[];
     await for (final chunk in sendStream(prompt)) {
@@ -286,69 +270,20 @@ class SearchAgent with MaxToolCallsHandler {
   /// The conversation history is automatically maintained for multi-turn
   /// conversations.
   ///
-  /// Tool calls are counted and limited to [maxToolCalls] per input.
-  /// When the limit is reached, the agent is forced to respond without
-  /// further tool calls.
+  /// Tool calls are limited to [maxToolCalls] per input by the underlying
+  /// [Agent] (via [Agent.maxToolCalls]). When the limit is reached, the
+  /// orchestrator returns error results for excess tool calls, telling the
+  /// model to respond with what it has gathered so far.
   Stream<String> sendStream(String prompt) async* {
-    final logger = AppLogger(
-      agentName: 'SearchAgent',
-      toolName: 'sendStream',
-    );
-    logger.debug(
-      '[DEBUG SearchAgent.sendStream] _history has ${_history.length} '
-      'messages:',
-    );
-    for (var i = 0; i < _history.length; i++) {
-      final msg = _history[i];
-      logger.debug(
-        '[DEBUG SearchAgent.sendStream]   [$i] role=${msg.role} '
-        'text="${msg.text.substring(0, msg.text.length > 80 ? 80 : msg.text.length)}"'
-        '${msg.hasToolCalls ? ' hasToolCalls' : ''}'
-        '${msg.hasToolResults ? ' hasToolResults' : ''}',
-      );
-    }
     final chunks = <String>[];
-    var toolCallCount = 0;
-    var maxToolCallsReached = false;
 
     await for (final chunk in _agent.sendStream(prompt, history: _history)) {
-      // Count individual tool calls by counting ToolPart.call parts in model
-      // messages. A single model response can contain multiple tool calls.
-      for (final msg in chunk.messages) {
-        if (msg.role == ChatMessageRole.model) {
-          for (final part in msg.parts) {
-            if (part is ToolPart && part.kind == ToolPartKind.call) {
-              toolCallCount++;
-            }
-          }
-        }
-      }
-
-      // If we've exceeded the max tool calls, yield the error message once
-      // and continue consuming the stream. The LLM will see this text as a
-      // user message and produce a graceful final response in subsequent
-      // chunks. We must NOT break — we need to let that final response
-      // through so the caller gets a meaningful answer instead of just the
-      // error text.
-      if (isMaxToolCallsExceeded(toolCallCount) && !maxToolCallsReached) {
-        maxToolCallsReached = true;
-        yield 'Maximum tool calls ($maxToolCalls) reached. '
-            'Please respond with what you have so far.';
-      }
-
-      // After the limit is reached, we still yield output chunks so the
-      // LLM's final response (which contains no tool calls) is delivered.
-      if (!maxToolCallsReached) {
+      // Yield text output. Tool calls and results are handled internally
+      // by the inner Agent's orchestrator, including max tool calls
+      // enforcement.
+      if (chunk.output.isNotEmpty) {
         chunks.add(chunk.output);
         yield chunk.output;
-      } else {
-        // After the limit, only yield text output (not tool call messages).
-        // The LLM's final response to the "maximum reached" prompt will
-        // contain text parts that we want to deliver.
-        if (chunk.output.isNotEmpty) {
-          chunks.add(chunk.output);
-          yield chunk.output;
-        }
       }
     }
 
