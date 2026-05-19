@@ -86,42 +86,33 @@ class SearchAgent with MaxToolCallsHandler {
 
   /// Loads and splits the knowledgebase Markdown file into chunks.
   ///
-  /// Tries [path] first; if not found, tries to resolve relative to the
-  /// executable's directory (for installed .deb builds at
-  /// `/usr/local/lib/sdsremote/`). Returns an empty list if no file is found
-  /// anywhere, logging a warning rather than crashing.
+  /// Resolution order (stops at first hit):
+  /// 1. [path] as-is (works during development on Linux/Mac).
+  /// 2. Relative to the executable's directory (installed .deb at
+  ///    `/usr/local/lib/sdsremote/`).
+  /// 3. Relative to the executable's parent directory.
+  /// 4. Walk up from the executable's directory, looking for
+  ///    `docs/knowledgebase.md` at each ancestor level. This handles Flutter
+  ///    Windows development builds where the exe lives deep in
+  ///    `build\windows\x64\runner\Release\` and the project root is several
+  ///    levels up.
+  /// 5. Inside the Flutter assets bundle directory
+  ///    (`data/flutter_assets/docs/knowledgebase.md` relative to the
+  ///    executable). This handles Windows release installs where the asset
+  ///    is bundled by Flutter at `C:\Program Files\SDS-Remote\data\flutter_assets\`.
+  ///
+  /// Returns an empty list if no file is found anywhere, logging a warning
+  /// rather than crashing.
   static List<Document> _loadKnowledgebase(String path) {
     final logger = AppLogger(
       agentName: 'SearchAgent',
       toolName: 'loadKnowledgebase',
     );
 
-    // [DEBUG] Log platform info and the paths we're trying.
-    String cwd;
-    try {
-      cwd = Directory.current.path;
-    } catch (_) {
-      cwd = '(unknown)';
-    }
-    String resolvedExe;
-    try {
-      resolvedExe = Platform.resolvedExecutable;
-    } catch (_) {
-      resolvedExe = '(unavailable)';
-    }
-    logger.log(
-      '[DIAG] _loadKnowledgebase called: path="$path", '
-      'platform=${Platform.operatingSystem}, '
-      'cwd="$cwd", '
-      'resolvedExecutable="$resolvedExe"',
-    );
-
     String? resolvedPath;
 
     // 1. Try the provided path as-is (works during development).
-    final existsDirect = File(path).existsSync();
-    logger.log('[DIAG] Try 1: File("$path").existsSync() = $existsDirect');
-    if (existsDirect) {
+    if (File(path).existsSync()) {
       resolvedPath = path;
     }
 
@@ -129,16 +120,13 @@ class SearchAgent with MaxToolCallsHandler {
     if (resolvedPath == null) {
       try {
         final exeDir = File(Platform.resolvedExecutable).parent.path;
-        final altPath = '$exeDir/docs/knowledgebase.md';
-        final existsAlt = File(altPath).existsSync();
-        logger.log(
-          '[DIAG] Try 2: exeDir="$exeDir", altPath="$altPath", exists=$existsAlt',
-        );
-        if (existsAlt) {
+        final altPath = '$exeDir${Platform.pathSeparator}docs'
+            '${Platform.pathSeparator}knowledgebase.md';
+        if (File(altPath).existsSync()) {
           resolvedPath = altPath;
         }
-      } catch (e) {
-        logger.log('[DIAG] Try 2 exception: $e');
+      } catch (_) {
+        // Ignore — Platform.resolvedExecutable may fail on some platforms.
       }
     }
 
@@ -146,16 +134,56 @@ class SearchAgent with MaxToolCallsHandler {
     if (resolvedPath == null) {
       try {
         final exeDir = File(Platform.resolvedExecutable).parent.path;
-        final altPath = '$exeDir/../docs/knowledgebase.md';
-        final existsAlt = File(altPath).existsSync();
-        logger.log(
-          '[DIAG] Try 3: exeDir="$exeDir", altPath="$altPath", exists=$existsAlt',
-        );
-        if (existsAlt) {
+        final altPath = '$exeDir${Platform.pathSeparator}..'
+            '${Platform.pathSeparator}docs'
+            '${Platform.pathSeparator}knowledgebase.md';
+        if (File(altPath).existsSync()) {
           resolvedPath = altPath;
         }
-      } catch (e) {
-        logger.log('[DIAG] Try 3 exception: $e');
+      } catch (_) {
+        // Ignore.
+      }
+    }
+
+    // 4. Walk up from the executable directory looking for the file.
+    //    On Windows Flutter development builds the exe is at:
+    //      build/windows/x64/runner/Release/sdsremote.exe
+    //    and the project root (with docs/) is several levels up.
+    if (resolvedPath == null) {
+      try {
+        var dir = File(Platform.resolvedExecutable).parent;
+        // Walk up at most 10 levels to avoid infinite loops.
+        for (var i = 0; i < 10; i++) {
+          final candidate = '${dir.path}${Platform.pathSeparator}docs'
+              '${Platform.pathSeparator}knowledgebase.md';
+          if (File(candidate).existsSync()) {
+            resolvedPath = candidate;
+            break;
+          }
+          final parent = dir.parent;
+          if (parent.path == dir.path) break; // Reached filesystem root.
+          dir = parent;
+        }
+      } catch (_) {
+        // Ignore.
+      }
+    }
+
+    // 5. Try inside the Flutter assets bundle directory.
+    //    On Windows release installs, Flutter bundles declared assets at:
+    //      <exe_dir>/data/flutter_assets/<asset_path>
+    //    e.g. C:\Program Files\SDS-Remote\data\flutter_assets\docs\knowledgebase.md
+    if (resolvedPath == null) {
+      try {
+        final exeDir = File(Platform.resolvedExecutable).parent.path;
+        final flutterAssetsDir = '$exeDir${Platform.pathSeparator}data'
+            '${Platform.pathSeparator}flutter_assets';
+        final assetsPath = '$flutterAssetsDir${Platform.pathSeparator}$path';
+        if (File(assetsPath).existsSync()) {
+          resolvedPath = assetsPath;
+        }
+      } catch (_) {
+        // Ignore.
       }
     }
 

@@ -34,4 +34,5 @@ flutter:
   assets:
     - assets/
     - docs/manual.md
+    - docs/knowledgebase.md
 
