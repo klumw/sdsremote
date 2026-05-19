@@ -109,7 +109,7 @@ class SearchAgent with MaxToolCallsHandler {
     } catch (_) {
       resolvedExe = '(unavailable)';
     }
-    logger.debug(
+    logger.log(
       '[DIAG] _loadKnowledgebase called: path="$path", '
       'platform=${Platform.operatingSystem}, '
       'cwd="$cwd", '
@@ -120,7 +120,7 @@ class SearchAgent with MaxToolCallsHandler {
 
     // 1. Try the provided path as-is (works during development).
     final existsDirect = File(path).existsSync();
-    logger.debug('[DIAG] Try 1: File("$path").existsSync() = $existsDirect');
+    logger.log('[DIAG] Try 1: File("$path").existsSync() = $existsDirect');
     if (existsDirect) {
       resolvedPath = path;
     }
@@ -131,14 +131,14 @@ class SearchAgent with MaxToolCallsHandler {
         final exeDir = File(Platform.resolvedExecutable).parent.path;
         final altPath = '$exeDir/docs/knowledgebase.md';
         final existsAlt = File(altPath).existsSync();
-        logger.debug(
+        logger.log(
           '[DIAG] Try 2: exeDir="$exeDir", altPath="$altPath", exists=$existsAlt',
         );
         if (existsAlt) {
           resolvedPath = altPath;
         }
       } catch (e) {
-        logger.debug('[DIAG] Try 2 exception: $e');
+        logger.log('[DIAG] Try 2 exception: $e');
       }
     }
 
@@ -148,27 +148,27 @@ class SearchAgent with MaxToolCallsHandler {
         final exeDir = File(Platform.resolvedExecutable).parent.path;
         final altPath = '$exeDir/../docs/knowledgebase.md';
         final existsAlt = File(altPath).existsSync();
-        logger.debug(
+        logger.log(
           '[DIAG] Try 3: exeDir="$exeDir", altPath="$altPath", exists=$existsAlt',
         );
         if (existsAlt) {
           resolvedPath = altPath;
         }
       } catch (e) {
-        logger.debug('[DIAG] Try 3 exception: $e');
+        logger.log('[DIAG] Try 3 exception: $e');
       }
     }
 
     // If no file was found anywhere, log a warning and return empty.
     if (resolvedPath == null) {
-      logger.debug(
+      logger.log(
         'WARNING: Knowledgebase file not found at "$path" or any alternative '
         'location. The knowledgebase_search tool will be unavailable.',
       );
       return [];
     }
 
-    logger.debug('Loaded knowledgebase from: $resolvedPath');
+    logger.log('Loaded knowledgebase from: $resolvedPath');
 
     final markdownText = File(resolvedPath).readAsStringSync();
 
