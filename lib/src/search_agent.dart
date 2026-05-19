@@ -91,10 +91,37 @@ class SearchAgent with MaxToolCallsHandler {
   /// `/usr/local/lib/sdsremote/`). Returns an empty list if no file is found
   /// anywhere, logging a warning rather than crashing.
   static List<Document> _loadKnowledgebase(String path) {
+    final logger = AppLogger(
+      agentName: 'SearchAgent',
+      toolName: 'loadKnowledgebase',
+    );
+
+    // [DEBUG] Log platform info and the paths we're trying.
+    String cwd;
+    try {
+      cwd = Directory.current.path;
+    } catch (_) {
+      cwd = '(unknown)';
+    }
+    String resolvedExe;
+    try {
+      resolvedExe = Platform.resolvedExecutable;
+    } catch (_) {
+      resolvedExe = '(unavailable)';
+    }
+    logger.debug(
+      '[DIAG] _loadKnowledgebase called: path="$path", '
+      'platform=${Platform.operatingSystem}, '
+      'cwd="$cwd", '
+      'resolvedExecutable="$resolvedExe"',
+    );
+
     String? resolvedPath;
 
     // 1. Try the provided path as-is (works during development).
-    if (File(path).existsSync()) {
+    final existsDirect = File(path).existsSync();
+    logger.debug('[DIAG] Try 1: File("$path").existsSync() = $existsDirect');
+    if (existsDirect) {
       resolvedPath = path;
     }
 
@@ -103,11 +130,15 @@ class SearchAgent with MaxToolCallsHandler {
       try {
         final exeDir = File(Platform.resolvedExecutable).parent.path;
         final altPath = '$exeDir/docs/knowledgebase.md';
-        if (File(altPath).existsSync()) {
+        final existsAlt = File(altPath).existsSync();
+        logger.debug(
+          '[DIAG] Try 2: exeDir="$exeDir", altPath="$altPath", exists=$existsAlt',
+        );
+        if (existsAlt) {
           resolvedPath = altPath;
         }
-      } catch (_) {
-        // Ignore — Platform.resolvedExecutable may fail on some platforms.
+      } catch (e) {
+        logger.debug('[DIAG] Try 2 exception: $e');
       }
     }
 
@@ -116,26 +147,28 @@ class SearchAgent with MaxToolCallsHandler {
       try {
         final exeDir = File(Platform.resolvedExecutable).parent.path;
         final altPath = '$exeDir/../docs/knowledgebase.md';
-        if (File(altPath).existsSync()) {
+        final existsAlt = File(altPath).existsSync();
+        logger.debug(
+          '[DIAG] Try 3: exeDir="$exeDir", altPath="$altPath", exists=$existsAlt',
+        );
+        if (existsAlt) {
           resolvedPath = altPath;
         }
-      } catch (_) {
-        // Ignore.
+      } catch (e) {
+        logger.debug('[DIAG] Try 3 exception: $e');
       }
     }
 
     // If no file was found anywhere, log a warning and return empty.
     if (resolvedPath == null) {
-      AppLogger(agentName: 'SearchAgent', toolName: 'loadKnowledgebase').debug(
+      logger.debug(
         'WARNING: Knowledgebase file not found at "$path" or any alternative '
         'location. The knowledgebase_search tool will be unavailable.',
       );
       return [];
     }
 
-    AppLogger(agentName: 'SearchAgent', toolName: 'loadKnowledgebase').debug(
-      'Loaded knowledgebase from: $resolvedPath',
-    );
+    logger.debug('Loaded knowledgebase from: $resolvedPath');
 
     final markdownText = File(resolvedPath).readAsStringSync();
 
