@@ -310,6 +310,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
 
   // Connection
   String _ipAddress = '192.168.1.100';
+  bool _isUsb = false;
   bool _isOnline = false;
   String? _deviceName;
   Vxi11Instrument? _instrument;
@@ -787,26 +788,42 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Row(
-            children: [
-              const Icon(Icons.lan, color: Colors.white70, size: 20),
-              const SizedBox(width: 8),
-              const Text(
-                "Device IP:",
-                style: TextStyle(color: Colors.white70, fontSize: 16),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                _ipAddress,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 1.1,
+          if (!_isUsb)
+            Row(
+              children: [
+                const Icon(Icons.lan, color: Colors.white70, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  "Device IP:",
+                  style: TextStyle(color: Colors.white70, fontSize: 16),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 8),
+                Text(
+                  _ipAddress,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ],
+            )
+          else
+            Row(
+              children: [
+                const Icon(Icons.usb, color: Colors.white70, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  "Device Mode: USB",
+                  style: TextStyle(
+                    color: Colors.white70,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
           Row(
             children: [
               Text(
@@ -955,7 +972,10 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       // The instrument returns data with an IEEE 488.2 definite-length block
       // header (e.g. "PNSU #9000047692<?xml..."). Decode with lenient UTF-8
       // handling to tolerate any non-UTF-8 bytes in the raw response.
-      final data = await instr.readRawResponse('PNSU?');
+      final data = await instr.readRawResponse(
+        'PNSU?',
+        timeout: const Duration(seconds: 15),
+      );
       final content = utf8.decode(data, allowMalformed: true);
 
       final dir = await AppPaths.getOrCreateDefaultDirectory();
@@ -964,6 +984,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
 
       _loadProfileFiles();
       if (mounted) {
+        AppLogger().log('Profile "$name" saved successfully.');
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Profile "$name" saved.')));
@@ -971,12 +992,17 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     } catch (e) {
       AppLogger().log('Save profile error: $e');
       if (mounted) {
+        AppLogger().log('Popup: Save profile failed: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Save profile failed: $e'),
             backgroundColor: Colors.red,
           ),
         );
+      }
+    } finally {
+      if (_isUsb) {
+        await _closeInstrument();
       }
     }
   }
@@ -988,13 +1014,22 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       if (!await file.exists()) throw Exception('File not found');
 
       final xml = await file.readAsString();
+      AppLogger().log(
+        'LoadProfile: reading "$fileName" (${xml.length} bytes / '
+        '${(xml.length / 1024).toStringAsFixed(1)} KB)',
+      );
       final instr = await _getInstrument();
       if (instr == null) throw Exception('Device not connected');
 
       // Send the entire XML string as a SCPI command
-      await instr.writeString(xml);
+      AppLogger().log(
+        'LoadProfile: sending ${xml.length} bytes via writeString '
+        '(timeout: 15s, isUsb: $_isUsb)',
+      );
+      await instr.writeString(xml, timeout: const Duration(seconds: 15));
 
       if (mounted) {
+        AppLogger().log('Profile "$fileName" loaded successfully.');
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text('Profile "$fileName" loaded.')));
@@ -1004,12 +1039,17 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     } catch (e) {
       AppLogger().log('Load profile error: $e');
       if (mounted) {
+        AppLogger().log('Popup: Load profile failed: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Load profile failed: $e'),
             backgroundColor: Colors.red,
           ),
         );
+      }
+    } finally {
+      if (_isUsb) {
+        await _closeInstrument();
       }
     }
   }
@@ -1035,6 +1075,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     return SettingsPanel(
       offset: _settingsOffset,
       ipAddress: _ipAddress,
+      isUsb: _isUsb,
       providerNames: providerConfigs.map((c) => c.providerName).toList(),
       selectedProvider: _aiProvider,
       aiApiToken: _aiApiToken,
@@ -1043,19 +1084,18 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       isRunningDiagnostic: _isRunningDiagnostic,
       diagnosticResults: _diagnosticResults,
       callbacks: SettingsPanelCallbacks(
-        onSave: (newIp, newProvider, newToken, newModel) {
+        onSave: (newIp, newProvider, newToken, newModel, newIsUsb) {
           final logger = AppLogger(agentName: 'main', toolName: 'onSave');
           logger.log(
             'Saving config: ip=$newIp, provider=$newProvider, '
             'token=${newToken.isNotEmpty ? "***${newToken.substring(newToken.length - 4)}" : "(empty)"}, '
-            'model="$newModel"',
+            'model="$newModel", isUsb=$newIsUsb',
           );
 
           setState(() {
             _ipAddress = newIp;
-            _aiProvider = newProvider;
-            _aiApiToken = newToken;
-            _llmModel = newModel;
+            _isUsb = newIsUsb;
+            Vxi11Instrument.isUsbMode = newIsUsb;
             _deviceName = null;
             _showSettings = false;
           });
@@ -1117,18 +1157,34 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     _isPinging = true;
 
     try {
-      final socket = await Socket.connect(
-        _ipAddress,
-        111,
-        timeout: const Duration(seconds: 3),
-      );
-      socket.destroy();
-      if (mounted) {
-        setState(() => _isOnline = true);
-        if (_deviceName == null) {
-          _updateWindowTitle();
-        } else {
-          windowManager.setTitle(_deviceName!);
+      if (_isUsb) {
+        final address = await Vxi11Instrument.detectLiveVisaAddress();
+        if (mounted) {
+          setState(() => _isOnline = address != null);
+          if (address != null) {
+            if (_deviceName == null) {
+              _updateWindowTitle();
+            } else {
+              windowManager.setTitle(_deviceName!);
+            }
+          } else {
+            windowManager.setTitle('SDS-Remote');
+          }
+        }
+      } else {
+        final socket = await Socket.connect(
+          _ipAddress,
+          111,
+          timeout: const Duration(seconds: 3),
+        );
+        socket.destroy();
+        if (mounted) {
+          setState(() => _isOnline = true);
+          if (_deviceName == null) {
+            _updateWindowTitle();
+          } else {
+            windowManager.setTitle(_deviceName!);
+          }
         }
       }
     } catch (e) {
@@ -1143,11 +1199,19 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
 
   Future<void> _updateWindowTitle() async {
     try {
-      final instr = Vxi11Instrument(_ipAddress, sourceLabel: 'updateWindowTitle');
-      await instr.open(timeoutSeconds: 3.0);
+      // Use the cached instrument to avoid creating a separate USB connection
+      // that would fight with the kernel driver detach/attach cycle.
+      final instr = _instrument ?? await _getInstrument();
+      if (instr == null) {
+        if (_isUsb) {
+          windowManager.setTitle('SDS-Remote — USB');
+        } else {
+          windowManager.setTitle('SDS-Remote — $_ipAddress');
+        }
+        return;
+      }
       await instr.writeString('*IDN?');
       final idn = (await instr.readString()).trim();
-      await instr.close();
       final parts = idn.split(',');
       final name = parts.length >= 2
           ? '${parts[0].trim()} ${parts[1].trim()}'
@@ -1157,7 +1221,13 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
         windowManager.setTitle(name);
       }
     } catch (_) {
-      windowManager.setTitle('SDS-Remote — $_ipAddress');
+      if (mounted) {
+        if (_isUsb) {
+          windowManager.setTitle('SDS-Remote — USB');
+        } else {
+          windowManager.setTitle('SDS-Remote — $_ipAddress');
+        }
+      }
     }
   }
 
@@ -1201,6 +1271,9 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
         _isOnline = false;
       });
     } finally {
+      if (_isUsb) {
+        await _closeInstrument();
+      }
       if (mounted) {
         setState(() {
           _isAcquiring = false;
@@ -1236,6 +1309,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       AppLogger().log('Acquire waveform error: $e');
       if (mounted) {
         final reason = e is AcquisitionException ? e.reason : e.toString();
+        AppLogger().log('Popup: Waveform error: $reason');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Waveform error: $reason'),
@@ -1244,6 +1318,9 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
         );
       }
     } finally {
+      if (_isUsb) {
+        await _closeInstrument();
+      }
       if (mounted) {
         setState(() {
           _isAcquiringWaveform = false;
@@ -1405,6 +1482,8 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _ipAddress = prefs.getString('osci_ip') ?? '192.168.1.100';
+      _isUsb = prefs.getBool('osci_is_usb') ?? false;
+      Vxi11Instrument.isUsbMode = _isUsb;
       _aiProvider = prefs.getString('ai_provider') ?? '';
       _aiApiToken = prefs.getString('ai_api_token') ?? '';
       _llmModel = prefs.getString('llm_model') ?? '';
@@ -1415,6 +1494,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   Future<void> _saveConfig() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('osci_ip', _ipAddress);
+    await prefs.setBool('osci_is_usb', _isUsb);
     await prefs.setString('ai_provider', _aiProvider);
     await prefs.setString('ai_api_token', _aiApiToken);
     await prefs.setString('llm_model', _llmModel);
@@ -1534,68 +1614,21 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       _diagnosticResults = [];
     });
 
-    void addResult(String msg) {
-      setState(() => _diagnosticResults.add(msg));
-    }
-
-    // Test 1: Ping the device
-    addResult('Testing TCP connection to $_ipAddress:111...');
     try {
-      final socket = await Socket.connect(
-        _ipAddress,
-        111,
-        timeout: const Duration(seconds: 3),
-      );
-      socket.destroy();
-      addResult('SUCCESS: TCP connection established');
+      final instr = Vxi11Instrument(_ipAddress, sourceLabel: 'diag');
+      final results = await instr.testConnection(timeoutSeconds: 5.0);
+      setState(() {
+        _diagnosticResults = results;
+      });
     } catch (e) {
-      addResult('FAILURE: TCP connection failed: $e');
-      setState(() => _isRunningDiagnostic = false);
-      return;
+      setState(() {
+        _diagnosticResults.add('FAILURE: Connection diagnostic failed: $e');
+      });
+    } finally {
+      setState(() {
+        _isRunningDiagnostic = false;
+      });
     }
-
-    // Test 2: VXI-11 open
-    addResult('Testing VXI-11 open...');
-    try {
-      final instr = Vxi11Instrument(_ipAddress, sourceLabel: 'diag-open');
-      await instr.open(timeoutSeconds: 3.0);
-      addResult('SUCCESS: VXI-11 link opened');
-      await instr.close();
-    } catch (e) {
-      addResult('FAILURE: VXI-11 open failed: $e');
-      setState(() => _isRunningDiagnostic = false);
-      return;
-    }
-
-    // Test 3: *IDN?
-    addResult('Querying *IDN?...');
-    try {
-      final instr = Vxi11Instrument(_ipAddress, sourceLabel: 'diag-idn');
-      await instr.open(timeoutSeconds: 3.0);
-      await instr.writeString('*IDN?');
-      final idn = (await instr.readString()).trim();
-      await instr.close();
-      addResult('SUCCESS: Device identity: $idn');
-    } catch (e) {
-      addResult('FAILURE: *IDN? query failed: $e');
-      setState(() => _isRunningDiagnostic = false);
-      return;
-    }
-
-    // Test 4: Screen dump
-    addResult('Testing screen dump...');
-    try {
-      final instr = Vxi11Instrument(_ipAddress, sourceLabel: 'diag-screendump');
-      await instr.open(timeoutSeconds: 5.0);
-      final data = await instr.getScreenDump();
-      await instr.close();
-      addResult('SUCCESS: Screen dump received (${data.length} bytes)');
-    } catch (e) {
-      addResult('FAILURE: Screen dump failed: $e');
-    }
-
-    addResult('Diagnostic complete.');
-    setState(() => _isRunningDiagnostic = false);
   }
 
   Future<Vxi11Instrument?> _getInstrument() async {
@@ -1640,6 +1673,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   /// Shows error message on failure.
   Future<bool> _sendCommand(String command) async {
     if (!_isOnline) {
+      AppLogger().log('Popup: Device is offline');
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Device is offline'),
@@ -1659,6 +1693,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       AppLogger().log('Send command error: $e');
       _closeInstrument(); // Connection might be bad
       if (mounted) {
+        AppLogger().log('Popup: Failed to send command: $e');
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to send command: $e'),
@@ -1667,6 +1702,10 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
         );
       }
       return false;
+    } finally {
+      if (_isUsb) {
+        await _closeInstrument();
+      }
     }
   }
 

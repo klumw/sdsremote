@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
+import 'package:usbtmc_dart/usbtmc_dart.dart';
 import 'logger.dart';
 
 /// XDR encoding/decoding helper.
@@ -281,6 +282,10 @@ class Vxi11ErrorMessages {
 /// instr.close();
 /// ```
 class Vxi11Instrument {
+  static bool isUsbMode = false;
+  UsbtmcContext? _usbContext;
+  UsbtmcDevice? _usbDevice;
+
   final String _host;
   final String _deviceName;
   final String _sourceLabel;
@@ -308,6 +313,36 @@ class Vxi11Instrument {
   Future<int> open({double timeoutSeconds = 10.0}) async {
     _timeoutMs = (timeoutSeconds * 1000).round();
     final src = _sourceLabel.isNotEmpty ? '[$_sourceLabel] ' : '';
+    
+    if (isUsbMode) {
+      AppLogger().log('USB: ${src}Opening connection via USBTMC...');
+      try {
+        final visaAddress = await detectLiveVisaAddress();
+        if (visaAddress == null) {
+          throw StateError('No active USBTMC device detected. Please check physical connection.');
+        }
+        AppLogger().log('USB: Auto-detected device: $visaAddress');
+
+        final context = UsbtmcContext();
+        await context.init();
+        _usbContext = context;
+
+        final device = await context.newDevice(visaAddress);
+        _usbDevice = device;
+        return 0;
+      } catch (e) {
+        AppLogger().log('USB: Failed to connect via USBTMC: $e');
+        _usbDevice = null;
+        if (_usbContext != null) {
+          try {
+            await _usbContext!.close();
+          } catch (_) {}
+          _usbContext = null;
+        }
+        rethrow;
+      }
+    }
+
     AppLogger().log('VXI-11: ${src}Opening connection to $_host');
 
     // Step 1: Connect to portmapper on port 111.
@@ -414,7 +449,19 @@ class Vxi11Instrument {
   String _vxi11ErrorMessage(int code) => Vxi11ErrorMessages.forCode(code);
 
   /// Sends a SCPI/VXI-11 command string to the instrument.
-  Future<void> writeString(String cmd) async {
+  Future<void> writeString(String cmd, {Duration? timeout}) async {
+    if (isUsbMode) {
+      if (_usbDevice == null) {
+        _lastError = 'USB connection not open';
+        throw StateError(_lastError);
+      }
+      await _usbDevice!.command(
+        cmd,
+        timeout: timeout ?? Duration(milliseconds: _timeoutMs),
+      );
+      return;
+    }
+
     if (_linkId == null) {
       _lastError = 'Connection not open';
       throw StateError(_lastError);
@@ -426,7 +473,7 @@ class Vxi11Instrument {
     // link_id(i32) | timeout_ms(u32) | lock_timeout_ms(u32=0) | flags(i32=8) | data(opaque)
     final params = XdrBuffer();
     params.writeInt32(_linkId!);       // link_id
-    params.writeUint32(_timeoutMs);    // timeout_ms
+    params.writeUint32(timeout?.inMilliseconds ?? _timeoutMs);    // timeout_ms
     params.writeUint32(0);             // lock_timeout_ms = 0
     params.writeInt32(8);              // flags = 8 (OP_FLAG_END)
     params.writeOpaque(cmdBytes);      // data
@@ -457,6 +504,19 @@ class Vxi11Instrument {
 
   /// Reads a string response from the instrument.
   Future<String> readString({int maxLen = 256}) async {
+    if (isUsbMode) {
+      if (_usbDevice == null) {
+        _lastError = 'USB connection not open';
+        throw StateError(_lastError);
+      }
+      final bytes = await _usbDevice!.doRead(
+        maxLen,
+        useTermChar: true,
+        timeout: Duration(milliseconds: _timeoutMs),
+      );
+      return utf8.decode(bytes).trim();
+    }
+
     if (_linkId == null) {
       _lastError = 'Connection not open';
       throw StateError(_lastError);
@@ -496,6 +556,19 @@ class Vxi11Instrument {
 
   /// Reads an IEEE 488.2 definite-length binary data block.
   Future<Uint8List> readDataBlock() async {
+    if (isUsbMode) {
+      if (_usbDevice == null) {
+        _lastError = 'USB connection not open';
+        throw StateError(_lastError);
+      }
+      final bytes = await _usbDevice!.doRead(
+        16 * 1024 * 1024,
+        useTermChar: false,
+        timeout: Duration(milliseconds: _timeoutMs),
+      );
+      return stripIeeeHeader(bytes);
+    }
+
     if (_linkId == null) {
       _lastError = 'Connection not open';
       throw StateError(_lastError);
@@ -505,14 +578,38 @@ class Vxi11Instrument {
 
   /// Sends SCDP and reads the raw BMP image bytes.
   Future<Uint8List> getScreenDump() async {
+    if (isUsbMode) {
+      await writeString('SCDP');
+      if (_usbDevice == null) {
+        _lastError = 'USB connection not open';
+        throw StateError(_lastError);
+      }
+      return await _usbDevice!.doRead(
+        16 * 1024 * 1024,
+        useTermChar: false,
+        timeout: Duration(milliseconds: _timeoutMs),
+      );
+    }
     await writeString('SCDP');
     return _readRaw();
   }
 
   /// Sends a command and reads the entire response until END is signalled.
   /// Useful for large responses like XML settings.
-  Future<Uint8List> readRawResponse(String cmd) async {
-    await writeString(cmd);
+  Future<Uint8List> readRawResponse(String cmd, {Duration? timeout}) async {
+    if (isUsbMode) {
+      await writeString(cmd, timeout: timeout);
+      if (_usbDevice == null) {
+        _lastError = 'USB connection not open';
+        throw StateError(_lastError);
+      }
+      return await _usbDevice!.doRead(
+        16 * 1024 * 1024,
+        useTermChar: false,
+        timeout: timeout ?? Duration(milliseconds: _timeoutMs),
+      );
+    }
+    await writeString(cmd, timeout: timeout);
     return _readRaw();
   }
 
@@ -592,6 +689,76 @@ class Vxi11Instrument {
   /// Performs a diagnostic check of the socket and VXI-11 functionality.
   /// Returns a list of diagnostic messages.
   Future<List<String>> testConnection({double timeoutSeconds = 5.0}) async {
+    if (isUsbMode) {
+      final results = <String>[];
+      results.add('Starting USBTMC diagnostic...');
+      
+      results.add('Step 1: Detecting connected USBTMC devices...');
+      final visaAddress = await detectLiveVisaAddress();
+      if (visaAddress == null) {
+        results.add('FAILURE: No active USBTMC device found. Please check connection and USB permissions.');
+        return results;
+      }
+      results.add('SUCCESS: USBTMC live device detected: $visaAddress');
+      
+      results.add('Step 2: Initializing USB context...');
+      final context = UsbtmcContext();
+      try {
+        await context.init();
+        results.add('SUCCESS: USB context initialized.');
+      } catch (e) {
+        results.add('FAILURE: USB context initialization failed: $e');
+        return results;
+      }
+      
+      results.add('Step 3: Opening USBTMC device...');
+      UsbtmcDevice? device;
+      try {
+        device = await context.newDevice(visaAddress);
+        results.add('SUCCESS: USBTMC device opened.');
+      } catch (e) {
+        results.add('FAILURE: Opening USBTMC device failed: $e');
+        try {
+          await context.close();
+        } catch (_) {}
+        return results;
+      }
+      
+      results.add('Step 4: Querying *IDN?...');
+      try {
+        final idn = await device.query('*IDN?', timeout: Duration(seconds: 3));
+        results.add('SUCCESS: Device identified as: $idn');
+      } catch (e) {
+        results.add('FAILURE: SCPI *IDN? query failed: $e');
+        try {
+          await device.close();
+        } catch (_) {}
+        try {
+          await context.close();
+        } catch (_) {}
+        return results;
+      }
+      
+      results.add('Step 5: Testing screen dump (SCDP)...');
+      try {
+        await device.command('SCDP');
+        final data = await device.doRead(16 * 1024 * 1024, useTermChar: false, timeout: Duration(seconds: 5));
+        results.add('SUCCESS: Screen dump received (${data.length} bytes)');
+      } catch (e) {
+        results.add('FAILURE: Screen dump failed: $e');
+      } finally {
+        try {
+          await device.close();
+        } catch (_) {}
+        try {
+          await context.close();
+        } catch (_) {}
+      }
+      
+      results.add('Diagnostic complete.');
+      return results;
+    }
+
     final results = <String>[];
     final timeout = Duration(milliseconds: (timeoutSeconds * 1000).round());
 
@@ -735,6 +902,19 @@ class Vxi11Instrument {
   ///
   /// If not connected, this is a no-op.
   Future<void> close() async {
+    if (_usbDevice != null) {
+      try {
+        await _usbDevice!.close();
+      } catch (_) {}
+      _usbDevice = null;
+    }
+    if (_usbContext != null) {
+      try {
+        await _usbContext!.close();
+      } catch (_) {}
+      _usbContext = null;
+    }
+
     if (_linkId != null) {
       // Encode DESTROY_LINK params: link_id(i32)
       final params = XdrBuffer();
@@ -766,4 +946,176 @@ class Vxi11Instrument {
 
   /// Alias for [close]; destroys the link and releases resources.
   Future<void> destroy() => close();
+
+  /// Helper to automatically detect a connected USBTMC device on Linux and Windows.
+  static Future<String?> detectLiveVisaAddress() async {
+    if (Platform.isLinux) {
+      try {
+        final dir = Directory('/sys/class/usbmisc');
+        if (dir.existsSync()) {
+          for (final entity in dir.listSync()) {
+            final name = entity.path.split('/').last;
+            if (name.startsWith('usbtmc')) {
+              final deviceDir = Directory('${entity.path}/device');
+              if (deviceDir.existsSync()) {
+                final resolvedPath = deviceDir.resolveSymbolicLinksSync();
+                var usbDir = Directory(resolvedPath);
+
+                if (!File('${usbDir.path}/idVendor').existsSync()) {
+                  usbDir = usbDir.parent;
+                }
+
+                final vendorFile = File('${usbDir.path}/idVendor');
+                final productFile = File('${usbDir.path}/idProduct');
+                final serialFile = File('${usbDir.path}/serial');
+
+                if (vendorFile.existsSync() && productFile.existsSync()) {
+                  final vendor = vendorFile.readAsStringSync().trim();
+                  final product = productFile.readAsStringSync().trim();
+                  final serial = serialFile.existsSync()
+                      ? serialFile.readAsStringSync().trim()
+                      : '';
+
+                  final boardIndexMatch = RegExp(r'\d+').firstMatch(name);
+                  final board =
+                      boardIndexMatch != null ? boardIndexMatch.group(0) : '0';
+
+                  final address = serial.isNotEmpty
+                      ? 'USB$board::0x$vendor::0x$product::$serial::INSTR'
+                      : 'USB$board::0x$vendor::0x$product::INSTR';
+                  return address;
+                }
+              }
+            }
+          }
+        }
+
+        // Fallback scan: search /sys/bus/usb/devices/ directly in case the kernel driver is currently detached
+        final devicesDir = Directory('/sys/bus/usb/devices');
+        if (devicesDir.existsSync()) {
+          for (final entity in devicesDir.listSync(followLinks: true)) {
+            final path = entity.path;
+            final name = path.split('/').last;
+            // Only look at interface directories (which contain a colon, e.g., "1-4:1.0")
+            if (name.contains(':')) {
+              final classFile = File('$path/bInterfaceClass');
+              final subClassFile = File('$path/bInterfaceSubClass');
+              final protocolFile = File('$path/bInterfaceProtocol');
+
+              if (classFile.existsSync() && subClassFile.existsSync() && protocolFile.existsSync()) {
+                final cls = classFile.readAsStringSync().trim();
+                final subcls = subClassFile.readAsStringSync().trim();
+                final proto = protocolFile.readAsStringSync().trim();
+
+                // USBTMC: Class 0xfe (254/fe), SubClass 3, Protocol 1 (or 0)
+                if ((cls == 'fe' || cls == '254') &&
+                    (subcls == '03' || subcls == '3') &&
+                    (proto == '01' || proto == '1')) {
+                  // Found a USBTMC interface! Get the parent device directory
+                  final devName = name.split(':').first;
+                  final usbDir = Directory('/sys/bus/usb/devices/$devName');
+                  final vendorFile = File('${usbDir.path}/idVendor');
+                  final productFile = File('${usbDir.path}/idProduct');
+                  final serialFile = File('${usbDir.path}/serial');
+
+                  if (vendorFile.existsSync() && productFile.existsSync()) {
+                    final vendor = vendorFile.readAsStringSync().trim();
+                    final product = productFile.readAsStringSync().trim();
+                    final serial = serialFile.existsSync()
+                        ? serialFile.readAsStringSync().trim()
+                        : '';
+
+                    // Try to find if there is an associated usbtmc board index under the interface's usbmisc directory
+                    String board = '0';
+                    final usbmiscDir = Directory('$path/usbmisc');
+                    if (usbmiscDir.existsSync()) {
+                      for (final sub in usbmiscDir.listSync()) {
+                        final subName = sub.path.split('/').last;
+                        if (subName.startsWith('usbtmc')) {
+                          final boardIndexMatch = RegExp(r'\d+').firstMatch(subName);
+                          if (boardIndexMatch != null) {
+                            board = boardIndexMatch.group(0)!;
+                            break;
+                          }
+                        }
+                      }
+                    }
+
+                    final address = serial.isNotEmpty
+                        ? 'USB$board::0x$vendor::0x$product::$serial::INSTR'
+                        : 'USB$board::0x$vendor::0x$product::INSTR';
+                    return address;
+                  }
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        AppLogger().log('USBTMC Linux live device detection failed: $e');
+      }
+    } else if (Platform.isWindows) {
+      try {
+        // Attempt using wmic first
+        final wmicResult = await Process.run('wmic', [
+          'path',
+          'Win32_PnPEntity',
+          'where',
+          'PNPDeviceID like \'USB\\\\VID_%\' and Status=\'OK\'',
+          'get',
+          'PNPDeviceID'
+        ]);
+        
+        var output = wmicResult.stdout as String;
+        if (wmicResult.exitCode != 0 || output.trim().isEmpty || !output.contains('VID_')) {
+          // Fallback to powershell if wmic is not available/returns empty
+          final psResult = await Process.run('powershell', [
+            '-Command',
+            'Get-CimInstance Win32_PnPEntity -Filter "DeviceID like \'USB\\\\\\VID_%\'" | Where-Object { \$_.Status -eq \'OK\' } | Select-Object -ExpandProperty DeviceID'
+          ]);
+          output = psResult.stdout as String;
+        }
+        
+        final regex = RegExp(r'VID_([0-9A-Fa-f]{4})&PID_([0-9A-Fa-f]{4})\\([^\s]+)', caseSensitive: false);
+        final matches = regex.allMatches(output);
+        
+        for (final match in matches) {
+          final vid = match.group(1)!.toLowerCase();
+          final pid = match.group(2)!.toLowerCase();
+          final serial = match.group(3)!.trim();
+          
+          final knownVids = {'f4ec', '0957', '1ab1', '0699'};
+          if (knownVids.contains(vid)) {
+            var cleanSerial = serial;
+            final ampersandIndex = serial.indexOf('&');
+            if (ampersandIndex >= 0) {
+              cleanSerial = serial.substring(0, ampersandIndex);
+            }
+            
+            final address = 'USB0::0x$vid::0x$pid::$cleanSerial::INSTR';
+            return address;
+          }
+        }
+        
+        // If no known instrument VID matched, fall back to the first device matching VID/PID
+        for (final match in matches) {
+          final vid = match.group(1)!.toLowerCase();
+          final pid = match.group(2)!.toLowerCase();
+          final serial = match.group(3)!.trim();
+          
+          var cleanSerial = serial;
+          final ampersandIndex = serial.indexOf('&');
+          if (ampersandIndex >= 0) {
+            cleanSerial = serial.substring(0, ampersandIndex);
+          }
+          
+          final address = 'USB0::0x$vid::0x$pid::$cleanSerial::INSTR';
+          return address;
+        }
+      } catch (e) {
+        AppLogger().log('USBTMC Windows live device detection failed: $e');
+      }
+    }
+    return null;
+  }
 }

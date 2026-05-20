@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 /// Callbacks for the settings panel to communicate with the parent state.
 class SettingsPanelCallbacks {
-  final void Function(String ip, String provider, String token, String model)
+  final void Function(String ip, String provider, String token, String model, bool isUsb)
       onSave;
   final void Function() onClose;
   final void Function(Offset delta) onDrag;
@@ -18,6 +18,7 @@ class SettingsPanelCallbacks {
 class SettingsPanel extends StatefulWidget {
   final Offset offset;
   final String ipAddress;
+  final bool isUsb;
   final List<String> providerNames;
   final String selectedProvider;
   final String aiApiToken;
@@ -33,6 +34,7 @@ class SettingsPanel extends StatefulWidget {
     super.key,
     required this.offset,
     required this.ipAddress,
+    required this.isUsb,
     required this.providerNames,
     required this.selectedProvider,
     required this.aiApiToken,
@@ -54,10 +56,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late TextEditingController _aiApiTokenController;
   late TextEditingController _llmModelController;
   String? _selectedProvider;
+  late bool _isUsb;
 
   @override
   void initState() {
     super.initState();
+    _isUsb = widget.isUsb;
     _ipController = TextEditingController(text: widget.ipAddress);
     _aiApiTokenController = TextEditingController(text: widget.aiApiToken);
     _llmModelController = TextEditingController(text: widget.llmModel);
@@ -69,6 +73,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
   @override
   void didUpdateWidget(SettingsPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.isUsb != widget.isUsb) {
+      _isUsb = widget.isUsb;
+    }
     if (oldWidget.ipAddress != widget.ipAddress) {
       _ipController.text = widget.ipAddress;
     }
@@ -164,11 +171,15 @@ class _SettingsPanelState extends State<SettingsPanel> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      _buildSettingsField(
-                        _ipController,
-                        'Oscilloscope IP Address',
-                      ),
+                      _buildConnectionModeDropdown(),
                       const SizedBox(height: 16),
+                      if (!_isUsb) ...[
+                        _buildSettingsField(
+                          _ipController,
+                          'Oscilloscope IP Address',
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                       _buildProviderDropdown(),
                       const SizedBox(height: 16),
                       _buildSettingsField(
@@ -274,6 +285,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           _selectedProvider ?? '',
                           _aiApiTokenController.text,
                           _llmModelController.text,
+                          _isUsb,
                         ),
                         child: const Text(
                           'SAVE CONFIGURATION',
@@ -322,6 +334,42 @@ class _SettingsPanelState extends State<SettingsPanel> {
       }).toList(),
       onChanged: (v) {
         setState(() => _selectedProvider = v);
+      },
+    );
+  }
+
+  Widget _buildConnectionModeDropdown() {
+    return DropdownButtonFormField<String>(
+      initialValue: _isUsb ? 'USB' : 'Network',
+      decoration: const InputDecoration(
+        labelText: 'Connection Mode',
+        floatingLabelBehavior: FloatingLabelBehavior.always,
+        enabledBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: Colors.white24),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderSide: BorderSide(color: Colors.cyanAccent),
+        ),
+        contentPadding: EdgeInsets.symmetric(
+          horizontal: 16,
+          vertical: 14,
+        ),
+      ),
+      dropdownColor: const Color(0xFF252525),
+      style: const TextStyle(color: Colors.white, fontSize: 14),
+      iconEnabledColor: Colors.cyanAccent,
+      items: const [
+        DropdownMenuItem<String>(
+          value: 'Network',
+          child: Text('Network'),
+        ),
+        DropdownMenuItem<String>(
+          value: 'USB',
+          child: Text('USB'),
+        ),
+      ],
+      onChanged: (v) {
+        setState(() => _isUsb = v == 'USB');
       },
     );
   }
