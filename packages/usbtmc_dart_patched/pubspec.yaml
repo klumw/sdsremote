@@ -1,0 +1,14 @@
+name: usbtmc_dart
+description: A pure Dart library to communicate with USB Test and Measurement Class (USBTMC) devices using libusb.
+version: 1.0.0
+publish_to: none
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  ffi: ^2.1.2
+
+dev_dependencies:
+  test: ^1.24.0
+  lints: ^3.0.0

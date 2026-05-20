@@ -22,7 +22,7 @@ dependencies:
     path: packages/dartantic_ai_patched
   langchain: ^0.7.0
   usbtmc_dart:
-    path: ../usbtmc_dart
+    path: packages/usbtmc_dart_patched
 
 dev_dependencies:
   flutter_test:

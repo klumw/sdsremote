@@ -903,7 +903,7 @@ packages:
   usbtmc_dart:
     dependency: "direct main"
     description:
-      path: "../usbtmc_dart"
+      path: "packages/usbtmc_dart_patched"
       relative: true
     source: path
     version: "1.0.0"
