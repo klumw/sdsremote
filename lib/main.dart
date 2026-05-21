@@ -1021,12 +1021,14 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       final instr = await _getInstrument();
       if (instr == null) throw Exception('Device not connected');
 
-      // Send the entire XML string as a SCPI command
+      // Send the entire XML string via profileWrite — a single USB bulk
+      // transfer (no chunking), which the instrument requires for atomic
+      // profile upload.  For VXI-11 mode this delegates to writeString.
       AppLogger().log(
-        'LoadProfile: sending ${xml.length} bytes via writeString '
+        'LoadProfile: sending ${xml.length} bytes via writeProfileData '
         '(timeout: 15s, isUsb: $_isUsb)',
       );
-      await instr.writeString(xml, timeout: const Duration(seconds: 15));
+      await instr.writeProfileData(xml, timeout: const Duration(seconds: 15));
 
       if (mounted) {
         AppLogger().log('Profile "$fileName" loaded successfully.');

@@ -502,6 +502,33 @@ class Vxi11Instrument {
     }
   }
 
+  /// Sends profile data (e.g. XML configuration) to the instrument.
+  ///
+  /// For USB (USBTMC) mode, this uses [UsbtmcDevice.profileWrite] which sends
+  /// the entire payload in a single USB bulk transfer — required because the
+  /// instrument firmware expects the complete XML block atomically and does
+  /// not correctly reassemble multi-transfer DEV_DEP_MSG_OUT messages.
+  ///
+  /// For VXI-11 (TCP) mode, this delegates to [writeString] which sends the
+  /// data via the standard DEVICE_WRITE RPC.
+  Future<void> writeProfileData(String data, {Duration? timeout}) async {
+    if (isUsbMode) {
+      if (_usbDevice == null) {
+        _lastError = 'USB connection not open';
+        throw StateError(_lastError);
+      }
+      final payload = Uint8List.fromList(utf8.encode('$data\n'));
+      await _usbDevice!.profileWrite(
+        payload,
+        timeout: timeout ?? Duration(milliseconds: _timeoutMs),
+      );
+      return;
+    }
+
+    // VXI-11 fallback: standard writeString
+    await writeString(data, timeout: timeout);
+  }
+
   /// Reads a string response from the instrument.
   Future<String> readString({int maxLen = 256}) async {
     if (isUsbMode) {

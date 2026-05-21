@@ -128,6 +128,59 @@ class UsbtmcDevice {
     });
   }
 
+  /// Writes profile data (e.g. XML configuration) to the device in a single
+  /// USB bulk transfer — one DEV_DEP_MSG_OUT message, no chunking.
+  ///
+  /// Unlike [writeBinary], which splits large payloads across multiple
+  /// USBTMC multi-transfer chunks (§3.2.1.1), this method sends the entire
+  /// payload in ONE bulk transaction.  This is required for profile upload
+  /// (SCPI `*LRN` / `*LDS` style commands) where the instrument firmware
+  /// expects the complete XML block atomically and does not correctly
+  /// reassemble multi-transfer DEV_DEP_MSG_OUT messages.
+  ///
+  /// The USB host controller transparently handles low-level packetization
+  /// (max 512/1024 bytes per packet for FS/HS) and automatic NAK/retry flow
+  /// control — the device's FIFO never overflows because the hardware
+  /// throttles the host at the USB protocol level.
+  Future<int> profileWrite(Uint8List payload, {Duration? timeout}) async {
+    return _lock.protect(() async {
+      if (payload.isEmpty) return 0;
+
+      print('USBTMC: profileWrite sending ${payload.length} bytes in one transfer');
+
+      // Single bTag for the single DEV_DEP_MSG_OUT message.
+      _bTag = UsbtmcProtocolHelpers.nextbTag(_bTag);
+
+      // Build the DEV_DEP_MSG_OUT header: EOM=1 (this is the only message).
+      final header = UsbtmcProtocolHelpers.encodeBulkOutHeader(
+        _bTag,
+        payload.length,
+        true, // EOM = 1
+      );
+
+      // 4-byte alignment padding (USBTMC spec requirement).
+      final totalLen = UsbtmcConstants.headerSize + payload.length;
+      final paddingLen = UsbtmcProtocolHelpers.getPaddingLength(totalLen);
+
+      // Single contiguous packet: header + payload + padding.
+      final packet = Uint8List(totalLen + paddingLen);
+      packet.setRange(0, header.length, header);
+      packet.setRange(header.length, header.length + payload.length, payload);
+      if (paddingLen > 0) {
+        packet.setRange(
+          header.length + payload.length,
+          packet.length,
+          Uint8List(paddingLen),
+        );
+      }
+
+      await _usbDevice.write(packet, timeout: timeout);
+
+      print('USBTMC: profileWrite complete — ${payload.length} payload bytes sent');
+      return payload.length;
+    });
+  }
+
   /// Initiates a Request Bulk-IN and reads the formatted response.
   Future<Uint8List> doRead(int maxBytesRequested, {required bool useTermChar, Duration? timeout}) async {
     return _lock.protect(() async {
