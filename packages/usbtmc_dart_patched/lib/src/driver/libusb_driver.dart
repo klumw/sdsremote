@@ -226,9 +226,21 @@ class LibusbContext implements UsbContext {
           'Failed to open USB device with VID 0x${vendorId.toRadixString(16)} and PID 0x${productId.toRadixString(16)}. Please check physical connection and USB permissions.');
     }
 
-    // Detach kernel driver if needed (highly relevant for Linux USBTMC drivers)
+    // Detach kernel driver if needed (highly relevant for Linux USBTMC drivers).
+    // The kernel driver (usbtmc.ko) may have queued a Bulk-OUT URB before we
+    // detached it; that URB can complete on the wire after we claim the
+    // interface, producing a stale leading URB in USB analyser traces.
     if (Platform.isLinux) {
-      _bindings.libusb_detach_kernel_driver(handle, 0);
+      final detachResult = _bindings.libusb_detach_kernel_driver(handle, 0);
+      if (detachResult == 0) {
+        print('USBTMC: Kernel driver detached from interface 0.');
+      } else if (detachResult == -5) {
+        // LIBUSB_ERROR_NOT_FOUND — no kernel driver was attached; this is fine.
+        print('USBTMC: No kernel driver attached to interface 0 (already detached).');
+      } else {
+        print('USBTMC: libusb_detach_kernel_driver returned $detachResult — '
+            'a stale kernel URB may appear before our first bulk transfer.');
+      }
     }
 
     final res = _bindings.libusb_claim_interface(handle, 0);

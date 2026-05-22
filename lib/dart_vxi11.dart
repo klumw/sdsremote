@@ -517,7 +517,9 @@ class Vxi11Instrument {
         _lastError = 'USB connection not open';
         throw StateError(_lastError);
       }
-      final payload = Uint8List.fromList(utf8.encode('$data\n'));
+      // Send the profile data as-is, without any modifications.
+      final payload = Uint8List.fromList(utf8.encode(data));
+
       await _usbDevice!.profileWrite(
         payload,
         timeout: timeout ?? Duration(milliseconds: _timeoutMs),

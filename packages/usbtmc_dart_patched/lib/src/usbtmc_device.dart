@@ -146,21 +146,53 @@ class UsbtmcDevice {
     return _lock.protect(() async {
       if (payload.isEmpty) return 0;
 
-      print('USBTMC: profileWrite sending ${payload.length} bytes in one transfer');
+      // ── Pre-transfer cleanup ──────────────────────────────────────────
+      // Previous bulk-out transfers (from kernel driver or a failed
+      // writeBinary) may leave a partial URB on the wire.  Clear the
+      // Bulk-OUT endpoint halt and abort any pending USBTMC transfer so
+      // the device starts parsing our DEV_DEP_MSG_OUT from a clean state.
+      try {
+        await _usbDevice.clearHalt();
+      } catch (_) {
+        // Best-effort; proceed even if the endpoint was not stalled.
+      }
+
+      try {
+        // USBTMC INITIATE_ABORT_BULK_OUT (bRequest=1) — cancels any
+        // pending Bulk-OUT transfer inside the device's USBTMC firmware.
+        await _usbDevice.controlTransfer(
+          requestType: 0xA1, // Device-to-Host, Class, Interface
+          request: UsbtmcConstants.initiateAbortBulkOut,
+          value: 0,
+          index: 0,
+          data: Uint8List(2),
+          timeout: const Duration(milliseconds: 500),
+        );
+      } catch (_) {
+        // Best-effort; some devices may not support this request.
+      }
+
+      // Flush any in-flight kernel-driver URBs that were queued before
+      // we detached the kernel driver.
+      await Future.delayed(const Duration(milliseconds: 10));
+      // ──────────────────────────────────────────────────────────────────
 
       // Single bTag for the single DEV_DEP_MSG_OUT message.
       _bTag = UsbtmcProtocolHelpers.nextbTag(_bTag);
 
       // Build the DEV_DEP_MSG_OUT header: EOM=1 (this is the only message).
+      final transferSize = payload.length;
       final header = UsbtmcProtocolHelpers.encodeBulkOutHeader(
         _bTag,
-        payload.length,
+        transferSize,
         true, // EOM = 1
       );
 
       // 4-byte alignment padding (USBTMC spec requirement).
       final totalLen = UsbtmcConstants.headerSize + payload.length;
       final paddingLen = UsbtmcProtocolHelpers.getPaddingLength(totalLen);
+
+      print('USBTMC: profileWrite sending ${payload.length} bytes in one transfer');
 
       // Single contiguous packet: header + payload + padding.
       final packet = Uint8List(totalLen + paddingLen);
