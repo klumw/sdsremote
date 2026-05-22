@@ -1113,7 +1113,7 @@ class Vxi11Instrument {
           final pid = match.group(2)!.toLowerCase();
           final serial = match.group(3)!.trim();
           
-          final knownVids = {'f4ec', '0957', '1ab1', '0699'};
+          final knownVids = {'f4ec', 'f4ed', '0957', '1ab1', '0699'};
           if (knownVids.contains(vid)) {
             var cleanSerial = serial;
             final ampersandIndex = serial.indexOf('&');

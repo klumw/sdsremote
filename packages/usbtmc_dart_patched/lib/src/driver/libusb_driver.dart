@@ -86,6 +86,21 @@ typedef _libusb_reset_device_c = Int32 Function(
 typedef _libusb_reset_device_dart = int Function(
     Pointer<Void> dev_handle);
 
+typedef _libusb_get_device_list_c = Int64 Function(
+    Pointer<Void> ctx, Pointer<Pointer<Pointer<Void>>> list);
+typedef _libusb_get_device_list_dart = int Function(
+    Pointer<Void> ctx, Pointer<Pointer<Pointer<Void>>> list);
+
+typedef _libusb_free_device_list_c = Void Function(
+    Pointer<Pointer<Void>> list, Int32 unref_devices);
+typedef _libusb_free_device_list_dart = void Function(
+    Pointer<Pointer<Void>> list, int unref_devices);
+
+typedef _libusb_get_device_descriptor_c = Int32 Function(
+    Pointer<Void> dev, Pointer<Uint8> desc);
+typedef _libusb_get_device_descriptor_dart = int Function(
+    Pointer<Void> dev, Pointer<Uint8> desc);
+
 /// C-bindings loader for `libusb-1.0`.
 class LibusbBindings {
   late final DynamicLibrary _lib;
@@ -103,6 +118,9 @@ class LibusbBindings {
   late final _libusb_attach_kernel_driver_dart libusb_attach_kernel_driver;
   late final _libusb_clear_halt_dart libusb_clear_halt;
   late final _libusb_reset_device_dart libusb_reset_device;
+  late final _libusb_get_device_list_dart libusb_get_device_list;
+  late final _libusb_free_device_list_dart libusb_free_device_list;
+  late final _libusb_get_device_descriptor_dart libusb_get_device_descriptor;
 
   LibusbBindings() {
     _lib = _loadLibrary();
@@ -163,6 +181,20 @@ class LibusbBindings {
     } catch (_) {
       libusb_attach_kernel_driver = (h, i) => -1;
     }
+
+    // Device enumeration functions (available in all libusb 1.0 versions)
+    libusb_get_device_list = _lib
+        .lookup<NativeFunction<_libusb_get_device_list_c>>(
+            'libusb_get_device_list')
+        .asFunction();
+    libusb_free_device_list = _lib
+        .lookup<NativeFunction<_libusb_free_device_list_c>>(
+            'libusb_free_device_list')
+        .asFunction();
+    libusb_get_device_descriptor = _lib
+        .lookup<NativeFunction<_libusb_get_device_descriptor_c>>(
+            'libusb_get_device_descriptor')
+        .asFunction();
   }
 
   DynamicLibrary _loadLibrary() {
@@ -182,6 +214,29 @@ class LibusbBindings {
 }
 
 final LibusbBindings _bindings = LibusbBindings();
+
+/// Formats an integer as a zero-padded 4-digit hex string (e.g. 0x058F).
+String _hex4(int value) => value.toRadixString(16).padLeft(4, '0').toUpperCase();
+
+/// Maps a libusb error code to a human-readable description.
+String _libusbErrorString(int code) {
+  switch (code) {
+    case 0:   return 'SUCCESS';
+    case -1:  return 'LIBUSB_ERROR_IO';
+    case -2:  return 'LIBUSB_ERROR_INVALID_PARAM';
+    case -3:  return 'LIBUSB_ERROR_ACCESS';
+    case -4:  return 'LIBUSB_ERROR_NO_DEVICE';
+    case -5:  return 'LIBUSB_ERROR_NOT_FOUND';
+    case -6:  return 'LIBUSB_ERROR_BUSY';
+    case -7:  return 'LIBUSB_ERROR_TIMEOUT';
+    case -8:  return 'LIBUSB_ERROR_OVERFLOW';
+    case -9:  return 'LIBUSB_ERROR_PIPE';
+    case -10: return 'LIBUSB_ERROR_INTERRUPTED';
+    case -11: return 'LIBUSB_ERROR_NO_MEM';
+    case -12: return 'LIBUSB_ERROR_NOT_SUPPORTED';
+    default:  return 'LIBUSB_ERROR_OTHER ($code)';
+  }
+}
 
 class LibusbDriver implements UsbDriver {
   @override
@@ -222,8 +277,24 @@ class LibusbContext implements UsbContext {
 
     final handle = _bindings.libusb_open_device_with_vid_pid(_ctx, vendorId, productId);
     if (handle == nullptr) {
+      final vidStr = _hex4(vendorId);
+      final pidStr = _hex4(productId);
+      print('USBTMC ERROR: libusb_open_device_with_vid_pid() returned NULL for VID 0x$vidStr, PID 0x$pidStr');
+
+      // Enumerate all devices visible to libusb to aid diagnosis
+      _printLibusbDeviceList();
+
+      if (Platform.isWindows) {
+        print('USBTMC ERROR: The device was found by Windows (wmic/PnP) but libusb cannot see it.');
+        print('USBTMC ERROR: This means NO WinUSB driver is bound to this device (VID 0x$vidStr, PID 0x$pidStr).');
+        print('USBTMC ERROR: In Zadig -> Options -> List All Devices, look for the PARENT entry');
+        print('USBTMC ERROR: (the one without an interface number like :01 or :02). It may also');
+        print('USBTMC ERROR: need WinUSB installed. If that fails, try the libusbK driver instead.');
+      } else if (Platform.isLinux) {
+        print('USBTMC ERROR: Make sure the device is connected and you have the required udev rules / permissions.');
+      }
       throw Exception(
-          'Failed to open USB device with VID 0x${vendorId.toRadixString(16)} and PID 0x${productId.toRadixString(16)}. Please check physical connection and USB permissions.');
+          'Failed to open USB device with VID 0x$vidStr and PID 0x$pidStr. Please check physical connection and USB permissions.');
     }
 
     // Detach kernel driver if needed (highly relevant for Linux USBTMC drivers).
@@ -245,8 +316,40 @@ class LibusbContext implements UsbContext {
 
     final res = _bindings.libusb_claim_interface(handle, 0);
     if (res < 0) {
+      final errDesc = _libusbErrorString(res);
+      print('USBTMC ERROR: libusb_claim_interface(handle, 0) failed: $res ($errDesc)');
+
+      if (Platform.isWindows) {
+        if (res == -3) {
+          print('USBTMC ERROR: LIBUSB_ERROR_ACCESS — The WinUSB driver may not be bound to this device. '
+              'Open Zadig, ensure the correct device is selected, and install/reinstall the WinUSB driver.');
+        } else if (res == -6) {
+          print('USBTMC ERROR: LIBUSB_ERROR_BUSY — The interface is already claimed by another driver or process. '
+              'This can happen if the Windows native USBTMC driver (usbtmc.sys) has bound to the device, '
+              'or if another application (e.g. NI-VISA, Keysight IO Suite) holds the interface. '
+              'Try: (1) Disconnect/reconnect the device, (2) Close other VISA applications, '
+              '(3) Use Zadig to replace the driver with WinUSB.');
+        } else if (res == -4) {
+          print('USBTMC ERROR: LIBUSB_ERROR_NO_DEVICE — The device was disconnected or is no longer accessible.');
+        } else if (res == -5) {
+          print('USBTMC ERROR: LIBUSB_ERROR_NOT_FOUND — The device or interface was not found. '
+              'Check physical connection and try reconnecting the device.');
+        } else {
+          print('USBTMC ERROR: See https://libusb.sourceforge.io/api-1.0/group__libusb__misc.html '
+              'for detailed error code descriptions.');
+        }
+      } else if (Platform.isLinux) {
+        if (res == -3) {
+          print('USBTMC ERROR: LIBUSB_ERROR_ACCESS — Insufficient permissions. '
+              'Try adding a udev rule for this device or running with sudo.');
+        } else if (res == -6) {
+          print('USBTMC ERROR: LIBUSB_ERROR_BUSY — The kernel driver (usbtmc.ko) may still be attached. '
+              'The detach_kernel_driver step may have failed earlier.');
+        }
+      }
+
       _bindings.libusb_close(handle);
-      throw Exception('Failed to claim interface 0: error code $res');
+      throw Exception('Failed to claim interface 0: error code $res ($errDesc)');
     }
 
     // In USBTMC, endpoints are standardized as:
@@ -316,6 +419,50 @@ class LibusbContext implements UsbContext {
     await Future.delayed(const Duration(seconds: 7));
   }
 
+  /// Prints all USB devices visible to libusb for diagnostic purposes.
+  /// Called when [openDevice] fails to find the target device.
+  void _printLibusbDeviceList() {
+    final listPtr = calloc<Pointer<Pointer<Void>>>();
+    try {
+      final count = _bindings.libusb_get_device_list(_ctx, listPtr);
+      if (count < 0) {
+        print('USBTMC DIAG: libusb_get_device_list failed: $count (${_libusbErrorString(count)})');
+        return;
+      }
+      if (count == 0) {
+        print('USBTMC DIAG: libusb_get_device_list returned 0 devices.');
+        print('USBTMC DIAG: libusb sees NO USB devices at all on this system!');
+        print('USBTMC DIAG: Possible causes:');
+        print('USBTMC DIAG:   - WinUSB driver not properly bound to any device');
+        print('USBTMC DIAG:   - libusb-1.0.dll is incompatible or wrong version');
+        print('USBTMC DIAG:   - libusb-1.0.dll cannot initialize the WinUSB backend');
+        return;
+      }
+      print('USBTMC DIAG: libusb_get_device_list returned $count device(s):');
+      final deviceArray = listPtr.value;
+      final deviceDesc = calloc<Uint8>(18); // libusb_device_descriptor is 18 bytes
+      for (int i = 0; i < count; i++) {
+        final dev = (deviceArray + i).value;
+        if (dev == nullptr) break;
+        // calloc already zero-initialized deviceDesc
+        final ret = _bindings.libusb_get_device_descriptor(dev, deviceDesc);
+        if (ret == 0) {
+          final vid = (deviceDesc[9] << 8) | deviceDesc[8];
+          final pid = (deviceDesc[11] << 8) | deviceDesc[10];
+          print('USBTMC DIAG:   Device[$i]: VID 0x${_hex4(vid)}, PID 0x${_hex4(pid)}');
+        } else {
+          print('USBTMC DIAG:   Device[$i]: Failed to read descriptor: $ret');
+        }
+      }
+      calloc.free(deviceDesc);
+    } finally {
+      if (listPtr.value != nullptr) {
+        _bindings.libusb_free_device_list(listPtr.value, 1);
+      }
+      calloc.free(listPtr);
+    }
+  }
+
   @override
   Future<void> close() async {
     if (_closed) return;
@@ -332,25 +479,6 @@ class LibusbDevice implements UsbDevice {
 
   LibusbDevice._(this._handle, {required this.bulkOutEp, required this.bulkInEp});
 
-  /// Maps a libusb error code to a human-readable description.
-  static String _libusbErrorString(int code) {
-    switch (code) {
-      case 0:  return 'SUCCESS';
-      case -1: return 'IO_ERROR';
-      case -2: return 'INVALID_PARAM';
-      case -3: return 'ACCESS';
-      case -4: return 'NO_DEVICE';
-      case -5: return 'NOT_FOUND';
-      case -6: return 'BUSY';
-      case -7: return 'TIMEOUT';
-      case -8: return 'OVERFLOW';
-      case -9: return 'PIPE';
-      case -10: return 'INTERRUPTED';
-      case -11: return 'NO_MEM';
-      case -12: return 'NOT_SUPPORTED';
-      default: return 'UNKNOWN';
-    }
-  }
 
   @override
   Future<int> write(Uint8List data, {Duration? timeout}) async {
