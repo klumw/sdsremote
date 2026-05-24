@@ -54,6 +54,9 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
   StreamSubscription<DataLoggerPoint>? _subscription;
   int _elapsedSeconds = 0;
   Set<String> _hiddenLines = {};
+  double? _hoveredTime;
+  double _hoverX = 0;
+  double _hoverY = 0;
 
   // ---------- Animation for running indicator ----------
   late final AnimationController _pulseController;
@@ -185,22 +188,35 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
               child: Column(
                 children: [
                   Expanded(
-                    child: DataLoggerPlot(
-                      points: _points,
-                      ch1Enabled: _config?.ch1Enabled ?? true,
-                      ch2Enabled: _config?.ch2Enabled ?? false,
-                      status: _status,
-                      totalDurationSeconds: (_config?.durationMinutes ?? 1) * 60.0,
-                      hiddenLines: _hiddenLines,
-                      onToggleLine: (id) {
-                        setState(() {
-                          if (_hiddenLines.contains(id)) {
-                            _hiddenLines.remove(id);
-                          } else {
-                            _hiddenLines.add(id);
-                          }
-                        });
-                      },
+                    child: Stack(
+                      children: [
+                        DataLoggerPlot(
+                          points: _points,
+                          ch1Enabled: _config?.ch1Enabled ?? true,
+                          ch2Enabled: _config?.ch2Enabled ?? false,
+                          status: _status,
+                          totalDurationSeconds: (_config?.durationMinutes ?? 1) * 60.0,
+                          hiddenLines: _hiddenLines,
+                          onToggleLine: (id) {
+                            setState(() {
+                              if (_hiddenLines.contains(id)) {
+                                _hiddenLines.remove(id);
+                              } else {
+                                _hiddenLines.add(id);
+                              }
+                            });
+                          },
+                          onHover: (time, localX, localY) {
+                            setState(() {
+                              _hoveredTime = time < 0 ? null : time;
+                              _hoverX = localX;
+                              _hoverY = localY;
+                            });
+                          },
+                        ),
+                        if (_hoveredTime != null && _points.isNotEmpty)
+                          _buildHoverTooltip(),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -216,6 +232,72 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
         ],
       ),
     );
+  }
+
+  /// Tooltip overlay showing data values at the hovered time position.
+  Widget _buildHoverTooltip() {
+    final time = _hoveredTime!;
+    // Find the nearest data point (or interpolate between two)
+    DataLoggerPoint? before, after;
+    for (final p in _points) {
+      if (p.elapsedSeconds <= time) before = p;
+      if (p.elapsedSeconds >= time && after == null) after = p;
+    }
+    final nearest = (before ?? after)!;
+    final rows = <Widget>[
+      Text(
+        't = ${nearest.elapsedSeconds.toStringAsFixed(1)}s',
+        style: const TextStyle(color: Colors.white70, fontSize: 10),
+      ),
+    ];
+    if (_config?.ch1Enabled == true) {
+      if (!_hiddenLines.contains('ch1_vpp') && nearest.ch1Vpp != null) {
+        rows.add(Text('CH1 Vpp: ${nearest.ch1Vpp!.toStringAsFixed(3)}V',
+            style: const TextStyle(color: Color(0xFFFFFF00), fontSize: 11)));
+      }
+      if (!_hiddenLines.contains('ch1_freq') && nearest.ch1Freq != null) {
+        rows.add(Text('CH1 Freq: ${_fmtSi(nearest.ch1Freq!)}Hz',
+            style: const TextStyle(color: Color(0xFFFFFF00), fontSize: 11)));
+      }
+    }
+    if (_config?.ch2Enabled == true) {
+      if (!_hiddenLines.contains('ch2_vpp') && nearest.ch2Vpp != null) {
+        rows.add(Text('CH2 Vpp: ${nearest.ch2Vpp!.toStringAsFixed(3)}V',
+            style: const TextStyle(color: Color(0xFFFF20FF), fontSize: 11)));
+      }
+      if (!_hiddenLines.contains('ch2_freq') && nearest.ch2Freq != null) {
+        rows.add(Text('CH2 Freq: ${_fmtSi(nearest.ch2Freq!)}Hz',
+            style: const TextStyle(color: Color(0xFFFF20FF), fontSize: 11)));
+      }
+    }
+    // Position tooltip near the cursor, clamped within bounds.
+    final tooltipH = 80.0;
+    final left = (_hoverX + 16).clamp(0.0, 500.0);
+    final top = (_hoverY - tooltipH - 8).clamp(0.0, 400.0);
+    return Positioned(
+      left: left,
+      top: top,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: const Color(0xDD0A192F),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: const Color(0xFF475569)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: rows,
+        ),
+      ),
+    );
+  }
+
+  String _fmtSi(double v) {
+    final abs = v.abs();
+    if (abs >= 1e6) return '${(v / 1e6).toStringAsFixed(2)}M';
+    if (abs >= 1e3) return '${(v / 1e3).toStringAsFixed(2)}k';
+    return v.toStringAsFixed(1);
   }
 
   /// Row of clickable legend chips to toggle individual plot lines on/off.

@@ -46,6 +46,9 @@ class DataLoggerPlot extends StatelessWidget {
   /// Called when a legend line is tapped.
   final ValueChanged<String>? onToggleLine;
 
+  /// Called on mouse hover with (time_seconds, local_x, local_y).
+  final void Function(double time, double localX, double localY)? onHover;
+
   const DataLoggerPlot({
     super.key,
     required this.points,
@@ -55,6 +58,7 @@ class DataLoggerPlot extends StatelessWidget {
     this.totalDurationSeconds = 60,
     this.hiddenLines = const {},
     this.onToggleLine,
+    this.onHover,
   });
 
   @override
@@ -67,16 +71,32 @@ class DataLoggerPlot extends StatelessWidget {
       ),
       child: ClipRRect(
         borderRadius: BorderRadius.circular(7),
-        child: CustomPaint(
-          painter: _DataLoggerPlotPainter(
-            points: points,
-            ch1Enabled: ch1Enabled,
-            ch2Enabled: ch2Enabled,
-            status: status,
-            totalDurationSeconds: totalDurationSeconds,
-            hiddenLines: hiddenLines,
+        child: MouseRegion(
+          onHover: (event) {
+            if (onHover != null && totalDurationSeconds > 0) {
+              final plotWidth = context.size?.width ?? 1;
+              final plotAreaWidth = plotWidth - 120;
+              if (plotAreaWidth > 0) {
+                final relX = (event.localPosition.dx - 60) / plotAreaWidth;
+                final time = (relX.clamp(0.0, 1.0)) * totalDurationSeconds;
+                onHover!(time, event.localPosition.dx, event.localPosition.dy);
+              }
+            }
+          },
+          onExit: (_) {
+            if (onHover != null) onHover!(-1, 0, 0);
+          },
+          child: CustomPaint(
+            painter: _DataLoggerPlotPainter(
+              points: points,
+              ch1Enabled: ch1Enabled,
+              ch2Enabled: ch2Enabled,
+              status: status,
+              totalDurationSeconds: totalDurationSeconds,
+              hiddenLines: hiddenLines,
+            ),
+            child: const SizedBox.expand(),
           ),
-          child: const SizedBox.expand(),
         ),
       ),
     );
