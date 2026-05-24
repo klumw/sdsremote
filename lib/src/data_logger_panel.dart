@@ -53,6 +53,7 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
   DataLoggerService? _service;
   StreamSubscription<DataLoggerPoint>? _subscription;
   int _elapsedSeconds = 0;
+  Set<String> _hiddenLines = {};
 
   // ---------- Animation for running indicator ----------
   late final AnimationController _pulseController;
@@ -180,13 +181,32 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
           // ---- Plot Area ----
           Expanded(
             child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: DataLoggerPlot(
-                points: _points,
-                ch1Enabled: _config?.ch1Enabled ?? true,
-                ch2Enabled: _config?.ch2Enabled ?? false,
-                status: _status,
-                totalDurationSeconds: (_config?.durationMinutes ?? 1) * 60.0,
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+              child: Column(
+                children: [
+                  Expanded(
+                    child: DataLoggerPlot(
+                      points: _points,
+                      ch1Enabled: _config?.ch1Enabled ?? true,
+                      ch2Enabled: _config?.ch2Enabled ?? false,
+                      status: _status,
+                      totalDurationSeconds: (_config?.durationMinutes ?? 1) * 60.0,
+                      hiddenLines: _hiddenLines,
+                      onToggleLine: (id) {
+                        setState(() {
+                          if (_hiddenLines.contains(id)) {
+                            _hiddenLines.remove(id);
+                          } else {
+                            _hiddenLines.add(id);
+                          }
+                        });
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  // Legend toggle chips
+                  _buildLegendToggleRow(),
+                ],
               ),
             ),
           ),
@@ -194,6 +214,82 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
           // ---- Bottom Controls ----
           _buildBottomControls(),
         ],
+      ),
+    );
+  }
+
+  /// Row of clickable legend chips to toggle individual plot lines on/off.
+  Widget _buildLegendToggleRow() {
+    final ch1 = _config?.ch1Enabled ?? true;
+    final ch2 = _config?.ch2Enabled ?? false;
+    final items = <Widget>[];
+    if (ch1) {
+      items.add(_legendChip('CH1 Vpp', 'ch1_vpp',
+          const Color(0xFFFFFF00), false));
+      items.add(const SizedBox(width: 4));
+      items.add(_legendChip('CH1 Freq', 'ch1_freq',
+          const Color(0xFFFFFF00), true));
+    }
+    if (ch2) {
+      items.add(const SizedBox(width: 8));
+      items.add(_legendChip('CH2 Vpp', 'ch2_vpp',
+          const Color(0xFFFF20FF), false));
+      items.add(const SizedBox(width: 4));
+      items.add(_legendChip('CH2 Freq', 'ch2_freq',
+          const Color(0xFFFF20FF), true));
+    }
+    if (items.isEmpty) return const SizedBox.shrink();
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(children: items),
+    );
+  }
+
+  Widget _legendChip(String label, String id, Color color, bool dashed) {
+    final hidden = _hiddenLines.contains(id);
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          if (hidden) {
+            _hiddenLines.remove(id);
+          } else {
+            _hiddenLines.add(id);
+          }
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: hidden
+              ? const Color(0xFF172A45).withValues(alpha: 0.3)
+              : color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: hidden
+                ? const Color(0xFF475569).withValues(alpha: 0.3)
+                : color.withValues(alpha: 0.5),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Line preview
+            Icon(
+              dashed ? Icons.minimize : Icons.remove,
+              size: 14,
+              color: hidden ? Colors.white30 : color,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: hidden ? FontWeight.normal : FontWeight.bold,
+                color: hidden ? Colors.white38 : Colors.white,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

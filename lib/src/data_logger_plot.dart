@@ -39,6 +39,13 @@ class DataLoggerPlot extends StatelessWidget {
   /// Used to fix the X-axis range so it doesn't shift during recording.
   final double totalDurationSeconds;
 
+  /// Set of line IDs that are currently hidden.
+  /// Possible values: "ch1_vpp", "ch1_freq", "ch2_vpp", "ch2_freq".
+  final Set<String> hiddenLines;
+
+  /// Called when a legend line is tapped.
+  final ValueChanged<String>? onToggleLine;
+
   const DataLoggerPlot({
     super.key,
     required this.points,
@@ -46,6 +53,8 @@ class DataLoggerPlot extends StatelessWidget {
     required this.ch2Enabled,
     required this.status,
     this.totalDurationSeconds = 60,
+    this.hiddenLines = const {},
+    this.onToggleLine,
   });
 
   @override
@@ -65,6 +74,7 @@ class DataLoggerPlot extends StatelessWidget {
             ch2Enabled: ch2Enabled,
             status: status,
             totalDurationSeconds: totalDurationSeconds,
+            hiddenLines: hiddenLines,
           ),
           child: const SizedBox.expand(),
         ),
@@ -201,6 +211,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
   final bool ch2Enabled;
   final DataLoggerStatus status;
   final double totalDurationSeconds;
+  final Set<String> hiddenLines;
 
   _DataLoggerPlotPainter({
     required this.points,
@@ -208,6 +219,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
     required this.ch2Enabled,
     required this.status,
     this.totalDurationSeconds = 60,
+    this.hiddenLines = const {},
   });
 
   // Layout constants
@@ -337,46 +349,58 @@ class _DataLoggerPlotPainter extends CustomPainter {
 
     // Build line segments for CH1 Vpp
     if (ch1Enabled) {
-      final ch1VppPts = <Offset>[];
-      final ch1FreqPts = <Offset>[];
-      for (final p in points) {
-        if (p.ch1Vpp != null) {
-          ch1VppPts.add(Offset(
-            mapTime(p.elapsedSeconds),
-            mapVpp(p.ch1Vpp!),
-          ));
+      if (!hiddenLines.contains('ch1_vpp')) {
+        final ch1VppPts = <Offset>[];
+        for (final p in points) {
+          if (p.ch1Vpp != null) {
+            ch1VppPts.add(Offset(
+              mapTime(p.elapsedSeconds),
+              mapVpp(p.ch1Vpp!),
+            ));
+          }
         }
-        if (p.ch1Freq != null) {
-          ch1FreqPts.add(Offset(
-            mapTime(p.elapsedSeconds),
-            mapFreq(p.ch1Freq!),
-          ));
-        }
+        drawLine(ch1VppPts, _ch1Color, 'CH1 Vpp', dashed: false);
       }
-      drawLine(ch1VppPts, _ch1Color, 'CH1 Vpp', dashed: false);
-      drawLine(ch1FreqPts, _ch1Color, 'CH1 Freq', dashed: true);
+      if (!hiddenLines.contains('ch1_freq')) {
+        final ch1FreqPts = <Offset>[];
+        for (final p in points) {
+          if (p.ch1Freq != null) {
+            ch1FreqPts.add(Offset(
+              mapTime(p.elapsedSeconds),
+              mapFreq(p.ch1Freq!),
+            ));
+          }
+        }
+        drawLine(ch1FreqPts, _ch1Color, 'CH1 Freq', dashed: true);
+      }
     }
 
     // Build line segments for CH2 Vpp
     if (ch2Enabled) {
-      final ch2VppPts = <Offset>[];
-      final ch2FreqPts = <Offset>[];
-      for (final p in points) {
-        if (p.ch2Vpp != null) {
-          ch2VppPts.add(Offset(
-            mapTime(p.elapsedSeconds),
-            mapVpp(p.ch2Vpp!),
-          ));
+      if (!hiddenLines.contains('ch2_vpp')) {
+        final ch2VppPts = <Offset>[];
+        for (final p in points) {
+          if (p.ch2Vpp != null) {
+            ch2VppPts.add(Offset(
+              mapTime(p.elapsedSeconds),
+              mapVpp(p.ch2Vpp!),
+            ));
+          }
         }
-        if (p.ch2Freq != null) {
-          ch2FreqPts.add(Offset(
-            mapTime(p.elapsedSeconds),
-            mapFreq(p.ch2Freq!),
-          ));
-        }
+        drawLine(ch2VppPts, _ch2Color, 'CH2 Vpp', dashed: false);
       }
-      drawLine(ch2VppPts, _ch2Color, 'CH2 Vpp', dashed: false);
-      drawLine(ch2FreqPts, _ch2Color, 'CH2 Freq', dashed: true);
+      if (!hiddenLines.contains('ch2_freq')) {
+        final ch2FreqPts = <Offset>[];
+        for (final p in points) {
+          if (p.ch2Freq != null) {
+            ch2FreqPts.add(Offset(
+              mapTime(p.elapsedSeconds),
+              mapFreq(p.ch2Freq!),
+            ));
+          }
+        }
+        drawLine(ch2FreqPts, _ch2Color, 'CH2 Freq', dashed: true);
+      }
     }
   }
 
@@ -581,7 +605,8 @@ class _DataLoggerPlotPainter extends CustomPainter {
         oldDelegate.ch1Enabled != ch1Enabled ||
         oldDelegate.ch2Enabled != ch2Enabled ||
         oldDelegate.status != status ||
-        oldDelegate.totalDurationSeconds != totalDurationSeconds;
+        oldDelegate.totalDurationSeconds != totalDurationSeconds ||
+        oldDelegate.hiddenLines != hiddenLines;
   }
 }
 
