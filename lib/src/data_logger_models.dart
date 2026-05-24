@@ -27,7 +27,9 @@ class DataLoggerConfig {
   });
 
   /// Total number of data points expected for this configuration.
-  int get totalPoints => (durationMinutes * 60) ~/ intervalSeconds;
+  /// Includes both t=0 and t=duration endpoints (e.g., 60s/10s = 7 points:
+  /// 0, 10, 20, 30, 40, 50, 60).
+  int get totalPoints => (durationMinutes * 60) ~/ intervalSeconds + 1;
 
   DataLoggerConfig copyWith({
     bool? ch1Enabled,
