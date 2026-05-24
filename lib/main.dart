@@ -28,6 +28,7 @@ import 'src/osci_news_notification.dart';
 import 'src/osci_device_params_panel.dart';
 import 'src/osci_settings_panel.dart';
 import 'src/osci_profiles_panel.dart';
+import 'src/data_logger_panel.dart';
 import 'src/app_paths.dart';
 
 // ===========================================================================
@@ -69,7 +70,7 @@ const List<ProviderConfig> providerConfigs = [
   ProviderConfig(modelPrefix: 'xai',       providerName: 'xAI',       apiKeyName: 'XAI_API_KEY'),
 ];
 
-enum ActivePanel { none, help, chat, profiles }
+enum ActivePanel { none, help, chat, profiles, dataLogger }
 
 /// A reusable toolbar button with the standard SDS-Remote dark theme styling.
 /// Used in the top bar for Control Panel, Acquire Waveform, AI, Profiles, and Help buttons.
@@ -303,7 +304,8 @@ class OsciHomePage extends StatefulWidget {
   State<OsciHomePage> createState() => _OsciHomePageState();
 }
 
-class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
+class _OsciHomePageState extends State<OsciHomePage>
+    with WindowListener, SingleTickerProviderStateMixin {
   // =========================================================================
   // State Fields
   // =========================================================================
@@ -385,6 +387,10 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
   final List<Map<String, String>> _chatMessages = [];
   bool _isChatting = false;
 
+  // Data Logger
+  late final AnimationController _dlAnimationController;
+  bool _dlIsRunning = false;
+
   // Keys
 
   final GlobalKey _waveformKey = GlobalKey();
@@ -402,6 +408,10 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     super.initState();
     windowManager.addListener(this);
     windowManager.setPreventClose(true);
+    _dlAnimationController = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    );
     _initialize();
   }
 
@@ -463,6 +473,7 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
     _refreshTimer?.cancel();
     _closeInstrument();
     _aiChatService.dispose();
+    _dlAnimationController.dispose();
     super.dispose();
   }
 
@@ -505,6 +516,8 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
                               ? _buildChatWindow()
                               : _activePanel == ActivePanel.profiles
                               ? _buildProfilesWindow()
+                              : _activePanel == ActivePanel.dataLogger
+                              ? _buildDataLoggerWindow()
                               : _waveformAcquired
                               ? AspectRatio(
                                   aspectRatio: 14 / 8,
@@ -713,6 +726,14 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
                         ? () => _togglePanel(ActivePanel.profiles)
                         : null,
                   ),
+                  const SizedBox(width: 16),
+                  _OsciToolbarButton(
+                    label: "Data Logger",
+                    icon: _buildDlButtonIcon(),
+                    onPressed: _isOnline
+                        ? () => _togglePanel(ActivePanel.dataLogger)
+                        : null,
+                  ),
                 ],
               ),
             ),
@@ -915,6 +936,45 @@ class _OsciHomePageState extends State<OsciHomePage> with WindowListener {
       onLoad: _loadProfile,
       onDelete: _deleteProfile,
       onClose: () => _togglePanel(ActivePanel.profiles),
+    );
+  }
+
+  /// Builds the rotating arrows icon for the Data Logger toolbar button.
+  Widget _buildDlButtonIcon() {
+    return AnimatedBuilder(
+      animation: _dlAnimationController,
+      builder: (context, child) {
+        return Transform.rotate(
+          angle: _dlIsRunning ? _dlAnimationController.value * 2 * 3.14159 : 0,
+          child: Icon(
+            Icons.sync,
+            size: 25,
+            color: _dlIsRunning ? Colors.greenAccent : Colors.white,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildDataLoggerWindow() {
+    return DataLoggerPanel(
+      getInstrument: _getInstrument,
+      isOnline: _isOnline,
+      onRunningChanged: (running) {
+        if (running) {
+          _dlAnimationController.repeat();
+        } else {
+          _dlAnimationController.stop();
+        }
+        _dlIsRunning = running;
+        if (mounted) setState(() {});
+      },
+      onClose: () {
+        _dlAnimationController.stop();
+        _dlIsRunning = false;
+        if (mounted) setState(() {});
+        _togglePanel(ActivePanel.dataLogger);
+      },
     );
   }
 

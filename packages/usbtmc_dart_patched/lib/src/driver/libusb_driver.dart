@@ -233,13 +233,13 @@ class LibusbContext implements UsbContext {
     if (Platform.isLinux) {
       final detachResult = _bindings.libusb_detach_kernel_driver(handle, 0);
       if (detachResult == 0) {
-        print('USBTMC: Kernel driver detached from interface 0.');
+        // print('USBTMC: Kernel driver detached from interface 0.');
       } else if (detachResult == -5) {
         // LIBUSB_ERROR_NOT_FOUND — no kernel driver was attached; this is fine.
-        print('USBTMC: No kernel driver attached to interface 0 (already detached).');
+        // print('USBTMC: No kernel driver attached to interface 0 (already detached).');
       } else {
-        print('USBTMC: libusb_detach_kernel_driver returned $detachResult — '
-            'a stale kernel URB may appear before our first bulk transfer.');
+        // print('USBTMC: libusb_detach_kernel_driver returned $detachResult — '
+//             'a stale kernel URB may appear before our first bulk transfer.');
       }
     }
 
@@ -272,7 +272,7 @@ class LibusbContext implements UsbContext {
     final bootHandle = _bindings.libusb_open_device_with_vid_pid(_ctx, vid, bootPid);
     if (bootHandle == nullptr) return; // Not in boot mode
 
-    print('Found Keysight modular device in boot mode. Initiating escape sequence...');
+    // print('Found Keysight modular device in boot mode. Initiating escape sequence...');
     
     // Sequence of specific control transfers to exit boot mode
     int thirdIndex = (bootPid == 0x2818 || bootPid == 0x3E18) ? 0x0484 : 0x0487;
@@ -312,7 +312,7 @@ class LibusbContext implements UsbContext {
       _bindings.libusb_close(bootHandle);
     }
 
-    print('Modular device exiting boot mode. Waiting 7 seconds for re-enumeration...');
+    // print('Modular device exiting boot mode. Waiting 7 seconds for re-enumeration...');
     await Future.delayed(const Duration(seconds: 7));
   }
 
@@ -406,7 +406,7 @@ class LibusbDevice implements UsbDevice {
 
       if (res < 0) {
         final errDesc = _libusbErrorString(res);
-        print('libusb: bulk_read FAILED: error code $res ($errDesc)');
+        // print('libusb: bulk_read FAILED: error code $res ($errDesc)');
         throw Exception('libusb bulk read error: $res ($errDesc)');
       }
 
@@ -468,26 +468,26 @@ class LibusbDevice implements UsbDevice {
   @override
   Future<void> clearHalt() async {
     if (_closed) return;
-    print('USBTMC low-level: Clearing halt on bulk-IN (0x${bulkInEp.toRadixString(16)}) and bulk-OUT (0x${bulkOutEp.toRadixString(16)})...');
+    // print('USBTMC low-level: Clearing halt on bulk-IN (0x${bulkInEp.toRadixString(16)}) and bulk-OUT (0x${bulkOutEp.toRadixString(16)})...');
     final resIn = _bindings.libusb_clear_halt(_handle, bulkInEp);
     if (resIn < 0) {
-      print('USBTMC low-level: libusb_clear_halt on Bulk-IN failed: $resIn');
+      // print('USBTMC low-level: libusb_clear_halt on Bulk-IN failed: $resIn');
     }
     final resOut = _bindings.libusb_clear_halt(_handle, bulkOutEp);
     if (resOut < 0) {
-      print('USBTMC low-level: libusb_clear_halt on Bulk-OUT failed: $resOut');
+      // print('USBTMC low-level: libusb_clear_halt on Bulk-OUT failed: $resOut');
     }
   }
 
   @override
   Future<void> reset() async {
     if (_closed) return;
-    print('USBTMC low-level: Performing USB Port Reset via libusb_reset_device...');
+    // print('USBTMC low-level: Performing USB Port Reset via libusb_reset_device...');
     final res = _bindings.libusb_reset_device(_handle);
     if (res < 0) {
-      print('USBTMC low-level: libusb_reset_device failed: error code $res');
+      // print('USBTMC low-level: libusb_reset_device failed: error code $res');
     } else {
-      print('USBTMC low-level: libusb_reset_device completed successfully.');
+      // print('USBTMC low-level: libusb_reset_device completed successfully.');
     }
   }
 

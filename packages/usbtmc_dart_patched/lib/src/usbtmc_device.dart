@@ -81,7 +81,7 @@ class UsbtmcDevice {
       if (payload.isEmpty) return 0;
 
       final totalChunks = (payload.length + _maxChunkSize - 1) ~/ _maxChunkSize;
-      print('USBTMC: writeBinary ${payload.length} bytes in $totalChunks chunk(s)');
+      // print('USBTMC: writeBinary ${payload.length} bytes in $totalChunks chunk(s)');
 
       // Use ONE bTag for ALL chunks (per USBTMC spec §3.2.1.1).
       _bTag = UsbtmcProtocolHelpers.nextbTag(_bTag);
@@ -192,7 +192,7 @@ class UsbtmcDevice {
       final totalLen = UsbtmcConstants.headerSize + payload.length;
       final paddingLen = UsbtmcProtocolHelpers.getPaddingLength(totalLen);
 
-      print('USBTMC: profileWrite sending ${payload.length} bytes in one transfer');
+      // print('USBTMC: profileWrite sending ${payload.length} bytes in one transfer');
 
       // Single contiguous packet: header + payload + padding.
       final packet = Uint8List(totalLen + paddingLen);
@@ -208,7 +208,7 @@ class UsbtmcDevice {
 
       await _usbDevice.write(packet, timeout: timeout);
 
-      print('USBTMC: profileWrite complete — ${payload.length} payload bytes sent');
+      // print('USBTMC: profileWrite complete — ${payload.length} payload bytes sent');
       return payload.length;
     });
   }
@@ -216,7 +216,7 @@ class UsbtmcDevice {
   /// Initiates a Request Bulk-IN and reads the formatted response.
   Future<Uint8List> doRead(int maxBytesRequested, {required bool useTermChar, Duration? timeout}) async {
     return _lock.protect(() async {
-      print('USBTMC: doRead start - maxBytesRequested: $maxBytesRequested');
+      // print('USBTMC: doRead start - maxBytesRequested: $maxBytesRequested');
       final List<int> accumulatedData = [];
       bool isLastMessage = false;
       int? totalExpectedSize;
@@ -226,15 +226,15 @@ class UsbtmcDevice {
       while (true) {
         if (accumulatedData.isNotEmpty) {
           if (totalExpectedSize != null && accumulatedData.length >= totalExpectedSize) {
-            print('USBTMC: Stopping outer loop - reached expected size $totalExpectedSize (accumulated: ${accumulatedData.length})');
+            // print('USBTMC: Stopping outer loop - reached expected size $totalExpectedSize (accumulated: ${accumulatedData.length})');
             break;
           }
           if (totalExpectedSize == null && isLastMessage) {
-            print('USBTMC: Stopping outer loop - standard EOM received (accumulated: ${accumulatedData.length})');
+            // print('USBTMC: Stopping outer loop - standard EOM received (accumulated: ${accumulatedData.length})');
             break;
           }
           if (accumulatedData.length >= maxBytesRequested) {
-            print('USBTMC: Stopping outer loop - reached maxBytesRequested (accumulated: ${accumulatedData.length})');
+            // print('USBTMC: Stopping outer loop - reached maxBytesRequested (accumulated: ${accumulatedData.length})');
             break;
           }
         }
@@ -249,7 +249,7 @@ class UsbtmcDevice {
             remainingToRequest = remainingBytes;
           }
         }
-        print('USBTMC: requesting next message - bTag: $_bTag, remainingToRequest: $remainingToRequest');
+        // print('USBTMC: requesting next message - bTag: $_bTag, remainingToRequest: $remainingToRequest');
 
         // Build and transmit the Bulk-IN request header (12 bytes)
         final requestHeader = UsbtmcProtocolHelpers.encodeMsgInBulkOutHeader(
@@ -292,9 +292,9 @@ class UsbtmcDevice {
           final rawBuffer = await _usbDevice.read(rawSize, timeout: timeout);
           if (rawBuffer.isEmpty) {
             consecutiveEmptyReads++;
-            print('USBTMC: rawBuffer was empty (ZLP) - count: $consecutiveEmptyReads');
+            // print('USBTMC: rawBuffer was empty (ZLP) - count: $consecutiveEmptyReads');
             if (consecutiveEmptyReads >= 5) {
-              print('USBTMC: Too many consecutive empty reads, breaking inner loop');
+              // print('USBTMC: Too many consecutive empty reads, breaking inner loop');
               break;
             }
             if (messageBytesRead < expectedTransferSize) {
@@ -305,7 +305,7 @@ class UsbtmcDevice {
             break; // Zero-length read from device at end of message
           }
           consecutiveEmptyReads = 0;
-          print('USBTMC: read returned ${rawBuffer.length} bytes (requested $rawSize)');
+          // print('USBTMC: read returned ${rawBuffer.length} bytes (requested $rawSize)');
 
           int payloadOffset = 0;
           int payloadLen = rawBuffer.length;
@@ -321,8 +321,8 @@ class UsbtmcDevice {
             final respBTagInv = rawBuffer[2];
 
             if (respMsgId != UsbtmcConstants.devDepMsgIn) {
-              print('USBTMC ERROR: MsgID mismatch! respMsgId: $respMsgId, expected: ${UsbtmcConstants.devDepMsgIn}');
-              print('USBTMC ERROR: rawBuffer contents (len=${rawBuffer.length}): $rawBuffer');
+              // print('USBTMC ERROR: MsgID mismatch! respMsgId: $respMsgId, expected: ${UsbtmcConstants.devDepMsgIn}');
+              // print('USBTMC ERROR: rawBuffer contents (len=${rawBuffer.length}): $rawBuffer');
               throw UsbtmcException('Unexpected MsgID in Bulk-IN header: $respMsgId');
             }
             if (respBTag != _bTag) {
@@ -338,12 +338,12 @@ class UsbtmcDevice {
             // Byte 8 is bmTransferAttributes. Bit 0 is EOM.
             final transferAttributes = rawBuffer[8];
             isLastMessage = (transferAttributes & 0x01) != 0;
-            print('USBTMC: Header parsed - expectedTransferSize: $expectedTransferSize, isLastMessage (EOM): $isLastMessage');
+            // print('USBTMC: Header parsed - expectedTransferSize: $expectedTransferSize, isLastMessage (EOM): $isLastMessage');
 
             // Determine total transfer size on the first read of the transfer
             if (accumulatedData.isEmpty) {
               totalExpectedSize = expectedTransferSize;
-              print('USBTMC: Initial totalExpectedSize set from Bulk-IN TransferSize: $totalExpectedSize');
+              // print('USBTMC: Initial totalExpectedSize set from Bulk-IN TransferSize: $totalExpectedSize');
 
               // Check if we also have an IEEE definite-length header that indicates a larger size
               if (rawBuffer.length > UsbtmcConstants.headerSize) {
@@ -362,7 +362,7 @@ class UsbtmcDevice {
                           final ieeeSize = 1 + 1 + nDigits + parsedSize;
                           if (ieeeSize > totalExpectedSize) {
                             totalExpectedSize = ieeeSize;
-                            print('USBTMC: IEEE definite-length header specifies a larger size: $totalExpectedSize');
+                            // print('USBTMC: IEEE definite-length header specifies a larger size: $totalExpectedSize');
                           }
                         }
                       }
@@ -387,7 +387,7 @@ class UsbtmcDevice {
           final actualChunk = rawBuffer.sublist(payloadOffset, payloadOffset + payloadLen);
           accumulatedData.addAll(actualChunk);
           messageBytesRead += actualChunk.length;
-          print('USBTMC: Accumulated chunk of ${actualChunk.length} bytes (messageBytesRead: $messageBytesRead/$expectedTransferSize)');
+          // print('USBTMC: Accumulated chunk of ${actualChunk.length} bytes (messageBytesRead: $messageBytesRead/$expectedTransferSize)');
 
           // Terminate early if we reached the size defined by the device transfer header
           if (messageBytesRead >= expectedTransferSize) {
@@ -395,14 +395,14 @@ class UsbtmcDevice {
           }
         }
 
-        print('USBTMC: Outer loop step completed - accumulated length: ${accumulatedData.length}');
+        // print('USBTMC: Outer loop step completed - accumulated length: ${accumulatedData.length}');
         // Prevent infinite loop if we read nothing in this request
         if (messageBytesRead == 0) {
           break;
         }
       }
 
-      print('USBTMC: doRead completed - returning ${accumulatedData.length} bytes');
+      // print('USBTMC: doRead completed - returning ${accumulatedData.length} bytes');
       return Uint8List.fromList(accumulatedData);
     });
   }
@@ -442,7 +442,7 @@ class UsbtmcDevice {
   /// Drains any leftover bytes from the Bulk-IN endpoint to ensure a clean state.
   Future<void> drainBulkIn() async {
     try {
-      print('USBTMC: Draining Bulk-IN endpoint...');
+      // print('USBTMC: Draining Bulk-IN endpoint...');
       int totalDrained = 0;
       while (true) {
         // Read with a very short timeout to check for leftover data in the FIFO
@@ -453,13 +453,13 @@ class UsbtmcDevice {
         totalDrained += data.length;
       }
       if (totalDrained > 0) {
-        print('USBTMC: Successfully drained $totalDrained leftover bytes from Bulk-IN FIFO.');
+        // print('USBTMC: Successfully drained $totalDrained leftover bytes from Bulk-IN FIFO.');
       } else {
-        print('USBTMC: Bulk-IN endpoint was already empty.');
+        // print('USBTMC: Bulk-IN endpoint was already empty.');
       }
     } catch (e) {
       // Ignore read errors/timeouts during drain as they indicate the endpoint is empty
-      print('USBTMC: Bulk-IN drain completed.');
+      // print('USBTMC: Bulk-IN drain completed.');
     }
   }
 
@@ -476,17 +476,17 @@ class UsbtmcDevice {
   /// reject bulk data transfers with LIBUSB_ERROR_TIMEOUT.
   Future<void> clear() async {
     try {
-      print('USBTMC: Clearing standard USB bulk endpoint halts...');
+      // print('USBTMC: Clearing standard USB bulk endpoint halts...');
       await _usbDevice.clearHalt();
     } catch (e) {
-      print('USBTMC: clearHalt failed: $e');
+      // print('USBTMC: clearHalt failed: $e');
     }
 
     // Drain any leftover data in the Bulk-IN pipe
     await drainBulkIn();
 
     try {
-      print('USBTMC: Initiating USBTMC Clear control request (INITIATE_CLEAR, bRequest=5)...');
+      // print('USBTMC: Initiating USBTMC Clear control request (INITIATE_CLEAR, bRequest=5)...');
       final initStatus = await _usbDevice.controlTransfer(
         requestType: 0xA1, // Class-specific, interface recipient, Device-to-Host
         request: UsbtmcConstants.initiateClear, // bRequest=5 per USBTMC spec Table 15
@@ -498,7 +498,7 @@ class UsbtmcDevice {
 
       if (initStatus.isNotEmpty) {
         final status = initStatus[0];
-        print('USBTMC: INITIATE_CLEAR returned status: $status');
+        // print('USBTMC: INITIATE_CLEAR returned status: $status');
         if (status == 2) { // PENDING
           // Poll CHECK_CLEAR_STATUS until success or failure
           for (int i = 0; i < 10; i++) {
@@ -513,27 +513,27 @@ class UsbtmcDevice {
             );
             if (checkStatus.length >= 2) {
               final pollStatus = checkStatus[0];
-              print('USBTMC: CHECK_CLEAR_STATUS returned: $pollStatus');
+              // print('USBTMC: CHECK_CLEAR_STATUS returned: $pollStatus');
               if (pollStatus == 1) { // SUCCESS
                 break;
               } else if (pollStatus >= 0x80) { // FAILED (any status >= 0x80 is an error)
-                print('USBTMC: CHECK_CLEAR_STATUS reported failure: $pollStatus');
+                // print('USBTMC: CHECK_CLEAR_STATUS reported failure: $pollStatus');
                 break;
               }
             }
           }
         }
       }
-      print('USBTMC: Clear operation completed.');
+      // print('USBTMC: Clear operation completed.');
     } catch (e) {
-      print('USBTMC: Clear failed with exception: $e');
+      // print('USBTMC: Clear failed with exception: $e');
     }
 
     // ── USBTMC GET_CAPABILITIES (bRequest=7) ──────────────────────────────
     // Queries the device for USBTMC/USB488 capabilities.
     // Response is 24 bytes (see USBTMC spec Table 37).
     try {
-      print('USBTMC: Querying GET_CAPABILITIES...');
+      // print('USBTMC: Querying GET_CAPABILITIES...');
       final caps = await _usbDevice.controlTransfer(
         requestType: 0xA1, // Device-to-Host, Class, Interface
         request: 7,        // GET_CAPABILITIES
@@ -549,9 +549,9 @@ class UsbtmcDevice {
         final usb488Iface = caps[14];
         // Byte 15: USB488Device capabilities
         final usb488Dev = caps[15];
-        print('USBTMC: Capabilities - bcdUSB488: 0x${bcdUSB488.toRadixString(16)}, '
-            'USB488Interface: 0x${usb488Iface.toRadixString(16)}, '
-            'USB488Device: 0x${usb488Dev.toRadixString(16)}');
+        // print('USBTMC: Capabilities - bcdUSB488: 0x${bcdUSB488.toRadixString(16)}, '
+//             'USB488Interface: 0x${usb488Iface.toRadixString(16)}, '
+//             'USB488Device: 0x${usb488Dev.toRadixString(16)}');
 
         // ── REN_CONTROL (bRequest=0xA0) ─────────────────────────────────
         // If USB488Interface.D1 (bit 1) is set, the device accepts
@@ -559,7 +559,7 @@ class UsbtmcDevice {
         // We must assert REN (Remote Enable) so the device enters remote
         // mode and accepts SCPI commands.
         if ((usb488Iface & 0x02) != 0) {
-          print('USBTMC: Device supports REN_CONTROL — asserting Remote Enable...');
+          // print('USBTMC: Device supports REN_CONTROL — asserting Remote Enable...');
           final renStatus = await _usbDevice.controlTransfer(
             requestType: 0xA1, // Device-to-Host, Class, Interface
             request: 0xA0,     // REN_CONTROL
@@ -570,16 +570,16 @@ class UsbtmcDevice {
           );
           if (renStatus.isNotEmpty) {
             final status = renStatus[0];
-            print('USBTMC: REN_CONTROL returned status: $status');
+            // print('USBTMC: REN_CONTROL returned status: $status');
           }
         } else {
-          print('USBTMC: Device does not support REN_CONTROL — skipping');
+          // print('USBTMC: Device does not support REN_CONTROL — skipping');
         }
       } else {
-        print('USBTMC: GET_CAPABILITIES returned ${caps.length} bytes (expected 24)');
+        // print('USBTMC: GET_CAPABILITIES returned ${caps.length} bytes (expected 24)');
       }
     } catch (e) {
-      print('USBTMC: GET_CAPABILITIES / REN_CONTROL failed: $e');
+      // print('USBTMC: GET_CAPABILITIES / REN_CONTROL failed: $e');
     }
   }
 
