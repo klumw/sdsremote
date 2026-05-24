@@ -23,6 +23,8 @@ class DataLoggerService {
   int _pointCount = 0;
   DateTime? _startTime;
   bool _hasStopped = false;
+  double _probeDividerCh1 = 1.0;
+  double _probeDividerCh2 = 1.0;
 
   final StreamController<DataLoggerPoint> _pointController =
       StreamController<DataLoggerPoint>.broadcast();
@@ -47,14 +49,21 @@ class DataLoggerService {
   /// exact multiples of [intervalSeconds] from the start time, up to
   /// and including the configured duration. Uses a single-shot Timer
   /// chain (not Timer.periodic) to prevent overlapping async calls.
+  /// Whether the probe dividers have been queried from the device.
+  bool _probeDividersQueried = false;
+
   void start(DataLoggerConfig cfg) {
     stop();
     _hasStopped = false;
     _pointCount = 0;
     _startTime = DateTime.now();
     config = cfg;
+    _probeDividersQueried = false;
 
     // Take the first sample immediately (t=0).
+    // Probe dividers are queried as part of the first _doSample call,
+    // before the regular SCPI queries — this avoids a race condition
+    // where _getInstrument() is called twice simultaneously.
     _sampleAtExactTime(cfg, 0);
 
     AppLogger(agentName: 'DataLogger', toolName: 'start').log(
@@ -102,6 +111,8 @@ class DataLoggerService {
   }
 
   /// The actual SCPI query work — runs async, emits result on stream.
+  /// On the first call, also queries probe attenuation (C<ch>:ATTN?)
+  /// via the same connection so there's no race condition.
   Future<void> _doSample(DataLoggerConfig cfg, int elapsedTarget) async {
     if (_hasStopped) return;
 
@@ -112,6 +123,20 @@ class DataLoggerService {
           'Instrument not available, skipping sample',
         );
         return;
+      }
+
+      // Query probe dividers on first sample via the same connection,
+      // avoiding a race on _getInstrument().
+      if (!_probeDividersQueried) {
+        if (cfg.ch1Enabled) {
+          final v = await _queryDouble(instr, 'C1:ATTN?');
+          if (v != null && v > 0) _probeDividerCh1 = v;
+        }
+        if (cfg.ch2Enabled) {
+          final v = await _queryDouble(instr, 'C2:ATTN?');
+          if (v != null && v > 0) _probeDividerCh2 = v;
+        }
+        _probeDividersQueried = true;
       }
 
       double? ch1Vpp;
@@ -128,8 +153,8 @@ class DataLoggerService {
         ch2Freq = await _queryDouble(instr, 'C2:PAVA? FREQ');
       }
 
-      if (ch1Vpp != null) ch1Vpp = ch1Vpp * cfg.probeDividerCh1;
-      if (ch2Vpp != null) ch2Vpp = ch2Vpp * cfg.probeDividerCh2;
+      if (ch1Vpp != null) ch1Vpp = ch1Vpp * _probeDividerCh1;
+      if (ch2Vpp != null) ch2Vpp = ch2Vpp * _probeDividerCh2;
 
       final point = DataLoggerPoint(
         timestamp: DateTime.now(),

@@ -7,6 +7,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import 'data_logger_models.dart';
 import 'data_logger_service.dart';
@@ -116,6 +117,9 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
   void _onStart() {
     if (_config == null) return;
     _ensureService();
+    // First update the UI to show "Running" state immediately,
+    // then start the SCPI work on the next frame so the button
+    // doesn't feel unresponsive.
     setState(() {
       _points.clear();
       _elapsedSeconds = 0;
@@ -123,7 +127,10 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     });
     _pulseController.repeat();
     widget.onRunningChanged?.call(true);
-    _service!.start(_config!);
+    // Defer SCPI start to after the current frame has been painted
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _service!.start(_config!);
+    });
   }
 
   void _onStop() {
