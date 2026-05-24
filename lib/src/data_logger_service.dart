@@ -178,18 +178,28 @@ class DataLoggerService {
     }
   }
 
-  /// Send a SCPI query and parse the response as a double.
+  /// Send a SCPI query and extract the numeric value from the response.
+  ///
+  /// Handles formats with or without a comma separator:
+  ///   "C1:PAVA PKPK,5.368E+00V"  → 5.368
+  ///   "C1:PAVA PKPK 5.368E+00V"  → 5.368
+  ///   "C1:ATTN 10"               → 10.0
+  ///
+  /// Uses a regex to find the LAST floating-point number in the response
+  /// string, which is always the measured value.
   Future<double?> _queryDouble(Vxi11Instrument instr, String cmd) async {
     try {
       await instr.writeString(cmd);
       final rawResponse = (await instr.readString()).trim();
-      final lastComma = rawResponse.lastIndexOf(',');
-      final valueWithUnit = lastComma >= 0
-          ? rawResponse.substring(lastComma + 1).trim()
-          : rawResponse;
-      final numericStr =
-          valueWithUnit.replaceAll(RegExp(r'[^0-9eE.+\-]'), '');
-      return double.tryParse(numericStr);
+      // Find the last number in the response (value is always at the end).
+      // Matches: sign, digits, optional decimal, optional exponent.
+      final numberRegex =
+          RegExp(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', caseSensitive: false);
+      final matches = numberRegex.allMatches(rawResponse).toList();
+      if (matches.isNotEmpty) {
+        return double.tryParse(matches.last.group(0)!);
+      }
+      return null;
     } catch (e) {
       AppLogger(agentName: 'DataLogger', toolName: '_queryDouble').log(
         'SCPI query failed: $cmd → $e',
