@@ -75,7 +75,7 @@ class DataLoggerPlot extends StatelessWidget {
           onHover: (event) {
             if (onHover != null && totalDurationSeconds > 0) {
               final plotWidth = context.size?.width ?? 1;
-              final plotAreaWidth = plotWidth - 120;
+              final plotAreaWidth = plotWidth - 60 - 75; // _marginLeft + _marginRight
               if (plotAreaWidth > 0) {
                 final relX = (event.localPosition.dx - 60) / plotAreaWidth;
                 final time = (relX.clamp(0.0, 1.0)) * totalDurationSeconds;
@@ -244,7 +244,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
 
   // Layout constants
   static const double _marginLeft = 60.0;   // Left Y-axis labels + ticks
-  static const double _marginRight = 60.0;  // Right Y-axis labels + ticks
+  static const double _marginRight = 75.0;  // Right Y-axis labels + ticks
   static const double _marginTop = 16.0;
   static const double _marginBottom = 40.0; // X-axis labels
   static const double _legendWidth = 140.0;
