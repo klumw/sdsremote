@@ -288,23 +288,47 @@ class _DataLoggerPlotPainter extends CustomPainter {
     );
   }
 
+  /// Compute a "nice" tick step size for an axis range.
+  /// E.g. range=5 → step=1, range=2000 → step=500, range=10 → step=2.
+  static double _tickStep(double min, double max) {
+    final rawRange = max - min;
+    if (rawRange <= 0) return 1.0;
+    // Target ~5 ticks
+    final rough = rawRange / 5;
+    final magnitude = math.pow(10, (math.log(rough) / math.ln10).floor()).toDouble();
+    final fraction = rough / magnitude;
+    if (fraction <= 1.5) return magnitude;
+    if (fraction <= 3.5) return 2.0 * magnitude;
+    if (fraction <= 7.5) return 5.0 * magnitude;
+    return 10.0 * magnitude;
+  }
+
   void _drawGrid(Canvas canvas, Rect plotRect, _AxisRanges ranges) {
     final gridPaint = Paint()
       ..color = _gridColor
       ..strokeWidth = 0.5;
 
-    // Horizontal grid lines (Vpp / Freq)
-    const int numGridLines = 5;
-    for (int i = 0; i <= numGridLines; i++) {
-      final y = plotRect.top + (plotRect.height * i / numGridLines);
+    // Horizontal grid lines — use Vpp ticks (they align with left Y-axis)
+    final vppStep = _tickStep(ranges.niceMinVpp, ranges.niceMaxVpp);
+    double v = ranges.niceMinVpp;
+    while (v <= ranges.niceMaxVpp + 0.001) {
+      final y = _mapValueToY(v, ranges.niceMinVpp, ranges.niceMaxVpp, plotRect);
       canvas.drawLine(Offset(plotRect.left, y), Offset(plotRect.right, y), gridPaint);
+      v += vppStep;
     }
 
     // Vertical grid lines (Time)
-    for (int i = 0; i <= numGridLines; i++) {
-      final x = plotRect.left + (plotRect.width * i / numGridLines);
+    final timeStep = _tickStep(0, ranges.niceMaxTime);
+    double t = 0;
+    while (t <= ranges.niceMaxTime + 0.001) {
+      final x = plotRect.left + (t / ranges.niceMaxTime) * plotRect.width;
       canvas.drawLine(Offset(x, plotRect.top), Offset(x, plotRect.bottom), gridPaint);
+      t += timeStep;
     }
+  }
+
+  double _mapValueToY(double value, double axisMin, double axisMax, Rect plotRect) {
+    return plotRect.bottom - ((value - axisMin) / (axisMax - axisMin)) * plotRect.height;
   }
 
   void _drawDataLines(Canvas canvas, Rect plotRect, _AxisRanges ranges) {
@@ -462,65 +486,56 @@ class _DataLoggerPlotPainter extends CustomPainter {
       ),
     );
 
-    // Y-axis tick labels (left: Vpp)
-    textPainter.text = TextSpan(
-      text: _formatAxisValue(ranges.niceMaxVpp),
-      style: textStyle,
-    );
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      Offset(plotRect.left - textPainter.width - 4, plotRect.top - textPainter.height / 2),
-    );
+    // Y-axis tick labels (left: Vpp at each tick)
+    final vppStep = _tickStep(ranges.niceMinVpp, ranges.niceMaxVpp);
+    double v = ranges.niceMinVpp;
+    while (v <= ranges.niceMaxVpp + 0.001) {
+      final y = _mapValueToY(v, ranges.niceMinVpp, ranges.niceMaxVpp, plotRect);
+      textPainter.text = TextSpan(
+        text: _formatAxisValue(v),
+        style: textStyle,
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(plotRect.left - textPainter.width - 4, y - textPainter.height / 2),
+      );
+      v += vppStep;
+    }
 
-    textPainter.text = TextSpan(
-      text: _formatAxisValue(ranges.niceMinVpp),
-      style: textStyle,
-    );
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      Offset(plotRect.left - textPainter.width - 4, plotRect.bottom - textPainter.height / 2),
-    );
-
-    // Y-axis tick labels (right: Freq)
-    textPainter.text = TextSpan(
-      text: _formatAxisValue(ranges.niceMaxFreq),
-      style: textStyle,
-    );
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      Offset(plotRect.right + 4, plotRect.top - textPainter.height / 2),
-    );
-
-    textPainter.text = TextSpan(
-      text: _formatAxisValue(ranges.niceMinFreq),
-      style: textStyle,
-    );
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      Offset(plotRect.right + 4, plotRect.bottom - textPainter.height / 2),
-    );
+    // Y-axis tick labels (right: Freq at each tick)
+    final freqStep = _tickStep(ranges.niceMinFreq, ranges.niceMaxFreq);
+    double f = ranges.niceMinFreq;
+    while (f <= ranges.niceMaxFreq + 0.001) {
+      final y = _mapValueToY(f, ranges.niceMinFreq, ranges.niceMaxFreq, plotRect);
+      textPainter.text = TextSpan(
+        text: _formatAxisValue(f),
+        style: textStyle,
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(plotRect.right + 4, y - textPainter.height / 2),
+      );
+      f += freqStep;
+    }
 
     // X-axis tick labels
-    textPainter.text = TextSpan(text: '0', style: textStyle);
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      Offset(plotRect.left - textPainter.width / 2, plotRect.bottom + 4),
-    );
-
-    textPainter.text = TextSpan(
-      text: _formatAxisValue(ranges.niceMaxTime),
-      style: textStyle,
-    );
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      Offset(plotRect.right - textPainter.width / 2, plotRect.bottom + 4),
-    );
+    final timeStep = _tickStep(0, ranges.niceMaxTime);
+    double t = 0;
+    while (t <= ranges.niceMaxTime + 0.001) {
+      final x = plotRect.left + (t / ranges.niceMaxTime) * plotRect.width;
+      textPainter.text = TextSpan(
+        text: _formatAxisValue(t),
+        style: textStyle,
+      );
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(x - textPainter.width / 2, plotRect.bottom + 4),
+      );
+      t += timeStep;
+    }
   }
 
   void _drawLegend(Canvas canvas, Rect plotRect, Size size) {
