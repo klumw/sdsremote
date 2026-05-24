@@ -48,11 +48,18 @@ class DataLoggerDialog extends StatefulWidget {
   State<DataLoggerDialog> createState() => _DataLoggerDialogState();
 }
 
+/// Preset recording durations in minutes — non-linear steps so short
+/// durations (1, 5, 10, 20 min) are easy to select, while longer ones
+/// use coarser granularity up to 24 hours.
+const List<int> _durationPresetsMinutes = [
+  1, 5, 10, 20, 30, 60, 120, 360, 720, 1440,
+];
+
 class _DataLoggerDialogState extends State<DataLoggerDialog> {
   bool _ch1Enabled = true;
   bool _ch2Enabled = false;
   double _intervalSeconds = 10; // Slider: 10–60
-  double _durationMinutes = 1; // Slider: 1–1440
+  int _durationIndex = 0; // Index into _durationPresetsMinutes
   double _probeDivider = 1; // Dropdown
 
   @override
@@ -62,28 +69,32 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
       _ch1Enabled = widget.currentConfig!.ch1Enabled;
       _ch2Enabled = widget.currentConfig!.ch2Enabled;
       _intervalSeconds = widget.currentConfig!.intervalSeconds.toDouble();
-      _durationMinutes = widget.currentConfig!.durationMinutes.toDouble();
+      // Find the closest preset index for the saved duration
+      final saved = widget.currentConfig!.durationMinutes;
+      _durationIndex = _durationPresetsMinutes
+          .indexOf(saved)
+          .clamp(0, _durationPresetsMinutes.length - 1);
       _probeDivider = widget.currentConfig!.probeDivider;
     }
   }
 
   bool get _isValid => (_ch1Enabled || _ch2Enabled);
+  int get _durationMinutes => _durationPresetsMinutes[_durationIndex];
 
   void _emitConfig() {
     widget.onConfigChanged?.call(DataLoggerConfig(
       ch1Enabled: _ch1Enabled,
       ch2Enabled: _ch2Enabled,
       intervalSeconds: _intervalSeconds.round(),
-      durationMinutes: _durationMinutes.round(),
+      durationMinutes: _durationMinutes,
       probeDivider: _probeDivider,
     ));
   }
 
-  String _formatDuration(double minutes) {
-    final m = minutes.round();
-    if (m < 60) return '$m min';
-    final h = m ~/ 60;
-    final rem = m % 60;
+  String _formatDuration(int minutes) {
+    if (minutes < 60) return '$minutes min';
+    final h = minutes ~/ 60;
+    final rem = minutes % 60;
     if (rem == 0) return '${h}h';
     return '${h}h ${rem}min';
   }
@@ -105,7 +116,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
   }
 
   Widget _buildConfigForm() {
-    final totalPoints = (_durationMinutes.round() * 60) ~/ _intervalSeconds.round();
+    final totalPoints = (_durationMinutes * 60) ~/ _intervalSeconds.round();
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -233,13 +244,13 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                     valueIndicatorTextStyle: const TextStyle(color: Colors.white),
                   ),
                   child: Slider(
-                    value: _durationMinutes,
-                    min: 1,
-                    max: 1440,
-                    divisions: 47, // ~30min steps
-                    label: _formatDuration(_durationMinutes),
+                    value: _durationIndex.toDouble(),
+                    min: 0,
+                    max: (_durationPresetsMinutes.length - 1).toDouble(),
+                    divisions: _durationPresetsMinutes.length - 1,
+                    label: _formatDuration(_durationPresetsMinutes[_durationIndex]),
                     onChanged: (v) {
-                      setState(() => _durationMinutes = v);
+                      setState(() => _durationIndex = v.round());
                       _emitConfig();
                     },
                   ),
@@ -248,7 +259,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
               SizedBox(
                 width: 80,
                 child: Text(
-                  _formatDuration(_durationMinutes),
+                  _formatDuration(_durationPresetsMinutes[_durationIndex]),
                   style: const TextStyle(color: Colors.cyanAccent, fontSize: 12, fontWeight: FontWeight.bold),
                 ),
               ),
@@ -440,40 +451,21 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
             style: const TextStyle(color: Colors.white54, fontSize: 12),
           ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  onPressed: widget.onNew,
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('New'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.cyanAccent,
-                    side: const BorderSide(color: Colors.cyanAccent),
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: widget.onNew,
+              icon: const Icon(Icons.add, size: 18),
+              label: const Text('New'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.cyanAccent,
+                side: const BorderSide(color: Colors.cyanAccent),
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
                 ),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: widget.onRestart,
-                  icon: const Icon(Icons.refresh, size: 18),
-                  label: const Text('Restart'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.cyan[800],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+            ),
           ),
         ],
       ),

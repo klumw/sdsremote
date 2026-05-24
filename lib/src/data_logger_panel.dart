@@ -143,7 +143,7 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       _points.clear();
       _elapsedSeconds = 0;
       _status = DataLoggerStatus.configuring;
-      _config = const DataLoggerConfig();
+      // Keep _config as-is so the form shows previously entered values
     });
   }
 
@@ -213,27 +213,18 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
         children: [
           Row(
             children: [
-              AnimatedBuilder(
-                animation: _pulseController,
-                builder: (context, child) {
-                  final isRunning = _status == DataLoggerStatus.running;
-                  return Transform.rotate(
-                    angle: isRunning ? _pulseController.value * 2 * 3.14159 * 2 : 0,
-                    child: Icon(
-                      Icons.sync,
-                      color: isRunning ? Colors.greenAccent : Colors.cyanAccent,
-                      size: 20,
-                    ),
-                  );
-                },
+              Icon(
+                Icons.sync,
+                color: _status == DataLoggerStatus.running
+                    ? Colors.greenAccent
+                    : Colors.cyanAccent,
+                size: 20,
               ),
               const SizedBox(width: 8),
               Text(
-                _status == DataLoggerStatus.running
-                    ? 'Data Logger — Recording'
-                    : _status == DataLoggerStatus.stopped
-                        ? 'Data Logger — Complete'
-                        : 'Data Logger',
+                _status == DataLoggerStatus.stopped
+                    ? 'Data Logger — Complete'
+                    : 'Data Logger',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
