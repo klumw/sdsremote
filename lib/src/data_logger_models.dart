@@ -16,14 +16,16 @@ class DataLoggerConfig {
   final bool ch2Enabled;
   final int intervalSeconds;
   final int durationMinutes;
-  final double probeDivider;
+  final double probeDividerCh1;
+  final double probeDividerCh2;
 
   const DataLoggerConfig({
     this.ch1Enabled = true,
     this.ch2Enabled = false,
     this.intervalSeconds = 10,
     this.durationMinutes = 1,
-    this.probeDivider = 1.0,
+    this.probeDividerCh1 = 1.0,
+    this.probeDividerCh2 = 1.0,
   });
 
   /// Total number of data points expected for this configuration.
@@ -36,14 +38,16 @@ class DataLoggerConfig {
     bool? ch2Enabled,
     int? intervalSeconds,
     int? durationMinutes,
-    double? probeDivider,
+    double? probeDividerCh1,
+    double? probeDividerCh2,
   }) {
     return DataLoggerConfig(
       ch1Enabled: ch1Enabled ?? this.ch1Enabled,
       ch2Enabled: ch2Enabled ?? this.ch2Enabled,
       intervalSeconds: intervalSeconds ?? this.intervalSeconds,
       durationMinutes: durationMinutes ?? this.durationMinutes,
-      probeDivider: probeDivider ?? this.probeDivider,
+      probeDividerCh1: probeDividerCh1 ?? this.probeDividerCh1,
+      probeDividerCh2: probeDividerCh2 ?? this.probeDividerCh2,
     );
   }
 
@@ -55,16 +59,17 @@ class DataLoggerConfig {
           ch2Enabled == other.ch2Enabled &&
           intervalSeconds == other.intervalSeconds &&
           durationMinutes == other.durationMinutes &&
-          probeDivider == other.probeDivider;
+          probeDividerCh1 == other.probeDividerCh1 &&
+          probeDividerCh2 == other.probeDividerCh2;
 
   @override
-  int get hashCode => Object.hash(ch1Enabled, ch2Enabled, intervalSeconds, durationMinutes, probeDivider);
+  int get hashCode => Object.hash(ch1Enabled, ch2Enabled, intervalSeconds, durationMinutes, probeDividerCh1, probeDividerCh2);
 
   @override
   String toString() =>
       'DataLoggerConfig(ch1=$ch1Enabled, ch2=$ch2Enabled, '
       'interval=${intervalSeconds}s, duration=${durationMinutes}min, '
-      'probe=${probeDivider}x)';
+      'probe1=${probeDividerCh1}x, probe2=${probeDividerCh2}x)';
 }
 
 // =============================================================================

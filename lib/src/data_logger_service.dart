@@ -128,8 +128,8 @@ class DataLoggerService {
         ch2Freq = await _queryDouble(instr, 'C2:PAVA? FREQ');
       }
 
-      if (ch1Vpp != null) ch1Vpp = ch1Vpp * cfg.probeDivider;
-      if (ch2Vpp != null) ch2Vpp = ch2Vpp * cfg.probeDivider;
+      if (ch1Vpp != null) ch1Vpp = ch1Vpp * cfg.probeDividerCh1;
+      if (ch2Vpp != null) ch2Vpp = ch2Vpp * cfg.probeDividerCh2;
 
       final point = DataLoggerPoint(
         timestamp: DateTime.now(),

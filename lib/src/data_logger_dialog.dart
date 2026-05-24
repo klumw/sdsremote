@@ -60,7 +60,8 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
   bool _ch2Enabled = false;
   double _intervalSeconds = 10; // Slider: 10–60
   int _durationIndex = 0; // Index into _durationPresetsMinutes
-  double _probeDivider = 1; // Dropdown
+  double _probeDividerCh1 = 1; // Dropdown for CH1
+  double _probeDividerCh2 = 1; // Dropdown for CH2
 
   @override
   void initState() {
@@ -69,12 +70,12 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
       _ch1Enabled = widget.currentConfig!.ch1Enabled;
       _ch2Enabled = widget.currentConfig!.ch2Enabled;
       _intervalSeconds = widget.currentConfig!.intervalSeconds.toDouble();
-      // Find the closest preset index for the saved duration
       final saved = widget.currentConfig!.durationMinutes;
       _durationIndex = _durationPresetsMinutes
           .indexOf(saved)
           .clamp(0, _durationPresetsMinutes.length - 1);
-      _probeDivider = widget.currentConfig!.probeDivider;
+      _probeDividerCh1 = widget.currentConfig!.probeDividerCh1;
+      _probeDividerCh2 = widget.currentConfig!.probeDividerCh2;
     }
   }
 
@@ -87,7 +88,8 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
       ch2Enabled: _ch2Enabled,
       intervalSeconds: _intervalSeconds.round(),
       durationMinutes: _durationMinutes,
-      probeDivider: _probeDivider,
+      probeDividerCh1: _probeDividerCh1,
+      probeDividerCh2: _probeDividerCh2,
     ));
   }
 
@@ -268,16 +270,26 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
           const SizedBox(height: 16),
 
           // ---- Probe Divider ----
-          _buildSectionTitle('Probe Divider'),
+          _buildSectionTitle('Probe Attenuation'),
           const SizedBox(height: 8),
           Row(
             children: [
-              const Text(
-                'Attenuation:',
-                style: TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-              const SizedBox(width: 12),
-              _buildProbeDividerDropdown(),
+              if (_ch1Enabled) ...[
+                _buildProbeChip('CH1', _probeDividerCh1, (v) {
+                  setState(() => _probeDividerCh1 = v);
+                  _emitConfig();
+                }),
+                const SizedBox(width: 12),
+              ],
+              if (_ch2Enabled) ...[
+                _buildProbeChip('CH2', _probeDividerCh2, (v) {
+                  setState(() => _probeDividerCh2 = v);
+                  _emitConfig();
+                }),
+              ],
+              if (!_ch1Enabled && !_ch2Enabled)
+                const Text('Enable a channel to set probe attenuation',
+                    style: TextStyle(color: Colors.white38, fontSize: 12)),
             ],
           ),
           const SizedBox(height: 16),
@@ -514,35 +526,41 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
     );
   }
 
-  Widget _buildProbeDividerDropdown() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      decoration: BoxDecoration(
-        color: const Color(0xFF172A45).withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: _axisColor),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<double>(
-          value: _probeDivider,
-          dropdownColor: const Color(0xFF252525),
-          style: const TextStyle(color: Colors.white, fontSize: 14),
-          iconEnabledColor: Colors.cyanAccent,
-          isDense: true,
-          items: const [
-            DropdownMenuItem(value: 1.0, child: Text('1x')),
-            DropdownMenuItem(value: 10.0, child: Text('10x')),
-            DropdownMenuItem(value: 100.0, child: Text('100x')),
-            DropdownMenuItem(value: 1000.0, child: Text('1000x')),
-          ],
-          onChanged: (v) {
-            if (v != null) {
-              setState(() => _probeDivider = v);
-              _emitConfig();
-            }
-          },
+  Widget _buildProbeChip(String label, double value, ValueChanged<double> onChanged) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(label,
+            style: const TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.bold)),
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          decoration: BoxDecoration(
+            color: const Color(0xFF172A45).withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(6),
+            border: Border.all(color: _axisColor),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<double>(
+              value: value,
+              dropdownColor: const Color(0xFF252525),
+              style: const TextStyle(color: Colors.white, fontSize: 13),
+              iconEnabledColor: Colors.cyanAccent,
+              isDense: true,
+              items: const [
+                DropdownMenuItem(value: 1.0, child: Text('1x')),
+                DropdownMenuItem(value: 10.0, child: Text('10x')),
+                DropdownMenuItem(value: 100.0, child: Text('100x')),
+                DropdownMenuItem(value: 1000.0, child: Text('1000x')),
+              ],
+              onChanged: (v) {
+                if (v != null) onChanged(v);
+              },
+            ),
+          ),
         ),
-      ),
+      ],
     );
   }
 
