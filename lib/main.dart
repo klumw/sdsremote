@@ -28,7 +28,9 @@ import 'src/osci_news_notification.dart';
 import 'src/osci_device_params_panel.dart';
 import 'src/osci_settings_panel.dart';
 import 'src/osci_profiles_panel.dart';
+import 'src/data_logger_models.dart';
 import 'src/data_logger_panel.dart';
+import 'src/data_logger_service.dart';
 import 'src/app_paths.dart';
 
 // ===========================================================================
@@ -956,10 +958,30 @@ class _OsciHomePageState extends State<OsciHomePage>
     );
   }
 
+  // Saved Data Logger state for panel reopen
+  List<DataLoggerPoint>? _savedDlPoints;
+  DataLoggerConfig? _savedDlConfig;
+  DataLoggerStatus? _savedDlStatus;
+  Set<String>? _savedDlHiddenLines;
+  DataLoggerService? _dlService;
+
   Widget _buildDataLoggerWindow() {
     return DataLoggerPanel(
       getInstrument: _getInstrument,
       isOnline: _isOnline,
+      savedPoints: _savedDlPoints,
+      savedConfig: _savedDlConfig,
+      savedStatus: _savedDlStatus,
+      savedHiddenLines: _savedDlHiddenLines,
+      onServiceCreated: (service) {
+        _dlService = service;
+      },
+      onSaveState: (points, config, status, hiddenLines) {
+        _savedDlPoints = points;
+        _savedDlConfig = config;
+        _savedDlStatus = status;
+        _savedDlHiddenLines = hiddenLines;
+      },
       onRunningChanged: (running) {
         if (running) {
           _dlAnimationController.repeat();
@@ -978,7 +1000,21 @@ class _OsciHomePageState extends State<OsciHomePage>
     );
   }
 
+  /// Stops the Data Logger recording immediately, including the animation
+  /// and the background SCPI service. Safe to call when logger is not running.
+  void _stopDataLoggerIfRunning() {
+    if (_activePanel == ActivePanel.dataLogger) {
+      _dlAnimationController.stop();
+      _dlIsRunning = false;
+      _dlService?.stop();
+    }
+  }
+
   void _togglePanel(ActivePanel panel) {
+    // Stop the Data Logger immediately when switching away from it
+    if (_activePanel == ActivePanel.dataLogger && panel != ActivePanel.dataLogger) {
+      _stopDataLoggerIfRunning();
+    }
     setState(() {
       if (_activePanel == panel) {
         // Toggle off: go back to previous
@@ -1296,6 +1332,11 @@ class _OsciHomePageState extends State<OsciHomePage>
   Future<void> _acquireScreenDump({bool keepPanels = false}) async {
     if (_isAcquiring) return;
 
+    // Stop the Data Logger immediately when switching away from it
+    if (!keepPanels && _activePanel == ActivePanel.dataLogger) {
+      _stopDataLoggerIfRunning();
+    }
+
     setState(() {
       _isAcquiring = true;
       if (!keepPanels) {
@@ -1345,6 +1386,9 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   void _acquireWaveform() async {
+    // Stop the Data Logger immediately when switching away from it
+    _stopDataLoggerIfRunning();
+
     setState(() {
       _isAcquiringWaveform = true;
       _activePanel = ActivePanel.none;

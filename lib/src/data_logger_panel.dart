@@ -33,12 +33,37 @@ class DataLoggerPanel extends StatefulWidget {
   /// Called when the running status changes (true = recording, false = not).
   final ValueChanged<bool>? onRunningChanged;
 
+  /// Called when the panel is being closed, with the current state
+  /// so it can be preserved and restored on reopen.
+  final void Function(
+    List<DataLoggerPoint> points,
+    DataLoggerConfig? config,
+    DataLoggerStatus status,
+    Set<String> hiddenLines,
+  )? onSaveState;
+
+  /// Called when the service is created so the parent can stop it
+  /// when switching panels.
+  final ValueChanged<DataLoggerService>? onServiceCreated;
+
+  /// Saved state to restore after panel is reopened.
+  final List<DataLoggerPoint>? savedPoints;
+  final DataLoggerConfig? savedConfig;
+  final DataLoggerStatus? savedStatus;
+  final Set<String>? savedHiddenLines;
+
   const DataLoggerPanel({
     super.key,
     required this.getInstrument,
     required this.isOnline,
     required this.onClose,
     this.onRunningChanged,
+    this.onSaveState,
+    this.onServiceCreated,
+    this.savedPoints,
+    this.savedConfig,
+    this.savedStatus,
+    this.savedHiddenLines,
   });
 
   @override
@@ -69,17 +94,50 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       vsync: this,
       duration: const Duration(milliseconds: 1200),
     );
-    // Start in configuring state to show the dialog immediately
-    _status = DataLoggerStatus.configuring;
-    _config = const DataLoggerConfig();
+    // Restore saved state if available (panel was reopened)
+    if (widget.savedPoints != null) {
+      _points = List<DataLoggerPoint>.of(widget.savedPoints!);
+    }
+    if (widget.savedConfig != null) {
+      _config = widget.savedConfig;
+    } else {
+      _config = const DataLoggerConfig();
+    }
+    if (widget.savedStatus != null) {
+      _status = widget.savedStatus!;
+    } else {
+      _status = DataLoggerStatus.configuring;
+    }
+    if (widget.savedHiddenLines != null) {
+      _hiddenLines = Set<String>.of(widget.savedHiddenLines!);
+    }
   }
 
   @override
   void dispose() {
+    // Stop recording but preserve data for when panel reopens.
+    // Detect if we were stopped externally (e.g. panel switched away):
+    // the service is no longer running but our status still says "running".
+    final wasRunning = _service != null && _service!.isRunning;
+    if (wasRunning) {
+      _service?.stop();
+    }
     _subscription?.cancel();
     _service?.dispose();
     _service = null;
     _pulseController.dispose();
+    // If the status is "running" but the service wasn't actually running
+    // (stopped externally via _stopDataLoggerIfRunning), correct it.
+    if (_status == DataLoggerStatus.running && !wasRunning) {
+      _status = DataLoggerStatus.stopped;
+    }
+    // Notify parent to save current state before panel is destroyed
+    widget.onSaveState?.call(
+      _points,
+      _config,
+      _status,
+      _hiddenLines,
+    );
     super.dispose();
   }
 
@@ -89,6 +147,7 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     if (_service != null) return;
     _service = DataLoggerService(widget.getInstrument);
     _subscription = _service!.pointStream.listen(_onDataPoint);
+    widget.onServiceCreated?.call(_service!);
   }
 
   void _onDataPoint(DataLoggerPoint point) {

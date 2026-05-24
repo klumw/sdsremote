@@ -144,13 +144,19 @@ class DataLoggerService {
       double? ch2Vpp;
       double? ch2Freq;
 
+      // Check _hasStopped between each query — if stop() was called
+      // (e.g. user switched panels), abandon this sample immediately.
       if (cfg.ch1Enabled) {
         ch1Vpp = await _queryDouble(instr, 'C1:PAVA? PKPK');
+        if (_hasStopped) return;
         ch1Freq = await _queryDouble(instr, 'C1:PAVA? FREQ');
+        if (_hasStopped) return;
       }
       if (cfg.ch2Enabled) {
         ch2Vpp = await _queryDouble(instr, 'C2:PAVA? PKPK');
+        if (_hasStopped) return;
         ch2Freq = await _queryDouble(instr, 'C2:PAVA? FREQ');
+        if (_hasStopped) return;
       }
 
       if (ch1Vpp != null) ch1Vpp = ch1Vpp * _probeDividerCh1;
@@ -208,9 +214,8 @@ class DataLoggerService {
     }
   }
 
-  /// Stop the logger. No more samples will be emitted.
+  /// Stop the logger immediately. No more samples will be emitted.
   void stop() {
-    if (_hasStopped) return;
     _hasStopped = true;
     _timer?.cancel();
     _timer = null;
