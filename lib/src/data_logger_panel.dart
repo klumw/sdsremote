@@ -234,8 +234,11 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
 
   @override
   Widget build(BuildContext context) {
+    final isExpanded = _status == DataLoggerStatus.running ||
+        _status == DataLoggerStatus.stopped;
     return Container(
-      width: 700,
+      width: isExpanded ? double.infinity : 700,
+      height: isExpanded ? double.infinity : null,
       decoration: BoxDecoration(
         color: const Color(0xFF0A192F),
         border: Border.all(color: const Color(0xFF475569)),
