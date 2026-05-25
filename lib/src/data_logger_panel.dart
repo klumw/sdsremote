@@ -387,18 +387,18 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     final items = <Widget>[];
     if (ch1) {
       items.add(_legendChip('CH1 Vpp', 'ch1_vpp',
-          const Color(0xFFFFFF00), false));
+          const Color(0xFFFFFF00)));
       items.add(const SizedBox(width: 4));
       items.add(_legendChip('CH1 Freq', 'ch1_freq',
-          const Color(0xFFFFFF00), true));
+          const Color(0xFFFFFF00)));
     }
     if (ch2) {
       items.add(const SizedBox(width: 8));
       items.add(_legendChip('CH2 Vpp', 'ch2_vpp',
-          const Color(0xFFFF20FF), false));
+          const Color(0xFFFF20FF)));
       items.add(const SizedBox(width: 4));
       items.add(_legendChip('CH2 Freq', 'ch2_freq',
-          const Color(0xFFFF20FF), true));
+          const Color(0xFFFF20FF)));
     }
     if (items.isEmpty) return const SizedBox.shrink();
     return SingleChildScrollView(
@@ -407,7 +407,7 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     );
   }
 
-  Widget _legendChip(String label, String id, Color color, bool dashed) {
+  Widget _legendChip(String label, String id, Color color) {
     final hidden = _hiddenLines.contains(id);
     return GestureDetector(
       onTap: () {
@@ -432,25 +432,13 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
                 : color.withValues(alpha: 0.5),
           ),
         ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Line preview
-            Icon(
-              dashed ? Icons.minimize : Icons.remove,
-              size: 14,
-              color: hidden ? Colors.white30 : color,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 11,
-                fontWeight: hidden ? FontWeight.normal : FontWeight.bold,
-                color: hidden ? Colors.white38 : Colors.white,
-              ),
-            ),
-          ],
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: hidden ? FontWeight.normal : FontWeight.bold,
+            color: hidden ? Colors.white38 : Colors.white,
+          ),
         ),
       ),
     );
