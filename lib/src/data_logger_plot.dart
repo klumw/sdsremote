@@ -623,7 +623,6 @@ class _DataLoggerPlotPainter extends CustomPainter {
     if (ch2FreqEnabled) {
       items.add(_LegendItem('CH2 Freq', _ch2Color, true));
     }
-
     if (items.isEmpty) return;
 
     final legendHeight = items.length * _legendItemHeight + _legendPadding * 2;

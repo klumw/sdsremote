@@ -56,8 +56,11 @@ const List<int> _durationPresetsMinutes = [
 ];
 
 class _DataLoggerDialogState extends State<DataLoggerDialog> {
-  bool _ch1Enabled = true;
-  bool _ch2Enabled = false;
+  // Individual measurement toggles
+  bool _ch1VppEnabled = true;
+  bool _ch1FreqEnabled = true;
+  bool _ch2VppEnabled = false;
+  bool _ch2FreqEnabled = false;
   double _intervalSeconds = 10; // Slider: 10–60
   int _durationIndex = 0; // Index into _durationPresetsMinutes
 
@@ -65,9 +68,11 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
   void initState() {
     super.initState();
     if (widget.currentConfig != null) {
-      // Restore channel enables from per-measurement flags.
-      _ch1Enabled = widget.currentConfig!.ch1Enabled;
-      _ch2Enabled = widget.currentConfig!.ch2Enabled;
+      // Restore individual measurement flags from config.
+      _ch1VppEnabled = widget.currentConfig!.ch1VppEnabled;
+      _ch1FreqEnabled = widget.currentConfig!.ch1FreqEnabled;
+      _ch2VppEnabled = widget.currentConfig!.ch2VppEnabled;
+      _ch2FreqEnabled = widget.currentConfig!.ch2FreqEnabled;
       _intervalSeconds = widget.currentConfig!.intervalSeconds.toDouble();
       final saved = widget.currentConfig!.durationMinutes;
       _durationIndex = _durationPresetsMinutes
@@ -76,15 +81,17 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
     }
   }
 
-  bool get _isValid => _ch1Enabled || _ch2Enabled;
+  /// True if any measurement is enabled.
+  bool get _isValid =>
+      _ch1VppEnabled || _ch1FreqEnabled || _ch2VppEnabled || _ch2FreqEnabled;
   int get _durationMinutes => _durationPresetsMinutes[_durationIndex];
 
   void _emitConfig() {
     widget.onConfigChanged?.call(DataLoggerConfig(
-      ch1VppEnabled: _ch1Enabled,
-      ch1FreqEnabled: _ch1Enabled,
-      ch2VppEnabled: _ch2Enabled,
-      ch2FreqEnabled: _ch2Enabled,
+      ch1VppEnabled: _ch1VppEnabled,
+      ch1FreqEnabled: _ch1FreqEnabled,
+      ch2VppEnabled: _ch2VppEnabled,
+      ch2FreqEnabled: _ch2FreqEnabled,
       intervalSeconds: _intervalSeconds.round(),
       durationMinutes: _durationMinutes,
     ));
@@ -152,33 +159,48 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
             ),
           ),
 
-          // ---- Channel Selection ----
-          _buildSectionTitle('Channels'),
+          // ---- Measurement Toggle Buttons ----
+          _buildSectionTitle('Measurements'),
           const SizedBox(height: 8),
-          Row(
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              Expanded(
-                child: _buildChannelCheckbox(
-                  label: 'CH1',
-                  value: _ch1Enabled,
-                  activeColor: const Color(0xFFFFFF00),
-                  onChanged: (v) => setState(() {
-                    _ch1Enabled = v;
-                    _emitConfig();
-                  }),
-                ),
+              _buildMeasurementToggle(
+                label: 'CH1 Vpp',
+                value: _ch1VppEnabled,
+                activeColor: const Color(0xFFFFFF00),
+                onChanged: (v) => setState(() {
+                  _ch1VppEnabled = v;
+                  _emitConfig();
+                }),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _buildChannelCheckbox(
-                  label: 'CH2',
-                  value: _ch2Enabled,
-                  activeColor: const Color(0xFFFF20FF),
-                  onChanged: (v) => setState(() {
-                    _ch2Enabled = v;
-                    _emitConfig();
-                  }),
-                ),
+              _buildMeasurementToggle(
+                label: 'CH1 Freq',
+                value: _ch1FreqEnabled,
+                activeColor: const Color(0xFFFFFF00),
+                onChanged: (v) => setState(() {
+                  _ch1FreqEnabled = v;
+                  _emitConfig();
+                }),
+              ),
+              _buildMeasurementToggle(
+                label: 'CH2 Vpp',
+                value: _ch2VppEnabled,
+                activeColor: const Color(0xFFFF20FF),
+                onChanged: (v) => setState(() {
+                  _ch2VppEnabled = v;
+                  _emitConfig();
+                }),
+              ),
+              _buildMeasurementToggle(
+                label: 'CH2 Freq',
+                value: _ch2FreqEnabled,
+                activeColor: const Color(0xFFFF20FF),
+                onChanged: (v) => setState(() {
+                  _ch2FreqEnabled = v;
+                  _emitConfig();
+                }),
               ),
             ],
           ),
@@ -460,7 +482,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
     );
   }
 
-  Widget _buildChannelCheckbox({
+  Widget _buildMeasurementToggle({
     required String label,
     required bool value,
     required Color activeColor,
@@ -481,7 +503,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
           ),
         ),
         child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               value ? Icons.check_circle : Icons.radio_button_unchecked,

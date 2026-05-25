@@ -297,9 +297,13 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
                       },
                     ),
                   ),
-                  const SizedBox(height: 6),
-                  // Legend toggle chips
-                  _buildLegendToggleRow(),
+                  // Legend toggle chips — only show during recording/stopped,
+                  // hide during setup/configuring state.
+                  if (_status == DataLoggerStatus.running ||
+                      _status == DataLoggerStatus.stopped) ...[
+                    const SizedBox(height: 6),
+                    _buildLegendToggleRow(),
+                  ],
                 ],
               ),
             ),
