@@ -298,6 +298,38 @@ class _DataLoggerPlotPainter extends CustomPainter {
     return 10.0 * magnitude;
   }
 
+  /// Return X-axis tick positions (in raw seconds) that align on integer
+  /// display values after conversion by [timeFactor]. Used for both vertical
+  /// grid lines and tick labels so they stay consistent.
+  static List<double> _timeTickPositions(double maxTime, double timeFactor) {
+    final displayMax = maxTime / timeFactor;
+    final roughStep = displayMax / 5;
+    int step;
+    if (roughStep <= 1) {
+      step = 1;
+    } else if (roughStep <= 2) {
+      step = 2;
+    } else if (roughStep <= 5) {
+      step = 5;
+    } else if (roughStep <= 10) {
+      step = 10;
+    } else if (roughStep <= 15) {
+      step = 15;
+    } else if (roughStep <= 30) {
+      step = 30;
+    } else if (roughStep <= 60) {
+      step = 60;
+    } else {
+      step = ((roughStep / 60).ceil()) * 60;
+    }
+
+    final positions = <double>[];
+    for (int v = 0; v <= displayMax.round(); v += step) {
+      positions.add(v * timeFactor);
+    }
+    return positions;
+  }
+
   void _drawGrid(Canvas canvas, Rect plotRect, _AxisRanges ranges) {
     final gridPaint = Paint()
       ..color = _gridColor
@@ -312,14 +344,13 @@ class _DataLoggerPlotPainter extends CustomPainter {
       v += vppStep;
     }
 
-    // Vertical grid lines (Time) — step computed in raw seconds, then
-    // grid lines are positioned using raw seconds; only labels are converted.
-    final timeStep = _tickStep(0, ranges.niceMaxTime);
-    double t = 0;
-    while (t <= ranges.niceMaxTime + 0.001) {
+    // Vertical grid lines (Time) — integer display values converted back
+    // to raw seconds for positioning, so grid lines align with integer labels.
+    final (timeFactor, _) = _timeUnitInfo(ranges.niceMaxTime);
+    final tickPositions = _timeTickPositions(ranges.niceMaxTime, timeFactor);
+    for (final t in tickPositions) {
       final x = plotRect.left + (t / ranges.niceMaxTime) * plotRect.width;
       canvas.drawLine(Offset(x, plotRect.top), Offset(x, plotRect.bottom), gridPaint);
-      t += timeStep;
     }
   }
 
@@ -533,37 +564,33 @@ class _DataLoggerPlotPainter extends CustomPainter {
       f += freqStep;
     }
 
-    // X-axis tick labels — values converted to chosen unit (s/min/h)
-    // Use a time-specific formatter that does NOT apply SI prefixes (k, m, µ).
-    final timeStep = _tickStep(0, ranges.niceMaxTime);
-    double t = 0;
-    while (t <= ranges.niceMaxTime + 0.001) {
+    // X-axis tick labels — integer display values (s/min/h), grid lines
+    // are already aligned from _drawGrid.
+    final tickPositions = _timeTickPositions(ranges.niceMaxTime, timeFactor);
+    for (final t in tickPositions) {
       final x = plotRect.left + (t / ranges.niceMaxTime) * plotRect.width;
-      final displayVal = t / timeFactor;
-      final text = displayVal == displayVal.roundToDouble()
-          ? displayVal.toInt().toString()
-          : displayVal.toStringAsFixed(1);
-      textPainter.text = TextSpan(text: text, style: textStyle);
+      final displayVal = (t / timeFactor).round();
+      textPainter.text = TextSpan(
+        text: displayVal.toString(),
+        style: textStyle,
+      );
       textPainter.layout();
       textPainter.paint(
         canvas,
         Offset(x - textPainter.width / 2, plotRect.bottom + 4),
       );
-      t += timeStep;
     }
 
-    // Always show the total duration as the final X-axis tick label,
-    // even when tickStep doesn't align perfectly with niceMaxTime.
-    final lastDisplayVal = ranges.niceMaxTime / timeFactor;
-    final lastX = plotRect.right;
-    final lastText = lastDisplayVal == lastDisplayVal.roundToDouble()
-        ? lastDisplayVal.toInt().toString()
-        : lastDisplayVal.toStringAsFixed(1);
-    textPainter.text = TextSpan(text: lastText, style: textStyle);
+    // Always show the total duration as the final X-axis tick label.
+    final lastDisplayVal = (ranges.niceMaxTime / timeFactor).round();
+    textPainter.text = TextSpan(
+      text: lastDisplayVal.toString(),
+      style: textStyle,
+    );
     textPainter.layout();
     textPainter.paint(
       canvas,
-      Offset(lastX - textPainter.width / 2, plotRect.bottom + 4),
+      Offset(plotRect.right - textPainter.width / 2, plotRect.bottom + 4),
     );
   }
 

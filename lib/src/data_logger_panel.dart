@@ -336,10 +336,10 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     }
     final nearest = (before ?? after)!;
     final (timeFactor, timeUnit) = _timeUnitInfo();
-    final displayTime = nearest.elapsedSeconds / timeFactor;
+    final displayTime = (nearest.elapsedSeconds / timeFactor).round();
     final rows = <Widget>[
       Text(
-        't = ${displayTime.toStringAsFixed(1)}$timeUnit',
+        't = $displayTime$timeUnit',
         style: const TextStyle(color: Colors.white70, fontSize: 10),
       ),
     ];
