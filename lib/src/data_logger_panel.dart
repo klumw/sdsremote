@@ -310,6 +310,18 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     );
   }
 
+  /// Returns (conversionFactor, unitSuffix) matching the plot's X-axis time unit.
+  (double, String) _timeUnitInfo() {
+    final totalSeconds = (_config?.durationMinutes ?? 1) * 60.0;
+    if (totalSeconds >= 7200) {
+      return (3600.0, 'h');
+    } else if (totalSeconds >= 120) {
+      return (60.0, 'min');
+    } else {
+      return (1.0, 's');
+    }
+  }
+
   /// Tooltip overlay showing data values at the hovered time position.
   Widget _buildHoverTooltip({
     required double tooltipAreaWidth,
@@ -323,9 +335,11 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       if (p.elapsedSeconds >= time && after == null) after = p;
     }
     final nearest = (before ?? after)!;
+    final (timeFactor, timeUnit) = _timeUnitInfo();
+    final displayTime = nearest.elapsedSeconds / timeFactor;
     final rows = <Widget>[
       Text(
-        't = ${nearest.elapsedSeconds.toStringAsFixed(1)}s',
+        't = ${displayTime.toStringAsFixed(1)}$timeUnit',
         style: const TextStyle(color: Colors.white70, fontSize: 10),
       ),
     ];

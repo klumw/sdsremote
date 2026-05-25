@@ -312,7 +312,8 @@ class _DataLoggerPlotPainter extends CustomPainter {
       v += vppStep;
     }
 
-    // Vertical grid lines (Time)
+    // Vertical grid lines (Time) — step computed in raw seconds, then
+    // grid lines are positioned using raw seconds; only labels are converted.
     final timeStep = _tickStep(0, ranges.niceMaxTime);
     double t = 0;
     while (t <= ranges.niceMaxTime + 0.001) {
@@ -439,6 +440,22 @@ class _DataLoggerPlotPainter extends CustomPainter {
     return result;
   }
 
+  /// Returns (conversionFactor, unitSuffix) for the X-axis time unit
+  /// based on the total recording duration.
+  ///
+  /// - < 2 min → seconds
+  /// - 2 min up to < 2 hours → minutes
+  /// - >= 2 hours → hours
+  static (double, String) _timeUnitInfo(double totalDurationSeconds) {
+    if (totalDurationSeconds >= 7200) {
+      return (3600.0, 'h');
+    } else if (totalDurationSeconds >= 120) {
+      return (60.0, 'min');
+    } else {
+      return (1.0, 's');
+    }
+  }
+
   void _drawAxesLabels(
     Canvas canvas,
     Rect plotRect,
@@ -470,8 +487,9 @@ class _DataLoggerPlotPainter extends CustomPainter {
       ),
     );
 
-    // X-axis label (Time)
-    textPainter.text = TextSpan(text: 'Time (s)', style: textStyle);
+    // X-axis label (Time) — choose seconds / minutes / hours based on duration
+    final (timeFactor, timeUnit) = _timeUnitInfo(totalDurationSeconds);
+    textPainter.text = TextSpan(text: 'Time ($timeUnit)', style: textStyle);
     textPainter.layout();
     textPainter.paint(
       canvas,
@@ -515,15 +533,17 @@ class _DataLoggerPlotPainter extends CustomPainter {
       f += freqStep;
     }
 
-    // X-axis tick labels
+    // X-axis tick labels — values converted to chosen unit (s/min/h)
+    // Use a time-specific formatter that does NOT apply SI prefixes (k, m, µ).
     final timeStep = _tickStep(0, ranges.niceMaxTime);
     double t = 0;
     while (t <= ranges.niceMaxTime + 0.001) {
       final x = plotRect.left + (t / ranges.niceMaxTime) * plotRect.width;
-      textPainter.text = TextSpan(
-        text: _formatAxisValue(t),
-        style: textStyle,
-      );
+      final displayVal = t / timeFactor;
+      final text = displayVal == displayVal.roundToDouble()
+          ? displayVal.toInt().toString()
+          : displayVal.toStringAsFixed(1);
+      textPainter.text = TextSpan(text: text, style: textStyle);
       textPainter.layout();
       textPainter.paint(
         canvas,
@@ -531,6 +551,20 @@ class _DataLoggerPlotPainter extends CustomPainter {
       );
       t += timeStep;
     }
+
+    // Always show the total duration as the final X-axis tick label,
+    // even when tickStep doesn't align perfectly with niceMaxTime.
+    final lastDisplayVal = ranges.niceMaxTime / timeFactor;
+    final lastX = plotRect.right;
+    final lastText = lastDisplayVal == lastDisplayVal.roundToDouble()
+        ? lastDisplayVal.toInt().toString()
+        : lastDisplayVal.toStringAsFixed(1);
+    textPainter.text = TextSpan(text: lastText, style: textStyle);
+    textPainter.layout();
+    textPainter.paint(
+      canvas,
+      Offset(lastX - textPainter.width / 2, plotRect.bottom + 4),
+    );
   }
 
   void _drawLegend(Canvas canvas, Rect plotRect, Size size) {
