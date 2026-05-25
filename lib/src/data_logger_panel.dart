@@ -257,35 +257,42 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
               child: Column(
                 children: [
                   Expanded(
-                    child: Stack(
-                      children: [
-                        DataLoggerPlot(
-                          points: _points,
-                          ch1Enabled: _config?.ch1Enabled ?? true,
-                          ch2Enabled: _config?.ch2Enabled ?? false,
-                          status: _status,
-                          totalDurationSeconds: (_config?.durationMinutes ?? 1) * 60.0,
-                          hiddenLines: _hiddenLines,
-                          onToggleLine: (id) {
-                            setState(() {
-                              if (_hiddenLines.contains(id)) {
-                                _hiddenLines.remove(id);
-                              } else {
-                                _hiddenLines.add(id);
-                              }
-                            });
-                          },
-                          onHover: (time, localX, localY) {
-                            setState(() {
-                              _hoveredTime = time < 0 ? null : time;
-                              _hoverX = localX;
-                              _hoverY = localY;
-                            });
-                          },
-                        ),
-                        if (_hoveredTime != null && _points.isNotEmpty)
-                          _buildHoverTooltip(),
-                      ],
+                    child: LayoutBuilder(
+                      builder: (context, constraints) {
+                        return Stack(
+                          children: [
+                            DataLoggerPlot(
+                              points: _points,
+                              ch1Enabled: _config?.ch1Enabled ?? true,
+                              ch2Enabled: _config?.ch2Enabled ?? false,
+                              status: _status,
+                              totalDurationSeconds: (_config?.durationMinutes ?? 1) * 60.0,
+                              hiddenLines: _hiddenLines,
+                              onToggleLine: (id) {
+                                setState(() {
+                                  if (_hiddenLines.contains(id)) {
+                                    _hiddenLines.remove(id);
+                                  } else {
+                                    _hiddenLines.add(id);
+                                  }
+                                });
+                              },
+                              onHover: (time, localX, localY) {
+                                setState(() {
+                                  _hoveredTime = time < 0 ? null : time;
+                                  _hoverX = localX;
+                                  _hoverY = localY;
+                                });
+                              },
+                            ),
+                            if (_hoveredTime != null && _points.isNotEmpty)
+                              _buildHoverTooltip(
+                                tooltipAreaWidth: constraints.maxWidth,
+                                tooltipAreaHeight: constraints.maxHeight,
+                              ),
+                          ],
+                        );
+                      },
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -304,7 +311,10 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
   }
 
   /// Tooltip overlay showing data values at the hovered time position.
-  Widget _buildHoverTooltip() {
+  Widget _buildHoverTooltip({
+    required double tooltipAreaWidth,
+    required double tooltipAreaHeight,
+  }) {
     final time = _hoveredTime!;
     // Find the nearest data point (or interpolate between two)
     DataLoggerPoint? before, after;
@@ -339,10 +349,11 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
             style: const TextStyle(color: Color(0xFFFF20FF), fontSize: 11)));
       }
     }
-    // Position tooltip near the cursor, clamped within bounds.
-    final tooltipH = 80.0;
-    final left = (_hoverX + 16).clamp(0.0, 500.0);
-    final top = (_hoverY - tooltipH - 8).clamp(0.0, 400.0);
+    // Position tooltip near the cursor, clamped within the actual available area.
+    const tooltipH = 80.0;
+    const tooltipW = 180.0;
+    final left = (_hoverX + 16).clamp(0.0, tooltipAreaWidth - tooltipW);
+    final top = (_hoverY - tooltipH - 8).clamp(0.0, tooltipAreaHeight - tooltipH - 8);
     return Positioned(
       left: left,
       top: top,
