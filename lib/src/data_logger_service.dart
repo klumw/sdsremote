@@ -128,6 +128,14 @@ class DataLoggerService {
       // Query probe dividers on first sample via the same connection,
       // avoiding a race on _getInstrument().
       if (!_probeDividersQueried) {
+        _probeDividersQueried = true;
+        AppLogger(agentName: 'DataLogger', toolName: '_doSample').log(
+          'Sending ASET command to auto-setup the instrument...',
+        );
+        await instr.writeString('ASET');
+        // Wait for the auto-setup to settle on the device.
+        await Future.delayed(const Duration(milliseconds: 1500));
+
         if (cfg.ch1Enabled) {
           final v = await _queryDouble(instr, 'C1:ATTN?');
           if (v != null && v > 0) _probeDividerCh1 = v;
@@ -136,7 +144,6 @@ class DataLoggerService {
           final v = await _queryDouble(instr, 'C2:ATTN?');
           if (v != null && v > 0) _probeDividerCh2 = v;
         }
-        _probeDividersQueried = true;
       }
 
       double? ch1Vpp;

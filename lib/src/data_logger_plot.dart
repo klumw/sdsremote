@@ -63,6 +63,9 @@ class DataLoggerPlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ranges = _AxisRanges.compute(points, totalDurationSeconds: totalDurationSeconds);
+    final maxTime = ranges.niceMaxTime;
+
     return Container(
       decoration: BoxDecoration(
         color: _bgColor,
@@ -73,12 +76,12 @@ class DataLoggerPlot extends StatelessWidget {
         borderRadius: BorderRadius.circular(7),
         child: MouseRegion(
           onHover: (event) {
-            if (onHover != null && totalDurationSeconds > 0) {
+            if (onHover != null && maxTime > 0) {
               final plotWidth = context.size?.width ?? 1;
               final plotAreaWidth = plotWidth - 75 - 75; // _marginLeft + _marginRight
               if (plotAreaWidth > 0) {
                 final relX = (event.localPosition.dx - 60) / plotAreaWidth;
-                final time = (relX.clamp(0.0, 1.0)) * totalDurationSeconds;
+                final time = (relX.clamp(0.0, 1.0)) * maxTime;
                 onHover!(time, event.localPosition.dx, event.localPosition.dy);
               }
             }
@@ -126,10 +129,10 @@ class _AxisRanges {
   // Use the exact configured maxTime (recording duration) without nice-rounding,
   // so a 60-second recording shows exactly 0-60s on the X-axis.
   double get niceMaxTime => maxTime;
-  double get niceMinVpp => _niceMin(minVpp);
-  double get niceMaxVpp => _niceMax(maxVpp);
-  double get niceMinFreq => _niceMin(minFreq);
-  double get niceMaxFreq => _niceMax(maxFreq);
+  double get niceMinVpp => minVpp;
+  double get niceMaxVpp => maxVpp;
+  double get niceMinFreq => minFreq;
+  double get niceMaxFreq => maxFreq;
 
   /// Compute a "nice" maximum value that rounds up to a clean number.
   static double _niceMax(double value, {bool allowZero = false}) {
@@ -154,62 +157,34 @@ class _AxisRanges {
   }
 
   static _AxisRanges compute(List<DataLoggerPoint> points, {double totalDurationSeconds = 60}) {
-    // Use the total configured recording duration for the X-axis max,
-    // so the axis doesn't shift as data is collected during recording.
+    // X-axis: Use the total configured recording duration for the X-axis max,
+    // so the axis doesn't shift as data is collected during recording, but
+    // expand it if any recorded points exceed totalDurationSeconds.
     double maxTime = totalDurationSeconds;
-    double minVpp = double.infinity;
-    double maxVpp = double.negativeInfinity;
-    double minFreq = double.infinity;
-    double maxFreq = double.negativeInfinity;
+    for (final p in points) {
+      if (p.elapsedSeconds > maxTime) {
+        maxTime = p.elapsedSeconds;
+      }
+    }
+
+    // Find the peak (maximum) Vpp and Frequency among the recorded points.
+    double peakVpp = 0.0;
+    double peakFreq = 0.0;
 
     for (final p in points) {
-      if (p.elapsedSeconds > maxTime) maxTime = p.elapsedSeconds;
-      if (p.ch1Vpp != null) {
-        if (p.ch1Vpp! < minVpp) minVpp = p.ch1Vpp!;
-        if (p.ch1Vpp! > maxVpp) maxVpp = p.ch1Vpp!;
-      }
-      if (p.ch2Vpp != null) {
-        if (p.ch2Vpp! < minVpp) minVpp = p.ch2Vpp!;
-        if (p.ch2Vpp! > maxVpp) maxVpp = p.ch2Vpp!;
-      }
-      if (p.ch1Freq != null) {
-        if (p.ch1Freq! < minFreq) minFreq = p.ch1Freq!;
-        if (p.ch1Freq! > maxFreq) maxFreq = p.ch1Freq!;
-      }
-      if (p.ch2Freq != null) {
-        if (p.ch2Freq! < minFreq) minFreq = p.ch2Freq!;
-        if (p.ch2Freq! > maxFreq) maxFreq = p.ch2Freq!;
-      }
+      if (p.ch1Vpp != null && p.ch1Vpp! > peakVpp) peakVpp = p.ch1Vpp!;
+      if (p.ch2Vpp != null && p.ch2Vpp! > peakVpp) peakVpp = p.ch2Vpp!;
+      if (p.ch1Freq != null && p.ch1Freq! > peakFreq) peakFreq = p.ch1Freq!;
+      if (p.ch2Freq != null && p.ch2Freq! > peakFreq) peakFreq = p.ch2Freq!;
     }
 
-    // Handle empty or single-point lists gracefully
-    if (minVpp == double.infinity) {
-      minVpp = 0;
-      maxVpp = 1;
-    }
-    if (minFreq == double.infinity) {
-      minFreq = 0;
-      maxFreq = 1;
-    }
+    // Y-axes dynamic scaling: Scale so that the full Y-axis area minus a 20% margin
+    // off the peak value is used: peak = 80% of max => max = peak * 1.2
+    double minVpp = 0.0;
+    double maxVpp = peakVpp > 0 ? peakVpp * 1.2 : 1.0;
 
-    // Ensure axis limits always have enough headroom so data lines
-    // are comfortably within the chart area. Always at least 15% of
-    // the max value as minimum margin, or 30% of the range, whichever
-    // is larger.
-    double _padRange(double min, double max) {
-      final range = max - min;
-      final rangeMargin = range * 0.3;
-      final absoluteMargin = (max.abs() > 0.001) ? max.abs() * 0.15 : 1.0;
-      return rangeMargin > absoluteMargin ? rangeMargin : absoluteMargin;
-    }
-
-    final vppMargin = _padRange(minVpp, maxVpp);
-    maxVpp += vppMargin;
-    minVpp -= vppMargin;
-
-    final freqMargin = _padRange(minFreq, maxFreq);
-    maxFreq += freqMargin;
-    minFreq -= freqMargin;
+    double minFreq = 0.0;
+    double maxFreq = peakFreq > 0 ? peakFreq * 1.2 : 1.0;
 
     return _AxisRanges(
       maxTime: maxTime,
