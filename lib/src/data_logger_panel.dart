@@ -508,23 +508,6 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
           ),
           Row(
             children: [
-              if (_status == DataLoggerStatus.running)
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                  decoration: BoxDecoration(
-                    color: Colors.greenAccent.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(4),
-                    border: Border.all(color: Colors.greenAccent.withValues(alpha: 0.3)),
-                  ),
-                  child: Text(
-                    '${_points.length}/${_config?.totalPoints ?? 0} pts',
-                    style: const TextStyle(
-                      color: Colors.greenAccent,
-                      fontSize: 11,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
               const SizedBox(width: 8),
               IconButton(
                 icon: const Icon(Icons.close, color: Colors.white70, size: 20),
