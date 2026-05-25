@@ -9,17 +9,35 @@
 
 /// Configuration for a Data Logger session.
 ///
-/// Stores the channel selection, sampling interval, total recording duration,
-/// and probe divider factor (attenuation).
+/// Stores the per-measurement selection (Vpp and/or Freq per channel),
+/// sampling interval, and total recording duration.
 class DataLoggerConfig {
-  final bool ch1Enabled;
-  final bool ch2Enabled;
+  /// Whether CH1 peak-to-peak voltage is measured.
+  final bool ch1VppEnabled;
+
+  /// Whether CH1 frequency is measured.
+  final bool ch1FreqEnabled;
+
+  /// Whether CH2 peak-to-peak voltage is measured.
+  final bool ch2VppEnabled;
+
+  /// Whether CH2 frequency is measured.
+  final bool ch2FreqEnabled;
+
   final int intervalSeconds;
   final int durationMinutes;
 
+  /// True if any measurement is enabled for CH1.
+  bool get ch1Enabled => ch1VppEnabled || ch1FreqEnabled;
+
+  /// True if any measurement is enabled for CH2.
+  bool get ch2Enabled => ch2VppEnabled || ch2FreqEnabled;
+
   const DataLoggerConfig({
-    this.ch1Enabled = true,
-    this.ch2Enabled = false,
+    this.ch1VppEnabled = true,
+    this.ch1FreqEnabled = true,
+    this.ch2VppEnabled = false,
+    this.ch2FreqEnabled = false,
     this.intervalSeconds = 10,
     this.durationMinutes = 1,
   });
@@ -30,14 +48,18 @@ class DataLoggerConfig {
   int get totalPoints => (durationMinutes * 60) ~/ intervalSeconds + 1;
 
   DataLoggerConfig copyWith({
-    bool? ch1Enabled,
-    bool? ch2Enabled,
+    bool? ch1VppEnabled,
+    bool? ch1FreqEnabled,
+    bool? ch2VppEnabled,
+    bool? ch2FreqEnabled,
     int? intervalSeconds,
     int? durationMinutes,
   }) {
     return DataLoggerConfig(
-      ch1Enabled: ch1Enabled ?? this.ch1Enabled,
-      ch2Enabled: ch2Enabled ?? this.ch2Enabled,
+      ch1VppEnabled: ch1VppEnabled ?? this.ch1VppEnabled,
+      ch1FreqEnabled: ch1FreqEnabled ?? this.ch1FreqEnabled,
+      ch2VppEnabled: ch2VppEnabled ?? this.ch2VppEnabled,
+      ch2FreqEnabled: ch2FreqEnabled ?? this.ch2FreqEnabled,
       intervalSeconds: intervalSeconds ?? this.intervalSeconds,
       durationMinutes: durationMinutes ?? this.durationMinutes,
     );
@@ -47,17 +69,28 @@ class DataLoggerConfig {
   bool operator ==(Object other) =>
       identical(this, other) ||
       other is DataLoggerConfig &&
-          ch1Enabled == other.ch1Enabled &&
-          ch2Enabled == other.ch2Enabled &&
+          ch1VppEnabled == other.ch1VppEnabled &&
+          ch1FreqEnabled == other.ch1FreqEnabled &&
+          ch2VppEnabled == other.ch2VppEnabled &&
+          ch2FreqEnabled == other.ch2FreqEnabled &&
           intervalSeconds == other.intervalSeconds &&
           durationMinutes == other.durationMinutes;
 
   @override
-  int get hashCode => Object.hash(ch1Enabled, ch2Enabled, intervalSeconds, durationMinutes);
+  int get hashCode => Object.hash(
+        ch1VppEnabled,
+        ch1FreqEnabled,
+        ch2VppEnabled,
+        ch2FreqEnabled,
+        intervalSeconds,
+        durationMinutes,
+      );
 
   @override
   String toString() =>
-      'DataLoggerConfig(ch1=$ch1Enabled, ch2=$ch2Enabled, '
+      'DataLoggerConfig('
+      'ch1Vpp=$ch1VppEnabled, ch1Freq=$ch1FreqEnabled, '
+      'ch2Vpp=$ch2VppEnabled, ch2Freq=$ch2FreqEnabled, '
       'interval=${intervalSeconds}s, duration=${durationMinutes}min)';
 }
 
@@ -67,8 +100,10 @@ class DataLoggerConfig {
 
 /// A single measurement data point collected at a given timestamp.
 ///
-/// [ch1Vpp] and [ch1Freq] are null if CH1 is not enabled.
-/// [ch2Vpp] and [ch2Freq] are null if CH2 is not enabled.
+/// [ch1Vpp] and [ch1Freq] are null if the respective measurement was disabled
+/// in the config, or if the SCPI query failed.
+/// [ch2Vpp] and [ch2Freq] are null if the respective measurement was disabled
+/// in the config, or if the SCPI query failed.
 /// All voltage values are already scaled by the probe divider factor.
 class DataLoggerPoint {
   final DateTime timestamp;

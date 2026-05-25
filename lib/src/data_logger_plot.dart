@@ -31,8 +31,10 @@ const Color _bgColor = Color(0xFF0A192F);
 /// as functions of elapsed time (X-axis). Both axes auto-scale to fit data.
 class DataLoggerPlot extends StatelessWidget {
   final List<DataLoggerPoint> points;
-  final bool ch1Enabled;
-  final bool ch2Enabled;
+  final bool ch1VppEnabled;
+  final bool ch1FreqEnabled;
+  final bool ch2VppEnabled;
+  final bool ch2FreqEnabled;
   final DataLoggerStatus status;
 
   /// Total configured recording duration in seconds.
@@ -52,8 +54,10 @@ class DataLoggerPlot extends StatelessWidget {
   const DataLoggerPlot({
     super.key,
     required this.points,
-    required this.ch1Enabled,
-    required this.ch2Enabled,
+    this.ch1VppEnabled = true,
+    this.ch1FreqEnabled = true,
+    this.ch2VppEnabled = false,
+    this.ch2FreqEnabled = false,
     required this.status,
     this.totalDurationSeconds = 60,
     this.hiddenLines = const {},
@@ -92,8 +96,10 @@ class DataLoggerPlot extends StatelessWidget {
           child: CustomPaint(
             painter: _DataLoggerPlotPainter(
               points: points,
-              ch1Enabled: ch1Enabled,
-              ch2Enabled: ch2Enabled,
+              ch1VppEnabled: ch1VppEnabled,
+              ch1FreqEnabled: ch1FreqEnabled,
+              ch2VppEnabled: ch2VppEnabled,
+              ch2FreqEnabled: ch2FreqEnabled,
               status: status,
               totalDurationSeconds: totalDurationSeconds,
               hiddenLines: hiddenLines,
@@ -202,16 +208,20 @@ class _AxisRanges {
 
 class _DataLoggerPlotPainter extends CustomPainter {
   final List<DataLoggerPoint> points;
-  final bool ch1Enabled;
-  final bool ch2Enabled;
+  final bool ch1VppEnabled;
+  final bool ch1FreqEnabled;
+  final bool ch2VppEnabled;
+  final bool ch2FreqEnabled;
   final DataLoggerStatus status;
   final double totalDurationSeconds;
   final Set<String> hiddenLines;
 
   _DataLoggerPlotPainter({
     required this.points,
-    required this.ch1Enabled,
-    required this.ch2Enabled,
+    required this.ch1VppEnabled,
+    required this.ch1FreqEnabled,
+    required this.ch2VppEnabled,
+    required this.ch2FreqEnabled,
     required this.status,
     this.totalDurationSeconds = 60,
     this.hiddenLines = const {},
@@ -399,7 +409,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
     }
 
     // Build line segments for CH1 Vpp
-    if (ch1Enabled) {
+    if (ch1VppEnabled) {
       if (!hiddenLines.contains('ch1_vpp')) {
         final ch1VppPts = <Offset>[];
         for (final p in points) {
@@ -412,6 +422,8 @@ class _DataLoggerPlotPainter extends CustomPainter {
         }
         drawLine(ch1VppPts, _ch1Color, 'CH1 Vpp', dashed: false);
       }
+    }
+    if (ch1FreqEnabled) {
       if (!hiddenLines.contains('ch1_freq')) {
         final ch1FreqPts = <Offset>[];
         for (final p in points) {
@@ -427,7 +439,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
     }
 
     // Build line segments for CH2 Vpp
-    if (ch2Enabled) {
+    if (ch2VppEnabled) {
       if (!hiddenLines.contains('ch2_vpp')) {
         final ch2VppPts = <Offset>[];
         for (final p in points) {
@@ -440,6 +452,8 @@ class _DataLoggerPlotPainter extends CustomPainter {
         }
         drawLine(ch2VppPts, _ch2Color, 'CH2 Vpp', dashed: false);
       }
+    }
+    if (ch2FreqEnabled) {
       if (!hiddenLines.contains('ch2_freq')) {
         final ch2FreqPts = <Offset>[];
         for (final p in points) {
@@ -597,12 +611,16 @@ class _DataLoggerPlotPainter extends CustomPainter {
   void _drawLegend(Canvas canvas, Rect plotRect, Size size) {
     final items = <_LegendItem>[];
 
-    if (ch1Enabled) {
+    if (ch1VppEnabled) {
       items.add(_LegendItem('CH1 Vpp', _ch1Color, false));
+    }
+    if (ch1FreqEnabled) {
       items.add(_LegendItem('CH1 Freq', _ch1Color, true));
     }
-    if (ch2Enabled) {
+    if (ch2VppEnabled) {
       items.add(_LegendItem('CH2 Vpp', _ch2Color, false));
+    }
+    if (ch2FreqEnabled) {
       items.add(_LegendItem('CH2 Freq', _ch2Color, true));
     }
 
@@ -673,8 +691,10 @@ class _DataLoggerPlotPainter extends CustomPainter {
   bool shouldRepaint(covariant _DataLoggerPlotPainter oldDelegate) {
     return oldDelegate.points != points ||
         oldDelegate.points.length != points.length ||
-        oldDelegate.ch1Enabled != ch1Enabled ||
-        oldDelegate.ch2Enabled != ch2Enabled ||
+        oldDelegate.ch1VppEnabled != ch1VppEnabled ||
+        oldDelegate.ch1FreqEnabled != ch1FreqEnabled ||
+        oldDelegate.ch2VppEnabled != ch2VppEnabled ||
+        oldDelegate.ch2FreqEnabled != ch2FreqEnabled ||
         oldDelegate.status != status ||
         oldDelegate.totalDurationSeconds != totalDurationSeconds ||
         oldDelegate.hiddenLines != hiddenLines;

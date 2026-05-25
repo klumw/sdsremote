@@ -263,8 +263,10 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
                           children: [
                             DataLoggerPlot(
                               points: _points,
-                              ch1Enabled: _config?.ch1Enabled ?? true,
-                              ch2Enabled: _config?.ch2Enabled ?? false,
+                              ch1VppEnabled: _config?.ch1VppEnabled ?? true,
+                              ch1FreqEnabled: _config?.ch1FreqEnabled ?? true,
+                              ch2VppEnabled: _config?.ch2VppEnabled ?? false,
+                              ch2FreqEnabled: _config?.ch2FreqEnabled ?? false,
                               status: _status,
                               totalDurationSeconds: (_config?.durationMinutes ?? 1) * 60.0,
                               hiddenLines: _hiddenLines,
@@ -343,21 +345,25 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
         style: const TextStyle(color: Colors.white70, fontSize: 10),
       ),
     ];
-    if (_config?.ch1Enabled == true) {
+    if (_config?.ch1VppEnabled == true) {
       if (!_hiddenLines.contains('ch1_vpp') && nearest.ch1Vpp != null) {
         rows.add(Text('CH1 Vpp: ${nearest.ch1Vpp!.toStringAsFixed(3)}V',
             style: const TextStyle(color: Color(0xFFFFFF00), fontSize: 11)));
       }
+    }
+    if (_config?.ch1FreqEnabled == true) {
       if (!_hiddenLines.contains('ch1_freq') && nearest.ch1Freq != null) {
         rows.add(Text('CH1 Freq: ${_fmtSi(nearest.ch1Freq!)}Hz',
             style: const TextStyle(color: Color(0xFFFFFF00), fontSize: 11)));
       }
     }
-    if (_config?.ch2Enabled == true) {
+    if (_config?.ch2VppEnabled == true) {
       if (!_hiddenLines.contains('ch2_vpp') && nearest.ch2Vpp != null) {
         rows.add(Text('CH2 Vpp: ${nearest.ch2Vpp!.toStringAsFixed(3)}V',
             style: const TextStyle(color: Color(0xFFFF20FF), fontSize: 11)));
       }
+    }
+    if (_config?.ch2FreqEnabled == true) {
       if (!_hiddenLines.contains('ch2_freq') && nearest.ch2Freq != null) {
         rows.add(Text('CH2 Freq: ${_fmtSi(nearest.ch2Freq!)}Hz',
             style: const TextStyle(color: Color(0xFFFF20FF), fontSize: 11)));
@@ -396,21 +402,24 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
 
   /// Row of clickable legend chips to toggle individual plot lines on/off.
   Widget _buildLegendToggleRow() {
-    final ch1 = _config?.ch1Enabled ?? true;
-    final ch2 = _config?.ch2Enabled ?? false;
     final items = <Widget>[];
-    if (ch1) {
+    if (_config?.ch1VppEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 8));
       items.add(_legendChip('CH1 Vpp', 'ch1_vpp',
           const Color(0xFFFFFF00)));
-      items.add(const SizedBox(width: 4));
+    }
+    if (_config?.ch1FreqEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
       items.add(_legendChip('CH1 Freq', 'ch1_freq',
           const Color(0xFFFFFF00)));
     }
-    if (ch2) {
-      items.add(const SizedBox(width: 8));
+    if (_config?.ch2VppEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 8));
       items.add(_legendChip('CH2 Vpp', 'ch2_vpp',
           const Color(0xFFFF20FF)));
-      items.add(const SizedBox(width: 4));
+    }
+    if (_config?.ch2FreqEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
       items.add(_legendChip('CH2 Freq', 'ch2_freq',
           const Color(0xFFFF20FF)));
     }

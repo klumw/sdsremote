@@ -69,7 +69,8 @@ class DataLoggerService {
     AppLogger(agentName: 'DataLogger', toolName: 'start').log(
       'Data Logger started: interval=${cfg.intervalSeconds}s, '
       'duration=${cfg.durationMinutes}min, '
-      'ch1=${cfg.ch1Enabled}, ch2=${cfg.ch2Enabled}',
+      'ch1Vpp=${cfg.ch1VppEnabled}, ch1Freq=${cfg.ch1FreqEnabled}, '
+      'ch2Vpp=${cfg.ch2VppEnabled}, ch2Freq=${cfg.ch2FreqEnabled}',
     );
   }
 
@@ -153,15 +154,20 @@ class DataLoggerService {
 
       // Check _hasStopped between each query — if stop() was called
       // (e.g. user switched panels), abandon this sample immediately.
-      if (cfg.ch1Enabled) {
+      // Only query each measurement if enabled in the configuration.
+      if (cfg.ch1VppEnabled) {
         ch1Vpp = await _queryPava(instr, 'C1:PAVA? PKPK');
         if (_hasStopped) return;
+      }
+      if (cfg.ch1FreqEnabled) {
         ch1Freq = await _queryPava(instr, 'C1:PAVA? FREQ');
         if (_hasStopped) return;
       }
-      if (cfg.ch2Enabled) {
+      if (cfg.ch2VppEnabled) {
         ch2Vpp = await _queryPava(instr, 'C2:PAVA? PKPK');
         if (_hasStopped) return;
+      }
+      if (cfg.ch2FreqEnabled) {
         ch2Freq = await _queryPava(instr, 'C2:PAVA? FREQ');
         if (_hasStopped) return;
       }

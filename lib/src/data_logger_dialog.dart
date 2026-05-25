@@ -1,7 +1,7 @@
 /// Configuration dialog for the Data Logger.
 ///
-/// Allows the user to select channels (CH1 / CH2), sampling interval
-/// (10s–60s), recording duration (1min–24h), and probe divider factor.
+/// Allows the user to select measurements (Vpp / Freq per channel),
+/// sampling interval (10s–60s), and recording duration (1min–24h).
 /// Provides Start and Cancel buttons. Once the logger is running,
 /// shows Stop / New / Restart controls instead.
 
@@ -65,6 +65,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
   void initState() {
     super.initState();
     if (widget.currentConfig != null) {
+      // Restore channel enables from per-measurement flags.
       _ch1Enabled = widget.currentConfig!.ch1Enabled;
       _ch2Enabled = widget.currentConfig!.ch2Enabled;
       _intervalSeconds = widget.currentConfig!.intervalSeconds.toDouble();
@@ -75,13 +76,15 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
     }
   }
 
-  bool get _isValid => (_ch1Enabled || _ch2Enabled);
+  bool get _isValid => _ch1Enabled || _ch2Enabled;
   int get _durationMinutes => _durationPresetsMinutes[_durationIndex];
 
   void _emitConfig() {
     widget.onConfigChanged?.call(DataLoggerConfig(
-      ch1Enabled: _ch1Enabled,
-      ch2Enabled: _ch2Enabled,
+      ch1VppEnabled: _ch1Enabled,
+      ch1FreqEnabled: _ch1Enabled,
+      ch2VppEnabled: _ch2Enabled,
+      ch2FreqEnabled: _ch2Enabled,
       intervalSeconds: _intervalSeconds.round(),
       durationMinutes: _durationMinutes,
     ));
@@ -160,7 +163,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                   value: _ch1Enabled,
                   activeColor: const Color(0xFFFFFF00),
                   onChanged: (v) => setState(() {
-                    _ch1Enabled = v!;
+                    _ch1Enabled = v;
                     _emitConfig();
                   }),
                 ),
@@ -172,7 +175,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                   value: _ch2Enabled,
                   activeColor: const Color(0xFFFF20FF),
                   onChanged: (v) => setState(() {
-                    _ch2Enabled = v!;
+                    _ch2Enabled = v;
                     _emitConfig();
                   }),
                 ),
@@ -461,7 +464,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
     required String label,
     required bool value,
     required Color activeColor,
-    required ValueChanged<bool?> onChanged,
+    required ValueChanged<bool> onChanged,
   }) {
     return InkWell(
       onTap: () => onChanged(!value),
@@ -478,13 +481,14 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
           ),
         ),
         child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Icon(
               value ? Icons.check_circle : Icons.radio_button_unchecked,
               size: 20,
               color: value ? activeColor : Colors.white38,
             ),
-            const SizedBox(width: 10),
+            const SizedBox(width: 6),
             Text(
               label,
               style: TextStyle(
@@ -498,8 +502,6 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
       ),
     );
   }
-
-  // Probe attenuation is read from the device via C<ch>:ATTN? at recording start.
 
   Widget _buildSectionTitle(String title) {
     return Text(
