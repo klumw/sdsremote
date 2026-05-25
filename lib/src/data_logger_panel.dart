@@ -517,6 +517,8 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
   }
 
   Widget _buildBottomControls() {
+    final isExpanded = _status == DataLoggerStatus.running ||
+        _status == DataLoggerStatus.stopped;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -529,18 +531,36 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
           top: BorderSide(color: Color(0xFF475569)),
         ),
       ),
-      child: DataLoggerDialog(
-        currentConfig: _config,
-        status: _status,
-        pointCount: _points.length,
-        totalPoints: _config?.totalPoints ?? 0,
-        elapsedSeconds: _elapsedSeconds,
-        onStart: _onStart,
-        onStop: _onStop,
-        onNew: _onNew,
-        onRestart: _onRestart,
-        onConfigChanged: _onConfigChanged,
-      ),
+      child: isExpanded
+          ? Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 700),
+                child: DataLoggerDialog(
+                  currentConfig: _config,
+                  status: _status,
+                  pointCount: _points.length,
+                  totalPoints: _config?.totalPoints ?? 0,
+                  elapsedSeconds: _elapsedSeconds,
+                  onStart: _onStart,
+                  onStop: _onStop,
+                  onNew: _onNew,
+                  onRestart: _onRestart,
+                  onConfigChanged: _onConfigChanged,
+                ),
+              ),
+            )
+          : DataLoggerDialog(
+              currentConfig: _config,
+              status: _status,
+              pointCount: _points.length,
+              totalPoints: _config?.totalPoints ?? 0,
+              elapsedSeconds: _elapsedSeconds,
+              onStart: _onStart,
+              onStop: _onStop,
+              onNew: _onNew,
+              onRestart: _onRestart,
+              onConfigChanged: _onConfigChanged,
+            ),
     );
   }
 }
