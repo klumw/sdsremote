@@ -86,6 +86,11 @@ typedef _libusb_reset_device_c = Int32 Function(
 typedef _libusb_reset_device_dart = int Function(
     Pointer<Void> dev_handle);
 
+typedef _libusb_set_auto_detach_kernel_driver_c = Int32 Function(
+    Pointer<Void> ctx, Int32 enable);
+typedef _libusb_set_auto_detach_kernel_driver_dart = int Function(
+    Pointer<Void> ctx, int enable);
+
 /// C-bindings loader for `libusb-1.0`.
 class LibusbBindings {
   late final DynamicLibrary _lib;
@@ -101,6 +106,7 @@ class LibusbBindings {
   late final _libusb_control_transfer_dart libusb_control_transfer;
   late final _libusb_detach_kernel_driver_dart libusb_detach_kernel_driver;
   late final _libusb_attach_kernel_driver_dart libusb_attach_kernel_driver;
+  late final _libusb_set_auto_detach_kernel_driver_dart libusb_set_auto_detach_kernel_driver;
   late final _libusb_clear_halt_dart libusb_clear_halt;
   late final _libusb_reset_device_dart libusb_reset_device;
 
@@ -144,7 +150,20 @@ class LibusbBindings {
     libusb_reset_device = _lib
         .lookup<NativeFunction<_libusb_reset_device_c>>('libusb_reset_device')
         .asFunction();
-    
+
+    // libusb_set_auto_detach_kernel_driver - available in libusb >= 1.0.9.
+    // When enabled, libusb automatically detaches the kernel driver during
+    // claim_interface and re-attaches during release_interface, eliminating
+    // the race between manual detach and claim that causes LIBUSB_ERROR_BUSY.
+    try {
+      libusb_set_auto_detach_kernel_driver = _lib
+          .lookup<NativeFunction<_libusb_set_auto_detach_kernel_driver_c>>(
+              'libusb_set_auto_detach_kernel_driver')
+          .asFunction();
+    } catch (_) {
+      libusb_set_auto_detach_kernel_driver = (h, i) => -1;
+    }
+
     // Kernel driver detach/attach might not be present on Windows, try lookup
     try {
       libusb_detach_kernel_driver = _lib
@@ -203,7 +222,15 @@ class LibusbContext implements UsbContext {
   final Pointer<Void> _ctx;
   bool _closed = false;
 
-  LibusbContext._(this._ctx);
+  LibusbContext._(this._ctx) {
+    // Enable auto-detach of kernel driver on Linux.
+    // This makes libusb_claim_interface atomically detach the kernel driver
+    // and libusb_release_interface re-attach it, avoiding the race between
+    // manual detach and claim that produces LIBUSB_ERROR_BUSY on Linux.
+    if (Platform.isLinux) {
+      _bindings.libusb_set_auto_detach_kernel_driver(_ctx, 1);
+    }
+  }
 
   @override
   Future<void> setDebugLevel(int level) async {
@@ -226,27 +253,11 @@ class LibusbContext implements UsbContext {
           'Failed to open USB device with VID 0x${vendorId.toRadixString(16)} and PID 0x${productId.toRadixString(16)}. Please check physical connection and USB permissions.');
     }
 
-    // Detach kernel driver if needed (highly relevant for Linux USBTMC drivers).
-    // The kernel driver (usbtmc.ko) may have queued a Bulk-OUT URB before we
-    // detached it; that URB can complete on the wire after we claim the
-    // interface, producing a stale leading URB in USB analyser traces.
-    if (Platform.isLinux) {
-      final detachResult = _bindings.libusb_detach_kernel_driver(handle, 0);
-      if (detachResult == 0) {
-        // print('USBTMC: Kernel driver detached from interface 0.');
-      } else if (detachResult == -5) {
-        // LIBUSB_ERROR_NOT_FOUND — no kernel driver was attached; this is fine.
-        // print('USBTMC: No kernel driver attached to interface 0 (already detached).');
-      } else {
-        // print('USBTMC: libusb_detach_kernel_driver returned $detachResult — '
-//             'a stale kernel URB may appear before our first bulk transfer.');
-      }
-    }
-
     final res = _bindings.libusb_claim_interface(handle, 0);
     if (res < 0) {
+      final errDesc = LibusbDevice._libusbErrorString(res);
       _bindings.libusb_close(handle);
-      throw Exception('Failed to claim interface 0: error code $res');
+      throw Exception('Failed to claim interface 0: error code $res ($errDesc)');
     }
 
     // In USBTMC, endpoints are standardized as:
@@ -494,13 +505,9 @@ class LibusbDevice implements UsbDevice {
   @override
   Future<void> close() async {
     if (_closed) return;
+    // With auto-detach enabled, libusb_release_interface automatically
+    // re-attaches the kernel driver on Linux - no manual attach needed.
     _bindings.libusb_release_interface(_handle, 0);
-    
-    // Attach kernel driver back on Linux
-    if (Platform.isLinux) {
-      _bindings.libusb_attach_kernel_driver(_handle, 0);
-    }
-
     _bindings.libusb_close(_handle);
     _closed = true;
   }

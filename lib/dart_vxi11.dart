@@ -283,8 +283,17 @@ class Vxi11ErrorMessages {
 /// ```
 class Vxi11Instrument {
   static bool isUsbMode = false;
-  UsbtmcContext? _usbContext;
-  UsbtmcDevice? _usbDevice;
+
+  /// Shared USB connection — only ONE UsbtmcContext/Device is opened per
+  /// process. All Vxi11Instrument instances in USB mode share this connection,
+  /// preventing LIBUSB_ERROR_BUSY from concurrent open attempts.
+  static UsbtmcContext? _sharedUsbContext;
+  static UsbtmcDevice? _sharedUsbDevice;
+  static int _usbRefCount = 0;
+
+  /// Per-instance flag: true if this instance contributed to the shared
+  /// USB connection (incremented refcount in open).
+  bool _ownsUsbShare = false;
 
   final String _host;
   final String _deviceName;
@@ -316,6 +325,17 @@ class Vxi11Instrument {
     
     if (isUsbMode) {
       AppLogger().log('USB: ${src}Opening connection via USBTMC...');
+
+      // Use a shared singleton USB connection: only one UsbtmcContext/Device
+      // per process.  Subsequent open() calls reuse the existing connection,
+      // preventing LIBUSB_ERROR_BUSY from concurrent open attempts.
+      if (_sharedUsbDevice != null) {
+        _usbRefCount++;
+        _ownsUsbShare = true;
+        AppLogger().log('USB: Reusing shared USB connection (refcount=$_usbRefCount)');
+        return 0;
+      }
+
       try {
         final visaAddress = await detectLiveVisaAddress();
         if (visaAddress == null) {
@@ -325,20 +345,23 @@ class Vxi11Instrument {
 
         final context = UsbtmcContext();
         await context.init();
-        _usbContext = context;
+        _sharedUsbContext = context;
 
         final device = await context.newDevice(visaAddress);
-        _usbDevice = device;
+        _sharedUsbDevice = device;
+        _usbRefCount = 1;
+        _ownsUsbShare = true;
         return 0;
       } catch (e) {
         AppLogger().log('USB: Failed to connect via USBTMC: $e');
-        _usbDevice = null;
-        if (_usbContext != null) {
+        _sharedUsbDevice = null;
+        if (_sharedUsbContext != null) {
           try {
-            await _usbContext!.close();
+            await _sharedUsbContext!.close();
           } catch (_) {}
-          _usbContext = null;
+          _sharedUsbContext = null;
         }
+        _usbRefCount = 0;
         rethrow;
       }
     }
@@ -451,11 +474,11 @@ class Vxi11Instrument {
   /// Sends a SCPI/VXI-11 command string to the instrument.
   Future<void> writeString(String cmd, {Duration? timeout}) async {
     if (isUsbMode) {
-      if (_usbDevice == null) {
+      if (_sharedUsbDevice == null) {
         _lastError = 'USB connection not open';
         throw StateError(_lastError);
       }
-      await _usbDevice!.command(
+      await _sharedUsbDevice!.command(
         cmd,
         timeout: timeout ?? Duration(milliseconds: _timeoutMs),
       );
@@ -513,14 +536,14 @@ class Vxi11Instrument {
   /// data via the standard DEVICE_WRITE RPC.
   Future<void> writeProfileData(String data, {Duration? timeout}) async {
     if (isUsbMode) {
-      if (_usbDevice == null) {
+      if (_sharedUsbDevice == null) {
         _lastError = 'USB connection not open';
         throw StateError(_lastError);
       }
       // Send the profile data as-is, without any modifications.
       final payload = Uint8List.fromList(utf8.encode(data));
 
-      await _usbDevice!.profileWrite(
+      await _sharedUsbDevice!.profileWrite(
         payload,
         timeout: timeout ?? Duration(milliseconds: _timeoutMs),
       );
@@ -534,11 +557,11 @@ class Vxi11Instrument {
   /// Reads a string response from the instrument.
   Future<String> readString({int maxLen = 256}) async {
     if (isUsbMode) {
-      if (_usbDevice == null) {
+      if (_sharedUsbDevice == null) {
         _lastError = 'USB connection not open';
         throw StateError(_lastError);
       }
-      final bytes = await _usbDevice!.doRead(
+      final bytes = await _sharedUsbDevice!.doRead(
         maxLen,
         useTermChar: true,
         timeout: Duration(milliseconds: _timeoutMs),
@@ -586,11 +609,11 @@ class Vxi11Instrument {
   /// Reads an IEEE 488.2 definite-length binary data block.
   Future<Uint8List> readDataBlock() async {
     if (isUsbMode) {
-      if (_usbDevice == null) {
+      if (_sharedUsbDevice == null) {
         _lastError = 'USB connection not open';
         throw StateError(_lastError);
       }
-      final bytes = await _usbDevice!.doRead(
+      final bytes = await _sharedUsbDevice!.doRead(
         16 * 1024 * 1024,
         useTermChar: false,
         timeout: Duration(milliseconds: _timeoutMs),
@@ -609,11 +632,11 @@ class Vxi11Instrument {
   Future<Uint8List> getScreenDump() async {
     if (isUsbMode) {
       await writeString('SCDP');
-      if (_usbDevice == null) {
+      if (_sharedUsbDevice == null) {
         _lastError = 'USB connection not open';
         throw StateError(_lastError);
       }
-      return await _usbDevice!.doRead(
+      return await _sharedUsbDevice!.doRead(
         16 * 1024 * 1024,
         useTermChar: false,
         timeout: Duration(milliseconds: _timeoutMs),
@@ -628,11 +651,11 @@ class Vxi11Instrument {
   Future<Uint8List> readRawResponse(String cmd, {Duration? timeout}) async {
     if (isUsbMode) {
       await writeString(cmd, timeout: timeout);
-      if (_usbDevice == null) {
+      if (_sharedUsbDevice == null) {
         _lastError = 'USB connection not open';
         throw StateError(_lastError);
       }
-      return await _usbDevice!.doRead(
+      return await _sharedUsbDevice!.doRead(
         16 * 1024 * 1024,
         useTermChar: false,
         timeout: timeout ?? Duration(milliseconds: _timeoutMs),
@@ -929,19 +952,29 @@ class Vxi11Instrument {
 
   /// Destroys the VXI-11 link and closes the socket.
   ///
+  /// In USB mode, the shared connection uses reference counting.
+  /// The underlying USB device is only closed when all users have called close().
+  ///
   /// If not connected, this is a no-op.
   Future<void> close() async {
-    if (_usbDevice != null) {
-      try {
-        await _usbDevice!.close();
-      } catch (_) {}
-      _usbDevice = null;
-    }
-    if (_usbContext != null) {
-      try {
-        await _usbContext!.close();
-      } catch (_) {}
-      _usbContext = null;
+    if (_ownsUsbShare) {
+      _ownsUsbShare = false;
+      _usbRefCount--;
+      if (_usbRefCount <= 0) {
+        _usbRefCount = 0;
+        if (_sharedUsbDevice != null) {
+          try {
+            await _sharedUsbDevice!.close();
+          } catch (_) {}
+          _sharedUsbDevice = null;
+        }
+        if (_sharedUsbContext != null) {
+          try {
+            await _sharedUsbContext!.close();
+          } catch (_) {}
+          _sharedUsbContext = null;
+        }
+      }
     }
 
     if (_linkId != null) {
