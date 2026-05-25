@@ -134,7 +134,7 @@ class DataLoggerService {
         );
         await instr.writeString('ASET');
         // Wait for the auto-setup to settle on the device.
-        await Future.delayed(const Duration(milliseconds: 1500));
+        await Future.delayed(const Duration(seconds: 5));
 
         if (cfg.ch1Enabled) {
           final v = await _queryDouble(instr, 'C1:ATTN?');
@@ -154,15 +154,15 @@ class DataLoggerService {
       // Check _hasStopped between each query — if stop() was called
       // (e.g. user switched panels), abandon this sample immediately.
       if (cfg.ch1Enabled) {
-        ch1Vpp = await _queryDouble(instr, 'C1:PAVA? PKPK');
+        ch1Vpp = await _queryPava(instr, 'C1:PAVA? PKPK');
         if (_hasStopped) return;
-        ch1Freq = await _queryDouble(instr, 'C1:PAVA? FREQ');
+        ch1Freq = await _queryPava(instr, 'C1:PAVA? FREQ');
         if (_hasStopped) return;
       }
       if (cfg.ch2Enabled) {
-        ch2Vpp = await _queryDouble(instr, 'C2:PAVA? PKPK');
+        ch2Vpp = await _queryPava(instr, 'C2:PAVA? PKPK');
         if (_hasStopped) return;
-        ch2Freq = await _queryDouble(instr, 'C2:PAVA? FREQ');
+        ch2Freq = await _queryPava(instr, 'C2:PAVA? FREQ');
         if (_hasStopped) return;
       }
 
@@ -216,6 +216,53 @@ class DataLoggerService {
     } catch (e) {
       AppLogger(agentName: 'DataLogger', toolName: '_queryDouble').log(
         'SCPI query failed: $cmd → $e',
+      );
+      return null;
+    }
+  }
+
+  /// Send a PAVA? query and handle `***` (out-of-range) responses.
+  ///
+  /// When the device returns `***` it means the signal is out of range.
+  /// In that case an `ASET` (auto-setup) command is sent, the instrument
+  /// is given time to settle (5 seconds), and the query is retried **once**.
+  Future<double?> _queryPava(Vxi11Instrument instr, String cmd) async {
+    try {
+      // --- First attempt ---
+      await instr.writeString(cmd);
+      String rawResponse = (await instr.readString()).trim();
+
+      // If the signal is out of range, auto-setup and retry once.
+      if (rawResponse.contains('***')) {
+        AppLogger(agentName: 'DataLogger', toolName: '_queryPava').log(
+          'PAVA query returned out-of-range (***): $cmd. Sending ASET...',
+        );
+        // Send auto-setup and wait for the instrument to settle.
+        await instr.writeString('ASET');
+        await Future.delayed(const Duration(seconds: 5));
+        // Retry the PAVA query exactly once.
+        AppLogger(agentName: 'DataLogger', toolName: '_queryPava').log(
+          'Retrying PAVA query after ASET: $cmd',
+        );
+        await instr.writeString(cmd);
+        rawResponse = (await instr.readString()).trim();
+        AppLogger(agentName: 'DataLogger', toolName: '_queryPava').log(
+          'PAVA retry response: $cmd → $rawResponse',
+        );
+      }
+
+      // Parse the last number from the response (value is always at the end).
+      final numberRegex =
+          RegExp(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', caseSensitive: false);
+      final matches = numberRegex.allMatches(rawResponse).toList();
+      if (matches.isNotEmpty) {
+        return double.tryParse(matches.last.group(0)!);
+      }
+
+      return null;
+    } catch (e) {
+      AppLogger(agentName: 'DataLogger', toolName: '_queryPava').log(
+        'PAVA query failed: $cmd → $e',
       );
       return null;
     }
