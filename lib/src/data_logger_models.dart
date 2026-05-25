@@ -34,8 +34,8 @@ class DataLoggerConfig {
   bool get ch2Enabled => ch2VppEnabled || ch2FreqEnabled;
 
   const DataLoggerConfig({
-    this.ch1VppEnabled = true,
-    this.ch1FreqEnabled = true,
+    this.ch1VppEnabled = false,
+    this.ch1FreqEnabled = false,
     this.ch2VppEnabled = false,
     this.ch2FreqEnabled = false,
     this.intervalSeconds = 10,

@@ -56,9 +56,9 @@ const List<int> _durationPresetsMinutes = [
 ];
 
 class _DataLoggerDialogState extends State<DataLoggerDialog> {
-  // Individual measurement toggles
-  bool _ch1VppEnabled = true;
-  bool _ch1FreqEnabled = true;
+  // Individual measurement toggles — all start deselected.
+  bool _ch1VppEnabled = false;
+  bool _ch1FreqEnabled = false;
   bool _ch2VppEnabled = false;
   bool _ch2FreqEnabled = false;
   double _intervalSeconds = 10; // Slider: 10–60
