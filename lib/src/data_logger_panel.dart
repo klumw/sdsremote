@@ -246,68 +246,76 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
+        // When configuring (plot hidden), shrink-wrap to fit the header +
+        // config dialog. When running/stopped, allow Expanded plot to fill.
+        mainAxisSize: _status == DataLoggerStatus.configuring
+            ? MainAxisSize.min
+            : MainAxisSize.max,
         children: [
           // ---- Header ----
           _buildHeader(),
 
           // ---- Plot Area ----
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-              child: Column(
-                children: [
-                  Expanded(
-                    child: LayoutBuilder(
-                      builder: (context, constraints) {
-                        return Stack(
-                          children: [
-                            DataLoggerPlot(
-                              points: _points,
-                              ch1VppEnabled: _config?.ch1VppEnabled ?? true,
-                              ch1FreqEnabled: _config?.ch1FreqEnabled ?? true,
-                              ch2VppEnabled: _config?.ch2VppEnabled ?? false,
-                              ch2FreqEnabled: _config?.ch2FreqEnabled ?? false,
-                              status: _status,
-                              totalDurationSeconds: (_config?.durationMinutes ?? 1) * 60.0,
-                              hiddenLines: _hiddenLines,
-                              onToggleLine: (id) {
-                                setState(() {
-                                  if (_hiddenLines.contains(id)) {
-                                    _hiddenLines.remove(id);
-                                  } else {
-                                    _hiddenLines.add(id);
-                                  }
-                                });
-                              },
-                              onHover: (time, localX, localY) {
-                                setState(() {
-                                  _hoveredTime = time < 0 ? null : time;
-                                  _hoverX = localX;
-                                  _hoverY = localY;
-                                });
-                              },
-                            ),
-                            if (_hoveredTime != null && _points.isNotEmpty)
-                              _buildHoverTooltip(
-                                tooltipAreaWidth: constraints.maxWidth,
-                                tooltipAreaHeight: constraints.maxHeight,
+          // Only show the plot during running/stopped; hide the empty
+          // container during the setup/configuring phase.
+          if (_status != DataLoggerStatus.configuring)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                child: Column(
+                  children: [
+                    Expanded(
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          return Stack(
+                            children: [
+                              DataLoggerPlot(
+                                points: _points,
+                                ch1VppEnabled: _config?.ch1VppEnabled ?? true,
+                                ch1FreqEnabled: _config?.ch1FreqEnabled ?? true,
+                                ch2VppEnabled: _config?.ch2VppEnabled ?? false,
+                                ch2FreqEnabled: _config?.ch2FreqEnabled ?? false,
+                                status: _status,
+                                totalDurationSeconds: (_config?.durationMinutes ?? 1) * 60.0,
+                                hiddenLines: _hiddenLines,
+                                onToggleLine: (id) {
+                                  setState(() {
+                                    if (_hiddenLines.contains(id)) {
+                                      _hiddenLines.remove(id);
+                                    } else {
+                                      _hiddenLines.add(id);
+                                    }
+                                  });
+                                },
+                                onHover: (time, localX, localY) {
+                                  setState(() {
+                                    _hoveredTime = time < 0 ? null : time;
+                                    _hoverX = localX;
+                                    _hoverY = localY;
+                                  });
+                                },
                               ),
-                          ],
-                        );
-                      },
+                              if (_hoveredTime != null && _points.isNotEmpty)
+                                _buildHoverTooltip(
+                                  tooltipAreaWidth: constraints.maxWidth,
+                                  tooltipAreaHeight: constraints.maxHeight,
+                                ),
+                            ],
+                          );
+                        },
+                      ),
                     ),
-                  ),
-                  // Legend toggle chips — only show during recording/stopped,
-                  // hide during setup/configuring state.
-                  if (_status == DataLoggerStatus.running ||
-                      _status == DataLoggerStatus.stopped) ...[
-                    const SizedBox(height: 6),
-                    _buildLegendToggleRow(),
+                    // Legend toggle chips — only show during recording/stopped,
+                    // hide during setup/configuring state.
+                    if (_status == DataLoggerStatus.running ||
+                        _status == DataLoggerStatus.stopped) ...[
+                      const SizedBox(height: 6),
+                      _buildLegendToggleRow(),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
-          ),
 
           // ---- Bottom Controls ----
           _buildBottomControls(),

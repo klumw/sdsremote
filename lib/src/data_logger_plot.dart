@@ -239,7 +239,12 @@ class _DataLoggerPlotPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (points.isEmpty) {
-      _drawEmptyState(canvas, size);
+      // When in the setup/configuring phase, the plot area is intentionally
+      // left blank — there is nothing to show yet and "No data recorded"
+      // would be misleading.
+      if (status != DataLoggerStatus.configuring) {
+        _drawEmptyState(canvas, size);
+      }
       return;
     }
 
