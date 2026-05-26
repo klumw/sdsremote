@@ -141,19 +141,13 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
-                  children: [
-                    Icon(Icons.sync, color: Colors.cyanAccent, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Data Logger Configuration',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                const Text(
+                  'Data Logger Configuration',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ],
             ),
@@ -301,12 +295,12 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
               border: Border.all(color: _axisColor),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 const Text(
                   'Total data points:',
                   style: TextStyle(color: Colors.white70, fontSize: 13),
                 ),
+                const SizedBox(width: 8),
                 Text(
                   '~$totalPoints',
                   style: const TextStyle(
@@ -321,19 +315,21 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
           const SizedBox(height: 16),
 
           // ---- Start Button ----
-          ElevatedButton.icon(
-            onPressed: _isValid ? widget.onStart : null,
-            icon: const Icon(Icons.play_arrow, size: 20),
-            label: const Text(
-              'Start Recording',
-              style: TextStyle(fontWeight: FontWeight.bold),
-            ),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: _isValid ? Colors.cyan[800] : Colors.grey[800],
-              foregroundColor: _isValid ? Colors.white : Colors.white38,
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          Align(
+            child: ElevatedButton.icon(
+              onPressed: _isValid ? widget.onStart : null,
+              icon: const Icon(Icons.play_arrow, size: 20),
+              label: const Text(
+                'Start Recording',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: _isValid ? Colors.cyan[800] : Colors.grey[800],
+                foregroundColor: _isValid ? Colors.white : Colors.white38,
+                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 30),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(8),
+                ),
               ),
             ),
           ),
@@ -383,7 +379,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                 ],
               ),
               Text(
-                '${widget.pointCount}/${widget.totalPoints}',
+                'Data Points: ${widget.pointCount}/${widget.totalPoints}',
                 style: const TextStyle(
                   color: Colors.white70,
                   fontSize: 13,
@@ -407,8 +403,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
             ],
           ),
           const SizedBox(height: 8),
-          SizedBox(
-            width: double.infinity,
+          Align(
             child: OutlinedButton.icon(
               onPressed: widget.onStop,
               icon: const Icon(Icons.stop, size: 18, color: Colors.redAccent),
@@ -418,7 +413,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
               ),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Colors.redAccent),
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 30),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -461,16 +456,15 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
             style: const TextStyle(color: Colors.white54, fontSize: 12),
           ),
           const SizedBox(height: 12),
-          SizedBox(
-            width: double.infinity,
+          Align(
             child: OutlinedButton.icon(
               onPressed: widget.onNew,
-              icon: const Icon(Icons.add, size: 18),
+              icon: const Icon(Icons.add_circle_outline, size: 18),
               label: const Text('New'),
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.cyanAccent,
                 side: const BorderSide(color: Colors.cyanAccent),
-                padding: const EdgeInsets.symmetric(vertical: 10),
+                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 30),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
