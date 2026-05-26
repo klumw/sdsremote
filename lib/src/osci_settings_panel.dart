@@ -195,15 +195,19 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         hint: 'e.g. gpt-4o',
                       ),
                       const SizedBox(height: 16),
-                      SwitchListTile(
-                        value: widget.saveWithParams,
-                        onChanged: widget.onSaveWithParamsChanged,
-                        title: const Text(
-                          'Save waveform csv data',
-                          style: TextStyle(color: Colors.white70, fontSize: 13),
-                        ),
-                        activeThumbColor: Colors.cyanAccent,
-                        contentPadding: EdgeInsets.zero,
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          const Text(
+                            'Save csv data',
+                            style: TextStyle(color: Colors.white70, fontSize: 13),
+                          ),
+                          Switch(
+                            value: widget.saveWithParams,
+                            onChanged: widget.onSaveWithParamsChanged,
+                            activeColor: Colors.cyanAccent,
+                          ),
+                        ],
                       ),
                       const SizedBox(height: 20),
                       Row(
