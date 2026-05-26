@@ -1645,9 +1645,17 @@ class _OsciHomePageState extends State<OsciHomePage>
       final file = File('${dir.path}/data_logging_report.pdf');
       await file.writeAsBytes(pdfBytes);
 
+      // If "Save csv data" is enabled, also write data logger data as CSV
+      if (_saveWithParams) {
+        await _saveDataLoggerCsv(dir, config, points);
+      }
+
       if (mounted) {
+        final msg = _saveWithParams
+            ? 'Saved data_logging_report.pdf + data_logger_data.csv'
+            : 'Saved data_logging_report.pdf';
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Saved data_logging_report.pdf')),
+          SnackBar(content: Text(msg)),
         );
       }
     } catch (e) {
@@ -1660,6 +1668,82 @@ class _OsciHomePageState extends State<OsciHomePage>
         );
       }
     }
+  }
+
+  /// Writes a CSV file with the data logger's recorded data points.
+  ///
+  /// Only includes columns for measurements that are enabled in the config
+  /// AND not hidden via the chip toggle buttons ([_savedDlHiddenLines]).
+  Future<void> _saveDataLoggerCsv(
+    Directory dir,
+    DataLoggerConfig config,
+    List<DataLoggerPoint> points,
+  ) async {
+    final hidden = _savedDlHiddenLines ?? <String>{};
+    final csvBuffer = StringBuffer();
+
+    // ---- Header comments ----
+    csvBuffer.writeln('# SDS-Remote Data Logger Data');
+    csvBuffer.writeln('# Saved: ${DateTime.now().toIso8601String()}');
+    csvBuffer.writeln('# Device: ${_deviceName ?? _ipAddress}');
+    csvBuffer.writeln(
+      '# Duration: ${config.durationMinutes} min',
+    );
+    csvBuffer.writeln(
+      '# Interval: ${config.intervalSeconds} s',
+    );
+    if (config.description.isNotEmpty) {
+      csvBuffer.writeln('# Description: ${config.description}');
+    }
+    csvBuffer.writeln('#');
+
+    // Determine which columns to include based on config AND chip visibility.
+    final columns = <String>[];
+    final getters = <String, double? Function(DataLoggerPoint)>{};
+
+    columns.add('Time (s)');
+    // (no getter for time — handled inline)
+
+    if (config.ch1VppEnabled && !hidden.contains('ch1_vpp')) {
+      columns.add('CH1 Vpp (V)');
+      getters['CH1 Vpp (V)'] = (p) => p.ch1Vpp;
+    }
+    if (config.ch1FreqEnabled && !hidden.contains('ch1_freq')) {
+      columns.add('CH1 Freq (Hz)');
+      getters['CH1 Freq (Hz)'] = (p) => p.ch1Freq;
+    }
+    if (config.ch2VppEnabled && !hidden.contains('ch2_vpp')) {
+      columns.add('CH2 Vpp (V)');
+      getters['CH2 Vpp (V)'] = (p) => p.ch2Vpp;
+    }
+    if (config.ch2FreqEnabled && !hidden.contains('ch2_freq')) {
+      columns.add('CH2 Freq (Hz)');
+      getters['CH2 Freq (Hz)'] = (p) => p.ch2Freq;
+    }
+
+    // CSV header row
+    csvBuffer.writeln(columns.join(','));
+
+    // Data rows
+    for (final point in points) {
+      final row = <String>[
+        point.elapsedSeconds.toStringAsFixed(1),
+      ];
+      for (final col in columns.skip(1)) {
+        final getter = getters[col];
+        if (getter == null) continue;
+        final value = getter(point);
+        if (value == null) {
+          row.add('');
+        } else {
+          row.add(value.toStringAsFixed(6));
+        }
+      }
+      csvBuffer.writeln(row.join(','));
+    }
+
+    final csvFile = File('${dir.path}/data_logger_data.csv');
+    await csvFile.writeAsString(csvBuffer.toString());
   }
 
   // =========================================================================
