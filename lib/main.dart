@@ -1466,12 +1466,17 @@ class _OsciHomePageState extends State<OsciHomePage>
   Future<void> _saveScreenDump() async {
     try {
       final dir = await AppPaths.getOrCreateDefaultDirectory();
-      final file = File('${dir.path}/screen_dump.png');
+      final file = await AppPaths.getUniqueFilePath(
+        dir,
+        'screen_dump',
+        'png',
+      );
       await file.writeAsBytes(_screenDump!);
+      final fileName = file.uri.pathSegments.last;
       if (mounted) {
         ScaffoldMessenger.of(
           context,
-        ).showSnackBar(const SnackBar(content: Text('Saved screen_dump.png')));
+        ).showSnackBar(SnackBar(content: Text('Saved $fileName')));
       }
     } catch (e) {
       if (mounted) {
@@ -1513,10 +1518,12 @@ class _OsciHomePageState extends State<OsciHomePage>
       );
 
       final dir = await AppPaths.getOrCreateDefaultDirectory();
-      final file = File('${dir.path}/waveform.png');
+      final file = await AppPaths.getUniqueFilePath(dir, 'waveform', 'png');
       await file.writeAsBytes(pngBytes);
+      final pngName = file.uri.pathSegments.last;
 
       // If "Save with parameters" is enabled, also save waveform data as CSV
+      String? csvName;
       if (_saveWithParams) {
         final csvBuffer = StringBuffer();
         csvBuffer.writeln('# SDS-Remote Waveform Data');
@@ -1565,14 +1572,19 @@ class _OsciHomePageState extends State<OsciHomePage>
           csvBuffer.writeln('$time,$ch1V,$ch2V');
         }
 
-        final csvFile = File('${dir.path}/waveform_data.csv');
+        final csvFile = await AppPaths.getUniqueFilePath(
+          dir,
+          'waveform_data',
+          'csv',
+        );
         await csvFile.writeAsString(csvBuffer.toString());
+        csvName = csvFile.uri.pathSegments.last;
       }
 
       if (mounted) {
         final msg = _saveWithParams
-            ? 'Saved waveform.png + waveform_data.csv'
-            : 'Saved waveform.png';
+            ? 'Saved $pngName + $csvName'
+            : 'Saved $pngName';
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(msg)));
@@ -1642,18 +1654,24 @@ class _OsciHomePageState extends State<OsciHomePage>
 
       // Write to the default save directory
       final dir = await AppPaths.getOrCreateDefaultDirectory();
-      final file = File('${dir.path}/data_logging_report.pdf');
+      final file = await AppPaths.getUniqueFilePath(
+        dir,
+        'data_logging_report',
+        'pdf',
+      );
       await file.writeAsBytes(pdfBytes);
+      final pdfName = file.uri.pathSegments.last;
 
       // If "Save csv data" is enabled, also write data logger data as CSV
+      String? csvName;
       if (_saveWithParams) {
-        await _saveDataLoggerCsv(dir, config, points);
+        csvName = await _saveDataLoggerCsv(dir, config, points);
       }
 
       if (mounted) {
         final msg = _saveWithParams
-            ? 'Saved data_logging_report.pdf + data_logger_data.csv'
-            : 'Saved data_logging_report.pdf';
+            ? 'Saved $pdfName + $csvName'
+            : 'Saved $pdfName';
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(msg)),
         );
@@ -1672,9 +1690,12 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   /// Writes a CSV file with the data logger's recorded data points.
   ///
+  /// Returns the saved filename (e.g. `data_logger_data.csv` or
+  /// `data_logger_data(1).csv` if the original name was already taken).
+  ///
   /// Only includes columns for measurements that are enabled in the config
   /// AND not hidden via the chip toggle buttons ([_savedDlHiddenLines]).
-  Future<void> _saveDataLoggerCsv(
+  Future<String> _saveDataLoggerCsv(
     Directory dir,
     DataLoggerConfig config,
     List<DataLoggerPoint> points,
@@ -1742,8 +1763,13 @@ class _OsciHomePageState extends State<OsciHomePage>
       csvBuffer.writeln(row.join(','));
     }
 
-    final csvFile = File('${dir.path}/data_logger_data.csv');
+    final csvFile = await AppPaths.getUniqueFilePath(
+      dir,
+      'data_logger_data',
+      'csv',
+    );
     await csvFile.writeAsString(csvBuffer.toString());
+    return csvFile.uri.pathSegments.last;
   }
 
   // =========================================================================
