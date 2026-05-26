@@ -248,24 +248,31 @@ class _DataLoggerPlotPainter extends CustomPainter {
       return;
     }
 
+    // Determine which axes to show based on selected measurements.
+    final vppEnabled = ch1VppEnabled || ch2VppEnabled;
+    final freqEnabled = ch1FreqEnabled || ch2FreqEnabled;
+    final effectiveMarginLeft = vppEnabled ? _marginLeft : 10.0;
+    final effectiveMarginRight = freqEnabled ? _marginRight : 10.0;
+
     final ranges = _AxisRanges.compute(points, totalDurationSeconds: totalDurationSeconds);
     final plotRect = Rect.fromLTWH(
-      _marginLeft,
+      effectiveMarginLeft,
       _marginTop,
-      size.width - _marginLeft - _marginRight,
+      size.width - effectiveMarginLeft - effectiveMarginRight,
       size.height - _marginTop - _marginBottom,
     );
 
     if (plotRect.width <= 0 || plotRect.height <= 0) return;
 
     // Draw grid
-    _drawGrid(canvas, plotRect, ranges);
+    _drawGrid(canvas, plotRect, ranges, vppEnabled: vppEnabled, freqEnabled: freqEnabled);
 
     // Draw data lines
     _drawDataLines(canvas, plotRect, ranges);
 
     // Draw axes labels
-    _drawAxesLabels(canvas, plotRect, ranges, size);
+    _drawAxesLabels(canvas, plotRect, ranges, size,
+        vppEnabled: vppEnabled, freqEnabled: freqEnabled);
 
     // Draw legend
     _drawLegend(canvas, plotRect, size);
@@ -345,18 +352,30 @@ class _DataLoggerPlotPainter extends CustomPainter {
     return positions;
   }
 
-  void _drawGrid(Canvas canvas, Rect plotRect, _AxisRanges ranges) {
+  void _drawGrid(Canvas canvas, Rect plotRect, _AxisRanges ranges,
+      {required bool vppEnabled, required bool freqEnabled}) {
     final gridPaint = Paint()
       ..color = _gridColor
       ..strokeWidth = 0.5;
 
-    // Horizontal grid lines — use Vpp ticks (they align with left Y-axis)
-    final vppStep = _tickStep(ranges.niceMinVpp, ranges.niceMaxVpp);
-    double v = ranges.niceMinVpp;
-    while (v <= ranges.niceMaxVpp + 0.001) {
-      final y = _mapValueToY(v, ranges.niceMinVpp, ranges.niceMaxVpp, plotRect);
-      canvas.drawLine(Offset(plotRect.left, y), Offset(plotRect.right, y), gridPaint);
-      v += vppStep;
+    // Horizontal grid lines — use Vpp ticks when Vpp is measured,
+    // otherwise fall back to Freq ticks.
+    if (vppEnabled) {
+      final vppStep = _tickStep(ranges.niceMinVpp, ranges.niceMaxVpp);
+      double v = ranges.niceMinVpp;
+      while (v <= ranges.niceMaxVpp + 0.001) {
+        final y = _mapValueToY(v, ranges.niceMinVpp, ranges.niceMaxVpp, plotRect);
+        canvas.drawLine(Offset(plotRect.left, y), Offset(plotRect.right, y), gridPaint);
+        v += vppStep;
+      }
+    } else if (freqEnabled) {
+      final freqStep = _tickStep(ranges.niceMinFreq, ranges.niceMaxFreq);
+      double f = ranges.niceMinFreq;
+      while (f <= ranges.niceMaxFreq + 0.001) {
+        final y = _mapValueToY(f, ranges.niceMinFreq, ranges.niceMaxFreq, plotRect);
+        canvas.drawLine(Offset(plotRect.left, y), Offset(plotRect.right, y), gridPaint);
+        f += freqStep;
+      }
     }
 
     // Vertical grid lines (Time) — integer display values converted back
@@ -510,32 +529,38 @@ class _DataLoggerPlotPainter extends CustomPainter {
     Canvas canvas,
     Rect plotRect,
     _AxisRanges ranges,
-    Size size,
-  ) {
+    Size size, {
+    required bool vppEnabled,
+    required bool freqEnabled,
+  }) {
     final textStyle = TextStyle(color: _labelColor, fontSize: 10);
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
 
-    // Left Y-axis label (Vpp)
-    textPainter.text = TextSpan(text: 'Vpp (V)', style: textStyle);
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      Offset(
-        4,
-        plotRect.top + (plotRect.height - textPainter.height) / 2,
-      ),
-    );
+    // Left Y-axis label (Vpp) — only when Vpp measurements are enabled
+    if (vppEnabled) {
+      textPainter.text = TextSpan(text: 'Vpp (V)', style: textStyle);
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(
+          4,
+          plotRect.top + (plotRect.height - textPainter.height) / 2,
+        ),
+      );
+    }
 
-    // Right Y-axis label (Frequency)
-    textPainter.text = TextSpan(text: 'Freq (Hz)', style: textStyle);
-    textPainter.layout();
-    textPainter.paint(
-      canvas,
-      Offset(
-        size.width - textPainter.width - 4,
-        plotRect.top + (plotRect.height - textPainter.height) / 2,
-      ),
-    );
+    // Right Y-axis label (Frequency) — only when Freq measurements are enabled
+    if (freqEnabled) {
+      textPainter.text = TextSpan(text: 'Freq (Hz)', style: textStyle);
+      textPainter.layout();
+      textPainter.paint(
+        canvas,
+        Offset(
+          size.width - textPainter.width - 4,
+          plotRect.top + (plotRect.height - textPainter.height) / 2,
+        ),
+      );
+    }
 
     // X-axis label (Time) — choose seconds / minutes / hours based on duration
     final (timeFactor, timeUnit) = _timeUnitInfo(totalDurationSeconds);
@@ -550,37 +575,41 @@ class _DataLoggerPlotPainter extends CustomPainter {
     );
 
     // Y-axis tick labels (left: Vpp at each tick)
-    final vppStep = _tickStep(ranges.niceMinVpp, ranges.niceMaxVpp);
-    double v = ranges.niceMinVpp;
-    while (v <= ranges.niceMaxVpp + 0.001) {
-      final y = _mapValueToY(v, ranges.niceMinVpp, ranges.niceMaxVpp, plotRect);
-      textPainter.text = TextSpan(
-        text: _formatAxisValue(v),
-        style: textStyle,
-      );
-      textPainter.layout();
-      textPainter.paint(
-        canvas,
-        Offset(plotRect.left - textPainter.width - 4, y - textPainter.height / 2),
-      );
-      v += vppStep;
+    if (vppEnabled) {
+      final vppStep = _tickStep(ranges.niceMinVpp, ranges.niceMaxVpp);
+      double v = ranges.niceMinVpp;
+      while (v <= ranges.niceMaxVpp + 0.001) {
+        final y = _mapValueToY(v, ranges.niceMinVpp, ranges.niceMaxVpp, plotRect);
+        textPainter.text = TextSpan(
+          text: _formatAxisValue(v),
+          style: textStyle,
+        );
+        textPainter.layout();
+        textPainter.paint(
+          canvas,
+          Offset(plotRect.left - textPainter.width - 4, y - textPainter.height / 2),
+        );
+        v += vppStep;
+      }
     }
 
     // Y-axis tick labels (right: Freq at each tick)
-    final freqStep = _tickStep(ranges.niceMinFreq, ranges.niceMaxFreq);
-    double f = ranges.niceMinFreq;
-    while (f <= ranges.niceMaxFreq + 0.001) {
-      final y = _mapValueToY(f, ranges.niceMinFreq, ranges.niceMaxFreq, plotRect);
-      textPainter.text = TextSpan(
-        text: _formatAxisValue(f),
-        style: textStyle,
-      );
-      textPainter.layout();
-      textPainter.paint(
-        canvas,
-        Offset(plotRect.right + 4, y - textPainter.height / 2),
-      );
-      f += freqStep;
+    if (freqEnabled) {
+      final freqStep = _tickStep(ranges.niceMinFreq, ranges.niceMaxFreq);
+      double f = ranges.niceMinFreq;
+      while (f <= ranges.niceMaxFreq + 0.001) {
+        final y = _mapValueToY(f, ranges.niceMinFreq, ranges.niceMaxFreq, plotRect);
+        textPainter.text = TextSpan(
+          text: _formatAxisValue(f),
+          style: textStyle,
+        );
+        textPainter.layout();
+        textPainter.paint(
+          canvas,
+          Offset(plotRect.right + 4, y - textPainter.height / 2),
+        );
+        f += freqStep;
+      }
     }
 
     // X-axis tick labels — integer display values (s/min/h), grid lines
