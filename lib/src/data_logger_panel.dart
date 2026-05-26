@@ -347,17 +347,18 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
                                 },
                               ),
                             ),
-                            // Legend toggle chips
-                            if (_status == DataLoggerStatus.running ||
-                                _status == DataLoggerStatus.stopped) ...[
-                              const SizedBox(height: 6),
-                              _buildLegendToggleRow(),
-                            ],
                           ],
                         ),
                       ),
                     ),
                   ),
+                  // Legend toggle chips (outside RepaintBoundary, not captured)
+                  if (_status == DataLoggerStatus.running ||
+                      _status == DataLoggerStatus.stopped)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
+                      child: _buildLegendToggleRow(),
+                    ),
                 ],
               ),
             ),

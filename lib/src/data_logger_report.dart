@@ -34,7 +34,7 @@ class DataLoggerReport {
     final last = points.last;
 
     // Build the measurement rows for all enabled parameters.
-    final measurementRows = _buildMeasurementRows(config, first, last);
+    final measurementRows = _buildMeasurementRows(config, points, first, last);
 
     // Format total recording time.
     final totalSeconds = config.durationMinutes * 60.0;
@@ -94,10 +94,12 @@ class DataLoggerReport {
             cellAlignment: pw.Alignment.centerLeft,
             columnWidths: {
               0: const pw.FlexColumnWidth(2),
-              1: const pw.FlexColumnWidth(1.5),
-              2: const pw.FlexColumnWidth(1.5),
+              1: const pw.FlexColumnWidth(1.2),
+              2: const pw.FlexColumnWidth(1.2),
+              3: const pw.FlexColumnWidth(1.2),
+              4: const pw.FlexColumnWidth(1.2),
             },
-            headers: ['Parameter', 'Start', 'End'],
+            headers: ['Parameter', 'Start', 'End', 'Min', 'Max'],
             data: measurementRows,
           ),
           pw.SizedBox(height: 24),
@@ -115,8 +117,11 @@ class DataLoggerReport {
   }
 
   /// Builds the table data rows for the enabled measurement parameters.
+  ///
+  /// Each row contains: Parameter, Start, End, Min, Max.
   static List<List<String>> _buildMeasurementRows(
     DataLoggerConfig config,
+    List<DataLoggerPoint> points,
     DataLoggerPoint first,
     DataLoggerPoint last,
   ) {
@@ -127,6 +132,8 @@ class DataLoggerReport {
         'CH1 Vpp',
         _fmtValue(first.ch1Vpp, 'V'),
         _fmtValue(last.ch1Vpp, 'V'),
+        _fmtValue(_minValue(points.map((p) => p.ch1Vpp)), 'V'),
+        _fmtValue(_maxValue(points.map((p) => p.ch1Vpp)), 'V'),
       ]);
     }
     if (config.ch1FreqEnabled) {
@@ -134,6 +141,8 @@ class DataLoggerReport {
         'CH1 Freq',
         _fmtFreq(first.ch1Freq),
         _fmtFreq(last.ch1Freq),
+        _fmtFreq(_minValue(points.map((p) => p.ch1Freq))),
+        _fmtFreq(_maxValue(points.map((p) => p.ch1Freq))),
       ]);
     }
     if (config.ch2VppEnabled) {
@@ -141,6 +150,8 @@ class DataLoggerReport {
         'CH2 Vpp',
         _fmtValue(first.ch2Vpp, 'V'),
         _fmtValue(last.ch2Vpp, 'V'),
+        _fmtValue(_minValue(points.map((p) => p.ch2Vpp)), 'V'),
+        _fmtValue(_maxValue(points.map((p) => p.ch2Vpp)), 'V'),
       ]);
     }
     if (config.ch2FreqEnabled) {
@@ -148,10 +159,30 @@ class DataLoggerReport {
         'CH2 Freq',
         _fmtFreq(first.ch2Freq),
         _fmtFreq(last.ch2Freq),
+        _fmtFreq(_minValue(points.map((p) => p.ch2Freq))),
+        _fmtFreq(_maxValue(points.map((p) => p.ch2Freq))),
       ]);
     }
 
     return rows;
+  }
+
+  /// Returns the minimum non-null double from the iterable, or null if empty.
+  static double? _minValue(Iterable<double?> values) {
+    double? min;
+    for (final v in values) {
+      if (v != null && (min == null || v < min)) min = v;
+    }
+    return min;
+  }
+
+  /// Returns the maximum non-null double from the iterable, or null if empty.
+  static double? _maxValue(Iterable<double?> values) {
+    double? max;
+    for (final v in values) {
+      if (v != null && (max == null || v > max)) max = v;
+    }
+    return max;
   }
 
   /// Format a voltage value, returning "N/A" if null.
