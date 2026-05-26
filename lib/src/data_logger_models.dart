@@ -27,6 +27,10 @@ class DataLoggerConfig {
   final int intervalSeconds;
   final int durationMinutes;
 
+  /// Optional free-text description (max 150 characters).
+  /// Shown on top of the logger chart and included in the PDF report.
+  final String description;
+
   /// True if any measurement is enabled for CH1.
   bool get ch1Enabled => ch1VppEnabled || ch1FreqEnabled;
 
@@ -40,6 +44,7 @@ class DataLoggerConfig {
     this.ch2FreqEnabled = false,
     this.intervalSeconds = 10,
     this.durationMinutes = 1,
+    this.description = '',
   });
 
   /// Total number of data points expected for this configuration.
@@ -54,6 +59,7 @@ class DataLoggerConfig {
     bool? ch2FreqEnabled,
     int? intervalSeconds,
     int? durationMinutes,
+    String? description,
   }) {
     return DataLoggerConfig(
       ch1VppEnabled: ch1VppEnabled ?? this.ch1VppEnabled,
@@ -62,6 +68,7 @@ class DataLoggerConfig {
       ch2FreqEnabled: ch2FreqEnabled ?? this.ch2FreqEnabled,
       intervalSeconds: intervalSeconds ?? this.intervalSeconds,
       durationMinutes: durationMinutes ?? this.durationMinutes,
+      description: description ?? this.description,
     );
   }
 
@@ -74,7 +81,8 @@ class DataLoggerConfig {
           ch2VppEnabled == other.ch2VppEnabled &&
           ch2FreqEnabled == other.ch2FreqEnabled &&
           intervalSeconds == other.intervalSeconds &&
-          durationMinutes == other.durationMinutes;
+          durationMinutes == other.durationMinutes &&
+          description == other.description;
 
   @override
   int get hashCode => Object.hash(
@@ -84,6 +92,7 @@ class DataLoggerConfig {
         ch2FreqEnabled,
         intervalSeconds,
         durationMinutes,
+        description,
       );
 
   @override
@@ -91,7 +100,9 @@ class DataLoggerConfig {
       'DataLoggerConfig('
       'ch1Vpp=$ch1VppEnabled, ch1Freq=$ch1FreqEnabled, '
       'ch2Vpp=$ch2VppEnabled, ch2Freq=$ch2FreqEnabled, '
-      'interval=${intervalSeconds}s, duration=${durationMinutes}min)';
+      'interval=${intervalSeconds}s, duration=${durationMinutes}min'
+      '${description.isEmpty ? '' : ', description=$description'}'
+      ')';
 }
 
 // =============================================================================

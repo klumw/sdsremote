@@ -46,20 +46,33 @@ class DataLoggerPanel extends StatefulWidget {
   /// when switching panels.
   final ValueChanged<DataLoggerService>? onServiceCreated;
 
+  /// Called when recording finishes with the final points and config.
+  /// Fires both on manual stop and when the configured duration elapses.
+  final void Function(
+    List<DataLoggerPoint> points,
+    DataLoggerConfig? config,
+  )? onRecordingFinished;
+
   /// Saved state to restore after panel is reopened.
   final List<DataLoggerPoint>? savedPoints;
   final DataLoggerConfig? savedConfig;
   final DataLoggerStatus? savedStatus;
   final Set<String>? savedHiddenLines;
 
+  /// GlobalKey for the plot area's RepaintBoundary, used to capture
+  /// the chart as an image for PDF report generation.
+  final GlobalKey? plotKey;
+
   const DataLoggerPanel({
     super.key,
     required this.getInstrument,
     required this.isOnline,
     required this.onClose,
+    this.plotKey,
     this.onRunningChanged,
     this.onSaveState,
     this.onServiceCreated,
+    this.onRecordingFinished,
     this.savedPoints,
     this.savedConfig,
     this.savedStatus,
@@ -161,6 +174,8 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
         _status = DataLoggerStatus.stopped;
         _pulseController.stop();
         widget.onRunningChanged?.call(false);
+        // Notify parent that recording finished with final data
+        widget.onRecordingFinished?.call(_points, _config);
       }
     });
   }
@@ -260,60 +275,90 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
           // container during the setup/configuring phase.
           if (_status != DataLoggerStatus.configuring)
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-                child: Column(
-                  children: [
-                    Expanded(
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          return Stack(
-                            children: [
-                              DataLoggerPlot(
-                                points: _points,
-                                ch1VppEnabled: _config?.ch1VppEnabled ?? true,
-                                ch1FreqEnabled: _config?.ch1FreqEnabled ?? true,
-                                ch2VppEnabled: _config?.ch2VppEnabled ?? false,
-                                ch2FreqEnabled: _config?.ch2FreqEnabled ?? false,
-                                status: _status,
-                                totalDurationSeconds: (_config?.durationMinutes ?? 1) * 60.0,
-                                hiddenLines: _hiddenLines,
-                                onToggleLine: (id) {
-                                  setState(() {
-                                    if (_hiddenLines.contains(id)) {
-                                      _hiddenLines.remove(id);
-                                    } else {
-                                      _hiddenLines.add(id);
-                                    }
-                                  });
-                                },
-                                onHover: (time, localX, localY) {
-                                  setState(() {
-                                    _hoveredTime = time < 0 ? null : time;
-                                    _hoverX = localX;
-                                    _hoverY = localY;
-                                  });
-                                },
-                              ),
-                              if (_hoveredTime != null && _points.isNotEmpty)
-                                _buildHoverTooltip(
-                                  tooltipAreaWidth: constraints.maxWidth,
-                                  tooltipAreaHeight: constraints.maxHeight,
-                                ),
-                            ],
-                          );
-                        },
+              child: Column(
+                children: [
+                  // Description banner (outside RepaintBoundary, not captured)
+                  if (_config != null && _config!.description.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                      child: Text(
+                        _config!.description,
+                        style: const TextStyle(
+                          color: Colors.cyanAccent,
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        textAlign: TextAlign.center,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    // Legend toggle chips — only show during recording/stopped,
-                    // hide during setup/configuring state.
-                    if (_status == DataLoggerStatus.running ||
-                        _status == DataLoggerStatus.stopped) ...[
-                      const SizedBox(height: 6),
-                      _buildLegendToggleRow(),
-                    ],
-                  ],
-                ),
+                  // Plot + legend inside RepaintBoundary for image capture
+                  Expanded(
+                    child: RepaintBoundary(
+                      key: widget.plotKey,
+                      child: Padding(
+                        padding: EdgeInsets.fromLTRB(
+                          16,
+                          (_config != null && _config!.description.isNotEmpty) ? 8 : 16,
+                          16,
+                          0,
+                        ),
+                        child: Column(
+                          children: [
+                            Expanded(
+                              child: LayoutBuilder(
+                                builder: (context, constraints) {
+                                  return Stack(
+                                    children: [
+                                      DataLoggerPlot(
+                                        points: _points,
+                                        ch1VppEnabled: _config?.ch1VppEnabled ?? true,
+                                        ch1FreqEnabled: _config?.ch1FreqEnabled ?? true,
+                                        ch2VppEnabled: _config?.ch2VppEnabled ?? false,
+                                        ch2FreqEnabled: _config?.ch2FreqEnabled ?? false,
+                                        status: _status,
+                                        totalDurationSeconds: (_config?.durationMinutes ?? 1) * 60.0,
+                                        hiddenLines: _hiddenLines,
+                                        onToggleLine: (id) {
+                                          setState(() {
+                                            if (_hiddenLines.contains(id)) {
+                                              _hiddenLines.remove(id);
+                                            } else {
+                                              _hiddenLines.add(id);
+                                            }
+                                          });
+                                        },
+                                        onHover: (time, localX, localY) {
+                                          setState(() {
+                                            _hoveredTime = time < 0 ? null : time;
+                                            _hoverX = localX;
+                                            _hoverY = localY;
+                                          });
+                                        },
+                                      ),
+                                      if (_hoveredTime != null && _points.isNotEmpty)
+                                        _buildHoverTooltip(
+                                          tooltipAreaWidth: constraints.maxWidth,
+                                          tooltipAreaHeight: constraints.maxHeight,
+                                        ),
+                                    ],
+                                  );
+                                },
+                              ),
+                            ),
+                            // Legend toggle chips
+                            if (_status == DataLoggerStatus.running ||
+                                _status == DataLoggerStatus.stopped) ...[
+                              const SizedBox(height: 6),
+                              _buildLegendToggleRow(),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
 

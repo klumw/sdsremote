@@ -31,6 +31,7 @@ import 'src/osci_profiles_panel.dart';
 import 'src/data_logger_models.dart';
 import 'src/data_logger_panel.dart';
 import 'src/data_logger_service.dart';
+import 'src/data_logger_report.dart';
 import 'src/app_paths.dart';
 
 // ===========================================================================
@@ -396,6 +397,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   // Keys
 
   final GlobalKey _waveformKey = GlobalKey();
+  final GlobalKey _dlPlotKey = GlobalKey();
 
   // =========================================================================
   // Computed Properties
@@ -780,14 +782,12 @@ class _OsciHomePageState extends State<OsciHomePage>
           IconButton(
             icon: const Icon(Icons.save_alt, size: 25),
             color:
-                (_activePanel == ActivePanel.none &&
-                    (_screenDump != null || _waveformAcquired))
+                (_canSaveStandard || _canSaveDataLoggerReport)
                 ? Colors.white70
                 : Colors.white24,
             tooltip: 'Save',
             onPressed:
-                (_activePanel == ActivePanel.none &&
-                    (_screenDump != null || _waveformAcquired))
+                (_canSaveStandard || _canSaveDataLoggerReport)
                 ? _saveCurrentView
                 : null,
           ),
@@ -967,6 +967,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   Widget _buildDataLoggerWindow() {
     return DataLoggerPanel(
+      plotKey: _dlPlotKey,
       getInstrument: _getInstrument,
       isOnline: _isOnline,
       savedPoints: _savedDlPoints,
@@ -981,6 +982,12 @@ class _OsciHomePageState extends State<OsciHomePage>
         _savedDlConfig = config;
         _savedDlStatus = status;
         _savedDlHiddenLines = hiddenLines;
+      },
+      onRecordingFinished: (points, config) {
+        _savedDlPoints = points;
+        _savedDlConfig = config;
+        _savedDlStatus = DataLoggerStatus.stopped;
+        if (mounted) setState(() {});
       },
       onRunningChanged: (running) {
         if (running) {
@@ -1435,11 +1442,24 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
   }
 
+  /// Whether the standard save (screen dump or waveform) is available.
+  bool get _canSaveStandard =>
+      _activePanel == ActivePanel.none &&
+      (_screenDump != null || _waveformAcquired);
+
+  /// Whether a data logger report can be saved.
+  bool get _canSaveDataLoggerReport =>
+      _activePanel == ActivePanel.dataLogger &&
+      _savedDlStatus == DataLoggerStatus.stopped &&
+      (_savedDlPoints?.length ?? 0) > 1;
+
   Future<void> _saveCurrentView() async {
     if (_screenDump != null) {
       await _saveScreenDump();
     } else if (_waveformCh1 != null || _waveformCh2 != null) {
       await _saveWaveform();
+    } else if (_canSaveDataLoggerReport) {
+      await _saveDataLoggerReport();
     }
   }
 
@@ -1556,6 +1576,79 @@ class _OsciHomePageState extends State<OsciHomePage>
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(msg)));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Save failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Captures the Data Logger chart as a PNG image, generates a PDF report,
+  /// and saves it to the application's default save directory.
+  Future<void> _saveDataLoggerReport() async {
+    try {
+      final points = _savedDlPoints;
+      final config = _savedDlConfig;
+      if (points == null || config == null) {
+        throw Exception('No data logger data available');
+      }
+
+      // Capture the chart image from the RepaintBoundary
+      final boundary = _dlPlotKey.currentContext?.findRenderObject()
+          as RenderRepaintBoundary?;
+      if (boundary == null) {
+        throw Exception('Data logger chart not rendered yet');
+      }
+
+      // Capture at higher pixel ratio for better quality
+      final uiImage = await boundary.toImage(pixelRatio: 2.0);
+      // Use raw RGBA (same format as waveform capture) for reliable decoding
+      final byteData = await uiImage.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      );
+      if (byteData == null) {
+        throw Exception('Failed to capture data logger chart');
+      }
+      final rgba = byteData.buffer.asUint8List();
+
+      // Brighten each pixel: scale RGB values to lighten the dark background.
+      // The background is 0xFF0A192F (R=10, G=25, B=47).
+      final image = img.Image.fromBytes(
+        width: uiImage.width,
+        height: uiImage.height,
+        bytes: rgba.buffer,
+        numChannels: 4,
+      );
+      // First pass: multiply brightness (2.5x to lighten the very dark bg)
+      for (final pixel in image) {
+        pixel.r = (pixel.r * 2.5).clamp(0, 255).toInt();
+        pixel.g = (pixel.g * 2.5).clamp(0, 255).toInt();
+        pixel.b = (pixel.b * 2.5).clamp(0, 255).toInt();
+      }
+      final chartImageBytes = img.encodePng(image);
+
+      // Generate the PDF report
+      final pdfBytes = await DataLoggerReport.generatePdf(
+        points: points,
+        config: config,
+        chartImageBytes: chartImageBytes,
+      );
+
+      // Write to the default save directory
+      final dir = await AppPaths.getOrCreateDefaultDirectory();
+      final file = File('${dir.path}/data_logging_report.pdf');
+      await file.writeAsBytes(pdfBytes);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Saved data_logging_report.pdf')),
+        );
       }
     } catch (e) {
       if (mounted) {

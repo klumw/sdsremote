@@ -63,6 +63,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
   bool _ch2FreqEnabled = false;
   double _intervalSeconds = 10; // Slider: 10–60
   int _durationIndex = 0; // Index into _durationPresetsMinutes
+  final _descriptionController = TextEditingController();
 
   @override
   void initState() {
@@ -78,7 +79,14 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
       _durationIndex = _durationPresetsMinutes
           .indexOf(saved)
           .clamp(0, _durationPresetsMinutes.length - 1);
+      _descriptionController.text = widget.currentConfig!.description;
     }
+  }
+
+  @override
+  void dispose() {
+    _descriptionController.dispose();
+    super.dispose();
   }
 
   /// True if any measurement is enabled.
@@ -94,6 +102,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
       ch2FreqEnabled: _ch2FreqEnabled,
       intervalSeconds: _intervalSeconds.round(),
       durationMinutes: _durationMinutes,
+      description: _descriptionController.text.trim(),
     ));
   }
 
@@ -152,6 +161,36 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
               ],
             ),
           ),
+          const SizedBox(height: 12),
+
+          // ---- Description ----
+          TextField(
+            controller: _descriptionController,
+            maxLength: 150,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+            decoration: InputDecoration(
+              hintText: 'Description (optional)',
+              hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+              filled: true,
+              fillColor: const Color(0xFF172A45).withValues(alpha: 0.5),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFF475569)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFF475569)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Colors.cyanAccent),
+              ),
+              counterStyle: const TextStyle(color: Colors.white38, fontSize: 10),
+            ),
+            onChanged: (_) => _emitConfig(),
+          ),
+          const SizedBox(height: 16),
 
           // ---- Measurement Toggle Buttons ----
           _buildSectionTitle('Measurements'),
