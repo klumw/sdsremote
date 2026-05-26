@@ -169,7 +169,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
             maxLength: 150,
             style: const TextStyle(color: Colors.white, fontSize: 13),
             decoration: InputDecoration(
-              hintText: 'Description (optional)',
+              hintText: 'Report Name (optional)',
               hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
               filled: true,
               fillColor: const Color(0xFF172A45).withValues(alpha: 0.5),
