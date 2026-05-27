@@ -1159,21 +1159,8 @@ class Vxi11Instrument {
           }
         }
         
-        // If no known instrument VID matched, fall back to the first device matching VID/PID
-        for (final match in matches) {
-          final vid = match.group(1)!.toLowerCase();
-          final pid = match.group(2)!.toLowerCase();
-          final serial = match.group(3)!.trim();
-          
-          var cleanSerial = serial;
-          final ampersandIndex = serial.indexOf('&');
-          if (ampersandIndex >= 0) {
-            cleanSerial = serial.substring(0, ampersandIndex);
-          }
-          
-          final address = 'USB0::0x$vid::0x$pid::$cleanSerial::INSTR';
-          return address;
-        }
+        // No known oscilloscope VID matched — do NOT fall back to arbitrary USB devices
+        // (e.g. mouse, keyboard) to avoid falsely reporting isOnline=true for non-USBTMC hardware.
       } catch (e) {
         AppLogger().log('USBTMC Windows live device detection failed: $e');
       }
