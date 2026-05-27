@@ -265,7 +265,25 @@ class _HelpWindowState extends State<HelpWindow> {
                 _buildSearchBar(),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 4),
+            // Black blurred line with 3D depth effect
+            Container(
+              height: 2,
+              decoration: BoxDecoration(
+                border: const Border(
+                  top: BorderSide(color: Colors.black, width: 1),
+                  bottom: BorderSide(color: Colors.white10, width: 1),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.95),
+                    blurRadius: 6,
+                    spreadRadius: 2,
+                    offset: const Offset(0, 3),
+                  ),
+                ],
+              ),
+            ),
             // Markdown content — using MarkdownBody (non-scrolling) inside a
             // SingleChildScrollView so WE control the ScrollController.
             Expanded(
