@@ -26,6 +26,14 @@ class DataLoggerService {
   double _probeDividerCh1 = 1.0;
   double _probeDividerCh2 = 1.0;
 
+  /// Counter for ASET (auto-setup) commands sent during the current
+  /// recording session. Constrained to a maximum of 4 over the entire
+  /// recording to prevent excessive auto-setup cycles.
+  int _asetCount = 0;
+
+  /// Maximum number of ASET commands allowed per recording session.
+  static const int _maxAsetCommands = 4;
+
   /// Expose probe divider values for UI display.
   double get probeDividerCh1 => _probeDividerCh1;
   double get probeDividerCh2 => _probeDividerCh2;
@@ -64,6 +72,7 @@ class DataLoggerService {
     stop();
     _hasStopped = false;
     _pointCount = 0;
+    _asetCount = 0;
     _startTime = DateTime.now();
     config = cfg;
     _probeDividersQueried = false;
@@ -138,12 +147,20 @@ class DataLoggerService {
       // avoiding a race on _getInstrument().
       if (!_probeDividersQueried) {
         _probeDividersQueried = true;
-        AppLogger(agentName: 'DataLogger', toolName: '_doSample').log(
-          'Sending ASET command to auto-setup the instrument...',
-        );
-        await instr.writeString('ASET');
-        // Wait for the auto-setup to settle on the device.
-        await Future.delayed(const Duration(seconds: 5));
+        if (_asetCount < _maxAsetCommands) {
+          _asetCount++;
+          AppLogger(agentName: 'DataLogger', toolName: '_doSample').log(
+            'Sending ASET command (${_asetCount}/$_maxAsetCommands) '
+            'to auto-setup the instrument...',
+          );
+          await instr.writeString('ASET');
+          // Wait for the auto-setup to settle on the device.
+          await Future.delayed(const Duration(seconds: 5));
+        } else {
+          AppLogger(agentName: 'DataLogger', toolName: '_doSample').log(
+            'ASET limit reached ($_maxAsetCommands), skipping initial auto-setup.',
+          );
+        }
 
         if (cfg.ch1Enabled) {
           final v = await _queryDouble(instr, 'C1:ATTN?');
@@ -263,16 +280,25 @@ class DataLoggerService {
 
       // If the signal is out of range, auto-setup and retry once.
       if (rawResponse.contains('***')) {
-        AppLogger(agentName: 'DataLogger', toolName: '_queryPava').log(
-          'PAVA query returned out-of-range (***): $cmd. Sending ASET...',
-        );
-        // Send auto-setup and wait for the instrument to settle.
-        await instr.writeString('ASET');
-        await Future.delayed(const Duration(seconds: 5));
-        // Retry the PAVA query exactly once.
-        AppLogger(agentName: 'DataLogger', toolName: '_queryPava').log(
-          'Retrying PAVA query after ASET: $cmd',
-        );
+        if (_asetCount < _maxAsetCommands) {
+          _asetCount++;
+          AppLogger(agentName: 'DataLogger', toolName: '_queryPava').log(
+            'PAVA query returned out-of-range (***): $cmd. '
+            'Sending ASET (${_asetCount}/$_maxAsetCommands)...',
+          );
+          // Send auto-setup and wait for the instrument to settle.
+          await instr.writeString('ASET');
+          await Future.delayed(const Duration(seconds: 5));
+          // Retry the PAVA query exactly once.
+          AppLogger(agentName: 'DataLogger', toolName: '_queryPava').log(
+            'Retrying PAVA query after ASET: $cmd',
+          );
+        } else {
+          AppLogger(agentName: 'DataLogger', toolName: '_queryPava').log(
+            'ASET limit reached ($_maxAsetCommands), cannot auto-setup '
+            'for out-of-range response: $cmd.',
+          );
+        }
         await instr.writeString(cmd);
         rawResponse = (await instr.readString()).trim();
         AppLogger(agentName: 'DataLogger', toolName: '_queryPava').log(
