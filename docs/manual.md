@@ -203,9 +203,14 @@ The **Profiles** feature allows you to save and restore the configuration of you
 
 > **Note:** Profile operations require the device to be **ONLINE**
 
+## 6 Data Logger
+
+The data logger logs peak to peak voltage or frequency for Channel 1 and 2 over a period of 1 minute up to 24 hours. After collecting the data a pdf report with chart and 
+start/end and min/max values can be generated. In the setup dialog an optional report name with up to 150 character can be entered. The data point collection time and recording time can be chosen with sliders.
+On start a plot chart is generated that shows the trace lines for the selected key params. Once the recording is finished a pdf test report can be saved. When save csv daa is enabled in the settings, all recorded data points are exported in csv file format.
 ---
 
-## 6. Getting Started
+## 7. Getting Started
 
 ### Basic Connection Setup
 
@@ -228,7 +233,7 @@ The directory is OS specific:
 
 ---
 
-## 7. Troubleshooting (Non-AI)
+## 8. Troubleshooting (Non-AI)
 
 ### Connection Issues
 
@@ -254,7 +259,7 @@ The directory is OS specific:
 
 ---
 
-## 8. Technical Details
+## 9. Technical Details
 
 ### Communication
 
@@ -277,13 +282,13 @@ The directory is OS specific:
 
 ---
 
-## 9. Support and Feedback
+## 10. Support and Feedback
 
 * Review the troubleshooting section  
 * Check logs at `/tmp/sds/logging/sds.log` (Linux) or `%TEMP%\sds\logging\sds.log` (Windows)  
 * Submit issues or feature requests via the [sdsremote](https://github.com/klumw/sdsremote) GitHub repository Issues section  
 
 ---
-## 10. License
+## 11. License
 
 * **This software is released under the terms and conditions of the [Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0.html)**
