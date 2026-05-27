@@ -12,38 +12,38 @@ SDS-Remote enables remote control and AI-enhanced operation of Siglent SDS1202X-
 
 ### Key Features
 
-- **Remote Oscilloscope Control**: Control your oscilloscope over a network using the VXI-11 protocol or USB (USB support is experimental).
+- **Remote Oscilloscope Control**: Control supported oscilloscopes remotely over a network using the VXI-11 protocol or through USB connectivity (USB support is currently experimental).
 - **Waveform Acquisition & Data Export**: Capture and display waveform data from enabled channels. Save screen captures as images and export waveform data as CSV files.
 - **Device Parameter Monitoring**: View real-time parameters such as timebase, sample rate, and voltage settings. Cursor-based measurements are supported.
-- **Data Logging**: Log key data points over a period of time. Generate pdf measurement protocols with chart and key data or generate csv files with all the recorded data points.
+- **Data Logging**: Log key data points over a period of time. Generate PDF measurement reports containing charts and key metrics, or export all recorded measurement points as CSV files.
 
-### Waveform Data Aquisition
+### Waveform Data Acquisition
 
-Collect and display waveform data. Do advanced measurements with X/Y Cursors. Zoom in and out on your waveform. Export waveform data as image or csv data.
+Acquire and visualize waveform data. Perform advanced measurements using X/Y cursors and zoom controls for detailed waveform analysis. Export waveform data as image files or CSV datasets.
 
 ![Waveform Acquisition](docs/sdsremote_wf.png)
 
 ### Remote Control Panel
 
- Acquire and view the oscilloscope display. Control your oscilloscope remotely using a virtual front panel.
+ Acquire and display oscilloscope screenshots in real time. Control your oscilloscope remotely using a virtual front panel.
 
 ![Remote Control Panel](docs/sdsremote_cp.png)
 
 ### AI Chat Interface
 
-Send commands and query oscilloscope functionality using natural language.
+Send commands and query oscilloscope functionality using natural-language prompts.
 
 ![AI Chat Interface](docs/sdsremote_ai.png)
 
 ### Device Profile Management
 
- Save and restore oscilloscope configurations as local `.lss` files.
+ Save and restore oscilloscope configurations using local `.lss` profile files.
 
 ![Device Profile Management](docs/sdsremote_dp.png)
 
 ### Data Logging
 
- Log key data points for over a period from 1 minute up to 24 hours. Measure frequency or peak to peak voltage drifts and generate reports with a detailed diagram, start/end and min/max values. All data points can also be saved in a separate csv file.
+ Log key measurement data over configurable durations ranging from 1 minute to 24 hours. Measure frequency drift and peak-to-peak voltage variations and generate reports with a detailed diagram, start/end and min/max values. All data points can also be saved in a separate csv file.
 
 ![Data Logger](docs/sdsremote_dl.png)
 ---
@@ -215,7 +215,7 @@ The following LLMs are known to work with the application:
 
 *For exact model names, refer to your provider's documentation.*
 
-> The AI may generate inaccurate information or incorrect device operation instructions. Use at your own risk.
+> The AI subsystem may generate inaccurate information or incorrect operating instructions. Use this functionality at your own risk.
 
 ---
 
