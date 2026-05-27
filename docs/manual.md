@@ -1,5 +1,3 @@
-# SDS-Remote Help
-
 ## 1. Introduction & Overview
 
 **SDS-Remote** is a remote control interface and help center for Siglent SDS 1000X-E series oscilloscopes.

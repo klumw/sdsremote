@@ -248,10 +248,22 @@ class _HelpWindowState extends State<HelpWindow> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Search bar — right-aligned
-            Align(
-              alignment: Alignment.centerRight,
-              child: _buildSearchBar(),
+            // Headline and search bar row
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              crossAxisAlignment: CrossAxisAlignment.baseline,
+              textBaseline: TextBaseline.alphabetic,
+              children: [
+                const Text(
+                  'SDS-Remote Help',
+                  style: TextStyle(
+                    color: Colors.cyanAccent,
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                _buildSearchBar(),
+              ],
             ),
             const SizedBox(height: 8),
             // Markdown content — using MarkdownBody (non-scrolling) inside a
