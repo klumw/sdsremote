@@ -2,41 +2,17 @@
 
 ## 1. Introduction & Overview
 
-**SDS-Remote** is a remote control interface and help center for Siglent SDS 1000X-E series oscilloscopes.  
-It provides a modern graphical user interface (GUI) for instrument control, waveform acquisition,  
-screen capture, and interaction via an integrated AI-powered chat interface.
+**SDS-Remote** is a remote control interface and help center for Siglent SDS 1000X-E series oscilloscopes.
+It provides a modern graphical user interface (GUI) for instrument control, waveform acquisition and analysis, data logging,
+screen capture and device interaction and help through an integrated AI-powered chat interface.
 
-**Note: This application is in no way affiliated with Siglent or any other commercial entities.**
+> **Note:** This application is not affiliated with Siglent or any other commercial entity.
 
 ---
+#### Connection Requirement
 
-### Key Features
-
-* **Remote Oscilloscope Control**  
-  Control your oscilloscope over a network using the VXI-11 protocol
-
-* **Waveform Acquisition**  
-  Capture and display waveform data from enabled channels (CH1, CH2)
-
-* **Remote Control Panel**  
-  Acquire and view the oscilloscope display. Remote control your oscilloscope with a virtual front panel
-
-* **AI Chat Interface**  
-  Send commands and query oscilloscope functionality using natural language
-
-* **Device Profile Management**  
-  Save and restore oscilloscope configurations as local files (.lss) for quick setup
-
-* **Device Parameter Monitoring**  
-  View real-time parameters such as timebase, sample rate, and voltage settings Cursor-based measurements are supported
-
-* **Data Export**  
-  Save screen captures as images and export waveform data as CSV files for further analysis
-
-### Connection Requirement
-
-> **Note:** Only network-based connections via IP address are supported. USB connections are not supported.  
-> Ensure the oscilloscope and host system are on the same network
+> **Note:** Network-based (IP address) and direct USB control is supported. USB support is experimental.
+> For network connection ensure that the oscilloscope and host system are connected to the same network.
 
 ---
 
@@ -44,65 +20,74 @@ screen capture, and interaction via an integrated AI-powered chat interface.
 
 ### 2.1 Top Bar
 
-* **Control Panel**
-  * Displays oscilloscope screen  
-  * Provides a virtual control interface  
+* **Control Panel**  
+
+  * Displays oscilloscope screen
+  * Provides a virtual control interface
   * Disabled when offline or during active operations
 
-* **Acquire Waveform**
-  * Captures waveform data from selected channels  
-  * Displays status during acquisition  
-  * Supports cursor measurements  
-   
-* **Profiles**
-  * Shows/hides the profile management panel  
-  * Allows saving, loading, and deleting device configurations  
+* **Acquire Waveform**  
+  * Captures waveform data from selected channels
+  * Displays status during acquisition
+  * Supports cursor measurements
+
+* **Profiles**  
+  * Shows/hides the profile management panel
+  * Allows saving, loading, and deleting device configurations
   * Disabled when offline
 
-* **AI Toggle**
-  * Shows/hides AI chat interface  
+* **AI Toggle**  
+  * Shows/hides AI chat interface
   * Disabled if AI is not configured
 
-* **Help**
+* **Profiles**  
+  * Save and Upload your device configuration
+
+* **Data Logger**  
+  * Log key parameters over time
+  * Export pdf reports or save data points in a csv file
+
+* **Help**  
   * Opens this documentation
 
-* **News**
+* **News**  
   * Displays application updates
 
-* **Settings**
+* **Settings**  
   * Opens configuration panel (IP and AI settings, export options)
 
-* **Save**
-  * Saves current waveform and cursor data as PNG and optionally CSV data if enabled
-  * Files are saved in the application working directory
+* **Save**  
+  * Saves images, reports and csv data for the different app functionality.
+  * All files are saved in the application working directory
 
 ---
 
 ### 2.2 Status Bar
 
-* **Device IP**: Connected oscilloscope address  
+* **Device IP**: Connected oscilloscope address if network connection is set in the configuration
 * **Status Indicator**:
-  * `ONLINE` (green)  
+  * `ONLINE` (green)
   * `OFFLINE` (red)
 
 ---
 
-## 3. Configuration
+## 3. Settings
 
-Access via the **Settings** button.
+### 3.1.1 Connection Dropdown
 
-### 3.1 Oscilloscope Settings
+* **Choose between network or USB connection**
 
-* **IP Address**  
-  Example:  
+* **IP Address**
+  Example:
   `192.168.1.100`
+  (only available in network mode)
 
-### 3.2 Preferences
+### 3.1.2 CSV data export
 
-* **Export CSV Data**  
-  Enables waveform data export alongside images
+* **Save csv data**  
+  Enables additional csv data export for waveform acquisition and data logger
 
-### 3.3 AI Settings  
+### 3.1.3 AI Settings
 
 > **See section 4.2 for more information**
 
@@ -110,7 +95,7 @@ Access via the **Settings** button.
 
 ## 4. AI System
 
-This feature allows you to interact with the oscilloscope using natural language, or to ask questions about the oscilloscope and its capabilities.  
+This feature enables interaction with the oscilloscope using natural-language commands and allows users to ask questions about device functionality and operation.
 
 ### 4.1 AI Server Requirements
 
@@ -130,22 +115,21 @@ The AI chat feature communicates directly with AI providers via their APIs.
 | OpenRouter |
 | xAI |
 
-Here's a list of LLMs that are proven to work with the application:  
+The following large language models (LLMs) are known to operate correctly with the application:
 
 **deepseek-v4-flash, gpt-4o, gpt-5.4-mini, gemini-3-flash, claude-haiku**  
 *For exact model names, see your provider homepage.*
 
-> Important: The AI ​​may make errors regarding information and device operation. Use is at your own risk.
+> Important: The AI subsystem may generate inaccurate information or incorrect operating instructions. Use this functionality at your own risk.
 ---
-
 
 ### 4.2 AI Model Configuration
 
-1. Open **Settings**  
+1. Open **Settings**
 2. Select AI provider from dropdown
-3. Enter API Key  
-4. Enter model name  
-5. Save configuration  
+3. Enter API Key
+4. Enter model name
+5. Save configuration
 
 ---
 
@@ -153,82 +137,90 @@ Here's a list of LLMs that are proven to work with the application:
 
 #### Access
 
-* Toggle using the **AI button** in the top bar.
+* Open or close the AI chat interface using the **AI** button in the top toolbar.
 
 #### Capabilities
 
 * **Technical Assistance**  
-  Example: *“How do I configure trigger delay on an SDS1104X-E?”*
+  Example: *“How do I configure the trigger delay?”*
 
 * **SCPI Command Execution**  
-  Examples:  
-  * “Set channel 1 vertical scale to 1V/div”  
+  Examples:
+  * “Set channel 1 vertical scale to 1V/div”
   * “Get current timebase setting”
-  * “Send command C1:TRA OFF“
+  * “Switch channel 1 on“
 
-> Note: For best results, English input is recommended.  
-> Use **send command** syntax to send SCPI commands.
+> Note: For best results, English language input is recommended.
+> Use **send command** syntax to send native SCPI commands (e.g.: 'send command C1:TRA ON').
 ---
 
 ### 4.4 AI Troubleshooting
 
 * **AI Disabled**
-  * Check AI config settings
+  * Verify the AI configuration settings.
 
 * **No AI Response**
-  * Validate API credentials and quota  
-  * Check logs  
-  * Confirm internet connectivity  
+  * Verify API credentials and account quota availability.
+  * Check logs
+  * Confirm internet connectivity
 
 ---
 
 ## 5. Device Profiles
 
-The **Profiles** feature allows you to save and restore the configuration of your oscilloscope (using the `.lss` file format).
+The **Profiles** feature allows you to save and restore your device configuration.
 
 ### 5.1 Saving a Profile
 
-1. Configure your oscilloscope as desired.  
-2. Click the **Profiles** button in the top bar.  
-3. Enter a descriptive name in the "Create New Profile" field.  
-   * Names are limited to 30 characters  
-   * Only alphanumeric characters, underscores (`_`), and hyphens (`-`) are allowed  
-4. Click **Save**. The configuration is stored locally in the application directory
+1. Configure your oscilloscope as desired.
+2. Click the **Profiles** button in the top bar.
+3. Enter a descriptive name in the "Create New Profile" field.
+   * Names are limited to 30 characters
+   * Only alphanumeric characters, underscores (`_`), and hyphens (`-`) are allowed
+4. Click **Save**. The configuration is stored in .lss file format in the applications working directory
 
-### 5.2 Loading and Managing Profiles
+### 5.2 Loading and managing Profiles
 
-* **Load**: Apply settings to the connected oscilloscope  
-* **Delete**: Permanently remove a saved profile 
+* **Load**: Apply settings to the connected oscilloscope
+* **Delete**: Permanently remove a saved profile
 * **Sorting**: Sort by **Name** or **Date** (ascending/descending)
 
-> **Note:** Profile operations require the device to be **ONLINE**
+## 6. Data Logger
 
-## 6 Data Logger
+The data logger records peak-to-peak voltage and/or frequency measurements for channel 1 and/or 2 over configurable durations ranging from 1 minute to 24 hours.
 
-The data logger logs peak to peak voltage or frequency for Channel 1 and 2 over a period of 1 minute up to 24 hours. After collecting the data a pdf report with chart and 
-start/end and min/max values can be generated. In the setup dialog an optional report name with up to 150 character can be entered. The data point collection time and recording time can be chosen with sliders.
-On start a plot chart is generated that shows the trace lines for the selected key params. Once the recording is finished a pdf test report can be saved. When save csv daa is enabled in the settings, all recorded data points are exported in csv file format.
+After data acquisition is complete, a PDF measurement report containing the chart and summary statistics can be generated. The report includes:
+
+- Start/End time values
+- Min/Max values
+- Measurement chart
+
+An optional report name containing up to 150 characters can be configured for the report. Measurement interval and recording duration can be adjusted using slider controls.
+
+When recording starts, a real-time plot chart is generated displaying data point tracks for the selected measurement parameters. After the recording is complete, the PDF report can be saved in the application working directory. When CSV export is enabled in the application settings, all recorded measurement points are additionally exported into a CSV file.
+
 ---
 
 ## 7. Getting Started
 
-### Basic Connection Setup
+### Basic Connection Setup for Network Mode
 
-1. Connect the oscilloscope to the network.  
-2. Obtain its IP address.  
-3. Open SDS-Remote.  
-4. Open **Settings**.  
-5. Enter the IP address.  
-6. Click **TEST CONNECTION**.  
-7. Save configuration.  
-8. Verify status is `ONLINE`.
+*Skip steps 1-3 if you have selected USB in Connection Mode settings*
+
+1. Connect the oscilloscope to the network.
+2. Obtain its IP address.
+3. In **Settings** enter the IP address.
+4. In **Settings** click **TEST CONNECTION**.  
+   Check that network/USB low level connectivity works
+5. Save configuration.
+6. Verify that the status bar shows your device as `ONLINE`.
 
 ### Application Directory
 
-The application directory is the place where images, csv and profile files are stored.  
+The application directory stores captured images, CSV exports, and device profile files.
 The directory is OS specific:
 
-* **Linux:** *~/.local/share/sdsremote/*  
+* **Linux:** *~/.local/share/sdsremote/*
 * **Windows:** *%LocalAppData%\sdsremote*
 
 ---
@@ -238,24 +230,23 @@ The directory is OS specific:
 ### Connection Issues
 
 * **Offline Status**
-  * Verify device power and network connection  
-  * Ensure oscilloscope is not in standby  
-  * Validate IP address  
-  * Check firewall (VXI-11 uses port 111)  
-  * Use connection test  
+  * Verify device power and network connection
+  * Ensure oscilloscope is not in standby
+  * If in network mode, validate IP address, firewall (VXI-11 uses port 111)
+  * Use connection test in settings
 
 * **Waveform Acquisition Failure**
-  * Ensure at least one channel is enabled  
-  * Verify trigger configuration  
-  * Confirm valid acquisition state  
+  * Ensure at least one channel is enabled
+  * Verify trigger configuration
+  * Confirm valid acquisition state
 
 ---
 
 ### Display Issues
 
-* Minimum resolution: **1100 × 600**  
-* Update graphics drivers if needed  
-* Large displays may affect UI scaling  
+* Minimum display resolution: **1100 × 600**
+* Update graphics drivers if needed
+* Large displays may affect UI scaling
 
 ---
 
@@ -263,32 +254,32 @@ The directory is OS specific:
 
 ### Communication
 
-* Protocol: VXI-11 over TCP/IP  
-* Command Interface: SCPI  
-* Network-only operation (no USB support)
+* Protocol: VXI-11 over TCP/IP or USB direct connect
+* Command Interface: SCPI
+* Network-based operation only (USB connections are not supported).
 
 ### Data Formats
 
-* **Screen Capture**: BMP (device) → PNG (application)  
-* **Waveform Data**: Binary → voltage/time values  
-* **Device Profiles**: SCPI XML → .lss files  
-* **Exports**: PNG (images), CSV (waveforms)
+* **Screen Capture**: BMP (device) → PNG (application)
+* **Waveform Data**: Binary → voltage/time values
+* **Device Profiles**: SCPI XML → .lss files
+* **Other Export Formats**: PNG (Control Panel, Waveform), CSV (Waveform, Data Logger), PDF (Data Logger)
 
 ### Performance
 
-* Waveforms are downsampled for display efficiency  
-* Screen captures are compressed  
-* AI response times depend on knowledge search activities and provider latency (may vary)
+* Waveforms are downsampled to improve rendering performance and display responsiveness.
+* Screen captures are compressed to reduce storage requirements.
+* AI response times depend on provider latency and knowledge retrieval operations and may vary significantly.
 
 ---
 
 ## 10. Support and Feedback
 
-* Review the troubleshooting section  
-* Check logs at `/tmp/sds/logging/sds.log` (Linux) or `%TEMP%\sds\logging\sds.log` (Windows)  
-* Submit issues or feature requests via the [sdsremote](https://github.com/klumw/sdsremote) GitHub repository Issues section  
+* Review the troubleshooting section
+* Check logs at `/tmp/sds/logging/sds.log` (Linux) or `%TEMP%\sds\logging\sds.log` (Windows)
+* Submit issues or feature requests via the [sdsremote](https://github.com/klumw/sdsremote) GitHub repository Issues section
 
 ---
 ## 11. License
 
-* **This software is released under the terms and conditions of the [Apache 2.0 License](https://www.apache.org/licenses/LICENSE-2.0.html)**
+This software is released under the terms and conditions of the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0.html).
