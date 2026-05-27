@@ -117,7 +117,7 @@ The AI chat feature communicates directly with AI providers via their APIs.
 
 The following large language models (LLMs) are known to operate correctly with the application:
 
-**deepseek-v4-flash, gpt-4o, gpt-5.4-mini, gemini-3-flash, claude-haiku**  
+**deepseek-v4-flash, gpt-4o, gpt-5.4-mini, gemini-3.5-flash, claude-haiku**  
 *For exact model names, see your provider homepage.*
 
 > Important: The AI subsystem may generate inaccurate information or incorrect operating instructions. Use this functionality at your own risk.

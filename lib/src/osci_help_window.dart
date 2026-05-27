@@ -92,8 +92,10 @@ class _HelpWindowState extends State<HelpWindow> {
     });
   }
 
-  /// Build a version of the manual with all matches delimited by `@@` markers
-  /// that will be parsed into `<mark>` elements by [_highlightSyntax].
+  /// Build a version of the manual with all matches delimited by ASCII
+  /// STX / ETX control bytes that will be parsed into `<mark>` elements
+  /// by [_highlightSyntax].  These characters (\x02 / \x03) never appear
+  /// in the manual and cannot collide with any markdown syntax.
   String _buildHighlightedContent() {
     if (_searchTerm.isEmpty) return _manualContent;
 
@@ -104,7 +106,7 @@ class _HelpWindowState extends State<HelpWindow> {
 
     for (final match in regex.allMatches(_manualContent)) {
       buffer.write(_manualContent.substring(lastEnd, match.start));
-      buffer.write('@@${match.group(0)}@@');
+      buffer.write('\x02${match.group(0)}\x03');
       lastEnd = match.end;
     }
     buffer.write(_manualContent.substring(lastEnd));
@@ -246,8 +248,11 @@ class _HelpWindowState extends State<HelpWindow> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            // Search bar
-            _buildSearchBar(),
+            // Search bar — right-aligned
+            Align(
+              alignment: Alignment.centerRight,
+              child: _buildSearchBar(),
+            ),
             const SizedBox(height: 8),
             // Markdown content — using MarkdownBody (non-scrolling) inside a
             // SingleChildScrollView so WE control the ScrollController.
@@ -362,78 +367,107 @@ class _HelpWindowState extends State<HelpWindow> {
           '${_currentMatchIndex + 1} of ${_matchOffsets.length} matches';
     }
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Row(
+    // Show the clear button whenever the TextField has content,
+    // regardless of whether search has been submitted — this prevents
+    // a layout shift when pressing Enter.
+    final hasText = _searchController.text.isNotEmpty;
+
+    return SizedBox(
+      height: 60,
+      // IntrinsicWidth constrains the Column to the width of its widest
+      // child (the Row), so the match label sits directly beneath the
+      // search box rather than stretching to the screen edge.
+      child: IntrinsicWidth(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
-            const Icon(Icons.search, color: Colors.white70, size: 20),
-            const SizedBox(width: 8),
-            Expanded(
-              child: TextField(
-                controller: _searchController,
-                focusNode: _searchFocusNode,
-                style: const TextStyle(color: Colors.white, fontSize: 14),
-                decoration: InputDecoration(
-                  hintText: 'Search manual…',
-                  hintStyle: const TextStyle(color: Colors.white38),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: const BorderSide(color: Colors.white24),
-                  ),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: const BorderSide(color: Colors.white24),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(6),
-                    borderSide: const BorderSide(color: Colors.cyanAccent),
-                  ),
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                  isDense: true,
-                  suffixIcon: hasSearch
-                      ? IconButton(
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.search, color: Colors.white70, size: 20),
+                const SizedBox(width: 8),
+                SizedBox(
+                  width: 150,
+                  child: TextField(
+                    controller: _searchController,
+                    focusNode: _searchFocusNode,
+                    style: const TextStyle(color: Colors.white, fontSize: 14),
+                    decoration: InputDecoration(
+                      hintText: 'Search manual…',
+                      hintStyle: const TextStyle(color: Colors.white38),
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: const BorderSide(color: Colors.white24),
+                      ),
+                      enabledBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: const BorderSide(color: Colors.white24),
+                      ),
+                      focusedBorder: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(6),
+                        borderSide: const BorderSide(color: Colors.cyanAccent),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                      isDense: true,
+                      // Always render the clear button so the TextField's
+                      // internal layout never changes — use opacity to hide
+                      // it when there is no text.
+                      suffixIcon: Opacity(
+                        opacity: hasText ? 1.0 : 0.0,
+                        child: IconButton(
                           icon: const Icon(Icons.close, size: 18),
                           color: Colors.white54,
                           onPressed: _clearSearch,
-                        )
-                      : null,
+                        ),
+                      ),
+                    ),
+                    // Search is only triggered on Enter/Return
+                    onSubmitted: (_) => _onSearchSubmitted(),
+                  ),
                 ),
-                // Search is only triggered on Enter/Return
-                onSubmitted: (_) => _onSearchSubmitted(),
-              ),
+                const SizedBox(width: 4),
+                _SmallIconButton(
+                  icon: Icons.keyboard_arrow_up,
+                  tooltip: 'Previous match (Shift+F3)',
+                  onPressed: hasMatches ? _goToPrevMatch : null,
+                ),
+                const SizedBox(width: 2),
+                _SmallIconButton(
+                  icon: Icons.keyboard_arrow_down,
+                  tooltip: 'Next match (F3)',
+                  onPressed: hasMatches ? _goToNextMatch : null,
+                ),
+              ],
             ),
-            const SizedBox(width: 4),
-            _SmallIconButton(
-              icon: Icons.keyboard_arrow_up,
-              tooltip: 'Previous match (Shift+F3)',
-              onPressed: hasMatches ? _goToPrevMatch : null,
-            ),
-            const SizedBox(width: 2),
-            _SmallIconButton(
-              icon: Icons.keyboard_arrow_down,
-              tooltip: 'Next match (F3)',
-              onPressed: hasMatches ? _goToNextMatch : null,
+            // Fixed-height container for match label — aligned to the
+            // right edge of the search box (same width as Row above).
+            SizedBox(
+              height: 20,
+              child: matchLabel.isNotEmpty
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 4),
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Text(
+                          matchLabel,
+                          style: TextStyle(
+                            color: hasMatches
+                                ? Colors.cyanAccent
+                                : Colors.white38,
+                            fontSize: 12,
+                            fontWeight: hasMatches
+                                ? FontWeight.w600
+                                : FontWeight.normal,
+                          ),
+                        ),
+                      ),
+                    )
+                  : null,
             ),
           ],
         ),
-        if (matchLabel.isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(top: 4, left: 28),
-            child: Align(
-              alignment: Alignment.centerLeft,
-              child: Text(
-                matchLabel,
-                style: TextStyle(
-                  color: hasMatches ? Colors.cyanAccent : Colors.white38,
-                  fontSize: 12,
-                  fontWeight: hasMatches ? FontWeight.w600 : FontWeight.normal,
-                ),
-              ),
-            ),
-          ),
-      ],
+      ),
     );
   }
 }
@@ -442,9 +476,11 @@ class _HelpWindowState extends State<HelpWindow> {
 // Custom InlineSyntax for `@@term@@` → `<mark>` element
 // -----------------------------------------------------------------------------
 
-/// Parses `@@text@@` into a `md.Element` with tag `mark`.
+/// Parses text delimited by ASCII STX / ETX (\x02 … \x03) into a
+/// `md.Element` with tag `mark`.  These control characters cannot
+/// collide with manual content or markdown syntax.
 class _HighlightSyntax extends md.InlineSyntax {
-  _HighlightSyntax() : super(r'@@([^@]+)@@');
+  _HighlightSyntax() : super('\x02([^\x02\x03]+)\x03');
 
   @override
   bool onMatch(md.InlineParser parser, Match match) {
@@ -497,6 +533,12 @@ class _SmallIconButton extends StatelessWidget {
 
 /// Renders inline `<mark>` text with a gold background and black text so
 /// search matches are clearly visible against the dark theme.
+///
+/// Returning a [Text] widget with [TextStyle.backgroundColor] allows the
+/// parent builder to extract its [TextSpan] and merge it directly into the
+/// main [TextSpan] tree. This avoids wrapping the highlighted text in a
+/// [WidgetSpan] (which a [Container] would require), preserving perfect
+/// baseline alignment with the surrounding text and preventing layout breakage.
 class MarkHighlightBuilder extends MarkdownElementBuilder {
   @override
   Widget? visitElementAfterWithContext(
@@ -505,11 +547,13 @@ class MarkHighlightBuilder extends MarkdownElementBuilder {
     TextStyle? preferredStyle,
     TextStyle? parentStyle,
   ) {
-    return SelectableText(
-      element.textContent,
-      style: (parentStyle ?? const TextStyle()).copyWith(
-        color: Colors.black,
-        background: Paint()..color = const Color(0xFFFFD700),
+    return Text.rich(
+      TextSpan(
+        text: element.textContent,
+        style: (parentStyle ?? const TextStyle()).copyWith(
+          backgroundColor: const Color(0xFFFFD700),
+          color: Colors.black,
+        ),
       ),
     );
   }
