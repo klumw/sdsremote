@@ -124,6 +124,11 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     if (widget.savedHiddenLines != null) {
       _hiddenLines = Set<String>.of(widget.savedHiddenLines!);
     }
+
+    // Query probe dividers early so the setup dialog shows real values.
+    if (_status == DataLoggerStatus.configuring) {
+      _queryProbeDividersEarly();
+    }
   }
 
   @override
@@ -161,6 +166,58 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     _service = DataLoggerService(widget.getInstrument);
     _subscription = _service!.pointStream.listen(_onDataPoint);
     widget.onServiceCreated?.call(_service!);
+    // Listen for probe divider updates from the service so we can
+    // propagate them to _config and rebuild the dialog with real values.
+    _service!.onProbeDividersUpdated = () {
+      if (_service?.config != null && mounted) {
+        setState(() {
+          _config = _service!.config;
+        });
+      }
+    };
+  }
+
+  /// Query probe divider values from the instrument while still in the
+  /// configuring phase, so the setup dialog can display the actual probe
+  /// attenuation factors before recording starts.
+  Future<void> _queryProbeDividersEarly() async {
+    if (_config == null) return;
+    // Only query the channels that have any measurement enabled.
+    final ch1 = _config!.ch1Enabled;
+    final ch2 = _config!.ch2Enabled;
+    if (!ch1 && !ch2) return;
+
+    try {
+      final instr = await widget.getInstrument();
+      if (instr == null) return;
+      double? p1, p2;
+      if (ch1) {
+        await instr.writeString('C1:ATTN?');
+        final resp = (await instr.readString()).trim();
+        final m = RegExp(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?')
+            .allMatches(resp)
+            .toList();
+        if (m.isNotEmpty) p1 = double.tryParse(m.last.group(0)!);
+      }
+      if (ch2) {
+        await instr.writeString('C2:ATTN?');
+        final resp = (await instr.readString()).trim();
+        final m = RegExp(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?')
+            .allMatches(resp)
+            .toList();
+        if (m.isNotEmpty) p2 = double.tryParse(m.last.group(0)!);
+      }
+      if (p1 != null && p1 > 0 || p2 != null && p2 > 0) {
+        setState(() {
+          _config = _config!.copyWith(
+            probeDividerCh1: p1 != null && p1 > 0 ? p1 : _config!.probeDividerCh1,
+            probeDividerCh2: p2 != null && p2 > 0 ? p2 : _config!.probeDividerCh2,
+          );
+        });
+      }
+    } catch (_) {
+      // Probe query is best-effort; silently ignore failures.
+    }
   }
 
   void _onDataPoint(DataLoggerPoint point) {
@@ -230,6 +287,8 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       _status = DataLoggerStatus.configuring;
       // Keep _config as-is so the form shows previously entered values
     });
+    // Re-query probe dividers for the new configuration session.
+    _queryProbeDividersEarly();
   }
 
   void _onRestart() {

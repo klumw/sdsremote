@@ -199,14 +199,35 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
             spacing: 8,
             runSpacing: 8,
             children: [
-              _buildMeasurementToggle(
-                label: 'CH1 Vpp',
-                value: _ch1VppEnabled,
-                activeColor: const Color(0xFFFFFF00),
-                onChanged: (v) => setState(() {
-                  _ch1VppEnabled = v;
-                  _emitConfig();
-                }),
+              // CH1 Vpp toggle with fixed-height probe label area underneath
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildMeasurementToggle(
+                    label: 'CH1 Vpp',
+                    value: _ch1VppEnabled,
+                    activeColor: const Color(0xFFFFFF00),
+                    onChanged: (v) => setState(() {
+                      _ch1VppEnabled = v;
+                      _emitConfig();
+                    }),
+                  ),
+                  // Fixed-height area so the dialog height doesn't change
+                  // when the probe label appears/disappears.
+                  SizedBox(
+                    height: 30,
+                    child: _ch1VppEnabled && widget.currentConfig != null
+                        ? Padding(
+                            padding: const EdgeInsets.only(left: 4, top: 4),
+                            child: _buildProbeChip(
+                              'CH1-Probe: ${_fmtProbe(widget.currentConfig!.probeDividerCh1)}',
+                              const Color(0xFFFFFF00),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ],
               ),
               _buildMeasurementToggle(
                 label: 'CH1 Freq',
@@ -217,14 +238,35 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                   _emitConfig();
                 }),
               ),
-              _buildMeasurementToggle(
-                label: 'CH2 Vpp',
-                value: _ch2VppEnabled,
-                activeColor: const Color(0xFFFF20FF),
-                onChanged: (v) => setState(() {
-                  _ch2VppEnabled = v;
-                  _emitConfig();
-                }),
+              // CH2 Vpp toggle with fixed-height probe label area underneath
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildMeasurementToggle(
+                    label: 'CH2 Vpp',
+                    value: _ch2VppEnabled,
+                    activeColor: const Color(0xFFFF20FF),
+                    onChanged: (v) => setState(() {
+                      _ch2VppEnabled = v;
+                      _emitConfig();
+                    }),
+                  ),
+                  // Fixed-height area so the dialog height doesn't change
+                  // when the probe label appears/disappears.
+                  SizedBox(
+                    height: 30,
+                    child: _ch2VppEnabled && widget.currentConfig != null
+                        ? Padding(
+                            padding: const EdgeInsets.only(left: 4, top: 4),
+                            child: _buildProbeChip(
+                              'CH2-Probe: ${_fmtProbe(widget.currentConfig!.probeDividerCh2)}',
+                              const Color(0xFFFF20FF),
+                            ),
+                          )
+                        : const SizedBox.shrink(),
+                  ),
+                ],
               ),
               _buildMeasurementToggle(
                 label: 'CH2 Freq',
@@ -321,9 +363,6 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
           ),
           const SizedBox(height: 16),
 
-          // Note: Probe attenuation is read from the device via C1:ATTN? / C2:ATTN?
-          // at recording start — no manual entry needed.
-          const SizedBox(height: 16),
 
           // ---- Total Points Info ----
           Container(
@@ -442,6 +481,11 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
             ],
           ),
           const SizedBox(height: 8),
+
+          // ---- Probe Info (running) ----
+          if (widget.currentConfig != null)
+            _buildProbeLabelRow(widget.currentConfig!),
+          const SizedBox(height: 8),
           Align(
             child: OutlinedButton.icon(
               onPressed: widget.onStop,
@@ -494,6 +538,11 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
             '${widget.pointCount} points collected in ${_fmtDuration(widget.elapsedSeconds)}',
             style: const TextStyle(color: Colors.white54, fontSize: 12),
           ),
+          const SizedBox(height: 8),
+
+          // ---- Probe Info (stopped) ----
+          if (widget.currentConfig != null)
+            _buildProbeLabelRow(widget.currentConfig!),
           const SizedBox(height: 12),
           Align(
             child: OutlinedButton.icon(
@@ -511,6 +560,65 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Build a probe label column for the running/stopped states.
+  /// Labels are stacked vertically so both fit without wrapping issues.
+  Widget _buildProbeLabelRow(DataLoggerConfig config) {
+    final items = <Widget>[];
+    if (config.ch1VppEnabled) {
+      items.add(Text(
+        'CH1-Probe: ${_fmtProbe(config.probeDividerCh1)}',
+        style: const TextStyle(color: Color(0xFFFFFF00), fontSize: 11),
+      ));
+    }
+    if (config.ch2VppEnabled) {
+      if (items.isNotEmpty) items.add(const SizedBox(height: 2));
+      items.add(Text(
+        'CH2-Probe: ${_fmtProbe(config.probeDividerCh2)}',
+        style: const TextStyle(color: Color(0xFFFF20FF), fontSize: 11),
+      ));
+    }
+    if (items.isEmpty) return const SizedBox.shrink();
+    return Align(
+      alignment: Alignment.centerRight,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: items,
+      ),
+    );
+  }
+
+  /// Format probe divider value (e.g. 10.0 → "10x", 1.0 → "1x").
+  String _fmtProbe(double value) {
+    if (value == value.roundToDouble()) {
+      return '${value.round()}x';
+    }
+    return '${value.toStringAsFixed(1)}x';
+  }
+
+  /// A small chip displaying a probe label, matching the dialog's style.
+  /// Uses the channel's color for the text and border.
+  Widget _buildProbeChip(String label, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(4),
+        border: Border.all(
+          color: color.withValues(alpha: 0.4),
+        ),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          color: color,
+          fontSize: 11,
+          fontWeight: FontWeight.bold,
+        ),
       ),
     );
   }

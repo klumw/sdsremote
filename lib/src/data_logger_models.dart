@@ -10,7 +10,8 @@
 /// Configuration for a Data Logger session.
 ///
 /// Stores the per-measurement selection (Vpp and/or Freq per channel),
-/// sampling interval, and total recording duration.
+/// sampling interval, total recording duration, and the probe attenuation
+/// factors queried from the instrument.
 class DataLoggerConfig {
   /// Whether CH1 peak-to-peak voltage is measured.
   final bool ch1VppEnabled;
@@ -31,6 +32,14 @@ class DataLoggerConfig {
   /// Shown on top of the logger chart and included in the PDF report.
   final String description;
 
+  /// Probe attenuation factor for CH1, queried via C1:ATTN?.
+  /// Defaults to 1.0 if not yet queried.
+  final double probeDividerCh1;
+
+  /// Probe attenuation factor for CH2, queried via C2:ATTN?.
+  /// Defaults to 1.0 if not yet queried.
+  final double probeDividerCh2;
+
   /// True if any measurement is enabled for CH1.
   bool get ch1Enabled => ch1VppEnabled || ch1FreqEnabled;
 
@@ -45,6 +54,8 @@ class DataLoggerConfig {
     this.intervalSeconds = 10,
     this.durationMinutes = 1,
     this.description = '',
+    this.probeDividerCh1 = 1.0,
+    this.probeDividerCh2 = 1.0,
   });
 
   /// Total number of data points expected for this configuration.
@@ -60,6 +71,8 @@ class DataLoggerConfig {
     int? intervalSeconds,
     int? durationMinutes,
     String? description,
+    double? probeDividerCh1,
+    double? probeDividerCh2,
   }) {
     return DataLoggerConfig(
       ch1VppEnabled: ch1VppEnabled ?? this.ch1VppEnabled,
@@ -69,6 +82,8 @@ class DataLoggerConfig {
       intervalSeconds: intervalSeconds ?? this.intervalSeconds,
       durationMinutes: durationMinutes ?? this.durationMinutes,
       description: description ?? this.description,
+      probeDividerCh1: probeDividerCh1 ?? this.probeDividerCh1,
+      probeDividerCh2: probeDividerCh2 ?? this.probeDividerCh2,
     );
   }
 
@@ -82,7 +97,9 @@ class DataLoggerConfig {
           ch2FreqEnabled == other.ch2FreqEnabled &&
           intervalSeconds == other.intervalSeconds &&
           durationMinutes == other.durationMinutes &&
-          description == other.description;
+          description == other.description &&
+          probeDividerCh1 == other.probeDividerCh1 &&
+          probeDividerCh2 == other.probeDividerCh2;
 
   @override
   int get hashCode => Object.hash(
@@ -93,6 +110,8 @@ class DataLoggerConfig {
         intervalSeconds,
         durationMinutes,
         description,
+        probeDividerCh1,
+        probeDividerCh2,
       );
 
   @override
@@ -102,6 +121,7 @@ class DataLoggerConfig {
       'ch2Vpp=$ch2VppEnabled, ch2Freq=$ch2FreqEnabled, '
       'interval=${intervalSeconds}s, duration=${durationMinutes}min'
       '${description.isEmpty ? '' : ', description=$description'}'
+      ', probeDividerCh1=${probeDividerCh1}x, probeDividerCh2=${probeDividerCh2}x'
       ')';
 }
 

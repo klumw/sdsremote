@@ -26,6 +26,10 @@ class DataLoggerService {
   double _probeDividerCh1 = 1.0;
   double _probeDividerCh2 = 1.0;
 
+  /// Expose probe divider values for UI display.
+  double get probeDividerCh1 => _probeDividerCh1;
+  double get probeDividerCh2 => _probeDividerCh2;
+
   final StreamController<DataLoggerPoint> _pointController =
       StreamController<DataLoggerPoint>.broadcast();
 
@@ -40,6 +44,10 @@ class DataLoggerService {
 
   /// The active configuration.
   DataLoggerConfig? config;
+
+  /// Called when probe divider values are queried from the device,
+  /// so the UI layer can update its config copy to display the values.
+  void Function()? onProbeDividersUpdated;
 
   DataLoggerService(this._getInstrument);
 
@@ -140,11 +148,26 @@ class DataLoggerService {
         if (cfg.ch1Enabled) {
           final v = await _queryDouble(instr, 'C1:ATTN?');
           if (v != null && v > 0) _probeDividerCh1 = v;
+          AppLogger(agentName: 'DataLogger', toolName: '_doSample').log(
+            'Probe divider CH1: C1:ATTN? => $_probeDividerCh1',
+          );
         }
         if (cfg.ch2Enabled) {
           final v = await _queryDouble(instr, 'C2:ATTN?');
           if (v != null && v > 0) _probeDividerCh2 = v;
+          AppLogger(agentName: 'DataLogger', toolName: '_doSample').log(
+            'Probe divider CH2: C2:ATTN? => $_probeDividerCh2',
+          );
         }
+
+        // Store probe dividers back into the config so the UI can display them.
+        config = config?.copyWith(
+          probeDividerCh1: _probeDividerCh1,
+          probeDividerCh2: _probeDividerCh2,
+        );
+        // Notify the panel to update its config reference so the dialog
+        // shows the real probe values during recording.
+        onProbeDividersUpdated?.call();
       }
 
       double? ch1Vpp;
