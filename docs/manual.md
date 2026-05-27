@@ -31,11 +31,6 @@ screen capture and device interaction and help through an integrated AI-powered 
   * Displays status during acquisition
   * Supports cursor measurements
 
-* **Profiles**  
-  * Shows/hides the profile management panel
-  * Allows saving, loading, and deleting device configurations
-  * Disabled when offline
-
 * **AI Toggle**  
   * Shows/hides AI chat interface
   * Disabled if AI is not configured
@@ -57,7 +52,7 @@ screen capture and device interaction and help through an integrated AI-powered 
   * Opens configuration panel (IP and AI settings, export options)
 
 * **Save**  
-  * Saves images, reports and csv data for the different app functionality.
+  * Saves images, reports and csv data for the different app functionalities
   * All files are saved in the application working directory
 
 ---
