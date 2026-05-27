@@ -1454,12 +1454,12 @@ class _OsciHomePageState extends State<OsciHomePage>
       (_savedDlPoints?.length ?? 0) > 1;
 
   Future<void> _saveCurrentView() async {
-    if (_screenDump != null) {
+    if (_canSaveDataLoggerReport) {
+      await _saveDataLoggerReport();
+    } else if (_screenDump != null) {
       await _saveScreenDump();
     } else if (_waveformCh1 != null || _waveformCh2 != null) {
       await _saveWaveform();
-    } else if (_canSaveDataLoggerReport) {
-      await _saveDataLoggerReport();
     }
   }
 
