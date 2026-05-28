@@ -373,8 +373,12 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
                                       DataLoggerPlot(
                                         points: _points,
                                         ch1VppEnabled: _config?.ch1VppEnabled ?? true,
+                                        ch1MeanEnabled: _config?.ch1MeanEnabled ?? false,
+                                        ch1RmsEnabled: _config?.ch1RmsEnabled ?? false,
                                         ch1FreqEnabled: _config?.ch1FreqEnabled ?? true,
                                         ch2VppEnabled: _config?.ch2VppEnabled ?? false,
+                                        ch2MeanEnabled: _config?.ch2MeanEnabled ?? false,
+                                        ch2RmsEnabled: _config?.ch2RmsEnabled ?? false,
                                         ch2FreqEnabled: _config?.ch2FreqEnabled ?? false,
                                         status: _status,
                                         totalDurationSeconds: (_config?.durationMinutes ?? 1) * 60.0,
@@ -468,6 +472,18 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
             style: const TextStyle(color: Color(0xFFFFFF00), fontSize: 11)));
       }
     }
+    if (_config?.ch1MeanEnabled == true) {
+      if (!_hiddenLines.contains('ch1_mean') && nearest.ch1Mean != null) {
+        rows.add(Text('CH1 Mean: ${nearest.ch1Mean!.toStringAsFixed(3)}V',
+            style: const TextStyle(color: Color(0xFF00E676), fontSize: 11)));
+      }
+    }
+    if (_config?.ch1RmsEnabled == true) {
+      if (!_hiddenLines.contains('ch1_rms') && nearest.ch1Rms != null) {
+        rows.add(Text('CH1 Rms: ${nearest.ch1Rms!.toStringAsFixed(3)}V',
+            style: const TextStyle(color: Color(0xFF00E676), fontSize: 11)));
+      }
+    }
     if (_config?.ch1FreqEnabled == true) {
       if (!_hiddenLines.contains('ch1_freq') && nearest.ch1Freq != null) {
         rows.add(Text('CH1 Freq: ${_fmtSi(nearest.ch1Freq!)}Hz',
@@ -478,6 +494,18 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       if (!_hiddenLines.contains('ch2_vpp') && nearest.ch2Vpp != null) {
         rows.add(Text('CH2 Vpp: ${nearest.ch2Vpp!.toStringAsFixed(3)}V',
             style: const TextStyle(color: Color(0xFFFF20FF), fontSize: 11)));
+      }
+    }
+    if (_config?.ch2MeanEnabled == true) {
+      if (!_hiddenLines.contains('ch2_mean') && nearest.ch2Mean != null) {
+        rows.add(Text('CH2 Mean: ${nearest.ch2Mean!.toStringAsFixed(3)}V',
+            style: const TextStyle(color: Color(0xFFFF5252), fontSize: 11)));
+      }
+    }
+    if (_config?.ch2RmsEnabled == true) {
+      if (!_hiddenLines.contains('ch2_rms') && nearest.ch2Rms != null) {
+        rows.add(Text('CH2 Rms: ${nearest.ch2Rms!.toStringAsFixed(3)}V',
+            style: const TextStyle(color: Color(0xFFFF5252), fontSize: 11)));
       }
     }
     if (_config?.ch2FreqEnabled == true) {
@@ -525,6 +553,16 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       items.add(_legendChip('CH1 Vpp', 'ch1_vpp',
           const Color(0xFFFFFF00)));
     }
+    if (_config?.ch1MeanEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
+      items.add(_legendChip('CH1 Mean', 'ch1_mean',
+          const Color(0xFF00E676)));
+    }
+    if (_config?.ch1RmsEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
+      items.add(_legendChip('CH1 Rms', 'ch1_rms',
+          const Color(0xFF00E676)));
+    }
     if (_config?.ch1FreqEnabled == true) {
       if (items.isNotEmpty) items.add(const SizedBox(width: 4));
       items.add(_legendChip('CH1 Freq', 'ch1_freq',
@@ -534,6 +572,16 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       if (items.isNotEmpty) items.add(const SizedBox(width: 8));
       items.add(_legendChip('CH2 Vpp', 'ch2_vpp',
           const Color(0xFFFF20FF)));
+    }
+    if (_config?.ch2MeanEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
+      items.add(_legendChip('CH2 Mean', 'ch2_mean',
+          const Color(0xFFFF5252)));
+    }
+    if (_config?.ch2RmsEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
+      items.add(_legendChip('CH2 Rms', 'ch2_rms',
+          const Color(0xFFFF5252)));
     }
     if (_config?.ch2FreqEnabled == true) {
       if (items.isNotEmpty) items.add(const SizedBox(width: 4));

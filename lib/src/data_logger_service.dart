@@ -86,8 +86,8 @@ class DataLoggerService {
     AppLogger(agentName: 'DataLogger', toolName: 'start').log(
       'Data Logger started: interval=${cfg.intervalSeconds}s, '
       'duration=${cfg.durationMinutes}min, '
-      'ch1Vpp=${cfg.ch1VppEnabled}, ch1Freq=${cfg.ch1FreqEnabled}, '
-      'ch2Vpp=${cfg.ch2VppEnabled}, ch2Freq=${cfg.ch2FreqEnabled}',
+      'ch1Vpp=${cfg.ch1VppEnabled}, ch1Mean=${cfg.ch1MeanEnabled}, ch1Rms=${cfg.ch1RmsEnabled}, ch1Freq=${cfg.ch1FreqEnabled}, '
+      'ch2Vpp=${cfg.ch2VppEnabled}, ch2Mean=${cfg.ch2MeanEnabled}, ch2Rms=${cfg.ch2RmsEnabled}, ch2Freq=${cfg.ch2FreqEnabled}',
     );
   }
 
@@ -188,8 +188,12 @@ class DataLoggerService {
       }
 
       double? ch1Vpp;
+      double? ch1Mean;
+      double? ch1Rms;
       double? ch1Freq;
       double? ch2Vpp;
+      double? ch2Mean;
+      double? ch2Rms;
       double? ch2Freq;
 
       // Check _hasStopped between each query — if stop() was called
@@ -197,6 +201,14 @@ class DataLoggerService {
       // Only query each measurement if enabled in the configuration.
       if (cfg.ch1VppEnabled) {
         ch1Vpp = await _queryPava(instr, 'C1:PAVA? PKPK');
+        if (_hasStopped) return;
+      }
+      if (cfg.ch1MeanEnabled) {
+        ch1Mean = await _queryPava(instr, 'C1:PAVA? MEAN');
+        if (_hasStopped) return;
+      }
+      if (cfg.ch1RmsEnabled) {
+        ch1Rms = await _queryPava(instr, 'C1:PAVA? RMS');
         if (_hasStopped) return;
       }
       if (cfg.ch1FreqEnabled) {
@@ -207,20 +219,36 @@ class DataLoggerService {
         ch2Vpp = await _queryPava(instr, 'C2:PAVA? PKPK');
         if (_hasStopped) return;
       }
+      if (cfg.ch2MeanEnabled) {
+        ch2Mean = await _queryPava(instr, 'C2:PAVA? MEAN');
+        if (_hasStopped) return;
+      }
+      if (cfg.ch2RmsEnabled) {
+        ch2Rms = await _queryPava(instr, 'C2:PAVA? RMS');
+        if (_hasStopped) return;
+      }
       if (cfg.ch2FreqEnabled) {
         ch2Freq = await _queryPava(instr, 'C2:PAVA? FREQ');
         if (_hasStopped) return;
       }
 
       if (ch1Vpp != null) ch1Vpp = ch1Vpp * _probeDividerCh1;
+      if (ch1Mean != null) ch1Mean = ch1Mean * _probeDividerCh1;
+      if (ch1Rms != null) ch1Rms = ch1Rms * _probeDividerCh1;
       if (ch2Vpp != null) ch2Vpp = ch2Vpp * _probeDividerCh2;
+      if (ch2Mean != null) ch2Mean = ch2Mean * _probeDividerCh2;
+      if (ch2Rms != null) ch2Rms = ch2Rms * _probeDividerCh2;
 
       final point = DataLoggerPoint(
         timestamp: DateTime.now(),
         elapsedSeconds: elapsedTarget.toDouble(),
         ch1Vpp: ch1Vpp,
+        ch1Mean: ch1Mean,
+        ch1Rms: ch1Rms,
         ch1Freq: ch1Freq,
         ch2Vpp: ch2Vpp,
+        ch2Mean: ch2Mean,
+        ch2Rms: ch2Rms,
         ch2Freq: ch2Freq,
       );
 

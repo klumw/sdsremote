@@ -136,6 +136,24 @@ class DataLoggerReport {
         _fmtValue(_maxValue(points.map((p) => p.ch1Vpp)), 'V'),
       ]);
     }
+    if (config.ch1MeanEnabled) {
+      rows.add([
+        'CH1 Mean',
+        _fmtValue(first.ch1Mean, 'V'),
+        _fmtValue(last.ch1Mean, 'V'),
+        _fmtValue(_minValue(points.map((p) => p.ch1Mean)), 'V'),
+        _fmtValue(_maxValue(points.map((p) => p.ch1Mean)), 'V'),
+      ]);
+    }
+    if (config.ch1RmsEnabled) {
+      rows.add([
+        'CH1 Rms',
+        _fmtValue(first.ch1Rms, 'V'),
+        _fmtValue(last.ch1Rms, 'V'),
+        _fmtValue(_minValue(points.map((p) => p.ch1Rms)), 'V'),
+        _fmtValue(_maxValue(points.map((p) => p.ch1Rms)), 'V'),
+      ]);
+    }
     if (config.ch1FreqEnabled) {
       rows.add([
         'CH1 Freq',
@@ -152,6 +170,24 @@ class DataLoggerReport {
         _fmtValue(last.ch2Vpp, 'V'),
         _fmtValue(_minValue(points.map((p) => p.ch2Vpp)), 'V'),
         _fmtValue(_maxValue(points.map((p) => p.ch2Vpp)), 'V'),
+      ]);
+    }
+    if (config.ch2MeanEnabled) {
+      rows.add([
+        'CH2 Mean',
+        _fmtValue(first.ch2Mean, 'V'),
+        _fmtValue(last.ch2Mean, 'V'),
+        _fmtValue(_minValue(points.map((p) => p.ch2Mean)), 'V'),
+        _fmtValue(_maxValue(points.map((p) => p.ch2Mean)), 'V'),
+      ]);
+    }
+    if (config.ch2RmsEnabled) {
+      rows.add([
+        'CH2 Rms',
+        _fmtValue(first.ch2Rms, 'V'),
+        _fmtValue(last.ch2Rms, 'V'),
+        _fmtValue(_minValue(points.map((p) => p.ch2Rms)), 'V'),
+        _fmtValue(_maxValue(points.map((p) => p.ch2Rms)), 'V'),
       ]);
     }
     if (config.ch2FreqEnabled) {

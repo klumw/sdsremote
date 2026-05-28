@@ -15,7 +15,9 @@ import 'data_logger_models.dart';
 // =============================================================================
 
 const Color _ch1Color = Color(0xFFFFFF00); // Yellow
+const Color _ch1MeanColor = Color(0xFF00E676); // Green
 const Color _ch2Color = Color(0xFFFF20FF); // Magenta
+const Color _ch2MeanColor = Color(0xFFFF5252); // Red
 const Color _gridColor = Color(0xFF1E3A5F);
 const Color _axisColor = Color(0xFF475569);
 const Color _labelColor = Color(0xFF94A3B8);
@@ -32,8 +34,12 @@ const Color _bgColor = Color(0xFF0A192F);
 class DataLoggerPlot extends StatelessWidget {
   final List<DataLoggerPoint> points;
   final bool ch1VppEnabled;
+  final bool ch1MeanEnabled;
+  final bool ch1RmsEnabled;
   final bool ch1FreqEnabled;
   final bool ch2VppEnabled;
+  final bool ch2MeanEnabled;
+  final bool ch2RmsEnabled;
   final bool ch2FreqEnabled;
   final DataLoggerStatus status;
 
@@ -42,7 +48,7 @@ class DataLoggerPlot extends StatelessWidget {
   final double totalDurationSeconds;
 
   /// Set of line IDs that are currently hidden.
-  /// Possible values: "ch1_vpp", "ch1_freq", "ch2_vpp", "ch2_freq".
+  /// Possible values: "ch1_vpp", "ch1_mean", "ch1_rms", "ch1_freq", "ch2_vpp", "ch2_mean", "ch2_rms", "ch2_freq".
   final Set<String> hiddenLines;
 
   /// Called when a legend line is tapped.
@@ -55,8 +61,12 @@ class DataLoggerPlot extends StatelessWidget {
     super.key,
     required this.points,
     this.ch1VppEnabled = true,
+    this.ch1MeanEnabled = false,
+    this.ch1RmsEnabled = false,
     this.ch1FreqEnabled = true,
     this.ch2VppEnabled = false,
+    this.ch2MeanEnabled = false,
+    this.ch2RmsEnabled = false,
     this.ch2FreqEnabled = false,
     required this.status,
     this.totalDurationSeconds = 60,
@@ -97,8 +107,12 @@ class DataLoggerPlot extends StatelessWidget {
             painter: _DataLoggerPlotPainter(
               points: points,
               ch1VppEnabled: ch1VppEnabled,
+              ch1MeanEnabled: ch1MeanEnabled,
+              ch1RmsEnabled: ch1RmsEnabled,
               ch1FreqEnabled: ch1FreqEnabled,
               ch2VppEnabled: ch2VppEnabled,
+              ch2MeanEnabled: ch2MeanEnabled,
+              ch2RmsEnabled: ch2RmsEnabled,
               ch2FreqEnabled: ch2FreqEnabled,
               status: status,
               totalDurationSeconds: totalDurationSeconds,
@@ -173,21 +187,64 @@ class _AxisRanges {
       }
     }
 
-    // Find the peak (maximum) Vpp and Frequency among the recorded points.
-    double peakVpp = 0.0;
+    // Find the min/max Voltage and peak Frequency among the recorded points.
+    // Mean voltage can be negative (DC offset), so track both min and max.
+    // Vpp is always positive (amplitude).
+    double minVoltage = 0.0;
+    double maxVoltage = 0.0;
     double peakFreq = 0.0;
 
     for (final p in points) {
-      if (p.ch1Vpp != null && p.ch1Vpp! > peakVpp) peakVpp = p.ch1Vpp!;
-      if (p.ch2Vpp != null && p.ch2Vpp! > peakVpp) peakVpp = p.ch2Vpp!;
+      // Voltage: track min and max across Vpp, Mean, and Rms
+      if (p.ch1Vpp != null) {
+        if (p.ch1Vpp! > maxVoltage) maxVoltage = p.ch1Vpp!;
+        if (p.ch1Vpp! < minVoltage) minVoltage = p.ch1Vpp!;
+      }
+      if (p.ch1Mean != null) {
+        if (p.ch1Mean! > maxVoltage) maxVoltage = p.ch1Mean!;
+        if (p.ch1Mean! < minVoltage) minVoltage = p.ch1Mean!;
+      }
+      if (p.ch1Rms != null) {
+        if (p.ch1Rms! > maxVoltage) maxVoltage = p.ch1Rms!;
+        if (p.ch1Rms! < minVoltage) minVoltage = p.ch1Rms!;
+      }
+      if (p.ch2Vpp != null) {
+        if (p.ch2Vpp! > maxVoltage) maxVoltage = p.ch2Vpp!;
+        if (p.ch2Vpp! < minVoltage) minVoltage = p.ch2Vpp!;
+      }
+      if (p.ch2Mean != null) {
+        if (p.ch2Mean! > maxVoltage) maxVoltage = p.ch2Mean!;
+        if (p.ch2Mean! < minVoltage) minVoltage = p.ch2Mean!;
+      }
+      if (p.ch2Rms != null) {
+        if (p.ch2Rms! > maxVoltage) maxVoltage = p.ch2Rms!;
+        if (p.ch2Rms! < minVoltage) minVoltage = p.ch2Rms!;
+      }
+      // Frequency: always positive, track only max
       if (p.ch1Freq != null && p.ch1Freq! > peakFreq) peakFreq = p.ch1Freq!;
       if (p.ch2Freq != null && p.ch2Freq! > peakFreq) peakFreq = p.ch2Freq!;
     }
 
-    // Y-axes dynamic scaling: Scale so that the full Y-axis area minus a 20% margin
-    // off the peak value is used: peak = 80% of max => max = peak * 1.2
-    double minVpp = 0.0;
-    double maxVpp = peakVpp > 0 ? peakVpp * 1.2 : 1.0;
+    // Y-axes dynamic scaling: 20% margin above and below the data range.
+    // For purely positive data (typical Vpp), keep min at 0.
+    // For data with negative values (mean with DC offset), extend below zero.
+    final voltageRange = maxVoltage - minVoltage;
+    double minVpp;
+    double maxVpp;
+    if (voltageRange <= 0) {
+      // All voltage values are 0 or no data — use default range.
+      minVpp = -1.0;
+      maxVpp = 1.0;
+    } else if (minVoltage >= 0) {
+      // All values are positive (typical Vpp-only): keep axis starting at 0.
+      minVpp = 0.0;
+      maxVpp = maxVoltage * 1.2;
+    } else {
+      // Negative values present (mean with DC offset): extend axis symmetrically.
+      final padding = voltageRange * 0.2;
+      minVpp = minVoltage - padding;
+      maxVpp = maxVoltage + padding;
+    }
 
     double minFreq = 0.0;
     double maxFreq = peakFreq > 0 ? peakFreq * 1.2 : 1.0;
@@ -209,8 +266,12 @@ class _AxisRanges {
 class _DataLoggerPlotPainter extends CustomPainter {
   final List<DataLoggerPoint> points;
   final bool ch1VppEnabled;
+  final bool ch1MeanEnabled;
+  final bool ch1RmsEnabled;
   final bool ch1FreqEnabled;
   final bool ch2VppEnabled;
+  final bool ch2MeanEnabled;
+  final bool ch2RmsEnabled;
   final bool ch2FreqEnabled;
   final DataLoggerStatus status;
   final double totalDurationSeconds;
@@ -219,8 +280,12 @@ class _DataLoggerPlotPainter extends CustomPainter {
   _DataLoggerPlotPainter({
     required this.points,
     required this.ch1VppEnabled,
+    required this.ch1MeanEnabled,
+    required this.ch1RmsEnabled,
     required this.ch1FreqEnabled,
     required this.ch2VppEnabled,
+    required this.ch2MeanEnabled,
+    required this.ch2RmsEnabled,
     required this.ch2FreqEnabled,
     required this.status,
     this.totalDurationSeconds = 60,
@@ -249,7 +314,8 @@ class _DataLoggerPlotPainter extends CustomPainter {
     }
 
     // Determine which axes to show based on selected measurements.
-    final vppEnabled = ch1VppEnabled || ch2VppEnabled;
+    // Mean is voltage-based, so it contributes to the left (voltage) axis.
+    final vppEnabled = ch1VppEnabled || ch1MeanEnabled || ch2VppEnabled || ch2MeanEnabled;
     final freqEnabled = ch1FreqEnabled || ch2FreqEnabled;
     final effectiveMarginLeft = vppEnabled ? _marginLeft : 10.0;
     final effectiveMarginRight = freqEnabled ? _marginRight : 10.0;
@@ -447,6 +513,36 @@ class _DataLoggerPlotPainter extends CustomPainter {
         drawLine(ch1VppPts, _ch1Color, 'CH1 Vpp', dashed: false);
       }
     }
+    // Build line segments for CH1 Mean
+    if (ch1MeanEnabled) {
+      if (!hiddenLines.contains('ch1_mean')) {
+        final ch1MeanPts = <Offset>[];
+        for (final p in points) {
+          if (p.ch1Mean != null) {
+            ch1MeanPts.add(Offset(
+              mapTime(p.elapsedSeconds),
+              mapVpp(p.ch1Mean!),
+            ));
+          }
+        }
+        drawLine(ch1MeanPts, _ch1MeanColor, 'CH1 Mean', dashed: true);
+      }
+    }
+    // Build line segments for CH1 Rms
+    if (ch1RmsEnabled) {
+      if (!hiddenLines.contains('ch1_rms')) {
+        final ch1RmsPts = <Offset>[];
+        for (final p in points) {
+          if (p.ch1Rms != null) {
+            ch1RmsPts.add(Offset(
+              mapTime(p.elapsedSeconds),
+              mapVpp(p.ch1Rms!),
+            ));
+          }
+        }
+        drawLine(ch1RmsPts, _ch1MeanColor, 'CH1 Rms', dashed: false);
+      }
+    }
     if (ch1FreqEnabled) {
       if (!hiddenLines.contains('ch1_freq')) {
         final ch1FreqPts = <Offset>[];
@@ -475,6 +571,36 @@ class _DataLoggerPlotPainter extends CustomPainter {
           }
         }
         drawLine(ch2VppPts, _ch2Color, 'CH2 Vpp', dashed: false);
+      }
+    }
+    // Build line segments for CH2 Mean
+    if (ch2MeanEnabled) {
+      if (!hiddenLines.contains('ch2_mean')) {
+        final ch2MeanPts = <Offset>[];
+        for (final p in points) {
+          if (p.ch2Mean != null) {
+            ch2MeanPts.add(Offset(
+              mapTime(p.elapsedSeconds),
+              mapVpp(p.ch2Mean!),
+            ));
+          }
+        }
+        drawLine(ch2MeanPts, _ch2MeanColor, 'CH2 Mean', dashed: true);
+      }
+    }
+    // Build line segments for CH2 Rms
+    if (ch2RmsEnabled) {
+      if (!hiddenLines.contains('ch2_rms')) {
+        final ch2RmsPts = <Offset>[];
+        for (final p in points) {
+          if (p.ch2Rms != null) {
+            ch2RmsPts.add(Offset(
+              mapTime(p.elapsedSeconds),
+              mapVpp(p.ch2Rms!),
+            ));
+          }
+        }
+        drawLine(ch2RmsPts, _ch2MeanColor, 'CH2 Rms', dashed: false);
       }
     }
     if (ch2FreqEnabled) {
@@ -536,9 +662,9 @@ class _DataLoggerPlotPainter extends CustomPainter {
     final textStyle = TextStyle(color: _labelColor, fontSize: 10);
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
 
-    // Left Y-axis label (Vpp) — only when Vpp measurements are enabled
+    // Left Y-axis label (Voltage) — shown when any voltage measurement is enabled
     if (vppEnabled) {
-      textPainter.text = TextSpan(text: 'Vpp (V)', style: textStyle);
+      textPainter.text = TextSpan(text: 'Voltage (V)', style: textStyle);
       textPainter.layout();
       textPainter.paint(
         canvas,
@@ -574,7 +700,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
       ),
     );
 
-    // Y-axis tick labels (left: Vpp at each tick)
+    // Y-axis tick labels (left: Voltage at each tick)
     if (vppEnabled) {
       final vppStep = _tickStep(ranges.niceMinVpp, ranges.niceMaxVpp);
       double v = ranges.niceMinVpp;
@@ -590,6 +716,24 @@ class _DataLoggerPlotPainter extends CustomPainter {
           Offset(plotRect.left - textPainter.width - 4, y - textPainter.height / 2),
         );
         v += vppStep;
+      }
+      // Always show the 0 label when the axis spans across zero and
+      // the tick step didn't already place a label at exactly 0.
+      if (ranges.niceMinVpp < 0 && ranges.niceMaxVpp > 0) {
+        final zeroOnTick = ((0 - ranges.niceMinVpp) / vppStep) % 1.0 < 0.001 ||
+            ((0 - ranges.niceMinVpp) / vppStep) % 1.0 > 0.999;
+        if (!zeroOnTick) {
+          final zeroY = _mapValueToY(0, ranges.niceMinVpp, ranges.niceMaxVpp, plotRect);
+          textPainter.text = TextSpan(
+            text: '0',
+            style: textStyle,
+          );
+          textPainter.layout();
+          textPainter.paint(
+            canvas,
+            Offset(plotRect.left - textPainter.width - 4, zeroY - textPainter.height / 2),
+          );
+        }
       }
     }
 
@@ -648,11 +792,23 @@ class _DataLoggerPlotPainter extends CustomPainter {
     if (ch1VppEnabled) {
       items.add(_LegendItem('CH1 Vpp', _ch1Color, false));
     }
+    if (ch1MeanEnabled) {
+      items.add(_LegendItem('CH1 Mean', _ch1MeanColor, true));
+    }
+    if (ch1RmsEnabled) {
+      items.add(_LegendItem('CH1 Rms', _ch1MeanColor, false));
+    }
     if (ch1FreqEnabled) {
       items.add(_LegendItem('CH1 Freq', _ch1Color, true));
     }
     if (ch2VppEnabled) {
       items.add(_LegendItem('CH2 Vpp', _ch2Color, false));
+    }
+    if (ch2MeanEnabled) {
+      items.add(_LegendItem('CH2 Mean', _ch2MeanColor, true));
+    }
+    if (ch2RmsEnabled) {
+      items.add(_LegendItem('CH2 Rms', _ch2MeanColor, false));
     }
     if (ch2FreqEnabled) {
       items.add(_LegendItem('CH2 Freq', _ch2Color, true));
@@ -725,8 +881,12 @@ class _DataLoggerPlotPainter extends CustomPainter {
     return oldDelegate.points != points ||
         oldDelegate.points.length != points.length ||
         oldDelegate.ch1VppEnabled != ch1VppEnabled ||
+        oldDelegate.ch1MeanEnabled != ch1MeanEnabled ||
+        oldDelegate.ch1RmsEnabled != ch1RmsEnabled ||
         oldDelegate.ch1FreqEnabled != ch1FreqEnabled ||
         oldDelegate.ch2VppEnabled != ch2VppEnabled ||
+        oldDelegate.ch2MeanEnabled != ch2MeanEnabled ||
+        oldDelegate.ch2RmsEnabled != ch2RmsEnabled ||
         oldDelegate.ch2FreqEnabled != ch2FreqEnabled ||
         oldDelegate.status != status ||
         oldDelegate.totalDurationSeconds != totalDurationSeconds ||

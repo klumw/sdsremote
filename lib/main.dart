@@ -1729,6 +1729,14 @@ class _OsciHomePageState extends State<OsciHomePage>
       columns.add('CH1 Vpp (V)');
       getters['CH1 Vpp (V)'] = (p) => p.ch1Vpp;
     }
+    if (config.ch1MeanEnabled && !hidden.contains('ch1_mean')) {
+      columns.add('CH1 Mean (V)');
+      getters['CH1 Mean (V)'] = (p) => p.ch1Mean;
+    }
+    if (config.ch1RmsEnabled && !hidden.contains('ch1_rms')) {
+      columns.add('CH1 Rms (V)');
+      getters['CH1 Rms (V)'] = (p) => p.ch1Rms;
+    }
     if (config.ch1FreqEnabled && !hidden.contains('ch1_freq')) {
       columns.add('CH1 Freq (Hz)');
       getters['CH1 Freq (Hz)'] = (p) => p.ch1Freq;
@@ -1736,6 +1744,14 @@ class _OsciHomePageState extends State<OsciHomePage>
     if (config.ch2VppEnabled && !hidden.contains('ch2_vpp')) {
       columns.add('CH2 Vpp (V)');
       getters['CH2 Vpp (V)'] = (p) => p.ch2Vpp;
+    }
+    if (config.ch2MeanEnabled && !hidden.contains('ch2_mean')) {
+      columns.add('CH2 Mean (V)');
+      getters['CH2 Mean (V)'] = (p) => p.ch2Mean;
+    }
+    if (config.ch2RmsEnabled && !hidden.contains('ch2_rms')) {
+      columns.add('CH2 Rms (V)');
+      getters['CH2 Rms (V)'] = (p) => p.ch2Rms;
     }
     if (config.ch2FreqEnabled && !hidden.contains('ch2_freq')) {
       columns.add('CH2 Freq (Hz)');

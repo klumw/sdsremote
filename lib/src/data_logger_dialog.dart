@@ -58,8 +58,12 @@ const List<int> _durationPresetsMinutes = [
 class _DataLoggerDialogState extends State<DataLoggerDialog> {
   // Individual measurement toggles — all start deselected.
   bool _ch1VppEnabled = false;
+  bool _ch1MeanEnabled = false;
+  bool _ch1RmsEnabled = false;
   bool _ch1FreqEnabled = false;
   bool _ch2VppEnabled = false;
+  bool _ch2MeanEnabled = false;
+  bool _ch2RmsEnabled = false;
   bool _ch2FreqEnabled = false;
   double _intervalSeconds = 10; // Slider: 10–60
   int _durationIndex = 0; // Index into _durationPresetsMinutes
@@ -71,8 +75,12 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
     if (widget.currentConfig != null) {
       // Restore individual measurement flags from config.
       _ch1VppEnabled = widget.currentConfig!.ch1VppEnabled;
+      _ch1MeanEnabled = widget.currentConfig!.ch1MeanEnabled;
+      _ch1RmsEnabled = widget.currentConfig!.ch1RmsEnabled;
       _ch1FreqEnabled = widget.currentConfig!.ch1FreqEnabled;
       _ch2VppEnabled = widget.currentConfig!.ch2VppEnabled;
+      _ch2MeanEnabled = widget.currentConfig!.ch2MeanEnabled;
+      _ch2RmsEnabled = widget.currentConfig!.ch2RmsEnabled;
       _ch2FreqEnabled = widget.currentConfig!.ch2FreqEnabled;
       _intervalSeconds = widget.currentConfig!.intervalSeconds.toDouble();
       final saved = widget.currentConfig!.durationMinutes;
@@ -91,14 +99,19 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
 
   /// True if any measurement is enabled.
   bool get _isValid =>
-      _ch1VppEnabled || _ch1FreqEnabled || _ch2VppEnabled || _ch2FreqEnabled;
+      _ch1VppEnabled || _ch1MeanEnabled || _ch1RmsEnabled || _ch1FreqEnabled ||
+      _ch2VppEnabled || _ch2MeanEnabled || _ch2RmsEnabled || _ch2FreqEnabled;
   int get _durationMinutes => _durationPresetsMinutes[_durationIndex];
 
   void _emitConfig() {
     widget.onConfigChanged?.call(DataLoggerConfig(
       ch1VppEnabled: _ch1VppEnabled,
+      ch1MeanEnabled: _ch1MeanEnabled,
+      ch1RmsEnabled: _ch1RmsEnabled,
       ch1FreqEnabled: _ch1FreqEnabled,
       ch2VppEnabled: _ch2VppEnabled,
+      ch2MeanEnabled: _ch2MeanEnabled,
+      ch2RmsEnabled: _ch2RmsEnabled,
       ch2FreqEnabled: _ch2FreqEnabled,
       intervalSeconds: _intervalSeconds.round(),
       durationMinutes: _durationMinutes,
@@ -217,7 +230,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                   // when the probe label appears/disappears.
                   SizedBox(
                     height: 30,
-                    child: _ch1VppEnabled && widget.currentConfig != null
+                    child: (_ch1VppEnabled || _ch1MeanEnabled || _ch1RmsEnabled) && widget.currentConfig != null
                         ? Padding(
                             padding: const EdgeInsets.only(left: 4, top: 4),
                             child: _buildProbeChip(
@@ -228,6 +241,24 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                         : const SizedBox.shrink(),
                   ),
                 ],
+              ),
+              _buildMeasurementToggle(
+                label: 'CH1 Mean',
+                value: _ch1MeanEnabled,
+                activeColor: const Color(0xFF00E676),
+                onChanged: (v) => setState(() {
+                  _ch1MeanEnabled = v;
+                  _emitConfig();
+                }),
+              ),
+              _buildMeasurementToggle(
+                label: 'CH1 Rms',
+                value: _ch1RmsEnabled,
+                activeColor: const Color(0xFF00E676),
+                onChanged: (v) => setState(() {
+                  _ch1RmsEnabled = v;
+                  _emitConfig();
+                }),
               ),
               _buildMeasurementToggle(
                 label: 'CH1 Freq',
@@ -256,7 +287,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                   // when the probe label appears/disappears.
                   SizedBox(
                     height: 30,
-                    child: _ch2VppEnabled && widget.currentConfig != null
+                    child: (_ch2VppEnabled || _ch2MeanEnabled || _ch2RmsEnabled) && widget.currentConfig != null
                         ? Padding(
                             padding: const EdgeInsets.only(left: 4, top: 4),
                             child: _buildProbeChip(
@@ -267,6 +298,24 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                         : const SizedBox.shrink(),
                   ),
                 ],
+              ),
+              _buildMeasurementToggle(
+                label: 'CH2 Mean',
+                value: _ch2MeanEnabled,
+                activeColor: const Color(0xFFFF5252),
+                onChanged: (v) => setState(() {
+                  _ch2MeanEnabled = v;
+                  _emitConfig();
+                }),
+              ),
+              _buildMeasurementToggle(
+                label: 'CH2 Rms',
+                value: _ch2RmsEnabled,
+                activeColor: const Color(0xFFFF5252),
+                onChanged: (v) => setState(() {
+                  _ch2RmsEnabled = v;
+                  _emitConfig();
+                }),
               ),
               _buildMeasurementToggle(
                 label: 'CH2 Freq',
@@ -568,13 +617,13 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
   /// Labels are stacked vertically so both fit without wrapping issues.
   Widget _buildProbeLabelRow(DataLoggerConfig config) {
     final items = <Widget>[];
-    if (config.ch1VppEnabled) {
+    if (config.ch1VppEnabled || config.ch1MeanEnabled || config.ch1RmsEnabled) {
       items.add(Text(
         'CH1-Probe: ${_fmtProbe(config.probeDividerCh1)}',
         style: const TextStyle(color: Color(0xFFFFFF00), fontSize: 11),
       ));
     }
-    if (config.ch2VppEnabled) {
+    if (config.ch2VppEnabled || config.ch2MeanEnabled || config.ch2RmsEnabled) {
       if (items.isNotEmpty) items.add(const SizedBox(height: 2));
       items.add(Text(
         'CH2-Probe: ${_fmtProbe(config.probeDividerCh2)}',
