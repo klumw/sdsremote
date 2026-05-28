@@ -1737,6 +1737,10 @@ class _OsciHomePageState extends State<OsciHomePage>
       columns.add('CH1 Rms (V)');
       getters['CH1 Rms (V)'] = (p) => p.ch1Rms;
     }
+    if (config.ch1DutyEnabled && !hidden.contains('ch1_duty')) {
+      columns.add('CH1 Duty (%)');
+      getters['CH1 Duty (%)'] = (p) => p.ch1Duty;
+    }
     if (config.ch1FreqEnabled && !hidden.contains('ch1_freq')) {
       columns.add('CH1 Freq (Hz)');
       getters['CH1 Freq (Hz)'] = (p) => p.ch1Freq;
@@ -1752,6 +1756,10 @@ class _OsciHomePageState extends State<OsciHomePage>
     if (config.ch2RmsEnabled && !hidden.contains('ch2_rms')) {
       columns.add('CH2 Rms (V)');
       getters['CH2 Rms (V)'] = (p) => p.ch2Rms;
+    }
+    if (config.ch2DutyEnabled && !hidden.contains('ch2_duty')) {
+      columns.add('CH2 Duty (%)');
+      getters['CH2 Duty (%)'] = (p) => p.ch2Duty;
     }
     if (config.ch2FreqEnabled && !hidden.contains('ch2_freq')) {
       columns.add('CH2 Freq (Hz)');

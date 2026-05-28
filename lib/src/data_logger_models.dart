@@ -9,9 +9,9 @@
 
 /// Configuration for a Data Logger session.
 ///
-/// Stores the per-measurement selection (Vpp, Mean, Rms, and/or Freq per channel),
-/// sampling interval, total recording duration, and the probe attenuation
-/// factors queried from the instrument.
+/// Stores the per-measurement selection (Vpp, Mean, Rms, Duty, and/or Freq
+/// per channel), sampling interval, total recording duration, and the probe
+/// attenuation factors queried from the instrument.
 class DataLoggerConfig {
   /// Whether CH1 peak-to-peak voltage is measured.
   final bool ch1VppEnabled;
@@ -21,6 +21,9 @@ class DataLoggerConfig {
 
   /// Whether CH1 RMS voltage is measured.
   final bool ch1RmsEnabled;
+
+  /// Whether CH1 duty cycle is measured.
+  final bool ch1DutyEnabled;
 
   /// Whether CH1 frequency is measured.
   final bool ch1FreqEnabled;
@@ -33,6 +36,9 @@ class DataLoggerConfig {
 
   /// Whether CH2 RMS voltage is measured.
   final bool ch2RmsEnabled;
+
+  /// Whether CH2 duty cycle is measured.
+  final bool ch2DutyEnabled;
 
   /// Whether CH2 frequency is measured.
   final bool ch2FreqEnabled;
@@ -53,19 +59,21 @@ class DataLoggerConfig {
   final double probeDividerCh2;
 
   /// True if any measurement is enabled for CH1.
-  bool get ch1Enabled => ch1VppEnabled || ch1MeanEnabled || ch1RmsEnabled || ch1FreqEnabled;
+  bool get ch1Enabled => ch1VppEnabled || ch1MeanEnabled || ch1RmsEnabled || ch1DutyEnabled || ch1FreqEnabled;
 
   /// True if any measurement is enabled for CH2.
-  bool get ch2Enabled => ch2VppEnabled || ch2MeanEnabled || ch2RmsEnabled || ch2FreqEnabled;
+  bool get ch2Enabled => ch2VppEnabled || ch2MeanEnabled || ch2RmsEnabled || ch2DutyEnabled || ch2FreqEnabled;
 
   const DataLoggerConfig({
     this.ch1VppEnabled = false,
     this.ch1MeanEnabled = false,
     this.ch1RmsEnabled = false,
+    this.ch1DutyEnabled = false,
     this.ch1FreqEnabled = false,
     this.ch2VppEnabled = false,
     this.ch2MeanEnabled = false,
     this.ch2RmsEnabled = false,
+    this.ch2DutyEnabled = false,
     this.ch2FreqEnabled = false,
     this.intervalSeconds = 10,
     this.durationMinutes = 1,
@@ -83,10 +91,12 @@ class DataLoggerConfig {
     bool? ch1VppEnabled,
     bool? ch1MeanEnabled,
     bool? ch1RmsEnabled,
+    bool? ch1DutyEnabled,
     bool? ch1FreqEnabled,
     bool? ch2VppEnabled,
     bool? ch2MeanEnabled,
     bool? ch2RmsEnabled,
+    bool? ch2DutyEnabled,
     bool? ch2FreqEnabled,
     int? intervalSeconds,
     int? durationMinutes,
@@ -98,10 +108,12 @@ class DataLoggerConfig {
       ch1VppEnabled: ch1VppEnabled ?? this.ch1VppEnabled,
       ch1MeanEnabled: ch1MeanEnabled ?? this.ch1MeanEnabled,
       ch1RmsEnabled: ch1RmsEnabled ?? this.ch1RmsEnabled,
+      ch1DutyEnabled: ch1DutyEnabled ?? this.ch1DutyEnabled,
       ch1FreqEnabled: ch1FreqEnabled ?? this.ch1FreqEnabled,
       ch2VppEnabled: ch2VppEnabled ?? this.ch2VppEnabled,
       ch2MeanEnabled: ch2MeanEnabled ?? this.ch2MeanEnabled,
       ch2RmsEnabled: ch2RmsEnabled ?? this.ch2RmsEnabled,
+      ch2DutyEnabled: ch2DutyEnabled ?? this.ch2DutyEnabled,
       ch2FreqEnabled: ch2FreqEnabled ?? this.ch2FreqEnabled,
       intervalSeconds: intervalSeconds ?? this.intervalSeconds,
       durationMinutes: durationMinutes ?? this.durationMinutes,
@@ -118,10 +130,12 @@ class DataLoggerConfig {
           ch1VppEnabled == other.ch1VppEnabled &&
           ch1MeanEnabled == other.ch1MeanEnabled &&
           ch1RmsEnabled == other.ch1RmsEnabled &&
+          ch1DutyEnabled == other.ch1DutyEnabled &&
           ch1FreqEnabled == other.ch1FreqEnabled &&
           ch2VppEnabled == other.ch2VppEnabled &&
           ch2MeanEnabled == other.ch2MeanEnabled &&
           ch2RmsEnabled == other.ch2RmsEnabled &&
+          ch2DutyEnabled == other.ch2DutyEnabled &&
           ch2FreqEnabled == other.ch2FreqEnabled &&
           intervalSeconds == other.intervalSeconds &&
           durationMinutes == other.durationMinutes &&
@@ -134,10 +148,12 @@ class DataLoggerConfig {
         ch1VppEnabled,
         ch1MeanEnabled,
         ch1RmsEnabled,
+        ch1DutyEnabled,
         ch1FreqEnabled,
         ch2VppEnabled,
         ch2MeanEnabled,
         ch2RmsEnabled,
+        ch2DutyEnabled,
         ch2FreqEnabled,
         intervalSeconds,
         durationMinutes,
@@ -149,8 +165,8 @@ class DataLoggerConfig {
   @override
   String toString() =>
       'DataLoggerConfig('
-      'ch1Vpp=$ch1VppEnabled, ch1Mean=$ch1MeanEnabled, ch1Rms=$ch1RmsEnabled, ch1Freq=$ch1FreqEnabled, '
-      'ch2Vpp=$ch2VppEnabled, ch2Mean=$ch2MeanEnabled, ch2Rms=$ch2RmsEnabled, ch2Freq=$ch2FreqEnabled, '
+      'ch1Vpp=$ch1VppEnabled, ch1Mean=$ch1MeanEnabled, ch1Rms=$ch1RmsEnabled, ch1Duty=$ch1DutyEnabled, ch1Freq=$ch1FreqEnabled, '
+      'ch2Vpp=$ch2VppEnabled, ch2Mean=$ch2MeanEnabled, ch2Rms=$ch2RmsEnabled, ch2Duty=$ch2DutyEnabled, ch2Freq=$ch2FreqEnabled, '
       'interval=${intervalSeconds}s, duration=${durationMinutes}min'
       '${description.isEmpty ? '' : ', description=$description'}'
       ', probeDividerCh1=${probeDividerCh1}x, probeDividerCh2=${probeDividerCh2}x'
@@ -174,10 +190,12 @@ class DataLoggerPoint {
   final double? ch1Vpp;
   final double? ch1Mean;
   final double? ch1Rms;
+  final double? ch1Duty;
   final double? ch1Freq;
   final double? ch2Vpp;
   final double? ch2Mean;
   final double? ch2Rms;
+  final double? ch2Duty;
   final double? ch2Freq;
 
   const DataLoggerPoint({
@@ -186,10 +204,12 @@ class DataLoggerPoint {
     this.ch1Vpp,
     this.ch1Mean,
     this.ch1Rms,
+    this.ch1Duty,
     this.ch1Freq,
     this.ch2Vpp,
     this.ch2Mean,
     this.ch2Rms,
+    this.ch2Duty,
     this.ch2Freq,
   });
 
@@ -199,10 +219,12 @@ class DataLoggerPoint {
       'ch1Vpp=${ch1Vpp?.toStringAsFixed(4)}, '
       'ch1Mean=${ch1Mean?.toStringAsFixed(4)}, '
       'ch1Rms=${ch1Rms?.toStringAsFixed(4)}, '
+      'ch1Duty=${ch1Duty?.toStringAsFixed(1)}, '
       'ch1Freq=${ch1Freq?.toStringAsFixed(1)}, '
       'ch2Vpp=${ch2Vpp?.toStringAsFixed(4)}, '
       'ch2Mean=${ch2Mean?.toStringAsFixed(4)}, '
       'ch2Rms=${ch2Rms?.toStringAsFixed(4)}, '
+      'ch2Duty=${ch2Duty?.toStringAsFixed(1)}, '
       'ch2Freq=${ch2Freq?.toStringAsFixed(1)})';
 }
 

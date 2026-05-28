@@ -375,10 +375,12 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
                                         ch1VppEnabled: _config?.ch1VppEnabled ?? true,
                                         ch1MeanEnabled: _config?.ch1MeanEnabled ?? false,
                                         ch1RmsEnabled: _config?.ch1RmsEnabled ?? false,
+                                        ch1DutyEnabled: _config?.ch1DutyEnabled ?? false,
                                         ch1FreqEnabled: _config?.ch1FreqEnabled ?? true,
                                         ch2VppEnabled: _config?.ch2VppEnabled ?? false,
                                         ch2MeanEnabled: _config?.ch2MeanEnabled ?? false,
                                         ch2RmsEnabled: _config?.ch2RmsEnabled ?? false,
+                                        ch2DutyEnabled: _config?.ch2DutyEnabled ?? false,
                                         ch2FreqEnabled: _config?.ch2FreqEnabled ?? false,
                                         status: _status,
                                         totalDurationSeconds: (_config?.durationMinutes ?? 1) * 60.0,
@@ -484,6 +486,12 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
             style: const TextStyle(color: Color(0xFF00E676), fontSize: 11)));
       }
     }
+    if (_config?.ch1DutyEnabled == true) {
+      if (!_hiddenLines.contains('ch1_duty') && nearest.ch1Duty != null) {
+        rows.add(Text('CH1 Duty: ${nearest.ch1Duty!.toStringAsFixed(1)}%',
+            style: const TextStyle(color: Color(0xFFFFFF00), fontSize: 11)));
+      }
+    }
     if (_config?.ch1FreqEnabled == true) {
       if (!_hiddenLines.contains('ch1_freq') && nearest.ch1Freq != null) {
         rows.add(Text('CH1 Freq: ${_fmtSi(nearest.ch1Freq!)}Hz',
@@ -506,6 +514,12 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       if (!_hiddenLines.contains('ch2_rms') && nearest.ch2Rms != null) {
         rows.add(Text('CH2 Rms: ${nearest.ch2Rms!.toStringAsFixed(3)}V',
             style: const TextStyle(color: Color(0xFFFF5252), fontSize: 11)));
+      }
+    }
+    if (_config?.ch2DutyEnabled == true) {
+      if (!_hiddenLines.contains('ch2_duty') && nearest.ch2Duty != null) {
+        rows.add(Text('CH2 Duty: ${nearest.ch2Duty!.toStringAsFixed(1)}%',
+            style: const TextStyle(color: Color(0xFFFF20FF), fontSize: 11)));
       }
     }
     if (_config?.ch2FreqEnabled == true) {
@@ -563,6 +577,11 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       items.add(_legendChip('CH1 Rms', 'ch1_rms',
           const Color(0xFF00E676)));
     }
+    if (_config?.ch1DutyEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
+      items.add(_legendChip('CH1 Duty', 'ch1_duty',
+          const Color(0xFFFFFF00)));
+    }
     if (_config?.ch1FreqEnabled == true) {
       if (items.isNotEmpty) items.add(const SizedBox(width: 4));
       items.add(_legendChip('CH1 Freq', 'ch1_freq',
@@ -582,6 +601,11 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       if (items.isNotEmpty) items.add(const SizedBox(width: 4));
       items.add(_legendChip('CH2 Rms', 'ch2_rms',
           const Color(0xFFFF5252)));
+    }
+    if (_config?.ch2DutyEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
+      items.add(_legendChip('CH2 Duty', 'ch2_duty',
+          const Color(0xFFFF20FF)));
     }
     if (_config?.ch2FreqEnabled == true) {
       if (items.isNotEmpty) items.add(const SizedBox(width: 4));

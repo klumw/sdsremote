@@ -86,8 +86,8 @@ class DataLoggerService {
     AppLogger(agentName: 'DataLogger', toolName: 'start').log(
       'Data Logger started: interval=${cfg.intervalSeconds}s, '
       'duration=${cfg.durationMinutes}min, '
-      'ch1Vpp=${cfg.ch1VppEnabled}, ch1Mean=${cfg.ch1MeanEnabled}, ch1Rms=${cfg.ch1RmsEnabled}, ch1Freq=${cfg.ch1FreqEnabled}, '
-      'ch2Vpp=${cfg.ch2VppEnabled}, ch2Mean=${cfg.ch2MeanEnabled}, ch2Rms=${cfg.ch2RmsEnabled}, ch2Freq=${cfg.ch2FreqEnabled}',
+      'ch1Vpp=${cfg.ch1VppEnabled}, ch1Mean=${cfg.ch1MeanEnabled}, ch1Rms=${cfg.ch1RmsEnabled}, ch1Duty=${cfg.ch1DutyEnabled}, ch1Freq=${cfg.ch1FreqEnabled}, '
+      'ch2Vpp=${cfg.ch2VppEnabled}, ch2Mean=${cfg.ch2MeanEnabled}, ch2Rms=${cfg.ch2RmsEnabled}, ch2Duty=${cfg.ch2DutyEnabled}, ch2Freq=${cfg.ch2FreqEnabled}',
     );
   }
 
@@ -190,10 +190,12 @@ class DataLoggerService {
       double? ch1Vpp;
       double? ch1Mean;
       double? ch1Rms;
+      double? ch1Duty;
       double? ch1Freq;
       double? ch2Vpp;
       double? ch2Mean;
       double? ch2Rms;
+      double? ch2Duty;
       double? ch2Freq;
 
       // Check _hasStopped between each query — if stop() was called
@@ -211,6 +213,10 @@ class DataLoggerService {
         ch1Rms = await _queryPava(instr, 'C1:PAVA? RMS');
         if (_hasStopped) return;
       }
+      if (cfg.ch1DutyEnabled) {
+        ch1Duty = await _queryPava(instr, 'C1:PAVA? DUTY');
+        if (_hasStopped) return;
+      }
       if (cfg.ch1FreqEnabled) {
         ch1Freq = await _queryPava(instr, 'C1:PAVA? FREQ');
         if (_hasStopped) return;
@@ -225,6 +231,10 @@ class DataLoggerService {
       }
       if (cfg.ch2RmsEnabled) {
         ch2Rms = await _queryPava(instr, 'C2:PAVA? RMS');
+        if (_hasStopped) return;
+      }
+      if (cfg.ch2DutyEnabled) {
+        ch2Duty = await _queryPava(instr, 'C2:PAVA? DUTY');
         if (_hasStopped) return;
       }
       if (cfg.ch2FreqEnabled) {
@@ -245,10 +255,12 @@ class DataLoggerService {
         ch1Vpp: ch1Vpp,
         ch1Mean: ch1Mean,
         ch1Rms: ch1Rms,
+        ch1Duty: ch1Duty,
         ch1Freq: ch1Freq,
         ch2Vpp: ch2Vpp,
         ch2Mean: ch2Mean,
         ch2Rms: ch2Rms,
+        ch2Duty: ch2Duty,
         ch2Freq: ch2Freq,
       );
 

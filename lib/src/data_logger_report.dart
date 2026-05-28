@@ -154,6 +154,15 @@ class DataLoggerReport {
         _fmtValue(_maxValue(points.map((p) => p.ch1Rms)), 'V'),
       ]);
     }
+    if (config.ch1DutyEnabled) {
+      rows.add([
+        'CH1 Duty',
+        _fmtDuty(first.ch1Duty),
+        _fmtDuty(last.ch1Duty),
+        _fmtDuty(_minValue(points.map((p) => p.ch1Duty))),
+        _fmtDuty(_maxValue(points.map((p) => p.ch1Duty))),
+      ]);
+    }
     if (config.ch1FreqEnabled) {
       rows.add([
         'CH1 Freq',
@@ -188,6 +197,15 @@ class DataLoggerReport {
         _fmtValue(last.ch2Rms, 'V'),
         _fmtValue(_minValue(points.map((p) => p.ch2Rms)), 'V'),
         _fmtValue(_maxValue(points.map((p) => p.ch2Rms)), 'V'),
+      ]);
+    }
+    if (config.ch2DutyEnabled) {
+      rows.add([
+        'CH2 Duty',
+        _fmtDuty(first.ch2Duty),
+        _fmtDuty(last.ch2Duty),
+        _fmtDuty(_minValue(points.map((p) => p.ch2Duty))),
+        _fmtDuty(_maxValue(points.map((p) => p.ch2Duty))),
       ]);
     }
     if (config.ch2FreqEnabled) {
@@ -225,6 +243,12 @@ class DataLoggerReport {
   static String _fmtValue(double? value, String unit) {
     if (value == null) return 'N/A';
     return '${value.toStringAsFixed(3)} $unit';
+  }
+
+  /// Format a duty cycle value, returning "N/A" if null.
+  static String _fmtDuty(double? value) {
+    if (value == null) return 'N/A';
+    return '${value.toStringAsFixed(1)} %';
   }
 
   /// Format a frequency value with SI prefix, returning "N/A" if null.
