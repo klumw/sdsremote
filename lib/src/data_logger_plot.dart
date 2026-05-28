@@ -36,10 +36,12 @@ class DataLoggerPlot extends StatelessWidget {
   final bool ch1VppEnabled;
   final bool ch1MeanEnabled;
   final bool ch1RmsEnabled;
+  final bool ch1DutyEnabled;
   final bool ch1FreqEnabled;
   final bool ch2VppEnabled;
   final bool ch2MeanEnabled;
   final bool ch2RmsEnabled;
+  final bool ch2DutyEnabled;
   final bool ch2FreqEnabled;
   final DataLoggerStatus status;
 
@@ -48,7 +50,6 @@ class DataLoggerPlot extends StatelessWidget {
   final double totalDurationSeconds;
 
   /// Set of line IDs that are currently hidden.
-  /// Possible values: "ch1_vpp", "ch1_mean", "ch1_rms", "ch1_freq", "ch2_vpp", "ch2_mean", "ch2_rms", "ch2_freq".
   final Set<String> hiddenLines;
 
   /// Called when a legend line is tapped.
@@ -63,10 +64,12 @@ class DataLoggerPlot extends StatelessWidget {
     this.ch1VppEnabled = true,
     this.ch1MeanEnabled = false,
     this.ch1RmsEnabled = false,
+    this.ch1DutyEnabled = false,
     this.ch1FreqEnabled = true,
     this.ch2VppEnabled = false,
     this.ch2MeanEnabled = false,
     this.ch2RmsEnabled = false,
+    this.ch2DutyEnabled = false,
     this.ch2FreqEnabled = false,
     required this.status,
     this.totalDurationSeconds = 60,
@@ -109,10 +112,12 @@ class DataLoggerPlot extends StatelessWidget {
               ch1VppEnabled: ch1VppEnabled,
               ch1MeanEnabled: ch1MeanEnabled,
               ch1RmsEnabled: ch1RmsEnabled,
+              ch1DutyEnabled: ch1DutyEnabled,
               ch1FreqEnabled: ch1FreqEnabled,
               ch2VppEnabled: ch2VppEnabled,
               ch2MeanEnabled: ch2MeanEnabled,
               ch2RmsEnabled: ch2RmsEnabled,
+              ch2DutyEnabled: ch2DutyEnabled,
               ch2FreqEnabled: ch2FreqEnabled,
               status: status,
               totalDurationSeconds: totalDurationSeconds,
@@ -137,6 +142,8 @@ class _AxisRanges {
   final double maxVpp;
   final double minFreq;
   final double maxFreq;
+  final double minDuty;
+  final double maxDuty;
 
   const _AxisRanges({
     required this.maxTime,
@@ -144,6 +151,8 @@ class _AxisRanges {
     required this.maxVpp,
     required this.minFreq,
     required this.maxFreq,
+    required this.minDuty,
+    required this.maxDuty,
   });
 
   // Use the exact configured maxTime (recording duration) without nice-rounding,
@@ -193,6 +202,8 @@ class _AxisRanges {
     double minVoltage = 0.0;
     double maxVoltage = 0.0;
     double peakFreq = 0.0;
+    double minDuty = 100.0;
+    double maxDuty = 0.0;
 
     for (final p in points) {
       // Voltage: track min and max across Vpp, Mean, and Rms
@@ -223,6 +234,15 @@ class _AxisRanges {
       // Frequency: always positive, track only max
       if (p.ch1Freq != null && p.ch1Freq! > peakFreq) peakFreq = p.ch1Freq!;
       if (p.ch2Freq != null && p.ch2Freq! > peakFreq) peakFreq = p.ch2Freq!;
+      // Duty cycle: 0-100%, track min and max
+      if (p.ch1Duty != null) {
+        if (p.ch1Duty! > maxDuty) maxDuty = p.ch1Duty!;
+        if (p.ch1Duty! < minDuty) minDuty = p.ch1Duty!;
+      }
+      if (p.ch2Duty != null) {
+        if (p.ch2Duty! > maxDuty) maxDuty = p.ch2Duty!;
+        if (p.ch2Duty! < minDuty) minDuty = p.ch2Duty!;
+      }
     }
 
     // Y-axes dynamic scaling: 20% margin above and below the data range.
@@ -249,12 +269,18 @@ class _AxisRanges {
     double minFreq = 0.0;
     double maxFreq = peakFreq > 0 ? peakFreq * 1.2 : 1.0;
 
+    // Duty cycle: fixed 0–100% scale.
+    const double finalMinDuty = 0.0;
+    const double finalMaxDuty = 100.0;
+
     return _AxisRanges(
       maxTime: maxTime,
       minVpp: minVpp,
       maxVpp: maxVpp,
       minFreq: minFreq,
       maxFreq: maxFreq,
+      minDuty: finalMinDuty,
+      maxDuty: finalMaxDuty,
     );
   }
 }
@@ -268,10 +294,12 @@ class _DataLoggerPlotPainter extends CustomPainter {
   final bool ch1VppEnabled;
   final bool ch1MeanEnabled;
   final bool ch1RmsEnabled;
+  final bool ch1DutyEnabled;
   final bool ch1FreqEnabled;
   final bool ch2VppEnabled;
   final bool ch2MeanEnabled;
   final bool ch2RmsEnabled;
+  final bool ch2DutyEnabled;
   final bool ch2FreqEnabled;
   final DataLoggerStatus status;
   final double totalDurationSeconds;
@@ -282,10 +310,12 @@ class _DataLoggerPlotPainter extends CustomPainter {
     required this.ch1VppEnabled,
     required this.ch1MeanEnabled,
     required this.ch1RmsEnabled,
+    required this.ch1DutyEnabled,
     required this.ch1FreqEnabled,
     required this.ch2VppEnabled,
     required this.ch2MeanEnabled,
     required this.ch2RmsEnabled,
+    required this.ch2DutyEnabled,
     required this.ch2FreqEnabled,
     required this.status,
     this.totalDurationSeconds = 60,
@@ -314,11 +344,13 @@ class _DataLoggerPlotPainter extends CustomPainter {
     }
 
     // Determine which axes to show based on selected measurements.
-    // Mean is voltage-based, so it contributes to the left (voltage) axis.
-    final vppEnabled = ch1VppEnabled || ch1MeanEnabled || ch2VppEnabled || ch2MeanEnabled;
+    // Vpp, Mean, and Rms are voltage-based — contribute to the left (voltage) axis.
+    final vppEnabled = ch1VppEnabled || ch1MeanEnabled || ch1RmsEnabled ||
+        ch2VppEnabled || ch2MeanEnabled || ch2RmsEnabled;
     final freqEnabled = ch1FreqEnabled || ch2FreqEnabled;
+    final dutyEnabled = ch1DutyEnabled || ch2DutyEnabled;
     final effectiveMarginLeft = vppEnabled ? _marginLeft : 10.0;
-    final effectiveMarginRight = freqEnabled ? _marginRight : 10.0;
+    final effectiveMarginRight = (freqEnabled || dutyEnabled) ? _marginRight : 10.0;
 
     final ranges = _AxisRanges.compute(points, totalDurationSeconds: totalDurationSeconds);
     final plotRect = Rect.fromLTWH(
@@ -338,7 +370,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
 
     // Draw axes labels
     _drawAxesLabels(canvas, plotRect, ranges, size,
-        vppEnabled: vppEnabled, freqEnabled: freqEnabled);
+        vppEnabled: vppEnabled, freqEnabled: freqEnabled, dutyEnabled: dutyEnabled);
 
     // Draw legend
     _drawLegend(canvas, plotRect, size);
@@ -472,19 +504,30 @@ class _DataLoggerPlotPainter extends CustomPainter {
         plotRect.bottom - ((v - ranges.niceMinVpp) / vppRange) * plotRect.height;
     double mapFreq(double f) =>
         plotRect.bottom - ((f - ranges.niceMinFreq) / freqRange) * plotRect.height;
+    final dutyRange = ranges.maxDuty - ranges.minDuty;
+    double mapDuty(double d) =>
+        plotRect.bottom - ((d - ranges.minDuty) / dutyRange) * plotRect.height;
 
     void drawLine(
       List<Offset> pts,
       Color color,
       String label, {
       bool dashed = false,
+      bool dotted = false,
     }) {
       if (pts.length < 2) return;
       final paint = Paint()
         ..color = color
         ..strokeWidth = 1.5
         ..style = PaintingStyle.stroke;
-      if (dashed) {
+      if (dotted) {
+        final path = Path();
+        path.addPolygon(pts, false);
+        canvas.drawPath(
+          _dashPath(path, 2, 6),
+          paint,
+        );
+      } else if (dashed) {
         final path = Path();
         path.addPolygon(pts, false);
         canvas.drawPath(
@@ -541,6 +584,21 @@ class _DataLoggerPlotPainter extends CustomPainter {
           }
         }
         drawLine(ch1RmsPts, _ch1MeanColor, 'CH1 Rms', dashed: false);
+      }
+    }
+    // Build line segments for CH1 Duty
+    if (ch1DutyEnabled) {
+      if (!hiddenLines.contains('ch1_duty')) {
+        final ch1DutyPts = <Offset>[];
+        for (final p in points) {
+          if (p.ch1Duty != null) {
+            ch1DutyPts.add(Offset(
+              mapTime(p.elapsedSeconds),
+              mapDuty(p.ch1Duty!),
+            ));
+          }
+        }
+        drawLine(ch1DutyPts, _ch1Color, 'CH1 Duty', dotted: true);
       }
     }
     if (ch1FreqEnabled) {
@@ -603,6 +661,21 @@ class _DataLoggerPlotPainter extends CustomPainter {
         drawLine(ch2RmsPts, _ch2MeanColor, 'CH2 Rms', dashed: false);
       }
     }
+    // Build line segments for CH2 Duty
+    if (ch2DutyEnabled) {
+      if (!hiddenLines.contains('ch2_duty')) {
+        final ch2DutyPts = <Offset>[];
+        for (final p in points) {
+          if (p.ch2Duty != null) {
+            ch2DutyPts.add(Offset(
+              mapTime(p.elapsedSeconds),
+              mapDuty(p.ch2Duty!),
+            ));
+          }
+        }
+        drawLine(ch2DutyPts, _ch2Color, 'CH2 Duty', dotted: true);
+      }
+    }
     if (ch2FreqEnabled) {
       if (!hiddenLines.contains('ch2_freq')) {
         final ch2FreqPts = <Offset>[];
@@ -658,6 +731,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
     Size size, {
     required bool vppEnabled,
     required bool freqEnabled,
+    bool dutyEnabled = false,
   }) {
     final textStyle = TextStyle(color: _labelColor, fontSize: 10);
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
@@ -756,6 +830,27 @@ class _DataLoggerPlotPainter extends CustomPainter {
       }
     }
 
+    // Y-axis tick labels (left inner: Duty cycle in %) — placed between
+    // the voltage labels and the plot area on the left side.
+    if (dutyEnabled) {
+      final dutyStep = _tickStep(ranges.minDuty, ranges.maxDuty);
+      double d = ranges.minDuty;
+      while (d <= ranges.maxDuty + 0.001) {
+        final y = _mapValueToY(d, ranges.minDuty, ranges.maxDuty, plotRect);
+        textPainter.text = TextSpan(
+          text: '${d.toStringAsFixed(0)}%',
+          style: textStyle,
+        );
+        textPainter.layout();
+        // Place duty labels inside the plot area, to the right of the left Y-axis.
+        textPainter.paint(
+          canvas,
+          Offset(plotRect.left + 4, y - textPainter.height / 2),
+        );
+        d += dutyStep;
+      }
+    }
+
     // X-axis tick labels — integer display values (s/min/h), grid lines
     // are already aligned from _drawGrid.
     final tickPositions = _timeTickPositions(ranges.niceMaxTime, timeFactor);
@@ -798,6 +893,9 @@ class _DataLoggerPlotPainter extends CustomPainter {
     if (ch1RmsEnabled) {
       items.add(_LegendItem('CH1 Rms', _ch1MeanColor, false));
     }
+    if (ch1DutyEnabled) {
+      items.add(_LegendItem('CH1 Duty', _ch1Color, false, dotted: true));
+    }
     if (ch1FreqEnabled) {
       items.add(_LegendItem('CH1 Freq', _ch1Color, true));
     }
@@ -809,6 +907,9 @@ class _DataLoggerPlotPainter extends CustomPainter {
     }
     if (ch2RmsEnabled) {
       items.add(_LegendItem('CH2 Rms', _ch2MeanColor, false));
+    }
+    if (ch2DutyEnabled) {
+      items.add(_LegendItem('CH2 Duty', _ch2Color, false, dotted: true));
     }
     if (ch2FreqEnabled) {
       items.add(_LegendItem('CH2 Freq', _ch2Color, true));
@@ -854,7 +955,12 @@ class _DataLoggerPlotPainter extends CustomPainter {
         ..strokeWidth = 2.0
         ..style = PaintingStyle.stroke;
 
-      if (item.dashed) {
+      if (item.dotted) {
+        final path = Path();
+        path.moveTo(lineStart.dx, lineStart.dy);
+        path.lineTo(lineEnd.dx, lineEnd.dy);
+        canvas.drawPath(_dashPath(path, 2, 6), linePaint);
+      } else if (item.dashed) {
         final path = Path();
         path.moveTo(lineStart.dx, lineStart.dy);
         path.lineTo(lineEnd.dx, lineEnd.dy);
@@ -883,10 +989,12 @@ class _DataLoggerPlotPainter extends CustomPainter {
         oldDelegate.ch1VppEnabled != ch1VppEnabled ||
         oldDelegate.ch1MeanEnabled != ch1MeanEnabled ||
         oldDelegate.ch1RmsEnabled != ch1RmsEnabled ||
+        oldDelegate.ch1DutyEnabled != ch1DutyEnabled ||
         oldDelegate.ch1FreqEnabled != ch1FreqEnabled ||
         oldDelegate.ch2VppEnabled != ch2VppEnabled ||
         oldDelegate.ch2MeanEnabled != ch2MeanEnabled ||
         oldDelegate.ch2RmsEnabled != ch2RmsEnabled ||
+        oldDelegate.ch2DutyEnabled != ch2DutyEnabled ||
         oldDelegate.ch2FreqEnabled != ch2FreqEnabled ||
         oldDelegate.status != status ||
         oldDelegate.totalDurationSeconds != totalDurationSeconds ||
@@ -902,8 +1010,9 @@ class _LegendItem {
   final String label;
   final Color color;
   final bool dashed;
+  final bool dotted;
 
-  const _LegendItem(this.label, this.color, this.dashed);
+  const _LegendItem(this.label, this.color, this.dashed, {this.dotted = false});
 }
 
 // =============================================================================

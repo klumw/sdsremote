@@ -60,10 +60,12 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
   bool _ch1VppEnabled = false;
   bool _ch1MeanEnabled = false;
   bool _ch1RmsEnabled = false;
+  bool _ch1DutyEnabled = false;
   bool _ch1FreqEnabled = false;
   bool _ch2VppEnabled = false;
   bool _ch2MeanEnabled = false;
   bool _ch2RmsEnabled = false;
+  bool _ch2DutyEnabled = false;
   bool _ch2FreqEnabled = false;
   double _intervalSeconds = 10; // Slider: 10–60
   int _durationIndex = 0; // Index into _durationPresetsMinutes
@@ -77,10 +79,12 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
       _ch1VppEnabled = widget.currentConfig!.ch1VppEnabled;
       _ch1MeanEnabled = widget.currentConfig!.ch1MeanEnabled;
       _ch1RmsEnabled = widget.currentConfig!.ch1RmsEnabled;
+      _ch1DutyEnabled = widget.currentConfig!.ch1DutyEnabled;
       _ch1FreqEnabled = widget.currentConfig!.ch1FreqEnabled;
       _ch2VppEnabled = widget.currentConfig!.ch2VppEnabled;
       _ch2MeanEnabled = widget.currentConfig!.ch2MeanEnabled;
       _ch2RmsEnabled = widget.currentConfig!.ch2RmsEnabled;
+      _ch2DutyEnabled = widget.currentConfig!.ch2DutyEnabled;
       _ch2FreqEnabled = widget.currentConfig!.ch2FreqEnabled;
       _intervalSeconds = widget.currentConfig!.intervalSeconds.toDouble();
       final saved = widget.currentConfig!.durationMinutes;
@@ -97,10 +101,25 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
     super.dispose();
   }
 
-  /// True if any measurement is enabled.
+  /// Count of currently selected measurement parameters.
+  int get _selectedCount =>
+      (_ch1VppEnabled ? 1 : 0) +
+      (_ch1MeanEnabled ? 1 : 0) +
+      (_ch1RmsEnabled ? 1 : 0) +
+      (_ch1DutyEnabled ? 1 : 0) +
+      (_ch1FreqEnabled ? 1 : 0) +
+      (_ch2VppEnabled ? 1 : 0) +
+      (_ch2MeanEnabled ? 1 : 0) +
+      (_ch2RmsEnabled ? 1 : 0) +
+      (_ch2DutyEnabled ? 1 : 0) +
+      (_ch2FreqEnabled ? 1 : 0);
+
+  /// Maximum number of measurement parameters that can be selected.
+  static const int _maxSelected = 5;
+
+  /// True if at least one measurement is enabled and at most 5.
   bool get _isValid =>
-      _ch1VppEnabled || _ch1MeanEnabled || _ch1RmsEnabled || _ch1FreqEnabled ||
-      _ch2VppEnabled || _ch2MeanEnabled || _ch2RmsEnabled || _ch2FreqEnabled;
+      _selectedCount >= 1 && _selectedCount <= _maxSelected;
   int get _durationMinutes => _durationPresetsMinutes[_durationIndex];
 
   void _emitConfig() {
@@ -108,10 +127,12 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
       ch1VppEnabled: _ch1VppEnabled,
       ch1MeanEnabled: _ch1MeanEnabled,
       ch1RmsEnabled: _ch1RmsEnabled,
+      ch1DutyEnabled: _ch1DutyEnabled,
       ch1FreqEnabled: _ch1FreqEnabled,
       ch2VppEnabled: _ch2VppEnabled,
       ch2MeanEnabled: _ch2MeanEnabled,
       ch2RmsEnabled: _ch2RmsEnabled,
+      ch2DutyEnabled: _ch2DutyEnabled,
       ch2FreqEnabled: _ch2FreqEnabled,
       intervalSeconds: _intervalSeconds.round(),
       durationMinutes: _durationMinutes,
@@ -206,7 +227,22 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
           const SizedBox(height: 16),
 
           // ---- Measurement Toggle Buttons ----
-          _buildSectionTitle('Measurements'),
+          Row(
+            children: [
+              _buildSectionTitle('Measurements'),
+              if (_selectedCount >= _maxSelected) ...[
+                const SizedBox(width: 8),
+                Text(
+                  'Select a maximum of $_maxSelected parameters',
+                  style: const TextStyle(
+                    color: Colors.orangeAccent,
+                    fontSize: 11,
+                    fontStyle: FontStyle.italic,
+                  ),
+                ),
+              ],
+            ],
+          ),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -257,6 +293,15 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                 activeColor: const Color(0xFF00E676),
                 onChanged: (v) => setState(() {
                   _ch1RmsEnabled = v;
+                  _emitConfig();
+                }),
+              ),
+              _buildMeasurementToggle(
+                label: 'CH1 Duty',
+                value: _ch1DutyEnabled,
+                activeColor: const Color(0xFFFFFF00),
+                onChanged: (v) => setState(() {
+                  _ch1DutyEnabled = v;
                   _emitConfig();
                 }),
               ),
@@ -314,6 +359,15 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                 activeColor: const Color(0xFFFF5252),
                 onChanged: (v) => setState(() {
                   _ch2RmsEnabled = v;
+                  _emitConfig();
+                }),
+              ),
+              _buildMeasurementToggle(
+                label: 'CH2 Duty',
+                value: _ch2DutyEnabled,
+                activeColor: const Color(0xFFFF20FF),
+                onChanged: (v) => setState(() {
+                  _ch2DutyEnabled = v;
                   _emitConfig();
                 }),
               ),
@@ -678,8 +732,9 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
     required Color activeColor,
     required ValueChanged<bool> onChanged,
   }) {
+    final atLimit = !value && _selectedCount >= _maxSelected;
     return InkWell(
-      onTap: () => onChanged(!value),
+      onTap: atLimit ? null : () => onChanged(!value),
       borderRadius: BorderRadius.circular(8),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
