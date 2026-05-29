@@ -9,6 +9,7 @@ screen capture and device interaction and help through an integrated AI-powered 
 > **Note:** This application is not affiliated with Siglent or any other commercial entity.
 
 ---
+
 #### Connection Requirement
 
 > **Note:** Network-based (IP address) and direct USB control is supported. USB support is experimental.
@@ -182,17 +183,26 @@ The **Profiles** feature allows you to save and restore your device configuratio
 
 ## 6. Data Logger
 
-The data logger records peak-to-peak voltage and/or frequency measurements for channel 1 and/or 2 over configurable durations ranging from 1 minute to 24 hours.
+Data logging can be configured for the following parameters:  
 
-After data acquisition is complete, a PDF measurement report containing the chart and summary statistics can be generated. The report includes:
+| Parameter | Description |
+| :-------- | :-------- |
+| Vpp | Peak to peak voltage |  
+| Mean | Mean voltage |
+| Rms | Root mean square voltage |
+| Duty | Duty cycle |
+| Freq | Frequency |
 
-- Start/End time values
-- Min/Max values
-- Measurement chart
+Parameter logging is available for channels 1 and 2. The logging duration is configurable, ranging from 1 minute to 24 hours, and up to 5 parameters can be selected.
+An optional report name (up to 150 characters) can be entered. The measurement interval and recording duration are adjustable via slider controls.
 
-An optional report name containing up to 150 characters can be configured for the report. Measurement interval and recording duration can be adjusted using slider controls.
+After data acquisition is complete, a PDF measurement report containing a data chart and summary statistics can be generated. The report includes:
 
-When recording starts, a real-time plot chart is generated displaying data point tracks for the selected measurement parameters. After the recording is complete, the PDF report can be saved in the application working directory. When CSV export is enabled in the application settings, all recorded measurement points are additionally exported into a CSV file.
+* Start/End values
+* Min/Max values
+* Measurement chart
+
+Once recording begins, a real-time plot tracks the selected parameters. Upon completion, a PDF report can be generated. If enabled in settings, all recorded data points are also exported to a CSV file in the application working directory.
 
 ---
 
@@ -215,8 +225,8 @@ When recording starts, a real-time plot chart is generated displaying data point
 The application directory stores captured images, CSV exports, and device profile files.
 The directory is OS specific:
 
-* **Linux:** *~/.local/share/sdsremote/*
-* **Windows:** *%LocalAppData%\sdsremote*
+* **Linux:** `~/.local/share/sdsremote/`
+* **Windows:** `%LocalAppData%\sdsremote`
 
 ---
 
@@ -275,6 +285,7 @@ The directory is OS specific:
 * Submit issues or feature requests via the [sdsremote](https://github.com/klumw/sdsremote) GitHub repository Issues section
 
 ---
+
 ## 11. License
 
 This software is released under the terms and conditions of the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0.html).
