@@ -220,6 +220,88 @@ WaveformData? _convertChannel({
   return (ch1, ch2, params);
 }
 
+/// Parses a waveform CSV file content and returns (ch1Points, ch2Points).
+/// Returns null if the CSV is unparseable or has no data rows.
+///
+/// The CSV format is:
+///   # comment lines (ignored)
+///   Time (s),CH1 (V),CH2 (V)
+///   0,0.16,1.24
+///   0.000000002,-1.12,1.20
+///
+/// Both channels may be present, one may be empty, or one may be missing.
+(List<(double, double)>?, List<(double, double)>?) _parseWaveformCsv(
+    String content) {
+  final lines = content.split('\n');
+  List<(double, double)>? ch1;
+  List<(double, double)>? ch2;
+
+  bool inData = false;
+  for (final line in lines) {
+    final trimmed = line.trim();
+    if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
+    if (!inData) {
+      // Validate the CSV header exactly matches the expected format.
+      if (trimmed == 'Time (s),CH1 (V),CH2 (V)') {
+        inData = true;
+        ch1 = [];
+        ch2 = [];
+      } else if (trimmed.contains(',') &&
+          (trimmed.toLowerCase().contains('time') ||
+              trimmed.toLowerCase().contains('ch1') ||
+              trimmed.toLowerCase().contains('ch2'))) {
+        // Looks like a header row but doesn't match — reject the file.
+        return (null, null);
+      }
+      continue;
+    }
+
+    final parts = trimmed.split(',');
+    if (parts.length < 3) continue;
+
+    final time = double.tryParse(parts[0].trim());
+    if (time == null) continue;
+
+    final ch1Str = parts[1].trim();
+    final ch2Str = parts[2].trim();
+
+    if (ch1Str.isNotEmpty) {
+      final v = double.tryParse(ch1Str);
+      if (v != null) ch1?.add((time, v));
+    }
+    if (ch2Str.isNotEmpty) {
+      final v = double.tryParse(ch2Str);
+      if (v != null) ch2?.add((time, v));
+    }
+  }
+
+  // Return null lists as null so caller knows they're unavailable
+  final hasCh1 = ch1 != null && ch1.isNotEmpty;
+  final hasCh2 = ch2 != null && ch2.isNotEmpty;
+  if (!hasCh1 && !hasCh2) return (null, null);
+  return (hasCh1 ? ch1 : null, hasCh2 ? ch2 : null);
+}
+
+/// A simple dialog that lists CSV waveform files and lets the user pick one.
+class _ReferenceFilePickerDialog extends StatelessWidget {
+  final List<File> files;
+  const _ReferenceFilePickerDialog({required this.files});
+
+  @override
+  Widget build(BuildContext context) {
+    return SimpleDialog(
+      title: const Text('Select Waveform CSV'),
+      children: files.map((file) {
+        final name = file.uri.pathSegments.last;
+        return SimpleDialogOption(
+          onPressed: () => Navigator.pop(context, file.path),
+          child: Text(name, style: const TextStyle(fontSize: 13)),
+        );
+      }).toList(),
+    );
+  }
+}
+
 // ===========================================================================
 // Application Entry Point
 // ===========================================================================
@@ -343,6 +425,12 @@ class _OsciHomePageState extends State<OsciHomePage>
   WaveformData? _waveformCh2;
   DeviceParams? _deviceParams;
   bool _waveformAcquired = false;
+
+  // Reference waveform
+  WaveformData? _refWaveform;
+  bool _refVisible = false;
+  String? _refFileName;
+  String? _refChannelOrigin; // 'ch1' or 'ch2'
 
   // Zoom
   ZoomState _zoomState = const ZoomState();
@@ -551,6 +639,9 @@ class _OsciHomePageState extends State<OsciHomePage>
                                                 painter: WaveformBasePainter(
                                                   ch1: _waveformCh1,
                                                   ch2: _waveformCh2,
+                                                  ref: _refWaveform,
+                                                  refVisible: _refVisible,
+                                                  refChannelOrigin: _refChannelOrigin,
                                                   params: _deviceParams!,
                                                   ch1Enabled: _ch1Enabled,
                                                   ch2Enabled: _ch2Enabled,
@@ -655,6 +746,10 @@ class _OsciHomePageState extends State<OsciHomePage>
                         onCursorXToggled: _onCursorXToggled,
                         onCursorYToggled: _onCursorYToggled,
                         onZoomFactorChanged: _onZoomFactorChanged,
+                        refVisible: _refVisible,
+                        refLabel: _refFileName != null ? 'REF' : null,
+                        onLoadReference: _loadReferenceWaveform,
+                        onRefToggled: _onRefToggled,
                       ),
                   ],
                 ),
@@ -1526,69 +1621,65 @@ class _OsciHomePageState extends State<OsciHomePage>
       await file.writeAsBytes(pngBytes);
       final pngName = file.uri.pathSegments.last;
 
-      // If "Save with parameters" is enabled, also save waveform data as CSV
-      String? csvName;
-      if (_saveWithParams) {
-        final csvBuffer = StringBuffer();
-        csvBuffer.writeln('# SDS-Remote Waveform Data');
-        csvBuffer.writeln('# Saved: ${DateTime.now().toIso8601String()}');
-        csvBuffer.writeln('# Device: ${_deviceName ?? _ipAddress}');
-        if (_deviceParams != null) {
-          csvBuffer.writeln('# Timebase: ${_deviceParams!.timebase} s/div');
-          csvBuffer.writeln('# Trigger Delay: ${_deviceParams!.trdl} s');
-          csvBuffer.writeln('# Sample Rate: ${_deviceParams!.sampleRate} Sa/s');
-          if (_deviceParams!.vdivCh1 != null) {
-            csvBuffer.writeln('# CH1 V/div: ${_deviceParams!.vdivCh1} V');
-            csvBuffer.writeln('# CH1 Offset: ${_deviceParams!.voffsetCh1} V');
-          }
-          if (_deviceParams!.vdivCh2 != null) {
-            csvBuffer.writeln('# CH2 V/div: ${_deviceParams!.vdivCh2} V');
-            csvBuffer.writeln('# CH2 Offset: ${_deviceParams!.voffsetCh2} V');
-          }
+      // Always save waveform data as CSV alongside the PNG, including device
+      // parameters (Timebase, Trigger Delay, Sample Rate, V/div and Offset per channel).
+      final csvBuffer = StringBuffer();
+      csvBuffer.writeln('# SDS-Remote Waveform Data');
+      csvBuffer.writeln('# Saved: ${DateTime.now().toIso8601String()}');
+      csvBuffer.writeln('# Device: ${_deviceName ?? _ipAddress}');
+      if (_deviceParams != null) {
+        csvBuffer.writeln('# Timebase: ${_deviceParams!.timebase} s/div');
+        csvBuffer.writeln('# Trigger Delay: ${_deviceParams!.trdl} s');
+        csvBuffer.writeln('# Sample Rate: ${_deviceParams!.sampleRate} Sa/s');
+        if (_deviceParams!.vdivCh1 != null) {
+          csvBuffer.writeln('# CH1 V/div: ${_deviceParams!.vdivCh1} V');
+          csvBuffer.writeln('# CH1 Offset: ${_deviceParams!.voffsetCh1} V');
         }
-        csvBuffer.writeln(
-          '# Cursors X Enabled: ${_cursorState.cursorsXEnabled}',
-        );
-        csvBuffer.writeln(
-          '# Cursors Y Enabled: ${_cursorState.cursorsYEnabled}',
-        );
-        csvBuffer.writeln('#');
-        csvBuffer.writeln('Time (s),CH1 (V),CH2 (V)');
-
-        // Determine the maximum number of points across both channels
-        final int maxPoints = [
-          if (_waveformCh1 != null) _waveformCh1!.points.length,
-          if (_waveformCh2 != null) _waveformCh2!.points.length,
-        ].fold(0, (a, b) => a > b ? a : b);
-
-        // CSV time starts at 0 and increments by 1/sampleRate for each sample.
-        final csvDt = _deviceParams != null
-            ? 1.0 / _deviceParams!.sampleRate
-            : 0.0;
-        for (int i = 0; i < maxPoints; i++) {
-          final time = i * csvDt;
-          final ch1V = _waveformCh1 != null && i < _waveformCh1!.points.length
-              ? _waveformCh1!.points[i].$2.toStringAsFixed(6)
-              : '';
-          final ch2V = _waveformCh2 != null && i < _waveformCh2!.points.length
-              ? _waveformCh2!.points[i].$2.toStringAsFixed(6)
-              : '';
-          csvBuffer.writeln('$time,$ch1V,$ch2V');
+        if (_deviceParams!.vdivCh2 != null) {
+          csvBuffer.writeln('# CH2 V/div: ${_deviceParams!.vdivCh2} V');
+          csvBuffer.writeln('# CH2 Offset: ${_deviceParams!.voffsetCh2} V');
         }
+      }
+      csvBuffer.writeln(
+        '# Cursors X Enabled: ${_cursorState.cursorsXEnabled}',
+      );
+      csvBuffer.writeln(
+        '# Cursors Y Enabled: ${_cursorState.cursorsYEnabled}',
+      );
+      csvBuffer.writeln('#');
+      csvBuffer.writeln('Time (s),CH1 (V),CH2 (V)');
 
-        final csvFile = await AppPaths.getUniqueFilePath(
-          dir,
-          'waveform_data',
-          'csv',
-        );
-        await csvFile.writeAsString(csvBuffer.toString());
-        csvName = csvFile.uri.pathSegments.last;
+      // Determine the maximum number of points across both channels
+      final int maxPoints = [
+        if (_waveformCh1 != null) _waveformCh1!.points.length,
+        if (_waveformCh2 != null) _waveformCh2!.points.length,
+      ].fold(0, (a, b) => a > b ? a : b);
+
+      // CSV time starts at 0 and increments by 1/sampleRate for each sample.
+      final csvDt = _deviceParams != null
+          ? 1.0 / _deviceParams!.sampleRate
+          : 0.0;
+      for (int i = 0; i < maxPoints; i++) {
+        final time = i * csvDt;
+        final ch1V = _waveformCh1 != null && i < _waveformCh1!.points.length
+            ? _waveformCh1!.points[i].$2.toStringAsFixed(6)
+            : '';
+        final ch2V = _waveformCh2 != null && i < _waveformCh2!.points.length
+            ? _waveformCh2!.points[i].$2.toStringAsFixed(6)
+            : '';
+        csvBuffer.writeln('$time,$ch1V,$ch2V');
       }
 
+      final csvFile = await AppPaths.getUniqueFilePath(
+        dir,
+        'waveform_data',
+        'csv',
+      );
+      await csvFile.writeAsString(csvBuffer.toString());
+      final csvName = csvFile.uri.pathSegments.last;
+
       if (mounted) {
-        final msg = _saveWithParams
-            ? 'Saved $pngName + $csvName'
-            : 'Saved $pngName';
+        final msg = 'Saved $pngName + $csvName';
         ScaffoldMessenger.of(
           context,
         ).showSnackBar(SnackBar(content: Text(msg)));
@@ -2416,6 +2507,128 @@ class _OsciHomePageState extends State<OsciHomePage>
         _ch2Enabled = !_ch2Enabled;
       }
     });
+  }
+
+  void _onRefToggled(bool visible) {
+    setState(() => _refVisible = visible);
+  }
+
+  /// Opens a file selection dialog showing CSV waveform files in the
+  /// application save directory.  When both CH1 and CH2 columns are present
+  /// the user is asked which channel to load.
+  Future<void> _loadReferenceWaveform() async {
+    final dir = AppPaths.defaultSaveDirectory;
+    if (!await dir.exists()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No saved waveform CSV files found.')),
+        );
+      }
+      return;
+    }
+
+    final files = dir
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.csv'))
+        .toList()
+      ..sort((a, b) =>
+          a.uri.pathSegments.last.compareTo(b.uri.pathSegments.last));
+
+    if (files.isEmpty) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('No waveform CSV files found.')),
+        );
+      }
+      return;
+    }
+
+    if (!mounted) return;
+    final selected = await showDialog<String>(
+      context: context,
+      builder: (ctx) => _ReferenceFilePickerDialog(files: files),
+    );
+    if (selected == null || !mounted) return;
+
+    try {
+      final file = File(selected);
+      final content = await file.readAsString();
+      final (ch1Points, ch2Points) = _parseWaveformCsv(content);
+      if (ch1Points == null && ch2Points == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'Invalid waveform CSV. Expected header: '
+                'Time (s),CH1 (V),CH2 (V)',
+              ),
+            ),
+          );
+        }
+        return;
+      }
+
+      final bothPresent = ch1Points != null && ch2Points != null;
+
+      String? channel;
+      if (bothPresent) {
+        if (!mounted) return;
+        channel = await showDialog<String>(
+          context: context,
+          builder: (ctx) => SimpleDialog(
+            title: const Text('Select Channel'),
+            children: [
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(ctx, 'ch1'),
+                child: const Text('CH1', style: TextStyle(color: Colors.yellow)),
+              ),
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(ctx, 'ch2'),
+                child: const Text('CH2',
+                    style: TextStyle(color: Color(0xFFFF20FF))),
+              ),
+            ],
+          ),
+        );
+        if (channel == null) return;
+      } else if (ch1Points != null) {
+        channel = 'ch1';
+      } else if (ch2Points != null) {
+        channel = 'ch2';
+      } else {
+        return;
+      }
+
+      final points = channel == 'ch1' ? ch1Points! : ch2Points!;
+
+      // Align reference time axis with the live waveform: the CSV time
+      // starts at 0 but the live data may use trigger-relative times
+      // starting at a negative value (e.g. -0.00035).  Shift the
+      // reference so its first sample lines up with the first live sample.
+      final liveFirstTime = _waveformCh1 != null && _waveformCh1!.points.isNotEmpty
+          ? _waveformCh1!.points.first.$1
+          : _waveformCh2 != null && _waveformCh2!.points.isNotEmpty
+          ? _waveformCh2!.points.first.$1
+          : null;
+      final shift = (liveFirstTime ?? points.first.$1) - points.first.$1;
+      final alignedPoints = shift != 0
+          ? points.map((p) => (p.$1 + shift, p.$2)).toList()
+          : points;
+
+      setState(() {
+        _refWaveform = WaveformData(points: alignedPoints);
+        _refVisible = true;
+        _refFileName = file.uri.pathSegments.last;
+        _refChannelOrigin = channel;
+      });
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading reference: $e')),
+        );
+      }
+    }
   }
 
   void _onCursorXToggled(bool enabled) {

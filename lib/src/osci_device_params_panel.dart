@@ -15,6 +15,10 @@ class DeviceParametersPanel extends StatelessWidget {
   final ValueChanged<bool>? onCursorXToggled;
   final ValueChanged<bool>? onCursorYToggled;
   final ValueChanged<double>? onZoomFactorChanged;
+  final bool refVisible;
+  final String? refLabel;   // "REF" when a reference is loaded
+  final VoidCallback? onLoadReference;
+  final ValueChanged<bool>? onRefToggled;
 
   const DeviceParametersPanel({
     super.key,
@@ -29,6 +33,10 @@ class DeviceParametersPanel extends StatelessWidget {
     this.onCursorXToggled,
     this.onCursorYToggled,
     this.onZoomFactorChanged,
+    this.refVisible = false,
+    this.refLabel,
+    this.onLoadReference,
+    this.onRefToggled,
   });
 
   @override
@@ -75,18 +83,30 @@ class DeviceParametersPanel extends StatelessWidget {
                   // Channel Status Section (channels are always enabled)
                   _buildBorderedSection(
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                      mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         _buildChannelStatus(
                           label: "CH1",
                           enabled: ch1Enabled,
                           activeColor: Colors.yellow,
                         ),
+                        const SizedBox(width: 4),
                         _buildChannelStatus(
                           label: "CH2",
                           enabled: ch2Enabled,
                           activeColor: const Color(0xFFFF20FF),
                         ),
+                        if (refLabel != null) ...[
+                          const SizedBox(width: 4),
+                          _buildChannelStatus(
+                            label: refLabel!,
+                            enabled: refVisible,
+                            activeColor: Colors.white54,
+                            onTap: onRefToggled != null
+                                ? () => onRefToggled!(!refVisible)
+                                : null,
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -173,6 +193,8 @@ class DeviceParametersPanel extends StatelessWidget {
                   ),
                   const SizedBox(height: 12),
                   _buildZoomSliderSection(),
+                  const SizedBox(height: 12),
+                  _buildLoadReferenceButton(),
                 ],
               ),
             ),
@@ -273,6 +295,43 @@ class DeviceParametersPanel extends StatelessWidget {
     );
   }
 
+  Widget _buildLoadReferenceButton() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF172A45).withValues(alpha: 0.3),
+        border: Border.all(color: const Color(0xFF475569)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: InkWell(
+        onTap: onLoadReference,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.file_open,
+                size: 16,
+                color: Colors.white.withAlpha(180),
+              ),
+              const SizedBox(width: 8),
+              const Text(
+                'Load Reference',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBorderedSection(Widget child) {
     return Container(
       padding: const EdgeInsets.all(8),
@@ -289,12 +348,13 @@ class DeviceParametersPanel extends StatelessWidget {
     required String label,
     required bool enabled,
     required Color activeColor,
+    VoidCallback? onTap,
   }) {
     return _ChannelStatusButton(
       label: label,
       enabled: enabled,
       activeColor: activeColor,
-      onTap: onChannelToggle != null ? () => onChannelToggle!(label) : null,
+      onTap: onTap ?? (onChannelToggle != null ? () => onChannelToggle!(label) : null),
     );
   }
 
@@ -394,7 +454,7 @@ class _ChannelStatusButtonState extends State<_ChannelStatusButton> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(
             vertical: 6,
-            horizontal: 12,
+            horizontal: 6,
           ),
           decoration: BoxDecoration(
             color: _isHovered && widget.onTap != null
@@ -420,7 +480,7 @@ class _ChannelStatusButtonState extends State<_ChannelStatusButton> {
                     ? widget.activeColor
                     : Colors.transparent,
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 4),
               Text(
                 widget.label,
                 style: TextStyle(

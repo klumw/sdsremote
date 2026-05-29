@@ -204,9 +204,25 @@ After data acquisition is complete, a PDF measurement report containing a data c
 
 Once recording begins, a real-time plot tracks the selected parameters. Upon completion, a PDF report can be generated. If enabled in settings, all recorded data points are also exported to a CSV file in the application working directory.
 
+## 7. Acquire Waveform
+
+The Waveform Acquisition feature allows you to record waveform data for Channels 1 and 2. The X/Y cursor function provides additional measurement capabilities for detailed waveform analysis.  
+
+The zoom slider enables you to zoom in and out of the waveform display, allowing specific sections of the waveform to be examined in greater detail.  
+
+Press the **Save** button to store an image of the recorded waveforms in the application working directory. If the **Save CSV Data** option is enabled in the settings, the waveform data points are also saved as a CSV file in the application working directory.  
+
+The **Load Reference** button allows previously saved CSV waveform data to be loaded and displayed as a reference waveform.
+
+## 8. Control Panel
+
+The Control Panel allows you to remotely operate your oscilloscope. After each command, the displayed oscilloscope screen is automatically updated.  
+
+Press the **Save** button to store a screenshot in the application working directory.
+
 ---
 
-## 7. Getting Started
+## 9. Getting Started
 
 ### Basic Connection Setup for Network Mode
 
@@ -230,7 +246,7 @@ The directory is OS specific:
 
 ---
 
-## 8. Troubleshooting (Non-AI)
+## 10. Troubleshooting (Non-AI)
 
 ### Connection Issues
 
@@ -255,7 +271,7 @@ The directory is OS specific:
 
 ---
 
-## 9. Technical Details
+## 11. Technical Details
 
 ### Communication
 
@@ -278,7 +294,7 @@ The directory is OS specific:
 
 ---
 
-## 10. Support and Feedback
+## 12. Support and Feedback
 
 * Review the troubleshooting section
 * Check logs at `/tmp/sds/logging/sds.log` (Linux) or `%TEMP%\sds\logging\sds.log` (Windows)
@@ -286,6 +302,6 @@ The directory is OS specific:
 
 ---
 
-## 11. License
+## 13. License
 
 This software is released under the terms and conditions of the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0.html).

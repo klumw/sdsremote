@@ -6,6 +6,9 @@ import 'waveform_models.dart';
 class WaveformBasePainter extends CustomPainter {
   final WaveformData? ch1;
   final WaveformData? ch2;
+  final WaveformData? ref;          // loaded reference waveform (ghost)
+  final bool refVisible;            // whether the reference is visible
+  final String? refChannelOrigin;   // 'ch1' or 'ch2' — which channel's V/div to use
   final DeviceParams params;
   final bool ch1Enabled;
   final bool ch2Enabled;
@@ -17,6 +20,9 @@ class WaveformBasePainter extends CustomPainter {
   WaveformBasePainter({
     this.ch1,
     this.ch2,
+    this.ref,
+    this.refVisible = false,
+    this.refChannelOrigin,
     required this.params,
     this.ch1Enabled = true,
     this.ch2Enabled = true,
@@ -31,8 +37,10 @@ class WaveformBasePainter extends CustomPainter {
       Paint()..color = const Color(0xFF0A192F),
     );
 
+    final hasRef = refVisible && ref != null && ref!.points.isNotEmpty;
     final hasData = (ch1 != null && ch1!.points.isNotEmpty) ||
-        (ch2 != null && ch2!.points.isNotEmpty);
+        (ch2 != null && ch2!.points.isNotEmpty) ||
+        hasRef;
 
     if (!hasData) {
       _drawGridFallback(canvas, size);
@@ -50,6 +58,10 @@ class WaveformBasePainter extends CustomPainter {
     if (ch2 != null && ch2!.points.isNotEmpty) {
       dataTMin = dataTMin < ch2!.points.first.$1 ? dataTMin : ch2!.points.first.$1;
       dataTMax = dataTMax > ch2!.points.last.$1 ? dataTMax : ch2!.points.last.$1;
+    }
+    if (hasRef) {
+      dataTMin = dataTMin < ref!.points.first.$1 ? dataTMin : ref!.points.first.$1;
+      dataTMax = dataTMax > ref!.points.last.$1 ? dataTMax : ref!.points.last.$1;
     }
     if (dataTMin == double.infinity) return;
 
@@ -119,6 +131,28 @@ class WaveformBasePainter extends CustomPainter {
       final double visibleVMax = centerVoltage + visibleVRange / 2;
       _drawWaveform(canvas, size, ch2!, const Color(0xFFFF20FF),
           visibleTMin, visibleTMax, visibleVMin, visibleVMax);
+    }
+
+    // Draw reference waveform as a ghost overlay
+    if (hasRef) {
+      // Use the voltage range of the channel the reference was loaded from.
+      final bool useCh1Range = refChannelOrigin == 'ch1';
+      final double vdiv = useCh1Range
+          ? (params.vdivCh1 ?? 1.0)
+          : (params.vdivCh2 ?? 1.0);
+      final double voffset = useCh1Range
+          ? (params.voffsetCh1 ?? 0.0)
+          : (params.voffsetCh2 ?? 0.0);
+      final double vMax = voffset + 4 * vdiv;
+      final double vMin = voffset - 4 * vdiv;
+      final double vRange = vMax - vMin;
+      final double centerVoltage = vMin + zoom.panY * vRange;
+      final double visibleVRange = vRange / zoom.zoomFactor;
+      final double visibleVMinRef = centerVoltage - visibleVRange / 2;
+      final double visibleVMaxRef = centerVoltage + visibleVRange / 2;
+      _drawWaveform(canvas, size, ref!, Colors.white.withAlpha(80),
+          visibleTMin, visibleTMax, visibleVMinRef, visibleVMaxRef,
+          strokeWidth: 1.0);
     }
   }
 
@@ -252,12 +286,14 @@ class WaveformBasePainter extends CustomPainter {
   void _drawWaveform(Canvas canvas, Size size, WaveformData data,
       Color color,
       double visibleTMin, double visibleTMax,
-      double visibleVMin, double visibleVMax) {
+      double visibleVMin, double visibleVMax, {
+      double strokeWidth = 1.5,
+    }) {
     if (data.points.length < 2) return;
 
     final paint = Paint()
       ..color = color
-      ..strokeWidth = 1.5
+      ..strokeWidth = strokeWidth
       ..isAntiAlias = true
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
@@ -313,6 +349,8 @@ class WaveformBasePainter extends CustomPainter {
   bool shouldRepaint(WaveformBasePainter oldDelegate) {
     return oldDelegate.ch1 != ch1 ||
         oldDelegate.ch2 != ch2 ||
+        oldDelegate.ref != ref ||
+        oldDelegate.refVisible != refVisible ||
         oldDelegate.params != params ||
         oldDelegate.ch1Enabled != ch1Enabled ||
         oldDelegate.ch2Enabled != ch2Enabled ||
