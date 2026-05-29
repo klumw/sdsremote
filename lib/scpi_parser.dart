@@ -151,6 +151,26 @@ class ScpiParser {
     return numValue;
   }
 
+  /// Parses a SCPI SANU response such as `"C1:WF SANU 50000,25000"` or
+  /// `"50000,25000"` returning a [(pointCount, triggerPosition)] pair.
+  ///
+  /// Returns (0, 0) on parse failure.
+  static (int pointCount, int triggerPosition) parseSanu(String raw) {
+    var s = raw.trim();
+    if (s.isEmpty) return (0, 0);
+
+    // Strip command echo if present
+    final lastSpace = s.lastIndexOf(' ');
+    if (lastSpace >= 0) s = s.substring(lastSpace + 1).trim();
+
+    final parts = s.split(',');
+    if (parts.length < 2) return (0, 0);
+    return (
+      int.tryParse(parts[0].trim()) ?? 0,
+      int.tryParse(parts[1].trim()) ?? 0,
+    );
+  }
+
   /// Parses a SCPI status string such as `"C1:TRA ON"`, `"C1:TRA OFF"`, `"1"`, `"0"`.
   ///
   /// Returns `true` for ON/1 and `false` for OFF/0.

@@ -182,11 +182,13 @@ WaveformData? _convertChannel({
   required double trdl,
   required double timebase,
   required double sampleRate,
+  required int triggerPosition,
 }) {
   if (rawData == null || vdiv == null || voffset == null) return null;
   final voltages = WaveformConverter.convertVoltages(rawData, vdiv, voffset);
   final times = WaveformConverter.computeTimeAxis(
     voltages.length, trdl, timebase, sampleRate,
+    triggerPosition: triggerPosition,
   );
   return WaveformData(points: WaveformConverter.combine(times, voltages));
 }
@@ -197,10 +199,12 @@ WaveformData? _convertChannel({
   final ch1 = _convertChannel(
     rawData: raw.ch1Raw, vdiv: raw.vdivCh1, voffset: raw.voffsetCh1,
     trdl: raw.trdl, timebase: raw.timebase, sampleRate: raw.sampleRate,
+    triggerPosition: raw.triggerPosition,
   );
   final ch2 = _convertChannel(
     rawData: raw.ch2Raw, vdiv: raw.vdivCh2, voffset: raw.voffsetCh2,
     trdl: raw.trdl, timebase: raw.timebase, sampleRate: raw.sampleRate,
+    triggerPosition: raw.triggerPosition,
   );
 
   final params = DeviceParams(
@@ -1557,12 +1561,12 @@ class _OsciHomePageState extends State<OsciHomePage>
           if (_waveformCh2 != null) _waveformCh2!.points.length,
         ].fold(0, (a, b) => a > b ? a : b);
 
+        // CSV time starts at 0 and increments by 1/sampleRate for each sample.
+        final csvDt = _deviceParams != null
+            ? 1.0 / _deviceParams!.sampleRate
+            : 0.0;
         for (int i = 0; i < maxPoints; i++) {
-          final time = _waveformCh1 != null && i < _waveformCh1!.points.length
-              ? _waveformCh1!.points[i].$1
-              : _waveformCh2 != null && i < _waveformCh2!.points.length
-              ? _waveformCh2!.points[i].$1
-              : 0.0;
+          final time = i * csvDt;
           final ch1V = _waveformCh1 != null && i < _waveformCh1!.points.length
               ? _waveformCh1!.points[i].$2.toStringAsFixed(6)
               : '';

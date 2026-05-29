@@ -12,6 +12,7 @@ class WaveformRawData {
   final double timebase; // TDIV in seconds
   final double trdl; // Trigger delay in seconds
   final double sampleRate; // SARA in Sa/s
+  final int triggerPosition; // Sample index of trigger in acquisition memory
 
   const WaveformRawData({
     this.ch1Raw,
@@ -23,6 +24,7 @@ class WaveformRawData {
     required this.timebase,
     required this.trdl,
     required this.sampleRate,
+    this.triggerPosition = 0,
   });
 }
 

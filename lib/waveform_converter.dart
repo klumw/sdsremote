@@ -19,17 +19,33 @@ class WaveformConverter {
   ) => raw.map((b) => toVoltage(b, vdiv, voffset)).toList();
 
   /// Calculates the time axis for [count] data points.
-  /// T_start = trdl - timebase * 14 / 2
-  /// dt = 1 / sampleRate
-  /// T(n) = T_start + n * dt
+  ///
+  /// Time values are relative to the trigger event (t = 0 at trigger).
+  /// With WFSU FP=0, data starts from acquisition memory index 0, so the
+  /// trigger position within that memory is needed to compute the correct
+  /// offset:
+  ///
+  ///   T(n) = (n - triggerPosition) / sampleRate + trdl
+  ///
+  /// When [triggerPosition] is 0 (e.g. SANU? unavailable), falls back to
+  /// the display-centric formula: T(n) = trdl - timebase*14/2 + n/sampleRate.
   static List<double> computeTimeAxis(
     int count,
     double trdl,
     double timebase,
-    double sampleRate,
-  ) {
-    final tStart = trdl - timebase * 14 / 2;
+    double sampleRate, {
+    int triggerPosition = 0,
+  }) {
     final dt = 1 / sampleRate;
+    final double tStart;
+    if (triggerPosition > 0) {
+      // Correct offset: the first sample is at index 0 in acquisition memory,
+      // the trigger is at index triggerPosition.
+      tStart = -(triggerPosition) / sampleRate + trdl;
+    } else {
+      // Fallback: assume display-centred data spanning 14 divisions.
+      tStart = trdl - timebase * 14 / 2;
+    }
     return List.generate(count, (n) => tStart + n * dt);
   }
 

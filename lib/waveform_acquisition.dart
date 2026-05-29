@@ -76,6 +76,20 @@ class WaveformAcquisition {
       final trdl = await _queryValue(activeInstr, 'TRDL?');
       final sampleRate = await _queryValue(activeInstr, 'SARA?');
 
+      // --- Trigger position in acquisition memory ---
+      // SANU? returns "pointCount,triggerPosition" — the trigger's sample
+      // index within the acquisition memory.  With FP=0 in WFSU we read
+      // from index 0, so this position lets us compute the correct time
+      // offset for each sample: T(n) = (n - triggerPosition) / sampleRate + trdl
+      int triggerPosition = 0;
+      try {
+        await activeInstr.writeString('SANU? C1');
+        final sanuRaw = (await activeInstr.readString()).trim();
+        triggerPosition = ScpiParser.parseSanu(sanuRaw).$2;
+      } catch (_) {
+        // Fall back to display-centric formula if SANU? fails
+      }
+
       // --- Channel status check ---
       // Check if channels are active on the oscilloscope.
       // Fetch only if both: selected in UI (checkbox) AND active on the instrument.
@@ -115,6 +129,7 @@ class WaveformAcquisition {
         timebase: timebase,
         trdl: trdl,
         sampleRate: sampleRate,
+        triggerPosition: triggerPosition,
       );
     } finally {
       if (ownInstr) {
