@@ -3,7 +3,7 @@
 ; Non-commercial use only
 
 #define MyAppName "SDS-Remote"
-#define MyAppVersion "0.2.3"
+#define MyAppVersion "0.2.4"
 #define MyAppPublisher "W.Klum"
 #define MyAppURL "https://github.com/klumw/sdsremote"
 #define MyAppExeName "sdsremote.exe"
