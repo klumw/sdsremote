@@ -244,6 +244,18 @@ The directory is OS specific:
 * **Linux:** `~/.local/share/sdsremote/`
 * **Windows:** `%LocalAppData%\sdsremote`
 
+Files are stored in various subfolders of the application directory, depending on their type.  
+
+| Subfolder | Description |
+| :-------- | :-------- |
+| preferences | Application settings |
+| screeshots | Display screenshots |
+| waveform/images | Waveform images |
+| waveform/csv | Waveform csv data |
+| logger/reports | Data logger reports |
+| logger/csv | Data logger csv data |
+| profiles | Device profiles |
+
 ---
 
 ## 10. Troubleshooting (Non-AI)
