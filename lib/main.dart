@@ -302,6 +302,81 @@ class _ReferenceFilePickerDialog extends StatelessWidget {
   }
 }
 
+/// A dialog that prompts for a filename prefix with validation.
+///
+/// Only allows [a-zA-Z0-9_-], max 30 characters.
+/// Returns the entered prefix on confirm, or null on cancel.
+class _FilenamePrefixDialog extends StatefulWidget {
+  const _FilenamePrefixDialog();
+
+  @override
+  State<_FilenamePrefixDialog> createState() => _FilenamePrefixDialogState();
+}
+
+class _FilenamePrefixDialogState extends State<_FilenamePrefixDialog> {
+  late final TextEditingController _controller;
+  String? _errorText;
+
+  static final _validChars = RegExp(r'^[a-zA-Z0-9_-]*$');
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onSubmit() {
+    final text = _controller.text.trim();
+    if (text.isEmpty) {
+      setState(() => _errorText = 'Prefix cannot be empty');
+      return;
+    }
+    if (text.length > 30) {
+      setState(() => _errorText = 'Max 30 characters allowed');
+      return;
+    }
+    if (!_validChars.hasMatch(text)) {
+      setState(
+        () => _errorText = 'Only a-z, A-Z, 0-9, underscore and hyphen allowed',
+      );
+      return;
+    }
+    Navigator.pop(context, text);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Filename Prefix'),
+      content: TextField(
+        controller: _controller,
+        decoration: InputDecoration(
+          hintText: 'e.g. lab_measurement_1',
+          errorText: _errorText,
+        ),
+        autofocus: true,
+        onSubmitted: (_) => _onSubmit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: _onSubmit,
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
+
 // ===========================================================================
 // Application Entry Point
 // ===========================================================================
@@ -446,6 +521,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   bool _ch1Enabled = true;
   bool _ch2Enabled = true;
   bool _saveWithParams = false;
+  bool _askForFilenamePrefix = false;
 
   // Event processing lock: prevents overlapping button/knob events
   // Lock is held across the full sequence: SCPI send → wait → screen dump → 500ms cooldown
@@ -1285,6 +1361,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       aiApiToken: _aiApiToken,
       llmModel: _llmModel,
       saveWithParams: _saveWithParams,
+      askForFilenamePrefix: _askForFilenamePrefix,
       isRunningDiagnostic: _isRunningDiagnostic,
       diagnosticResults: _diagnosticResults,
       callbacks: SettingsPanelCallbacks(
@@ -1338,6 +1415,10 @@ class _OsciHomePageState extends State<OsciHomePage>
       onSaveWithParamsChanged: (v) async {
         setState(() => _saveWithParams = v);
         await AppPreferences.setBool('save_with_params', v);
+      },
+      onAskForFilenamePrefixChanged: (v) async {
+        setState(() => _askForFilenamePrefix = v);
+        await AppPreferences.setBool('ask_for_filename_prefix', v);
       },
       onRunDiagnostic: _runConnectionDiagnostic,
     );
@@ -1564,12 +1645,29 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
   }
 
+  /// Shows the filename prefix dialog when [askForFilenamePrefix] is enabled.
+  ///
+  /// Returns the user-entered prefix, or null if the user cancelled.
+  /// Returns an empty string when the flag is disabled (meaning "use default").
+  Future<String?> _askForFilenamePrefixIfNeeded() async {
+    if (!_askForFilenamePrefix) return '';
+    if (!mounted) return null;
+    return showDialog<String>(
+      context: context,
+      builder: (_) => const _FilenamePrefixDialog(),
+    );
+  }
+
   Future<void> _saveScreenDump() async {
     try {
+      final prefix = await _askForFilenamePrefixIfNeeded();
+      if (prefix == null) return; // user cancelled
+      final baseName = prefix.isNotEmpty ? prefix : 'screen_dump';
+
       final dir = await AppPaths.getOrCreateScreenshotsDir();
       final file = await AppPaths.getUniqueFilePath(
         dir,
-        'screen_dump',
+        baseName,
         'png',
       );
       await file.writeAsBytes(_screenDump!);
@@ -1593,6 +1691,11 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   Future<void> _saveWaveform() async {
     try {
+      final prefix = await _askForFilenamePrefixIfNeeded();
+      if (prefix == null) return; // user cancelled
+      final imageBaseName = prefix.isNotEmpty ? prefix : 'waveform';
+      final csvBaseName = prefix.isNotEmpty ? prefix : 'waveform_data';
+
       final boundary =
           _waveformKey.currentContext?.findRenderObject()
               as RenderRepaintBoundary?;
@@ -1619,7 +1722,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       );
 
       final dir = await AppPaths.getOrCreateWaveformImagesDir();
-      final file = await AppPaths.getUniqueFilePath(dir, 'waveform', 'png');
+      final file = await AppPaths.getUniqueFilePath(dir, imageBaseName, 'png');
       await file.writeAsBytes(pngBytes);
       final pngName = file.uri.pathSegments.last;
 
@@ -1675,7 +1778,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       final csvDir = await AppPaths.getOrCreateWaveformCsvDir();
       final csvFile = await AppPaths.getUniqueFilePath(
         csvDir,
-        'waveform_data',
+        csvBaseName,
         'csv',
       );
       await csvFile.writeAsString(csvBuffer.toString());
@@ -1703,6 +1806,11 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// and saves it to the application's default save directory.
   Future<void> _saveDataLoggerReport() async {
     try {
+      final prefix = await _askForFilenamePrefixIfNeeded();
+      if (prefix == null) return; // user cancelled
+      final pdfBaseName = prefix.isNotEmpty ? prefix : 'data_logging_report';
+      final csvBaseName = prefix.isNotEmpty ? prefix : 'data_logger_data';
+
       final points = _savedDlPoints;
       final config = _savedDlConfig;
       if (points == null || config == null) {
@@ -1754,7 +1862,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       final dir = await AppPaths.getOrCreateLoggerReportsDir();
       final file = await AppPaths.getUniqueFilePath(
         dir,
-        'data_logging_report',
+        pdfBaseName,
         'pdf',
       );
       await file.writeAsBytes(pdfBytes);
@@ -1767,6 +1875,7 @@ class _OsciHomePageState extends State<OsciHomePage>
           await AppPaths.getOrCreateLoggerCsvDir(),
           config,
           points,
+          csvBaseName,
         );
       }
 
@@ -1800,8 +1909,9 @@ class _OsciHomePageState extends State<OsciHomePage>
   Future<String> _saveDataLoggerCsv(
     Directory dir,
     DataLoggerConfig config,
-    List<DataLoggerPoint> points,
-  ) async {
+    List<DataLoggerPoint> points, [
+    String baseName = 'data_logger_data',
+  ]) async {
     final hidden = _savedDlHiddenLines ?? <String>{};
     final csvBuffer = StringBuffer();
 
@@ -1891,7 +2001,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
     final csvFile = await AppPaths.getUniqueFilePath(
       dir,
-      'data_logger_data',
+      baseName,
       'csv',
     );
     await csvFile.writeAsString(csvBuffer.toString());
@@ -1920,6 +2030,8 @@ class _OsciHomePageState extends State<OsciHomePage>
     final token = await AppPreferences.getString('ai_api_token');
     final model = await AppPreferences.getString('llm_model');
     final saveWithParams = await AppPreferences.getBool('save_with_params');
+    final askForFilenamePrefix =
+        await AppPreferences.getBool('ask_for_filename_prefix');
     setState(() {
       _ipAddress = ip ?? '192.168.1.100';
       _isUsb = isUsb ?? false;
@@ -1928,6 +2040,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       _aiApiToken = token ?? '';
       _llmModel = model ?? '';
       _saveWithParams = saveWithParams ?? false;
+      _askForFilenamePrefix = askForFilenamePrefix ?? false;
     });
   }
 

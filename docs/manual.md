@@ -83,7 +83,11 @@ screen capture and device interaction and help through an integrated AI-powered 
 * **Save csv data**  
   Enables additional csv data export for waveform acquisition and data logger
 
-### 3.1.3 AI Settings
+### 3.1.3 Ask for filename on save
+
+* Enables a file name dialog that ask for the file prefix for for the files saved using the save button.
+
+### 3.1.4 AI Settings
 
 > **See section 4.2 for more information**
 

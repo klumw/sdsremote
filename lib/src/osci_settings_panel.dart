@@ -24,10 +24,12 @@ class SettingsPanel extends StatefulWidget {
   final String aiApiToken;
   final String llmModel;
   final bool saveWithParams;
+  final bool askForFilenamePrefix;
   final bool isRunningDiagnostic;
   final List<String> diagnosticResults;
   final SettingsPanelCallbacks callbacks;
   final ValueChanged<bool> onSaveWithParamsChanged;
+  final ValueChanged<bool> onAskForFilenamePrefixChanged;
   final VoidCallback onRunDiagnostic;
 
   const SettingsPanel({
@@ -40,10 +42,12 @@ class SettingsPanel extends StatefulWidget {
     required this.aiApiToken,
     required this.llmModel,
     required this.saveWithParams,
+    required this.askForFilenamePrefix,
     required this.isRunningDiagnostic,
     required this.diagnosticResults,
     required this.callbacks,
     required this.onSaveWithParamsChanged,
+    required this.onAskForFilenamePrefixChanged,
     required this.onRunDiagnostic,
   });
 
@@ -205,6 +209,21 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           Switch(
                             value: widget.saveWithParams,
                             onChanged: widget.onSaveWithParamsChanged,
+                            activeColor: Colors.cyanAccent,
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.end,
+                        children: [
+                          const Text(
+                            'Ask for filename on save',
+                            style: TextStyle(color: Colors.white70, fontSize: 13),
+                          ),
+                          Switch(
+                            value: widget.askForFilenamePrefix,
+                            onChanged: widget.onAskForFilenamePrefixChanged,
                             activeColor: Colors.cyanAccent,
                           ),
                         ],
