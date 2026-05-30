@@ -11,7 +11,7 @@ import 'package:flutter/rendering.dart';
 import 'package:image/image.dart' as img;
 import 'package:logging/logging.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'src/app_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'dart_vxi11.dart';
@@ -1145,7 +1145,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   void _loadProfileFiles() {
     try {
-      final dir = AppPaths.defaultSaveDirectory;
+      final dir = AppPaths.profilesDirectory;
       final files = dir
           .listSync()
           .whereType<File>()
@@ -1180,7 +1180,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       );
       final content = utf8.decode(data, allowMalformed: true);
 
-      final dir = await AppPaths.getOrCreateDefaultDirectory();
+      final dir = await AppPaths.getOrCreateProfilesDir();
       final file = File('${dir.path}/$name.lss');
       await file.writeAsString(content);
 
@@ -1211,7 +1211,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   Future<void> _loadProfile(String fileName) async {
     try {
-      final dir = AppPaths.defaultSaveDirectory;
+      final dir = AppPaths.profilesDirectory;
       final file = File('${dir.path}/$fileName');
       if (!await file.exists()) throw Exception('File not found');
 
@@ -1260,7 +1260,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   Future<void> _deleteProfile(String fileName) async {
     try {
-      final dir = AppPaths.defaultSaveDirectory;
+      final dir = AppPaths.profilesDirectory;
       final file = File('${dir.path}/$fileName');
       if (await file.exists()) {
         await file.delete();
@@ -1288,7 +1288,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       isRunningDiagnostic: _isRunningDiagnostic,
       diagnosticResults: _diagnosticResults,
       callbacks: SettingsPanelCallbacks(
-        onSave: (newIp, newProvider, newToken, newModel, newIsUsb) {
+        onSave: (newIp, newProvider, newToken, newModel, newIsUsb) async {
           final logger = AppLogger(agentName: 'main', toolName: 'onSave');
           logger.log(
             'Saving config: ip=$newIp, provider=$newProvider, '
@@ -1300,10 +1300,13 @@ class _OsciHomePageState extends State<OsciHomePage>
             _ipAddress = newIp;
             _isUsb = newIsUsb;
             Vxi11Instrument.isUsbMode = newIsUsb;
+            _aiProvider = newProvider;
+            _aiApiToken = newToken;
+            _llmModel = newModel;
             _deviceName = null;
             _showSettings = false;
           });
-          _saveConfig();
+          await _saveConfig();
           _startPingTimer();
 
           if (_isAiEnabled) {
@@ -1334,8 +1337,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       ),
       onSaveWithParamsChanged: (v) async {
         setState(() => _saveWithParams = v);
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setBool('save_with_params', v);
+        await AppPreferences.setBool('save_with_params', v);
       },
       onRunDiagnostic: _runConnectionDiagnostic,
     );
@@ -1564,7 +1566,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   Future<void> _saveScreenDump() async {
     try {
-      final dir = await AppPaths.getOrCreateDefaultDirectory();
+      final dir = await AppPaths.getOrCreateScreenshotsDir();
       final file = await AppPaths.getUniqueFilePath(
         dir,
         'screen_dump',
@@ -1616,7 +1618,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         ),
       );
 
-      final dir = await AppPaths.getOrCreateDefaultDirectory();
+      final dir = await AppPaths.getOrCreateWaveformImagesDir();
       final file = await AppPaths.getUniqueFilePath(dir, 'waveform', 'png');
       await file.writeAsBytes(pngBytes);
       final pngName = file.uri.pathSegments.last;
@@ -1670,8 +1672,9 @@ class _OsciHomePageState extends State<OsciHomePage>
         csvBuffer.writeln('$time,$ch1V,$ch2V');
       }
 
+      final csvDir = await AppPaths.getOrCreateWaveformCsvDir();
       final csvFile = await AppPaths.getUniqueFilePath(
-        dir,
+        csvDir,
         'waveform_data',
         'csv',
       );
@@ -1747,8 +1750,8 @@ class _OsciHomePageState extends State<OsciHomePage>
         chartImageBytes: chartImageBytes,
       );
 
-      // Write to the default save directory
-      final dir = await AppPaths.getOrCreateDefaultDirectory();
+      // Write to the logger reports subdirectory
+      final dir = await AppPaths.getOrCreateLoggerReportsDir();
       final file = await AppPaths.getUniqueFilePath(
         dir,
         'data_logging_report',
@@ -1760,7 +1763,11 @@ class _OsciHomePageState extends State<OsciHomePage>
       // If "Save csv data" is enabled, also write data logger data as CSV
       String? csvName;
       if (_saveWithParams) {
-        csvName = await _saveDataLoggerCsv(dir, config, points);
+        csvName = await _saveDataLoggerCsv(
+          await AppPaths.getOrCreateLoggerCsvDir(),
+          config,
+          points,
+        );
       }
 
       if (mounted) {
@@ -1907,25 +1914,31 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   Future<void> _loadConfig() async {
-    final prefs = await SharedPreferences.getInstance();
+    final ip = await AppPreferences.getString('osci_ip');
+    final isUsb = await AppPreferences.getBool('osci_is_usb');
+    final provider = await AppPreferences.getString('ai_provider');
+    final token = await AppPreferences.getString('ai_api_token');
+    final model = await AppPreferences.getString('llm_model');
+    final saveWithParams = await AppPreferences.getBool('save_with_params');
     setState(() {
-      _ipAddress = prefs.getString('osci_ip') ?? '192.168.1.100';
-      _isUsb = prefs.getBool('osci_is_usb') ?? false;
+      _ipAddress = ip ?? '192.168.1.100';
+      _isUsb = isUsb ?? false;
       Vxi11Instrument.isUsbMode = _isUsb;
-      _aiProvider = prefs.getString('ai_provider') ?? '';
-      _aiApiToken = prefs.getString('ai_api_token') ?? '';
-      _llmModel = prefs.getString('llm_model') ?? '';
-      _saveWithParams = prefs.getBool('save_with_params') ?? false;
+      _aiProvider = provider ?? '';
+      _aiApiToken = token ?? '';
+      _llmModel = model ?? '';
+      _saveWithParams = saveWithParams ?? false;
     });
   }
 
   Future<void> _saveConfig() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('osci_ip', _ipAddress);
-    await prefs.setBool('osci_is_usb', _isUsb);
-    await prefs.setString('ai_provider', _aiProvider);
-    await prefs.setString('ai_api_token', _aiApiToken);
-    await prefs.setString('llm_model', _llmModel);
+    await AppPreferences.setAll({
+      'osci_ip': _ipAddress,
+      'osci_is_usb': _isUsb,
+      'ai_provider': _aiProvider,
+      'ai_api_token': _aiApiToken,
+      'llm_model': _llmModel,
+    });
   }
 
   void _showConfigDialog(BuildContext context) {
@@ -2514,10 +2527,10 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   /// Opens a file selection dialog showing CSV waveform files in the
-  /// application save directory.  When both CH1 and CH2 columns are present
-  /// the user is asked which channel to load.
+  /// application's waveform/csv subdirectory.  When both CH1 and CH2 columns
+  /// are present the user is asked which channel to load.
   Future<void> _loadReferenceWaveform() async {
-    final dir = AppPaths.defaultSaveDirectory;
+    final dir = AppPaths.waveformCsvDirectory;
     if (!await dir.exists()) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
