@@ -529,9 +529,20 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       }
     }
     // Position tooltip near the cursor, clamped within the actual available area.
+    // When cursor is past 50% of chart width, show tooltip to the left of cursor
+    // to avoid overflowing off-screen.
     const tooltipH = 80.0;
     const tooltipW = 180.0;
-    final left = (_hoverX + 16).clamp(0.0, tooltipAreaWidth - tooltipW);
+    const tooltipGap = 10.0;
+    final midX = tooltipAreaWidth * 0.5;
+    // The tooltip is inside a Stack that covers the entire plot area.
+    // _hoverX is the local coordinate within the plot area (including margins).
+    // We want the tooltip to be relative to the cursor position within the plot.
+    // When on the left, we want it to be at _hoverX + tooltipGap.
+    // When on the right, we want it to be at _hoverX - tooltipW - tooltipGap.
+    final left = _hoverX >= midX
+        ? (_hoverX - tooltipW - tooltipGap + 60.0).clamp(0.0, tooltipAreaWidth - tooltipW)
+        : (_hoverX + tooltipGap).clamp(0.0, tooltipAreaWidth - tooltipW);
     final top = (_hoverY - tooltipH - 8).clamp(0.0, tooltipAreaHeight - tooltipH - 8);
     return Positioned(
       left: left,
