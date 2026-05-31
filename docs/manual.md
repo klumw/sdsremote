@@ -85,7 +85,7 @@ screen capture and device interaction and help through an integrated AI-powered 
 
 ### 3.1.3 Ask for filename on save
 
-* Enables a file name dialog that ask for the file prefix for for the files saved using the save button.
+* Enables a file name dialog on save.
 
 ### 3.1.4 AI Settings
 

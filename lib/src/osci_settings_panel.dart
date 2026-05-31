@@ -209,7 +209,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           Switch(
                             value: widget.saveWithParams,
                             onChanged: widget.onSaveWithParamsChanged,
-                            activeColor: Colors.cyanAccent,
+                            activeThumbColor: Colors.cyanAccent,
                           ),
                         ],
                       ),
@@ -224,7 +224,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           Switch(
                             value: widget.askForFilenamePrefix,
                             onChanged: widget.onAskForFilenamePrefixChanged,
-                            activeColor: Colors.cyanAccent,
+                            activeThumbColor: Colors.cyanAccent,
                           ),
                         ],
                       ),

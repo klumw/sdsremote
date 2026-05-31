@@ -163,27 +163,6 @@ class _AxisRanges {
   double get niceMinFreq => minFreq;
   double get niceMaxFreq => maxFreq;
 
-  /// Compute a "nice" maximum value that rounds up to a clean number.
-  static double _niceMax(double value, {bool allowZero = false}) {
-    if (value <= 0 && allowZero) return 0.0;
-    if (value <= 0) return 0.0;
-    final magnitude = math.pow(10, (math.log(value) / math.ln10).floor()).toDouble();
-    final fraction = value / magnitude;
-    if (fraction <= 1.0) return magnitude;
-    if (fraction <= 2.0) return 2.0 * magnitude;
-    if (fraction <= 5.0) return 5.0 * magnitude;
-    return 10.0 * magnitude;
-  }
-
-  /// Compute a "nice" minimum value that rounds down to a clean number.
-  static double _niceMin(double value) {
-    if (value >= 0) return 0.0;
-    final abs = value.abs();
-    final magnitude = math.pow(10, (math.log(abs) / math.ln10).floor()).toDouble();
-    final fraction = abs / magnitude;
-    final niceAbs = fraction <= 1.0 ? magnitude : (fraction <= 2.0 ? 2.0 * magnitude : (fraction <= 5.0 ? 5.0 * magnitude : 10.0 * magnitude));
-    return -niceAbs;
-  }
 
   static _AxisRanges compute(List<DataLoggerPoint> points, {double totalDurationSeconds = 60}) {
     // X-axis: Use the total configured recording duration for the X-axis max,

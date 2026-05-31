@@ -80,8 +80,6 @@ class UsbtmcDevice {
     return _lock.protect(() async {
       if (payload.isEmpty) return 0;
 
-      final totalChunks = (payload.length + _maxChunkSize - 1) ~/ _maxChunkSize;
-      // print('USBTMC: writeBinary ${payload.length} bytes in $totalChunks chunk(s)');
 
       // Use ONE bTag for ALL chunks (per USBTMC spec §3.2.1.1).
       _bTag = UsbtmcProtocolHelpers.nextbTag(_bTag);
@@ -549,9 +547,6 @@ class UsbtmcDevice {
         final usb488Iface = caps[14];
         // Byte 15: USB488Device capabilities
         final usb488Dev = caps[15];
-        // print('USBTMC: Capabilities - bcdUSB488: 0x${bcdUSB488.toRadixString(16)}, '
-//             'USB488Interface: 0x${usb488Iface.toRadixString(16)}, '
-//             'USB488Device: 0x${usb488Dev.toRadixString(16)}');
 
         // ── REN_CONTROL (bRequest=0xA0) ─────────────────────────────────
         // If USB488Interface.D1 (bit 1) is set, the device accepts

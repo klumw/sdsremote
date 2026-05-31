@@ -16,6 +16,8 @@ tests/
 
 .agents/
 .kiro/
+.roo/
+.zoo/
 .DS_Store
 .atom/
 .build/
