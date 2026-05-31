@@ -18,6 +18,8 @@ tests/
 .kiro/
 .roo/
 .zoo/
+.dart_skills/
+.agent/
 .DS_Store
 .atom/
 .build/
