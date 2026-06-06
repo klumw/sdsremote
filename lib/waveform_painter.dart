@@ -48,7 +48,12 @@ class WaveformBasePainter extends CustomPainter {
       return;
     }
 
-    // Determine the full data time range from available channel data.
+    // Determine data availability (we still need at least one channel or
+    // reference to draw). Also compute a device-centric display time span
+    // based on the selected `timebase` and the number of horizontal
+    // divisions. This mirrors `CursorPainter` which uses
+    // `displaySpan = params.timebase * _hDivisions` so the grid, cursors
+    // and waveform mapping all agree with a physical oscilloscope.
     double dataTMin = double.infinity;
     double dataTMax = double.negativeInfinity;
     if (ch1 != null && ch1!.points.isNotEmpty) {
@@ -65,14 +70,13 @@ class WaveformBasePainter extends CustomPainter {
     }
     if (dataTMin == double.infinity) return;
 
-    final double dataTRange = dataTMax - dataTMin;
-    if (dataTRange <= 0) return;
-
-    // At zoom 1.0, the full data range fills the entire widget width
-    // (original behavior). At zoom > 1.0, we zoom into the data centered
-    // around the panX position.
-    final double centerTime = dataTMin + zoom.panX * dataTRange;
-    final double visibleTSpan = dataTRange / zoom.zoomFactor;
+    // Use the device `timebase` multiplied by the horizontal divisions as
+    // the canonical display span (time covered by the entire screen at
+    // `zoomFactor == 1.0`). This ensures the app shows the same number
+    // of cycles as the real oscilloscope for a given timebase setting.
+    final double displaySpan = params.timebase * _hDivisions;
+    final double centerTime = params.trdl + (zoom.panX - 0.5) * displaySpan;
+    final double visibleTSpan = displaySpan / zoom.zoomFactor;
     final double visibleTMin = centerTime - visibleTSpan / 2;
     final double visibleTMax = centerTime + visibleTSpan / 2;
 
@@ -303,6 +307,19 @@ class WaveformBasePainter extends CustomPainter {
     final visibleVRange = visibleVMax - visibleVMin;
     if (visibleTRange <= 0 || visibleVRange <= 0) return;
 
+    // Check the time span of the data itself. If the acquired/loaded data
+    // covers a much smaller time window than the visible range (for
+    // example due to missing trigger/sample metadata or a mismatch between
+    // sample timing and display timebase), the waveform can appear bunched
+    // into one small area of the graticule. As a robust fallback, when the
+    // data time range is significantly smaller than the visible range,
+    // distribute points evenly across the visible time range so the
+    // waveform fills the full 14 divisions (preserving relative order).
+    final dataTFirst = data.points.first.$1;
+    final dataTLast = data.points.last.$1;
+    final dataTRange = dataTLast - dataTFirst;
+    final bool expandToDisplay = dataTRange <= 0 || dataTRange < visibleTRange * 0.25;
+
     // Restrict waveform drawing to the grid area to prevent
     // overflow beyond the grid when zoom factor > 1.
     canvas.save();
@@ -310,15 +327,32 @@ class WaveformBasePainter extends CustomPainter {
 
     final path = Path();
     bool first = true;
-    for (final point in data.points) {
-      if (point.$1 < visibleTMin || point.$1 > visibleTMax) continue;
-      final px = (point.$1 - visibleTMin) / visibleTRange * size.width;
-      final py = (visibleVMax - point.$2) / visibleVRange * size.height;
-      if (first) {
-        path.moveTo(px, py);
-        first = false;
-      } else {
-        path.lineTo(px, py);
+    if (expandToDisplay) {
+      // Evenly spread points across the visible span.
+      final int n = data.points.length;
+      for (int i = 0; i < n; i++) {
+        final point = data.points[i];
+        final double rel = n == 1 ? 0.0 : i / (n - 1);
+        final double px = rel * size.width;
+        final double py = (visibleVMax - point.$2) / visibleVRange * size.height;
+        if (first) {
+          path.moveTo(px, py);
+          first = false;
+        } else {
+          path.lineTo(px, py);
+        }
+      }
+    } else {
+      for (final point in data.points) {
+        if (point.$1 < visibleTMin || point.$1 > visibleTMax) continue;
+        final px = (point.$1 - visibleTMin) / visibleTRange * size.width;
+        final py = (visibleVMax - point.$2) / visibleVRange * size.height;
+        if (first) {
+          path.moveTo(px, py);
+          first = false;
+        } else {
+          path.lineTo(px, py);
+        }
       }
     }
     canvas.drawPath(path, paint);

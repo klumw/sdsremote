@@ -36,16 +36,23 @@ class WaveformConverter {
     double sampleRate, {
     int triggerPosition = 0,
   }) {
-    final dt = 1 / sampleRate;
-    final double tStart;
+    // Prefer the trigger-position-aware axis when the instrument provided
+    // a valid `triggerPosition`. This yields physically-correct sample
+    // timestamps using the reported `sampleRate` and preserves actual
+    // waveform timing (important for measurements and matching the
+    // instrument's on-screen waveform).
     if (triggerPosition > 0) {
-      // Correct offset: the first sample is at index 0 in acquisition memory,
-      // the trigger is at index triggerPosition.
-      tStart = -(triggerPosition) / sampleRate + trdl;
-    } else {
-      // Fallback: assume display-centred data spanning 14 divisions.
-      tStart = trdl - timebase * 14 / 2;
+      final dt = 1 / sampleRate;
+      final double tStart = -(triggerPosition) / sampleRate + trdl;
+      return List.generate(count, (n) => tStart + n * dt);
     }
+
+    // Fallback: if triggerPosition is unavailable, generate a display-
+    // aligned axis spanning `timebase * 14` so the waveform fills the
+    // graticule like the instrument display.
+    final double displaySpan = timebase * 14.0;
+    final double tStart = trdl - displaySpan / 2.0;
+    final double dt = displaySpan / (count > 1 ? (count - 1) : 1);
     return List.generate(count, (n) => tStart + n * dt);
   }
 

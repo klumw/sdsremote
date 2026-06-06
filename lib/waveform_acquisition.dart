@@ -64,17 +64,23 @@ class WaveformAcquisition {
         }
       }
 
-      // Configure waveform transfer setup (SP,7,NP,300000,FP,0).
-      try {
-        await activeInstr.writeString('WFSU SP,7,NP,300000,FP,0');
-      } catch (e) {
-        AppLogger().log('WFSU setup failed: $e');
-      }
-
       // --- Global parameters (Requirement 1.2) ---
       final timebase = await _queryValue(activeInstr, 'TDIV?');
       final trdl = await _queryValue(activeInstr, 'TRDL?');
       final sampleRate = await _queryValue(activeInstr, 'SARA?');
+
+      // Configure waveform transfer setup with enough points to cover the
+      // full display span (timebase * 14 divisions). This keeps the acquired
+      // waveform long enough to show all cycles visible on the screen.
+      const int horizontalDivisions = 14;
+      const int maxTransferPoints = 12000000;
+      final int desiredPoints = (timebase * horizontalDivisions * sampleRate).ceil();
+      final int transferPoints = desiredPoints.clamp(1201, maxTransferPoints);
+      try {
+        await activeInstr.writeString('WFSU SP,7,NP,$transferPoints,FP,0');
+      } catch (e) {
+        AppLogger().log('WFSU setup failed: $e');
+      }
 
       // --- Trigger position in acquisition memory ---
       // SANU? returns "pointCount,triggerPosition" — the trigger's sample
