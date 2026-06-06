@@ -540,7 +540,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   Timer? _refreshTimer;
   bool _refreshPending = false;
-  static const int _refreshDelayMs = 300;
+  static const int _refreshDelayMs = 800;
 
   // UI State
   bool _showSettings = false;
@@ -1590,7 +1590,11 @@ class _OsciHomePageState extends State<OsciHomePage>
         _ipAddress,
       ).acquire(ch1: _ch1Enabled, ch2: _ch2Enabled, instr: instr);
 
-      final result = await compute(_convertRawData, raw);
+      // Run conversion on the main thread instead of via compute() because
+      // Dart's isolate serialization does not support record types
+      // ((double, double) pairs) — they get silently truncated to ~726 points
+      // instead of the full 1201 points sent by the scope (WFSU NP=1201).
+      final result = _convertRawData(raw);
 
       setState(() {
         _waveformCh1 = result.$1;
@@ -1599,6 +1603,10 @@ class _OsciHomePageState extends State<OsciHomePage>
         _screenDump = null;
         _isOnline = true;
         _waveformAcquired = true;
+        // Reset zoom state on every new acquisition so the user sees the full
+        // waveform (14 divisions) instead of a zoomed-in view from a previous
+        // interaction that showed only ~4 waves.
+        _zoomState = const ZoomState();
       });
     } catch (e) {
       AppLogger().log('Acquire waveform error: $e');
