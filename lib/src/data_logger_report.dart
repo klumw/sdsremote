@@ -5,6 +5,7 @@
 /// - An image of the recorded data logging chart
 /// - Start and end values for all selected measurement parameters
 /// - Total recording time with automatic unit scaling (s / min / h)
+library;
 
 import 'dart:typed_data';
 

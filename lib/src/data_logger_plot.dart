@@ -3,6 +3,7 @@
 /// Displays Peak-to-Peak voltage (left Y-axis) and Frequency (right Y-axis)
 /// over time (X-axis) for channels 1 and/or 2. Features auto-scaling for
 /// both Y-axes and a legend in the top-right corner.
+library;
 
 import 'dart:math' as math;
 

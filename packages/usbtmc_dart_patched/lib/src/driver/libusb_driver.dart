@@ -1,3 +1,5 @@
+// ignore_for_file: camel_case_types, non_constant_identifier_names, library_private_types_in_public_api
+
 import 'dart:ffi';
 import 'dart:io';
 import 'dart:typed_data';

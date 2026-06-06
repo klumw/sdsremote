@@ -2,6 +2,7 @@
 ///
 /// This file centralizes all system prompt strings so they can be easily
 /// reviewed, modified, and reused across different agent configurations.
+library;
 
 /// Default system prompt for the frontend agent.
 ///

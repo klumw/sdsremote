@@ -2,6 +2,7 @@
 ///
 /// Defines configuration, measurement points, and runtime state classes
 /// used by the Data Logger service, plot, and dialog widgets.
+library;
 
 // =============================================================================
 // Configuration

@@ -6,6 +6,7 @@
 ///
 /// SCPI queries use async I/O which yields to the Dart event loop during
 /// network waits, keeping UI animations responsive.
+library;
 
 import 'dart:async';
 
@@ -129,7 +130,7 @@ class DataLoggerService {
   }
 
   /// The actual SCPI query work — runs async, emits result on stream.
-  /// On the first call, also queries probe attenuation (C<ch>:ATTN?)
+  /// On the first call, also queries probe attenuation (`C<ch>:ATTN?`)
   /// via the same connection so there's no race condition.
   Future<void> _doSample(DataLoggerConfig cfg, int elapsedTarget) async {
     if (_hasStopped) return;
@@ -150,7 +151,7 @@ class DataLoggerService {
         if (_asetCount < _maxAsetCommands) {
           _asetCount++;
           AppLogger(agentName: 'DataLogger', toolName: '_doSample').log(
-            'Sending ASET command (${_asetCount}/$_maxAsetCommands) '
+            'Sending ASET command ($_asetCount/$_maxAsetCommands) '
             'to auto-setup the instrument...',
           );
           await instr.writeString('ASET');
@@ -324,7 +325,7 @@ class DataLoggerService {
           _asetCount++;
           AppLogger(agentName: 'DataLogger', toolName: '_queryPava').log(
             'PAVA query returned out-of-range (***): $cmd. '
-            'Sending ASET (${_asetCount}/$_maxAsetCommands)...',
+            'Sending ASET ($_asetCount/$_maxAsetCommands)...',
           );
           // Send auto-setup and wait for the instrument to settle.
           await instr.writeString('ASET');

@@ -4,6 +4,7 @@
 /// sampling interval (10s–60s), and recording duration (1min–24h).
 /// Provides Start and Cancel buttons. Once the logger is running,
 /// shows Stop / New / Restart controls instead.
+library;
 
 import 'package:flutter/material.dart';
 

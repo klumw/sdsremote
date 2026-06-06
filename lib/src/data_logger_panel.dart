@@ -3,6 +3,7 @@
 /// Combines the XY plot, configuration dialog, and control buttons into
 /// a single panel that fits into the center area of the main window
 /// (replacing the waveform display while the Data Logger is active).
+library;
 
 import 'dart:async';
 

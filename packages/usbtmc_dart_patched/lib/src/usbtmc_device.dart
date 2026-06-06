@@ -35,16 +35,10 @@ class UsbtmcDevice {
   final _AsyncMutex _lock = _AsyncMutex();
 
   int _bTag = 1;
-  int _termChar = 0x0A; // '\n'
-  bool _termCharEnabled = true;
+  int termChar = 0x0A; // '\n'
+  bool termCharEnabled = true;
 
   UsbtmcDevice(this._usbDevice);
-
-  int get termChar => _termChar;
-  set termChar(int value) => _termChar = value;
-
-  bool get termCharEnabled => _termCharEnabled;
-  set termCharEnabled(bool value) => _termCharEnabled = value;
 
   /// Maximum payload bytes per USBTMC multi-transfer DEV_DEP_MSG_OUT chunk
   /// (per USBTMC spec §3.2.1.1).
@@ -253,8 +247,8 @@ class UsbtmcDevice {
         final requestHeader = UsbtmcProtocolHelpers.encodeMsgInBulkOutHeader(
           _bTag,
           remainingToRequest,
-          useTermChar && _termCharEnabled,
-          _termChar,
+          useTermChar && termCharEnabled,
+          termChar,
         );
 
         await _usbDevice.write(requestHeader, timeout: timeout);
@@ -542,11 +536,9 @@ class UsbtmcDevice {
       );
       if (caps.length >= 24) {
         // Byte 12-13: bcdUSB488 (BCD version number)
-        final bcdUSB488 = (caps[13] << 8) | caps[12];
         // Byte 14: USB488Interface capabilities
         final usb488Iface = caps[14];
         // Byte 15: USB488Device capabilities
-        final usb488Dev = caps[15];
 
         // ── REN_CONTROL (bRequest=0xA0) ─────────────────────────────────
         // If USB488Interface.D1 (bit 1) is set, the device accepts
@@ -555,7 +547,8 @@ class UsbtmcDevice {
         // mode and accepts SCPI commands.
         if ((usb488Iface & 0x02) != 0) {
           // print('USBTMC: Device supports REN_CONTROL — asserting Remote Enable...');
-          final renStatus = await _usbDevice.controlTransfer(
+          // final renStatus =
+          await _usbDevice.controlTransfer(
             requestType: 0xA1, // Device-to-Host, Class, Interface
             request: 0xA0,     // REN_CONTROL
             value: 0x01,       // Assert REN
@@ -563,10 +556,10 @@ class UsbtmcDevice {
             data: Uint8List(1), // 1-byte buffer for device status response
             timeout: const Duration(seconds: 2),
           );
-          if (renStatus.isNotEmpty) {
-            final status = renStatus[0];
-            // print('USBTMC: REN_CONTROL returned status: $status');
-          }
+          // if (renStatus.isNotEmpty) {
+          //   final status = renStatus[0];
+          //   // print('USBTMC: REN_CONTROL returned status: $status');
+          // }
         } else {
           // print('USBTMC: Device does not support REN_CONTROL — skipping');
         }

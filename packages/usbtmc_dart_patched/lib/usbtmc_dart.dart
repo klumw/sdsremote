@@ -1,5 +1,5 @@
 /// A pure Dart library to communicate with USB Test and Measurement Class (USBTMC) devices using libusb.
-library usbtmc_dart;
+library;
 
 export 'src/constants.dart';
 export 'src/visa_resource.dart';
