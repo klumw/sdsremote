@@ -61,7 +61,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 450,
+      width: 900,
       decoration: BoxDecoration(
         color: const Color(0xFF0A192F),
         border: Border.all(color: const Color(0xFF475569)),

@@ -129,7 +129,7 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
     final sortedList = _sortedFiles;
 
     return Container(
-      width: 450,
+      width: 680,
       decoration: BoxDecoration(
         color: const Color(0xFF0A192F),
         border: Border.all(color: const Color(0xFF475569)),
