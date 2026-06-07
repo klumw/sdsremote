@@ -1214,9 +1214,10 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// Parses and executes the macro commands in [_currentMacroContent].
   ///
   /// Supported commands:
-  ///   `connect("IP")`        — Establish a VXI-11 connection to the given device.
-  ///   `loadProfile("path")`  — Load and send a profile (.lss) file to the device.
-  ///   `scpi("CMD")`          — Send a raw SCPI command to the device.
+  ///   `connect("IP")`            — Establish a VXI-11 connection to the given device.
+  ///   `wait(<seconds>)`          — Pause playback for the given number of seconds.
+  ///   `loadProfile("path")`      — Load and send a profile (.lss) file to the device.
+  ///   `scpi("CMD")`              — Send a raw SCPI command to the device.
   ///
   /// A 1-second pause is inserted between every command.
   /// Unknown or malformed lines abort playback with an error message.
@@ -1253,6 +1254,16 @@ class _OsciHomePageState extends State<OsciHomePage>
           return;
         }
         await _macroDelay();
+        continue;
+      }
+
+      // ── wait(<seconds>) ───────────────────────────────────────────────
+      final waitMatch = RegExp(r"""^wait\((\d+(?:\.\d+)?)\)$""").firstMatch(line);
+      if (waitMatch != null) {
+        final seconds = double.parse(waitMatch.group(1)!);
+        AppLogger().log('Macro playback: wait($seconds s)');
+        await Future.delayed(Duration(milliseconds: (seconds * 1000).round()));
+        // No additional _macroDelay() — the wait duration already includes the pause.
         continue;
       }
 
