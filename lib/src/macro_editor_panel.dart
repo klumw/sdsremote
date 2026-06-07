@@ -28,7 +28,9 @@ class MacroEditorPanel extends StatefulWidget {
 
 class _MacroEditorPanelState extends State<MacroEditorPanel> {
   late final TextEditingController _controller;
-  final ScrollController _scrollController = ScrollController();
+  final ScrollController _gutterScrollController = ScrollController();
+  final ScrollController _editorScrollController = ScrollController();
+  bool _isSyncing = false;
   int _lineCount = 1;
 
   static const double _lineHeight = 13.0 * 1.5; // fontSize * height
@@ -39,6 +41,36 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     _controller = TextEditingController(text: widget.initialContent);
     _controller.addListener(_onTextChanged);
     _updateLineCount();
+
+    // Sync the gutter scroll to follow the editor scroll.
+    _editorScrollController.addListener(_onEditorScroll);
+
+    // Sync the editor scroll to follow the gutter scroll.
+    _gutterScrollController.addListener(_onGutterScroll);
+  }
+
+  void _onEditorScroll() {
+    if (!_isSyncing && _gutterScrollController.hasClients) {
+      _isSyncing = true;
+      final offset = _editorScrollController.offset;
+      _gutterScrollController.jumpTo(offset.clamp(
+        0.0,
+        _gutterScrollController.position.maxScrollExtent,
+      ));
+      _isSyncing = false;
+    }
+  }
+
+  void _onGutterScroll() {
+    if (!_isSyncing && _editorScrollController.hasClients) {
+      _isSyncing = true;
+      final offset = _gutterScrollController.offset;
+      _editorScrollController.jumpTo(offset.clamp(
+        0.0,
+        _editorScrollController.position.maxScrollExtent,
+      ));
+      _isSyncing = false;
+    }
   }
 
   @override
@@ -57,7 +89,10 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   void dispose() {
     _controller.removeListener(_onTextChanged);
     _controller.dispose();
-    _scrollController.dispose();
+    _gutterScrollController.removeListener(_onGutterScroll);
+    _editorScrollController.removeListener(_onEditorScroll);
+    _gutterScrollController.dispose();
+    _editorScrollController.dispose();
     super.dispose();
   }
 
@@ -146,7 +181,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                       color: const Color(0xFF152238),
                       padding: const EdgeInsets.only(top: 12, right: 8),
                       child: ListView.builder(
-                        controller: _scrollController,
+                        controller: _gutterScrollController,
                         itemCount: _lineCount,
                         itemExtent: _lineHeight,
                         itemBuilder: (context, index) {
@@ -172,7 +207,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                     Expanded(
                       child: TextField(
                         controller: _controller,
-                        scrollController: _scrollController,
+                        scrollController: _editorScrollController,
                         maxLines: null,
                         expands: true,
                         textAlignVertical: TextAlignVertical.top,
