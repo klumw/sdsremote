@@ -2432,7 +2432,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   Future<bool> _sendCommand(String command) async {
     // Capture SCPI commands during macro recording
     if (_isMacroRecording) {
-      _currentMacroContent += 'scpi($command)\n';
+      _currentMacroContent += 'scpi("$command")\n';
     }
 
     if (!_isOnline) {
