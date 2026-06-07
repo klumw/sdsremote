@@ -33,6 +33,9 @@ import 'src/data_logger_panel.dart';
 import 'src/data_logger_service.dart';
 import 'src/data_logger_report.dart';
 import 'src/app_paths.dart';
+import 'src/macro_recorder_models.dart';
+import 'src/macro_recorder_panel.dart';
+import 'src/macro_editor_panel.dart';
 
 // ===========================================================================
 // Provider Configuration Table
@@ -73,7 +76,7 @@ const List<ProviderConfig> providerConfigs = [
   ProviderConfig(modelPrefix: 'xai',       providerName: 'xAI',       apiKeyName: 'XAI_API_KEY'),
 ];
 
-enum ActivePanel { none, help, chat, profiles, dataLogger }
+enum ActivePanel { none, help, chat, profiles, dataLogger, macroRecorder }
 
 /// A reusable toolbar button with the standard SDS-Remote dark theme styling.
 /// Used in the top bar for Control Panel, Acquire Waveform, AI, Profiles, and Help buttons.
@@ -538,6 +541,11 @@ class _OsciHomePageState extends State<OsciHomePage>
   // Profiles
   List<ProfileInfo> _profileFiles = [];
 
+  // Macro Recorder
+  List<MacroInfo> _macroFiles = [];
+  bool _isMacroRecording = false;
+  String _currentMacroContent = '';
+
   Timer? _refreshTimer;
   bool _refreshPending = false;
   static const int _refreshDelayMs = 800;
@@ -690,6 +698,8 @@ class _OsciHomePageState extends State<OsciHomePage>
                               ? _buildProfilesWindow()
                               : _activePanel == ActivePanel.dataLogger
                               ? _buildDataLoggerWindow()
+                              : _activePanel == ActivePanel.macroRecorder
+                              ? _buildMacroRecorderWindow()
                               : _waveformAcquired
                               ? AspectRatio(
                                   aspectRatio: 14 / 8,
@@ -913,6 +923,16 @@ class _OsciHomePageState extends State<OsciHomePage>
                         ? () => _togglePanel(ActivePanel.dataLogger)
                         : null,
                   ),
+                  const SizedBox(width: 16),
+                  _OsciToolbarButton(
+                    label: _isMacroRecording ? "Recording..." : "Macro Recorder",
+                    icon: _isMacroRecording
+                        ? const Icon(Icons.fiber_manual_record, size: 25, color: Colors.red)
+                        : const Icon(Icons.movie, size: 25),
+                    onPressed: _isOnline
+                        ? () => _togglePanel(ActivePanel.macroRecorder)
+                        : null,
+                  ),
                 ],
               ),
             ),
@@ -1116,6 +1136,168 @@ class _OsciHomePageState extends State<OsciHomePage>
     );
   }
 
+  // =========================================================================
+  // Macro Recorder
+  // =========================================================================
+
+  bool _showMacroEditor = false;
+
+  Widget _buildMacroRecorderWindow() {
+    if (_showMacroEditor) {
+      return MacroEditorPanel(
+        initialContent: _currentMacroContent,
+        onContentChanged: (content) {
+          _currentMacroContent = content;
+        },
+        onClose: () {
+          setState(() {
+            _showMacroEditor = false;
+          });
+        },
+      );
+    }
+
+    return MacroRecorderPanel(
+      macroFiles: _macroFiles,
+      isOnline: _isOnline,
+      isRecording: _isMacroRecording,
+      onRecord: _onMacroStart,
+      onStop: _onMacroStop,
+      onPlay: _onMacroPlay,
+      onEdit: _onMacroEdit,
+      onSave: _onMacroSave,
+      onLoad: _onMacroLoad,
+      onDelete: _onMacroDelete,
+      onClose: () => _togglePanel(ActivePanel.macroRecorder),
+    );
+  }
+
+  void _loadMacroFiles() {
+    try {
+      final dir = AppPaths.macrosDirectory;
+      final files = dir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.m'))
+          .map(
+            (f) => MacroInfo(
+              fileName: f.uri.pathSegments.last,
+              lastModified: f.lastModifiedSync(),
+            ),
+          )
+          .toList();
+      setState(() {
+        _macroFiles = files;
+      });
+    } catch (e) {
+      AppLogger().log('Error loading macro files: $e');
+    }
+  }
+
+  void _onMacroStart() {
+    setState(() {
+      _isMacroRecording = true;
+      // In future phases: start SCPI command recording here.
+      // Auto-insert connect command:
+      _currentMacroContent = 'connect("$_ipAddress")\n';
+    });
+    AppLogger().log('Macro recording started');
+  }
+
+  void _onMacroStop() {
+    setState(() {
+      _isMacroRecording = false;
+    });
+    AppLogger().log('Macro recording stopped');
+  }
+
+  void _onMacroPlay() {
+    // Placeholder — playback logic will be implemented in a future phase.
+    AppLogger().log('Macro play requested');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Macro playback not yet implemented'),
+          duration: Duration(seconds: 2),
+        ),
+      );
+    }
+  }
+
+  void _onMacroEdit() {
+    setState(() {
+      _showMacroEditor = true;
+    });
+  }
+
+  void _onMacroSave() async {
+    // Reuse the existing filename prefix dialog with .m extension handling.
+    if (!mounted) return;
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => const _FilenamePrefixDialog(),
+    );
+    if (name == null || name.trim().isEmpty) return;
+
+    try {
+      final dir = await AppPaths.getOrCreateMacrosDir();
+      final file = File('${dir.path}/${name.trim()}.m');
+      await file.writeAsString(_currentMacroContent);
+      _loadMacroFiles();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Macro "$name" saved.')),
+        );
+      }
+    } catch (e) {
+      AppLogger().log('Save macro error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Save macro failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _onMacroLoad(String fileName) async {
+    try {
+      final dir = AppPaths.macrosDirectory;
+      final file = File('${dir.path}/$fileName');
+      if (!await file.exists()) throw Exception('Macro file not found');
+      final content = await file.readAsString();
+      setState(() {
+        _currentMacroContent = content;
+        _showMacroEditor = true;
+      });
+    } catch (e) {
+      AppLogger().log('Load macro error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Load macro failed: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _onMacroDelete(String fileName) async {
+    try {
+      final dir = AppPaths.macrosDirectory;
+      final file = File('${dir.path}/$fileName');
+      if (await file.exists()) {
+        await file.delete();
+      }
+      _loadMacroFiles();
+    } catch (e) {
+      AppLogger().log('Delete macro error: $e');
+    }
+  }
+
   /// Builds the rotating arrows icon for the Data Logger toolbar button.
   Widget _buildDlButtonIcon() {
     return AnimatedBuilder(
@@ -1211,6 +1393,12 @@ class _OsciHomePageState extends State<OsciHomePage>
       // Special logic for profiles
       if (_activePanel == ActivePanel.profiles) {
         _loadProfileFiles();
+      }
+
+      // Special logic for macro recorder
+      if (_activePanel == ActivePanel.macroRecorder) {
+        _showMacroEditor = false;
+        _loadMacroFiles();
       }
     });
   }

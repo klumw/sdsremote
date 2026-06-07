@@ -13,6 +13,8 @@ import 'dart:io';
 ///   waveform/csv/       Waveform data CSV files (save & reference load)
 ///   logger/reports/     Data logger PDF reports
 ///   logger/csv/         Data logger CSV data files
+///   automation/macros/  Macro (.m) files
+///   automation/reports/ Macro PDF reports
 class AppPaths {
   AppPaths._();
 
@@ -59,6 +61,14 @@ class AppPaths {
   static Directory get loggerCsvDirectory =>
       Directory('${defaultSaveDirectory.path}${_sep}logger${_sep}csv');
 
+  /// `  <app working dir>/automation/macros  `
+  static Directory get macrosDirectory =>
+      Directory('${defaultSaveDirectory.path}${_sep}automation${_sep}macros');
+
+  /// `  <app working dir>/automation/reports  `
+  static Directory get macroReportsDirectory =>
+      Directory('${defaultSaveDirectory.path}${_sep}automation${_sep}reports');
+
   /// `  <app working dir>/preferences  `
   static Directory get preferencesDirectory =>
       Directory('${defaultSaveDirectory.path}${_sep}preferences');
@@ -97,6 +107,12 @@ class AppPaths {
   static Future<Directory> getOrCreateLoggerCsvDir() =>
       ensureDirectoryExists(loggerCsvDirectory);
 
+  static Future<Directory> getOrCreateMacrosDir() =>
+      ensureDirectoryExists(macrosDirectory);
+
+  static Future<Directory> getOrCreateMacroReportsDir() =>
+      ensureDirectoryExists(macroReportsDirectory);
+
   static Future<Directory> getOrCreatePreferencesDir() =>
       ensureDirectoryExists(preferencesDirectory);
 
@@ -106,9 +122,9 @@ class AppPaths {
   /// before the extension until a free name is found.
   ///
   /// Example: `getUniqueFilePath(dir, 'screen_dump', 'png')`
-  ///   → `screen_dump.png` if free,
-  ///   → `screen_dump(1).png` if taken,
-  ///   → `screen_dump(2).png` if both taken, etc.
+  ///   -> `screen_dump.png` if free,
+  ///   -> `screen_dump(1).png` if taken,
+  ///   -> `screen_dump(2).png` if both taken, etc.
   static Future<File> getUniqueFilePath(
     Directory directory,
     String baseName,
