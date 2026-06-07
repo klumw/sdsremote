@@ -544,6 +544,8 @@ class _OsciHomePageState extends State<OsciHomePage>
   // Macro Recorder
   List<MacroInfo> _macroFiles = [];
   bool _isMacroRecording = false;
+  bool _isMacroPlaying = false;
+  bool _macroPlaybackCancelled = false;
   String _currentMacroContent = '';
 
   Timer? _refreshTimer;
@@ -881,7 +883,7 @@ class _OsciHomePageState extends State<OsciHomePage>
                             ),
                           )
                         : const Icon(Icons.tune, size: 25),
-                    onPressed: (_isAcquiring || !_isOnline)
+                    onPressed: (_isAcquiring || !_isOnline || _isMacroPlaying)
                         ? null
                         : _acquireScreenDump,
                   ),
@@ -895,7 +897,7 @@ class _OsciHomePageState extends State<OsciHomePage>
                             child: CircularProgressIndicator(color: Colors.white),
                           )
                         : const Icon(Icons.show_chart, size: 25),
-                    onPressed: (_isAcquiringWaveform || !_isOnline)
+                    onPressed: (_isAcquiringWaveform || !_isOnline || _isMacroPlaying)
                         ? null
                         : _acquireWaveform,
                   ),
@@ -903,7 +905,7 @@ class _OsciHomePageState extends State<OsciHomePage>
                   _OsciToolbarButton(
                     label: "AI",
                     icon: const Icon(Icons.auto_awesome, size: 25),
-                    onPressed: _isAiEnabled
+                    onPressed: (_isAiEnabled && !_isMacroPlaying)
                         ? () => _togglePanel(ActivePanel.chat)
                         : null,
                   ),
@@ -911,7 +913,7 @@ class _OsciHomePageState extends State<OsciHomePage>
                   _OsciToolbarButton(
                     label: "Profiles",
                     icon: const Icon(Icons.save, size: 25),
-                    onPressed: _isOnline
+                    onPressed: (_isOnline && !_isMacroPlaying)
                         ? () => _togglePanel(ActivePanel.profiles)
                         : null,
                   ),
@@ -919,16 +921,20 @@ class _OsciHomePageState extends State<OsciHomePage>
                   _OsciToolbarButton(
                     label: "Data Logger",
                     icon: _buildDlButtonIcon(),
-                    onPressed: _isOnline
+                    onPressed: (_isOnline && !_isMacroPlaying)
                         ? () => _togglePanel(ActivePanel.dataLogger)
                         : null,
                   ),
                   const SizedBox(width: 16),
                   _OsciToolbarButton(
-                    label: _isMacroRecording ? "Recording..." : "Macro Recorder",
-                    icon: _isMacroRecording
-                        ? const Icon(Icons.fiber_manual_record, size: 25, color: Colors.red)
-                        : const Icon(Icons.movie, size: 25),
+                    label: _isMacroPlaying
+                        ? "Playback"
+                        : (_isMacroRecording ? "Recording..." : "Macro Recorder"),
+                    icon: _isMacroPlaying
+                        ? const Icon(Icons.play_circle, size: 25, color: Colors.greenAccent)
+                        : (_isMacroRecording
+                            ? const Icon(Icons.fiber_manual_record, size: 25, color: Colors.red)
+                            : const Icon(Icons.movie, size: 25)),
                     onPressed: _isOnline
                         ? () => _togglePanel(ActivePanel.macroRecorder)
                         : null,
@@ -940,17 +946,19 @@ class _OsciHomePageState extends State<OsciHomePage>
           _OsciToolbarButton(
             label: "Help",
             icon: const Icon(Icons.help_outline, size: 25),
-            onPressed: () => _togglePanel(ActivePanel.help),
-            alwaysEnabled: true,
+            onPressed: _isMacroPlaying
+                ? null
+                : () => _togglePanel(ActivePanel.help),
+            alwaysEnabled: !_isMacroPlaying,
           ),
           const SizedBox(width: 16),
           Stack(
             children: [
               IconButton(
                 icon: const Icon(Icons.campaign, size: 25),
-                color: Colors.white70,
+                color: _isMacroPlaying ? Colors.white24 : Colors.white70,
                 tooltip: 'News',
-                onPressed: _showNewsDialog,
+                onPressed: _isMacroPlaying ? null : _showNewsDialog,
               ),
               if (_hasUnreadUpdate)
                 Positioned(
@@ -970,21 +978,23 @@ class _OsciHomePageState extends State<OsciHomePage>
           const SizedBox(width: 16),
           IconButton(
             icon: const Icon(Icons.settings, size: 25),
-            color: Colors.white70,
+            color: _isMacroPlaying ? Colors.white24 : Colors.white70,
             tooltip: 'Settings',
-            onPressed: () => _showConfigDialog(context),
+            onPressed: _isMacroPlaying ? null : () => _showConfigDialog(context),
           ),
           IconButton(
             icon: const Icon(Icons.save_alt, size: 25),
             color:
-                (_canSaveStandard || _canSaveDataLoggerReport)
+                (_isMacroPlaying)
+                ? Colors.white24
+                : (_canSaveStandard || _canSaveDataLoggerReport)
                 ? Colors.white70
                 : Colors.white24,
             tooltip: 'Save',
             onPressed:
-                (_canSaveStandard || _canSaveDataLoggerReport)
-                ? _saveCurrentView
-                : null,
+                (_isMacroPlaying || !(_canSaveStandard || _canSaveDataLoggerReport))
+                ? null
+                : _saveCurrentView,
           ),
         ],
       ),
@@ -1161,6 +1171,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       macroFiles: _macroFiles,
       isOnline: _isOnline,
       isRecording: _isMacroRecording,
+      isPlaying: _isMacroPlaying,
       onRecord: _onMacroStart,
       onStop: _onMacroStop,
       onPlay: _onMacroPlay,
@@ -1205,10 +1216,16 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   void _onMacroStop() {
-    setState(() {
-      _isMacroRecording = false;
-    });
-    AppLogger().log('Macro recording stopped');
+    if (_isMacroPlaying) {
+      _macroPlaybackCancelled = true;
+      AppLogger().log('Macro playback stopped by user');
+    }
+    if (_isMacroRecording) {
+      setState(() {
+        _isMacroRecording = false;
+      });
+      AppLogger().log('Macro recording stopped');
+    }
   }
 
   /// Parses and executes the macro commands in [_currentMacroContent].
@@ -1221,6 +1238,8 @@ class _OsciHomePageState extends State<OsciHomePage>
   ///
   /// A 1-second pause is inserted between every command.
   /// Unknown or malformed lines abort playback with an error message.
+  /// Pressing Stop during playback sets [_macroPlaybackCancelled] = true,
+  /// which causes the loop to exit gracefully at the next opportunity.
   Future<void> _playMacro() async {
     final lines = _currentMacroContent.split('\n');
     if (lines.isEmpty) {
@@ -1235,6 +1254,9 @@ class _OsciHomePageState extends State<OsciHomePage>
 
       // Skip blank lines / comments
       if (line.isEmpty || line.startsWith('#')) continue;
+
+      // Check if user pressed Stop during playback
+      if (_macroPlaybackCancelled) break;
 
       // ── connect("IP") ────────────────────────────────────────────────
       final connectMatch = RegExp(r"""^connect\("(.+)"\)$""").firstMatch(line);
@@ -1253,6 +1275,7 @@ class _OsciHomePageState extends State<OsciHomePage>
           _showMacroError('connect("$ip") failed: $e');
           return;
         }
+        if (_macroPlaybackCancelled) break;
         await _macroDelay();
         continue;
       }
@@ -1297,6 +1320,7 @@ class _OsciHomePageState extends State<OsciHomePage>
           _showMacroError('loadProfile("$path") failed: $e');
           return;
         }
+        if (_macroPlaybackCancelled) break;
         await _macroDelay();
         continue;
       }
@@ -1312,6 +1336,7 @@ class _OsciHomePageState extends State<OsciHomePage>
           _showMacroError('scpi("$cmd") failed: $e');
           return;
         }
+        if (_macroPlaybackCancelled) break;
         await _macroDelay();
         continue;
       }
@@ -1321,16 +1346,27 @@ class _OsciHomePageState extends State<OsciHomePage>
       return;
     }
 
-    // Playback finished successfully
+    // Clean up the playback connection
     await playbackInstrument?.close();
+
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Macro playback completed'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 3),
-        ),
-      );
+      if (_macroPlaybackCancelled) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Macro playback stopped'),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Macro playback completed'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 3),
+          ),
+        );
+      }
     }
   }
 
@@ -1354,7 +1390,11 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   void _onMacroPlay() {
     AppLogger().log('Macro play requested');
-    _playMacro();
+    _macroPlaybackCancelled = false;
+    setState(() => _isMacroPlaying = true);
+    _playMacro().whenComplete(() {
+      if (mounted) setState(() => _isMacroPlaying = false);
+    });
   }
 
   void _onMacroEdit() {

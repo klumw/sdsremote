@@ -26,6 +26,9 @@ class MacroRecorderPanel extends StatefulWidget {
   /// Whether a macro recording is currently in progress.
   final bool isRecording;
 
+  /// Whether a macro playback is currently in progress.
+  final bool isPlaying;
+
   final VoidCallback onRecord;
   final VoidCallback onStop;
   final VoidCallback onPlay;
@@ -40,6 +43,7 @@ class MacroRecorderPanel extends StatefulWidget {
     required this.macroFiles,
     required this.isOnline,
     required this.isRecording,
+    this.isPlaying = false,
     required this.onRecord,
     required this.onStop,
     required this.onPlay,
@@ -224,20 +228,20 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                             },
                           )
                         : const Icon(Icons.fiber_manual_record, size: 18),
-                    onPressed: widget.isRecording ? null : widget.onRecord,
+                    onPressed: (widget.isRecording || widget.isPlaying) ? null : widget.onRecord,
                     color: widget.isRecording ? Colors.grey[800]! : Colors.red[800]!,
-                    disabled: widget.isRecording,
+                    disabled: widget.isRecording || widget.isPlaying,
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Stop button
+                // Stop button (also active during playback to cancel it)
                 Expanded(
                   child: _buildActionButton(
-                    label: "Stop",
+                    label: widget.isPlaying ? "Stop Playback" : "Stop",
                     icon: const Icon(Icons.stop, size: 18),
-                    onPressed: widget.isRecording ? widget.onStop : null,
-                    color: Colors.orange[800]!,
-                    disabled: !widget.isRecording,
+                    onPressed: (widget.isRecording || widget.isPlaying) ? widget.onStop : null,
+                    color: widget.isPlaying ? Colors.red[800]! : Colors.orange[800]!,
+                    disabled: !widget.isRecording && !widget.isPlaying,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -246,9 +250,9 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                   child: _buildActionButton(
                     label: "Play",
                     icon: const Icon(Icons.play_arrow, size: 18),
-                    onPressed: widget.onPlay,
+                    onPressed: widget.isPlaying ? null : widget.onPlay,
                     color: Colors.green[800]!,
-                    disabled: widget.isRecording,
+                    disabled: widget.isRecording || widget.isPlaying,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -257,9 +261,9 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                   child: _buildActionButton(
                     label: "Edit",
                     icon: const Icon(Icons.edit, size: 18),
-                    onPressed: widget.onEdit,
+                    onPressed: widget.isPlaying ? null : widget.onEdit,
                     color: Colors.blue[800]!,
-                    disabled: false,
+                    disabled: widget.isPlaying,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -268,9 +272,9 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                   child: _buildActionButton(
                     label: "Save",
                     icon: const Icon(Icons.save, size: 18),
-                    onPressed: widget.onSave,
+                    onPressed: widget.isPlaying ? null : widget.onSave,
                     color: Colors.cyan[800]!,
-                    disabled: false,
+                    disabled: widget.isPlaying,
                   ),
                 ),
               ],
