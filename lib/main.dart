@@ -547,6 +547,8 @@ class _OsciHomePageState extends State<OsciHomePage>
   bool _isMacroPlaying = false;
   bool _macroPlaybackCancelled = false;
   String _currentMacroContent = '';
+  String? _loadedMacroFileName;
+  bool _isMacroModified = false;
 
   Timer? _refreshTimer;
   bool _refreshPending = false;
@@ -1158,6 +1160,10 @@ class _OsciHomePageState extends State<OsciHomePage>
         initialContent: _currentMacroContent,
         onContentChanged: (content) {
           _currentMacroContent = content;
+          // When a loaded file is edited, enable the Save button.
+          if (_loadedMacroFileName != null && !_isMacroModified) {
+            setState(() => _isMacroModified = true);
+          }
         },
         onClose: () {
           setState(() {
@@ -1172,6 +1178,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       isOnline: _isOnline,
       isRecording: _isMacroRecording,
       isPlaying: _isMacroPlaying,
+      isSaveEnabled: _isMacroRecording || _isMacroModified,
       onRecord: _onMacroStart,
       onStop: _onMacroStop,
       onPlay: _onMacroPlay,
@@ -1208,6 +1215,8 @@ class _OsciHomePageState extends State<OsciHomePage>
   void _onMacroStart() {
     setState(() {
       _isMacroRecording = true;
+      _isMacroModified = true;
+      _loadedMacroFileName = null;
       // In future phases: start SCPI command recording here.
       // Auto-insert connect command:
       _currentMacroContent = 'connect("$_ipAddress")\n';
@@ -1517,8 +1526,39 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   void _onMacroSave() async {
-    // Reuse the existing filename prefix dialog with .m extension handling.
     if (!mounted) return;
+
+    // When a macro was loaded from file, save back under the same filename
+    // without prompting.
+    if (_loadedMacroFileName != null) {
+      try {
+        final dir = AppPaths.macrosDirectory;
+        final file = File('${dir.path}/$_loadedMacroFileName');
+        await file.writeAsString(_currentMacroContent);
+        _loadMacroFiles();
+        setState(() {
+          _isMacroModified = false;
+        });
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Macro "$_loadedMacroFileName" saved.')),
+          );
+        }
+      } catch (e) {
+        AppLogger().log('Save macro error: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Save macro failed: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+      return;
+    }
+
+    // No loaded filename — ask for a name via the prefix dialog.
     final name = await showDialog<String>(
       context: context,
       builder: (_) => const _FilenamePrefixDialog(),
@@ -1530,6 +1570,10 @@ class _OsciHomePageState extends State<OsciHomePage>
       final file = File('${dir.path}/${name.trim()}.m');
       await file.writeAsString(_currentMacroContent);
       _loadMacroFiles();
+      setState(() {
+        _loadedMacroFileName = '${name.trim()}.m';
+        _isMacroModified = false;
+      });
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Macro "$name" saved.')),
@@ -1556,6 +1600,8 @@ class _OsciHomePageState extends State<OsciHomePage>
       final content = await file.readAsString();
       setState(() {
         _currentMacroContent = content;
+        _loadedMacroFileName = fileName;
+        _isMacroModified = false;
         _showMacroEditor = true;
       });
     } catch (e) {

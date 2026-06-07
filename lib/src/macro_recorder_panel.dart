@@ -29,6 +29,9 @@ class MacroRecorderPanel extends StatefulWidget {
   /// Whether a macro playback is currently in progress.
   final bool isPlaying;
 
+  /// Whether the Save button should be enabled.
+  final bool isSaveEnabled;
+
   final VoidCallback onRecord;
   final VoidCallback onStop;
   final VoidCallback onPlay;
@@ -44,6 +47,7 @@ class MacroRecorderPanel extends StatefulWidget {
     required this.isOnline,
     required this.isRecording,
     this.isPlaying = false,
+    this.isSaveEnabled = false,
     required this.onRecord,
     required this.onStop,
     required this.onPlay,
@@ -272,9 +276,9 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                   child: _buildActionButton(
                     label: "Save",
                     icon: const Icon(Icons.save, size: 18),
-                    onPressed: widget.isPlaying ? null : widget.onSave,
+                    onPressed: (widget.isPlaying || !widget.isSaveEnabled) ? null : widget.onSave,
                     color: Colors.cyan[800]!,
-                    disabled: widget.isPlaying,
+                    disabled: widget.isPlaying || !widget.isSaveEnabled,
                   ),
                 ),
               ],
