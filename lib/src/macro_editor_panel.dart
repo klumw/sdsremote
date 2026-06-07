@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 ///
 /// Displays a header with "Macro Editor" title and a Close button.
 /// The editable text area shows the macro commands and supports
-/// full editing via keyboard.
+/// full editing via keyboard, with line numbers on the left side.
 class MacroEditorPanel extends StatefulWidget {
   /// The initial content to populate the text editor with.
   final String initialContent;
@@ -28,12 +28,17 @@ class MacroEditorPanel extends StatefulWidget {
 
 class _MacroEditorPanelState extends State<MacroEditorPanel> {
   late final TextEditingController _controller;
+  final ScrollController _scrollController = ScrollController();
+  int _lineCount = 1;
+
+  static const double _lineHeight = 13.0 * 1.5; // fontSize * height
 
   @override
   void initState() {
     super.initState();
     _controller = TextEditingController(text: widget.initialContent);
     _controller.addListener(_onTextChanged);
+    _updateLineCount();
   }
 
   @override
@@ -44,6 +49,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     if (widget.initialContent != oldWidget.initialContent &&
         widget.initialContent != _controller.text) {
       _controller.text = widget.initialContent;
+      _updateLineCount();
     }
   }
 
@@ -51,15 +57,29 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   void dispose() {
     _controller.removeListener(_onTextChanged);
     _controller.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
   void _onTextChanged() {
+    _updateLineCount();
     widget.onContentChanged(_controller.text);
+  }
+
+  void _updateLineCount() {
+    final lines = _controller.text.split('\n').length;
+    if (lines != _lineCount) {
+      setState(() {
+        _lineCount = lines;
+      });
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Calculate gutter width based on digit count (min 32, add 8 per extra digit beyond 2)
+    final gutterWidth = 32.0 + (_lineCount.toString().length - 1) * 8.0;
+
     return Container(
       width: 900,
       decoration: BoxDecoration(
@@ -106,7 +126,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
             ),
           ),
 
-          // Editable text area
+          // Editable text area with line numbers
           Expanded(
             child: Container(
               margin: const EdgeInsets.all(16),
@@ -115,22 +135,64 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: const Color(0xFF475569)),
               ),
-              child: TextField(
-                controller: _controller,
-                maxLines: null,
-                expands: true,
-                textAlignVertical: TextAlignVertical.top,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 13,
-                  fontFamily: 'monospace',
-                  height: 1.5,
-                ),
-                decoration: const InputDecoration(
-                  hintText: 'Enter macro commands...',
-                  hintStyle: TextStyle(color: Colors.white24, fontSize: 13),
-                  border: InputBorder.none,
-                  contentPadding: EdgeInsets.all(12),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(7),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Line number gutter
+                    Container(
+                      width: gutterWidth,
+                      color: const Color(0xFF152238),
+                      padding: const EdgeInsets.only(top: 12, right: 8),
+                      child: ListView.builder(
+                        controller: _scrollController,
+                        itemCount: _lineCount,
+                        itemExtent: _lineHeight,
+                        itemBuilder: (context, index) {
+                          return Text(
+                            '${index + 1}',
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(
+                              color: Colors.white38,
+                              fontSize: 13,
+                              fontFamily: 'monospace',
+                              height: 1.5,
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                    // Vertical divider
+                    Container(
+                      width: 1,
+                      color: const Color(0xFF2A3A5A),
+                    ),
+                    // Text field
+                    Expanded(
+                      child: TextField(
+                        controller: _controller,
+                        scrollController: _scrollController,
+                        maxLines: null,
+                        expands: true,
+                        textAlignVertical: TextAlignVertical.top,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 13,
+                          fontFamily: 'monospace',
+                          height: 1.5,
+                        ),
+                        decoration: const InputDecoration(
+                          hintText: 'Enter macro commands...',
+                          hintStyle: TextStyle(color: Colors.white24, fontSize: 13),
+                          border: InputBorder.none,
+                          contentPadding: EdgeInsets.only(
+                            left: 8, top: 12, right: 12, bottom: 12,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
