@@ -1474,6 +1474,12 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   Future<void> _loadProfile(String fileName) async {
+    // Capture profile load during macro recording
+    if (_isMacroRecording) {
+      final fullPath = '${AppPaths.profilesDirectory.path}/$fileName';
+      _currentMacroContent += 'loadProfile("$fullPath")\n';
+    }
+
     try {
       final dir = AppPaths.profilesDirectory;
       final file = File('${dir.path}/$fileName');
@@ -2421,7 +2427,14 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   /// Sends a SCPI command to the instrument and returns true if successful.
   /// Shows error message on failure.
+  /// If a macro recording is in progress the command is captured into
+  /// [_currentMacroContent].
   Future<bool> _sendCommand(String command) async {
+    // Capture SCPI commands during macro recording
+    if (_isMacroRecording) {
+      _currentMacroContent += '$command\n';
+    }
+
     if (!_isOnline) {
       AppLogger().log('Popup: Device is offline');
       ScaffoldMessenger.of(context).showSnackBar(
