@@ -1211,17 +1211,139 @@ class _OsciHomePageState extends State<OsciHomePage>
     AppLogger().log('Macro recording stopped');
   }
 
-  void _onMacroPlay() {
-    // Placeholder — playback logic will be implemented in a future phase.
-    AppLogger().log('Macro play requested');
+  /// Parses and executes the macro commands in [_currentMacroContent].
+  ///
+  /// Supported commands:
+  ///   `connect("IP")`        — Establish a VXI-11 connection to the given device.
+  ///   `loadProfile("path")`  — Load and send a profile (.lss) file to the device.
+  ///   `scpi("CMD")`          — Send a raw SCPI command to the device.
+  ///
+  /// A 1-second pause is inserted between every command.
+  /// Unknown or malformed lines abort playback with an error message.
+  Future<void> _playMacro() async {
+    final lines = _currentMacroContent.split('\n');
+    if (lines.isEmpty) {
+      _showMacroError('Macro is empty');
+      return;
+    }
+
+    Vxi11Instrument? playbackInstrument;
+
+    for (var i = 0; i < lines.length; i++) {
+      final line = lines[i].trim();
+
+      // Skip blank lines / comments
+      if (line.isEmpty || line.startsWith('#')) continue;
+
+      // ── connect("IP") ────────────────────────────────────────────────
+      final connectMatch = RegExp(r"""^connect\("(.+)"\)$""").firstMatch(line);
+      if (connectMatch != null) {
+        final ip = connectMatch.group(1)!;
+        AppLogger().log('Macro playback: connect to $ip');
+        try {
+          // Close previous playback connection if any
+          await playbackInstrument?.close();
+          final instr = Vxi11Instrument(ip, sourceLabel: 'macroPlay');
+          await instr.open(timeoutSeconds: 5.0);
+          playbackInstrument = instr;
+        } catch (e) {
+          await playbackInstrument?.close();
+          playbackInstrument = null;
+          _showMacroError('connect("$ip") failed: $e');
+          return;
+        }
+        await _macroDelay();
+        continue;
+      }
+
+      // Ensure a device is connected for commands that need it
+      if (playbackInstrument == null) {
+        _showMacroError(
+          'Line ${i + 1}: No device connected. '
+          'Add connect("IP") at the start of the macro.',
+        );
+        return;
+      }
+
+      // ── loadProfile("path") ──────────────────────────────────────────
+      final loadProfileMatch =
+          RegExp(r"""^loadProfile\("(.+)"\)$""").firstMatch(line);
+      if (loadProfileMatch != null) {
+        final path = loadProfileMatch.group(1)!;
+        AppLogger().log('Macro playback: loadProfile("$path")');
+        try {
+          final file = File(path);
+          if (!await file.exists()) {
+            _showMacroError('loadProfile("$path"): file not found');
+            return;
+          }
+          final xml = await file.readAsString();
+          await playbackInstrument.writeProfileData(
+            xml,
+            timeout: const Duration(seconds: 15),
+          );
+        } catch (e) {
+          _showMacroError('loadProfile("$path") failed: $e');
+          return;
+        }
+        await _macroDelay();
+        continue;
+      }
+
+      // ── scpi("CMD") ──────────────────────────────────────────────────
+      final scpiMatch = RegExp(r"""^scpi\("(.+)"\)$""").firstMatch(line);
+      if (scpiMatch != null) {
+        final cmd = scpiMatch.group(1)!;
+        AppLogger().log('Macro playback: scpi("$cmd")');
+        try {
+          await playbackInstrument.writeString(cmd);
+        } catch (e) {
+          _showMacroError('scpi("$cmd") failed: $e');
+          return;
+        }
+        await _macroDelay();
+        continue;
+      }
+
+      // ── Unknown command ──────────────────────────────────────────────
+      _showMacroError('Line ${i + 1}: Unknown command "$line"');
+      return;
+    }
+
+    // Playback finished successfully
+    await playbackInstrument?.close();
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Macro playback not yet implemented'),
-          duration: Duration(seconds: 2),
+          content: Text('Macro playback completed'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 3),
         ),
       );
     }
+  }
+
+  /// Shows an error snackbar and logs the error.
+  void _showMacroError(String message) {
+    AppLogger().log('Macro error: $message');
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Macro error: $message'),
+          backgroundColor: Colors.red,
+          duration: const Duration(seconds: 5),
+        ),
+      );
+    }
+  }
+
+  /// Standard 1-second pause between macro commands.
+  Future<void> _macroDelay() =>
+      Future.delayed(const Duration(seconds: 1));
+
+  void _onMacroPlay() {
+    AppLogger().log('Macro play requested');
+    _playMacro();
   }
 
   void _onMacroEdit() {
