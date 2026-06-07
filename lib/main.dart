@@ -1235,6 +1235,13 @@ class _OsciHomePageState extends State<OsciHomePage>
   ///   `wait(<seconds>)`          — Pause playback for the given number of seconds.
   ///   `loadProfile("path")`      — Load and send a profile (.lss) file to the device.
   ///   `scpi("CMD")`              — Send a raw SCPI command to the device.
+  ///   `query("CMD")`             — Send a SCPI query and read the response.
+  ///   `<var>=query("CMD")`       — Send a query and store the response in <var>.
+  ///   `print(<var>)`             — Log the value of <var> as "<var>=<value>".
+  ///
+  /// Variables:
+  ///   - Names may contain alphanumeric characters and underscores.
+  ///   - Variable values persist for the duration of the playback session.
   ///
   /// A 1-second pause is inserted between every command.
   /// Unknown or malformed lines abort playback with an error message.
@@ -1248,6 +1255,27 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
 
     Vxi11Instrument? playbackInstrument;
+    final Map<String, String> vars = {};
+    bool _echoesDrained = false;
+
+    /// Consumes any pending command echoes from the instrument's output buffer.
+    /// The Siglent oscilloscope echoes every command back.  Write-only
+    /// commands (`scpi`, `loadProfile`) do not read their echoes, so they
+    /// accumulate until a query tries to read — at which point the buffer
+    /// may be full and the instrument blocks new commands.
+    Future<void> _drainEchoes() async {
+      if (_echoesDrained || playbackInstrument == null) return;
+      _echoesDrained = true;
+      // Read up to 10 echoes; stop on timeout or empty response.
+      for (var attempt = 0; attempt < 10; attempt++) {
+        try {
+          final data = await playbackInstrument!.readString();
+          if (data.isEmpty) break;
+        } catch (_) {
+          break; // Timeout or other error — buffer is empty
+        }
+      }
+    }
 
     for (var i = 0; i < lines.length; i++) {
       final line = lines[i].trim();
@@ -1263,17 +1291,26 @@ class _OsciHomePageState extends State<OsciHomePage>
       if (connectMatch != null) {
         final ip = connectMatch.group(1)!;
         AppLogger().log('Macro playback: connect to $ip');
-        try {
-          // Close previous playback connection if any
+
+        // Reuse the main app's instrument if it is already connected to
+        // the same IP.  Creating a second VXI-11 link to the same device
+        // may fail because many instruments support only one link at a time.
+        if (_instrument != null && _ipAddress == ip) {
+          playbackInstrument = _instrument;
+          AppLogger().log('Macro playback: reusing existing instrument connection');
+        } else {
+          // Close any previous playback connection first
           await playbackInstrument?.close();
-          final instr = Vxi11Instrument(ip, sourceLabel: 'macroPlay');
-          await instr.open(timeoutSeconds: 5.0);
-          playbackInstrument = instr;
-        } catch (e) {
-          await playbackInstrument?.close();
-          playbackInstrument = null;
-          _showMacroError('connect("$ip") failed: $e');
-          return;
+          try {
+            final instr = Vxi11Instrument(ip, sourceLabel: 'macroPlay');
+            await instr.open(timeoutSeconds: 5.0);
+            playbackInstrument = instr;
+          } catch (e) {
+            await playbackInstrument?.close();
+            playbackInstrument = null;
+            _showMacroError('connect("$ip") failed: $e');
+            return;
+          }
         }
         if (_macroPlaybackCancelled) break;
         await _macroDelay();
@@ -1299,6 +1336,73 @@ class _OsciHomePageState extends State<OsciHomePage>
         return;
       }
 
+      // ── <variable>=query("CMD") ──────────────────────────────────────
+      // Must be checked before the plain query pattern.
+      // Drain accumulated command echoes before querying.
+      await _drainEchoes();
+      final assignQueryMatch =
+          RegExp(r"""^([a-zA-Z0-9_]+)=query\("(.+)"\)$""").firstMatch(line);
+      if (assignQueryMatch != null) {
+        final varName = assignQueryMatch.group(1)!;
+        final cmd = assignQueryMatch.group(2)!;
+        AppLogger().log('Macro playback: query("$cmd") -> $varName');
+        try {
+          await playbackInstrument.writeString(cmd);
+          final raw = await playbackInstrument.readString();
+          // The instrument echoes the command, e.g. "IDN-SGLT SDS1104X-E..."
+          // Strip the command prefix if present.
+          var response = raw.trim();
+          if (response.startsWith(cmd)) {
+            response = response.substring(cmd.length).trim();
+          }
+          vars[varName] = response;
+          AppLogger().log('Macro variable: $varName=$response');
+        } catch (e) {
+          _showMacroError('query("$cmd") failed: $e');
+          return;
+        }
+        if (_macroPlaybackCancelled) break;
+        await _macroDelay();
+        continue;
+      }
+
+      // ── query("CMD") ─────────────────────────────────────────────────
+      final queryMatch = RegExp(r"""^query\("(.+)"\)$""").firstMatch(line);
+      if (queryMatch != null) {
+        final cmd = queryMatch.group(1)!;
+        AppLogger().log('Macro playback: query("$cmd")');
+        try {
+          await playbackInstrument.writeString(cmd);
+          final raw = await playbackInstrument.readString();
+          var response = raw.trim();
+          if (response.startsWith(cmd)) {
+            response = response.substring(cmd.length).trim();
+          }
+          AppLogger().log('Macro query response: $response');
+        } catch (e) {
+          _showMacroError('query("$cmd") failed: $e');
+          return;
+        }
+        if (_macroPlaybackCancelled) break;
+        await _macroDelay();
+        continue;
+      }
+
+      // ── print(<variable>) ────────────────────────────────────────────
+      final printMatch =
+          RegExp(r"""^print\(([a-zA-Z0-9_]+)\)$""").firstMatch(line);
+      if (printMatch != null) {
+        final varName = printMatch.group(1)!;
+        final value = vars[varName];
+        if (value != null) {
+          AppLogger().log('Macro print: $varName=$value');
+        } else {
+          AppLogger().log('Macro print: $varName=<undefined>');
+        }
+        await _macroDelay();
+        continue;
+      }
+
       // ── loadProfile("path") ──────────────────────────────────────────
       final loadProfileMatch =
           RegExp(r"""^loadProfile\("(.+)"\)$""").firstMatch(line);
@@ -1316,6 +1420,13 @@ class _OsciHomePageState extends State<OsciHomePage>
             xml,
             timeout: const Duration(seconds: 15),
           );
+          // Wait for the instrument to finish processing the profile.
+          // *OPC? returns "1" when all pending operations are complete.
+          // Use a generous timeout since profiles can take seconds to apply.
+          AppLogger().log('Macro playback: waiting for *OPC? after loadProfile');
+          await playbackInstrument.writeString('*OPC?');
+          final opcResponse = (await playbackInstrument.readString()).trim();
+          AppLogger().log('Macro playback: *OPC? = $opcResponse');
         } catch (e) {
           _showMacroError('loadProfile("$path") failed: $e');
           return;
@@ -1346,8 +1457,10 @@ class _OsciHomePageState extends State<OsciHomePage>
       return;
     }
 
-    // Clean up the playback connection
-    await playbackInstrument?.close();
+    // Clean up the playback connection (only if it's not the main instrument)
+    if (playbackInstrument != null && playbackInstrument != _instrument) {
+      await playbackInstrument!.close();
+    }
 
     if (mounted) {
       if (_macroPlaybackCancelled) {
