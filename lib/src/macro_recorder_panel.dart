@@ -32,6 +32,14 @@ class MacroRecorderPanel extends StatefulWidget {
   /// Whether the Save button should be enabled.
   final bool isSaveEnabled;
 
+  /// The file name of the currently loaded macro, if any.
+  /// Shown in the header; cleared when recording a new macro.
+  final String? loadedFileName;
+
+  /// Whether the loaded macro has been modified since last save.
+  /// When true, a `*` is shown after the file name.
+  final bool isModified;
+
   final VoidCallback onRecord;
   final VoidCallback onStop;
   final VoidCallback onPlay;
@@ -48,6 +56,8 @@ class MacroRecorderPanel extends StatefulWidget {
     required this.isRecording,
     this.isPlaying = false,
     this.isSaveEnabled = false,
+    this.loadedFileName,
+    this.isModified = false,
     required this.onRecord,
     required this.onStop,
     required this.onPlay,
@@ -184,13 +194,26 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                     else
                       const Icon(Icons.movie, color: Colors.cyanAccent, size: 20),
                     const SizedBox(width: 8),
-                    const Text(
-                      "Macro Recorder",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Macro Recorder",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (widget.loadedFileName != null)
+                          Text(
+                            '${widget.loadedFileName}${widget.isModified ? " *" : ""}',
+                            style: const TextStyle(
+                              color: Colors.cyanAccent,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),

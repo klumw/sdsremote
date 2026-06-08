@@ -9,6 +9,14 @@ class MacroEditorPanel extends StatefulWidget {
   /// The initial content to populate the text editor with.
   final String initialContent;
 
+  /// The file name of the currently loaded macro, if any.
+  /// Shown in the header; cleared when recording a new macro.
+  final String? loadedFileName;
+
+  /// Whether the loaded macro has been modified since last save.
+  /// When true, a `*` is shown after the file name.
+  final bool isModified;
+
   /// Called whenever the user modifies the text content.
   final ValueChanged<String> onContentChanged;
 
@@ -18,6 +26,8 @@ class MacroEditorPanel extends StatefulWidget {
   const MacroEditorPanel({
     super.key,
     this.initialContent = '',
+    this.loadedFileName,
+    this.isModified = false,
     required this.onContentChanged,
     required this.onClose,
   });
@@ -137,17 +147,30 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.edit, color: Colors.cyanAccent, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      "Macro Editor",
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                      ),
+                    const Icon(Icons.edit, color: Colors.cyanAccent, size: 20),
+                    const SizedBox(width: 8),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          "Macro Editor",
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        if (widget.loadedFileName != null)
+                          Text(
+                            '${widget.loadedFileName}${widget.isModified ? " *" : ""}',
+                            style: const TextStyle(
+                              color: Colors.cyanAccent,
+                              fontSize: 12,
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),
