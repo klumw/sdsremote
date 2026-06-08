@@ -1362,6 +1362,13 @@ class _OsciHomePageState extends State<OsciHomePage>
     r'^\s*while\s*\(\s*([a-zA-Z0-9_]+)\s*(==|!=|<=|>=|<|>)\s*(.+?)\s*\)\s*\{\s*$',
   );
 
+  /// Regex for if-line detection with tolerant whitespace.
+  /// Captures: group 1 = variable name, group 2 = operator, group 3 = value.
+  /// The `then` keyword between the closing `)` and `{` is optional.
+  static final _ifLineRe = RegExp(
+    r'^\s*if\s*\(\s*([a-zA-Z0-9_]+)\s*(==|!=|<=|>=|<|>)\s*(.+?)\s*\)\s*(?:then\s*)?\{\s*$',
+  );
+
   /// Validates that all braces `{` and `}` in [lines] are balanced.
   ///
   /// Skips `#` comments and content inside double-quoted strings.
@@ -1399,8 +1406,12 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   /// Finds the line index of the matching `}` for the opening `{` at
   /// [openLine].  Returns `-1` if not found.
-  int _findMatchingBrace(List<String> lines, int openLine) {
-    var depth = 0;
+  ///
+  /// [initialDepth] allows starting with a non-zero brace depth (e.g. `1`
+  /// when the opening brace of an else block is inside the `}else{` token
+  /// on the same line, already accounted for by the caller).
+  int _findMatchingBrace(List<String> lines, int openLine, {int initialDepth = 0}) {
+    var depth = initialDepth;
     for (var i = openLine; i < lines.length; i++) {
       final line = lines[i];
       var inString = false;
@@ -1428,6 +1439,16 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// line does not match the while pattern.
   (String, String, String)? _parseWhileCondition(String line) {
     final match = _whileLineRe.firstMatch(line);
+    if (match == null) return null;
+    return (match.group(1)!, match.group(2)!, match.group(3)!.trim());
+  }
+
+  /// Parses an if condition line.
+  ///
+  /// Returns a record `(varName, op, value)` on success, or `null` if the
+  /// line does not match the if pattern.
+  (String, String, String)? _parseIfCondition(String line) {
+    final match = _ifLineRe.firstMatch(line);
     if (match == null) return null;
     return (match.group(1)!, match.group(2)!, match.group(3)!.trim());
   }
@@ -1537,7 +1558,13 @@ class _OsciHomePageState extends State<OsciHomePage>
       if (_macroPlaybackCancelled) return lines.length;
 
       // ── Block terminator ─────────────────────────────────────────
-      if (line == '}') return i + 1;
+      // Handles standalone "}" and "}else{" / "} else{" (if-block
+      // closing line that also opens the else block).
+      if (line == '}' ||
+          line.startsWith('}else') ||
+          line.startsWith('} else')) {
+        return i + 1;
+      }
 
       // ── break / continue ─────────────────────────────────────────
       if (line == 'break') {
@@ -1554,6 +1581,67 @@ class _OsciHomePageState extends State<OsciHomePage>
           return lines.length;
         }
         return i + 1;
+      }
+
+      // ── if(<var> <op> <value>) { ──────────────────────────────────
+      final ifCondition = _parseIfCondition(line);
+      if (ifCondition != null) {
+        final (varName, op, value) = ifCondition;
+        final bodyEnd = _findMatchingBrace(lines, i);
+        if (bodyEnd < 0) {
+          _showMacroError(
+            'Line ${i + 1}: Invalid if syntax — '
+            'expected: if(<var> <op> <value>) {',
+          );
+          return lines.length;
+        }
+
+        // Check whether the closing line contains an else block.
+        // Handles: }else{ , } else{ , } else {
+        final closingLine = lines[bodyEnd].trim();
+        final hasElse = closingLine.startsWith('}else') ||
+            closingLine.startsWith('} else');
+
+        // Evaluate the condition
+        final result = _evaluateCondition(varName, op, value, vars);
+        if (result == null) return lines.length; // error already reported
+
+        if (result) {
+          // Execute the then-body (lines i+1 .. bodyEnd-1)
+          await _executeBlock(lines, i + 1, vars, drainEchoes, inLoop);
+        }
+
+        if (hasElse) {
+          // Find the matching } for the else block.
+          // The { inside }else{ is counted via initialDepth: 1.
+          final elseEnd = _findMatchingBrace(
+            lines,
+            bodyEnd + 1,
+            initialDepth: 1,
+          );
+          if (elseEnd < 0) {
+            _showMacroError(
+              'Line ${bodyEnd + 1}: Unmatched "{" in else block',
+            );
+            return lines.length;
+          }
+
+          if (!result) {
+            // Execute the else-body (lines bodyEnd+1 .. elseEnd-1)
+            await _executeBlock(
+              lines,
+              bodyEnd + 1,
+              vars,
+              drainEchoes,
+              inLoop,
+            );
+          }
+
+          i = elseEnd + 1;
+        } else {
+          i = bodyEnd + 1;
+        }
+        continue;
       }
 
       // ── while(<var> <op> <value>) { ──────────────────────────────
