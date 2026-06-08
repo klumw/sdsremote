@@ -550,6 +550,10 @@ class _OsciHomePageState extends State<OsciHomePage>
   String? _loadedMacroFileName;
   bool _isMacroModified = false;
 
+  // Macro playback status: null = none, 0 = error, 1 = success, 2 = cancelled
+  int? _macroStatus;
+  bool _macroHadPlaybackError = false;
+
   // Macro while-loop control
   Vxi11Instrument? _playbackInstrument;
   bool _breakRequested = false;
@@ -1185,6 +1189,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       isRecording: _isMacroRecording,
       isPlaying: _isMacroPlaying,
       isSaveEnabled: _isMacroRecording || _isMacroModified,
+      macroStatus: _macroStatus,
       loadedFileName: _loadedMacroFileName,
       isModified: _isMacroModified,
       onRecord: _onMacroStart,
@@ -1222,6 +1227,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   void _onMacroStart() {
     setState(() {
+      _macroStatus = null;
       _isMacroRecording = true;
       _isMacroModified = true;
       _loadedMacroFileName = null;
@@ -1233,6 +1239,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   void _onMacroStop() {
+    setState(() => _macroStatus = null);
     if (_isMacroPlaying) {
       _macroPlaybackCancelled = true;
       AppLogger().log('Macro playback stopped by user');
@@ -1268,6 +1275,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// Pressing Stop during playback sets [_macroPlaybackCancelled] = true,
   /// which causes the loop to exit gracefully at the next opportunity.
   Future<void> _playMacro() async {
+    _macroHadPlaybackError = false;
     final lines = _currentMacroContent.split('\n');
     if (lines.isEmpty) {
       _showMacroError('Macro is empty');
@@ -1302,6 +1310,19 @@ class _OsciHomePageState extends State<OsciHomePage>
 
     await _executeBlock(lines, 0, vars, _drainEchoes, false);
 
+    // Set macro status for the header icon
+    if (mounted) {
+      setState(() {
+        if (_macroHadPlaybackError) {
+          _macroStatus = 0; // error
+        } else if (_macroPlaybackCancelled) {
+          _macroStatus = 2; // cancelled
+        } else {
+          _macroStatus = 1; // success
+        }
+      });
+    }
+
     // Clean up the playback connection (only if it's not the main instrument)
     if (_playbackInstrument != null && _playbackInstrument != _instrument) {
       await _playbackInstrument!.close();
@@ -1335,7 +1356,9 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   /// Shows an error snackbar and logs the error.
+  /// Also sets [_macroHadPlaybackError] if called during active playback.
   void _showMacroError(String message) {
+    if (_isMacroPlaying) _macroHadPlaybackError = true;
     AppLogger().log('Macro error: $message');
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1722,6 +1745,27 @@ class _OsciHomePageState extends State<OsciHomePage>
         continue;
       }
 
+      // ── assert("<text>",<var> <op> <value>) ──────────────────────────
+      final assertMatch = RegExp(
+        r'''^assert\("(.+?)",\s*([a-zA-Z0-9_]+)\s*(==|!=|<=|>=|<|>)\s*(.+)\)$''',
+      ).firstMatch(line);
+      if (assertMatch != null) {
+        final text = assertMatch.group(1)!;
+        final varName = assertMatch.group(2)!;
+        final op = assertMatch.group(3)!;
+        final value = assertMatch.group(4)!;
+        final result = _evaluateCondition(varName, op, value, vars);
+        if (result == null) return lines.length; // error already reported
+        if (!result) {
+          AppLogger().log('Macro assert: $text: False');
+          _showMacroError('Assertion failed: $text: False');
+          return lines.length;
+        }
+        AppLogger().log('Macro assert: $text: True');
+        i++;
+        continue;
+      }
+
       // Ensure a device is connected for commands that need it
       if (_playbackInstrument == null) {
         _showMacroError(
@@ -1808,11 +1852,8 @@ class _OsciHomePageState extends State<OsciHomePage>
             xml,
             timeout: const Duration(seconds: 15),
           );
-          AppLogger().log('Macro playback: waiting for *OPC? after loadProfile');
           await _playbackInstrument!.writeString('*OPC?');
-          final opcResponse =
-              (await _playbackInstrument!.readString()).trim();
-          AppLogger().log('Macro playback: *OPC? = $opcResponse');
+          await _playbackInstrument!.readString(); // consume *OPC? response
         } catch (e) {
           _showMacroError('loadProfile("$path") failed: $e');
           return lines.length;
@@ -1849,6 +1890,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   void _onMacroPlay() {
     AppLogger().log('Macro play requested');
+    setState(() => _macroStatus = null);
     _macroPlaybackCancelled = false;
     setState(() => _isMacroPlaying = true);
     _playMacro().whenComplete(() {
@@ -1858,11 +1900,13 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   void _onMacroEdit() {
     setState(() {
+      _macroStatus = null;
       _showMacroEditor = true;
     });
   }
 
   void _onMacroSave() async {
+    setState(() => _macroStatus = null);
     if (!mounted) return;
 
     // When a macro was loaded from file, save back under the same filename
@@ -1936,6 +1980,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       if (!await file.exists()) throw Exception('Macro file not found');
       final content = await file.readAsString();
       setState(() {
+        _macroStatus = null;
         _currentMacroContent = content;
         _loadedMacroFileName = fileName;
         _isMacroModified = false;

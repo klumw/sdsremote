@@ -40,6 +40,10 @@ class MacroRecorderPanel extends StatefulWidget {
   /// When true, a `*` is shown after the file name.
   final bool isModified;
 
+  /// Status of the last macro playback: null = none, 0 = error, 1 = success,
+  /// 2 = cancelled. Displayed as an icon in the header.
+  final int? macroStatus;
+
   final VoidCallback onRecord;
   final VoidCallback onStop;
   final VoidCallback onPlay;
@@ -58,6 +62,7 @@ class MacroRecorderPanel extends StatefulWidget {
     this.isSaveEnabled = false,
     this.loadedFileName,
     this.isModified = false,
+    this.macroStatus,
     required this.onRecord,
     required this.onStop,
     required this.onPlay,
@@ -217,11 +222,43 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                     ),
                   ],
                 ),
-                IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white70, size: 20),
-                  onPressed: widget.onClose,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                Row(
+                  children: [
+                    // Macro playback status icon
+                    if (widget.macroStatus != null)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: Tooltip(
+                          message: switch (widget.macroStatus!) {
+                            0 => 'Macro failed with error',
+                            1 => 'Macro completed successfully',
+                            2 => 'Macro playback cancelled',
+                            _ => '',
+                          },
+                          child: Icon(
+                            switch (widget.macroStatus!) {
+                              0 => Icons.error,
+                              1 => Icons.check_circle,
+                              2 => Icons.cancel,
+                              _ => Icons.help,
+                            },
+                            color: switch (widget.macroStatus!) {
+                              0 => Colors.redAccent,
+                              1 => Colors.greenAccent,
+                              2 => Colors.orangeAccent,
+                              _ => Colors.white,
+                            },
+                            size: 40,
+                          ),
+                        ),
+                      ),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                      onPressed: widget.onClose,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
                 ),
               ],
             ),
