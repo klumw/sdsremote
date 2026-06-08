@@ -3,6 +3,16 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import '../dart_vxi11.dart';
 import '../logger.dart';
 
+/// Callback invoked whenever a SCPI command is sent to the device via the
+/// vxi11 tool. Receives the command string and the operation type
+/// (`"write"` or `"query"`).
+typedef ScpiCommandCallback = void Function(String command, String operation);
+
+/// A static callback that is invoked for every SCPI command sent through
+/// the vxi11 tool. Set this from the macro recorder to capture AI-driven
+/// SCPI commands into the recorded macro.
+ScpiCommandCallback? onScpiCommandSent;
+
 /// Creates a VXI-11 tool that allows the AI agent to send SCPI commands
 /// and queries to a remote instrument.
 ///
@@ -51,6 +61,9 @@ Tool<Map<String, dynamic>> createVxi11Tool({
       final operation = args['operation'] as String;
       final command = args['command'] as String;
       final effectiveHost = (args['host'] as String?) ?? host;
+
+      // Notify the macro recorder (if any) that a SCPI command is being sent.
+      onScpiCommandSent?.call(command, operation);
 
       final logger = AppLogger(
         agentName: agentName,

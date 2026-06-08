@@ -36,6 +36,7 @@ import 'src/app_paths.dart';
 import 'src/macro_recorder_models.dart';
 import 'src/macro_recorder_panel.dart';
 import 'src/macro_editor_panel.dart';
+import 'src/vxi11_tool.dart' show onScpiCommandSent;
 
 // ===========================================================================
 // Provider Configuration Table
@@ -1231,10 +1232,19 @@ class _OsciHomePageState extends State<OsciHomePage>
       _isMacroRecording = true;
       _isMacroModified = true;
       _loadedMacroFileName = null;
-      // In future phases: start SCPI command recording here.
-      // Auto-insert connect command:
       _currentMacroContent = 'connect("$_ipAddress")\n';
     });
+
+    onScpiCommandSent = (command, operation) {
+      if (!_isMacroRecording) return;
+      switch (operation) {
+        case 'write':
+          _currentMacroContent += 'scpi("$command")\n';
+        case 'query':
+          _currentMacroContent += 'query("$command")\n';
+      }
+    };
+
     AppLogger().log('Macro recording started');
   }
 
@@ -1245,6 +1255,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       AppLogger().log('Macro playback stopped by user');
     }
     if (_isMacroRecording) {
+      onScpiCommandSent = null;
       setState(() {
         _isMacroRecording = false;
       });

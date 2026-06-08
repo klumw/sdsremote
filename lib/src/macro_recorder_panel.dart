@@ -325,9 +325,9 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                   child: _buildActionButton(
                     label: "Edit",
                     icon: const Icon(Icons.edit, size: 18),
-                    onPressed: widget.isPlaying ? null : widget.onEdit,
+                    onPressed: (widget.isRecording || widget.isPlaying) ? null : widget.onEdit,
                     color: Colors.blue[800]!,
-                    disabled: widget.isPlaying,
+                    disabled: widget.isRecording || widget.isPlaying,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -336,9 +336,9 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                   child: _buildActionButton(
                     label: "Save",
                     icon: const Icon(Icons.save, size: 18),
-                    onPressed: (widget.isPlaying || !widget.isSaveEnabled) ? null : widget.onSave,
+                    onPressed: (widget.isRecording || widget.isPlaying || !widget.isSaveEnabled) ? null : widget.onSave,
                     color: Colors.cyan[800]!,
-                    disabled: widget.isPlaying || !widget.isSaveEnabled,
+                    disabled: widget.isRecording || widget.isPlaying || !widget.isSaveEnabled,
                   ),
                 ),
               ],
