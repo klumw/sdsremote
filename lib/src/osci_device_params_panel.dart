@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import '../waveform_models.dart';
 
 /// A panel that displays oscilloscope device parameters (timebase, V/div, etc.).
-class DeviceParametersPanel extends StatelessWidget {
+class DeviceParametersPanel extends StatefulWidget {
   final DeviceParams params;
   final bool ch1Enabled;
   final bool ch2Enabled;
@@ -16,7 +16,7 @@ class DeviceParametersPanel extends StatelessWidget {
   final ValueChanged<bool>? onCursorYToggled;
   final ValueChanged<double>? onZoomFactorChanged;
   final bool refVisible;
-  final String? refLabel;   // "REF" when a reference is loaded
+  final String? refLabel; // "REF" when a reference is loaded
   final VoidCallback? onLoadReference;
   final ValueChanged<bool>? onRefToggled;
 
@@ -40,14 +40,47 @@ class DeviceParametersPanel extends StatelessWidget {
   });
 
   @override
+  State<DeviceParametersPanel> createState() => _DeviceParametersPanelState();
+}
+
+class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
+  /// Tracks the slider position during dragging for smooth visual feedback
+  /// without triggering waveform repaint on every tick.
+  late double _sliderZoomFactor;
+
+  @override
+  void initState() {
+    super.initState();
+    _sliderZoomFactor = widget.zoomFactor;
+  }
+
+  @override
+  void didUpdateWidget(DeviceParametersPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Sync local slider value when parent commits a new zoom factor
+    // (e.g. after the user releases the slider or zoom is reset externally)
+    if (widget.zoomFactor != oldWidget.zoomFactor) {
+      _sliderZoomFactor = widget.zoomFactor;
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final ch1Enabled = widget.ch1Enabled;
+    final ch2Enabled = widget.ch2Enabled;
+    final refLabel = widget.refLabel;
+    final refVisible = widget.refVisible;
+    final onRefToggled = widget.onRefToggled;
+    final params = widget.params;
+    final cursorsXEnabled = widget.cursorsXEnabled;
+    final cursorsYEnabled = widget.cursorsYEnabled;
+    final onCursorXToggled = widget.onCursorXToggled;
+    final onCursorYToggled = widget.onCursorYToggled;
+    final onLoadReference = widget.onLoadReference;
+    final onChannelToggle = widget.onChannelToggle;
     return Container(
       width: 300,
-      margin: const EdgeInsets.only(
-        top: 24,
-        bottom: 24,
-        right: 24,
-      ),
+      margin: const EdgeInsets.only(top: 24, bottom: 24, right: 24),
       decoration: BoxDecoration(
         color: const Color(0xFF0A192F),
         border: Border.all(color: const Color(0xFF475569)),
@@ -111,23 +144,11 @@ class DeviceParametersPanel extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 16),
-                  _paramRow(
-                    "Timebase",
-                    _fmtSi(params.timebase, "s/div"),
-                  ),
-                  _paramRow(
-                    "Trig. Delay",
-                    _fmtSi(params.trdl, "s"),
-                  ),
-                  _paramRow(
-                    "Sample Rate",
-                    _fmtSi(params.sampleRate, "Sa/s"),
-                  ),
+                  _paramRow("Timebase", _fmtSi(params.timebase, "s/div")),
+                  _paramRow("Trig. Delay", _fmtSi(params.trdl, "s")),
+                  _paramRow("Sample Rate", _fmtSi(params.sampleRate, "Sa/s")),
                   if (params.vdivCh1 != null) ...[
-                    const Divider(
-                      color: Colors.yellow,
-                      height: 24,
-                    ),
+                    const Divider(color: Colors.yellow, height: 24),
                     const Text(
                       "CH1",
                       style: TextStyle(
@@ -136,20 +157,11 @@ class DeviceParametersPanel extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    _paramRow(
-                      "V/div",
-                      _fmtSi(params.vdivCh1!, "V"),
-                    ),
-                    _paramRow(
-                      "Offset",
-                      _fmtSi(params.voffsetCh1!, "V"),
-                    ),
+                    _paramRow("V/div", _fmtSi(params.vdivCh1!, "V")),
+                    _paramRow("Offset", _fmtSi(params.voffsetCh1!, "V")),
                   ],
                   if (params.vdivCh2 != null) ...[
-                    const Divider(
-                      color: Color(0xFFFF20FF),
-                      height: 24,
-                    ),
+                    const Divider(color: Color(0xFFFF20FF), height: 24),
                     const Text(
                       "CH2",
                       style: TextStyle(
@@ -158,14 +170,8 @@ class DeviceParametersPanel extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    _paramRow(
-                      "V/div",
-                      _fmtSi(params.vdivCh2!, "V"),
-                    ),
-                    _paramRow(
-                      "Offset",
-                      _fmtSi(params.voffsetCh2!, "V"),
-                    ),
+                    _paramRow("V/div", _fmtSi(params.vdivCh2!, "V")),
+                    _paramRow("Offset", _fmtSi(params.voffsetCh2!, "V")),
                   ],
                   const SizedBox(height: 16),
                   const Divider(color: Color(0xFF475569), height: 24),
@@ -272,7 +278,7 @@ class DeviceParametersPanel extends StatelessWidget {
                 ),
               ),
               Text(
-                "${zoomFactor.toStringAsFixed(1)}x",
+                "${_sliderZoomFactor.toStringAsFixed(1)}x",
                 style: const TextStyle(
                   color: Colors.greenAccent,
                   fontSize: 13,
@@ -282,13 +288,18 @@ class DeviceParametersPanel extends StatelessWidget {
             ],
           ),
           Slider(
-            value: zoomFactor,
+            value: _sliderZoomFactor,
             min: 1.0,
             max: 4.0,
             divisions: 12,
             activeColor: Colors.greenAccent,
             inactiveColor: Colors.white24,
-            onChanged: onZoomFactorChanged ?? (_) {},
+            onChanged: (v) {
+              setState(() => _sliderZoomFactor = v);
+            },
+            onChangeEnd: (v) {
+              widget.onZoomFactorChanged?.call(v);
+            },
           ),
         ],
       ),
@@ -304,7 +315,7 @@ class DeviceParametersPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: InkWell(
-        onTap: onLoadReference,
+        onTap: widget.onLoadReference,
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -354,7 +365,11 @@ class DeviceParametersPanel extends StatelessWidget {
       label: label,
       enabled: enabled,
       activeColor: activeColor,
-      onTap: onTap ?? (onChannelToggle != null ? () => onChannelToggle!(label) : null),
+      onTap:
+          onTap ??
+          (widget.onChannelToggle != null
+              ? () => widget.onChannelToggle!(label)
+              : null),
     );
   }
 
@@ -452,10 +467,7 @@ class _ChannelStatusButtonState extends State<_ChannelStatusButton> {
         onTap: widget.onTap,
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(
-            vertical: 6,
-            horizontal: 6,
-          ),
+          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 6),
           decoration: BoxDecoration(
             color: _isHovered && widget.onTap != null
                 ? widget.activeColor.withValues(alpha: 0.15)
@@ -476,9 +488,7 @@ class _ChannelStatusButtonState extends State<_ChannelStatusButton> {
               Icon(
                 Icons.circle,
                 size: 18,
-                color: widget.enabled
-                    ? widget.activeColor
-                    : Colors.transparent,
+                color: widget.enabled ? widget.activeColor : Colors.transparent,
               ),
               const SizedBox(width: 4),
               Text(

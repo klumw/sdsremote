@@ -66,15 +66,51 @@ class ProviderConfig {
 /// - [ProviderConfig.providerName]: displayed in the UI dropdown
 /// - [ProviderConfig.apiKeyName]: the environment variable name for the API key
 const List<ProviderConfig> providerConfigs = [
-  ProviderConfig(modelPrefix: 'deepseek',  providerName: 'DeepSeek',  apiKeyName: 'DEEPSEEK_API_KEY'),
-  ProviderConfig(modelPrefix: 'openai',    providerName: 'OpenAI',    apiKeyName: 'OPENAI_API_KEY'),
-  ProviderConfig(modelPrefix: 'anthropic', providerName: 'Anthropic', apiKeyName: 'ANTHROPIC_API_KEY'),
-  ProviderConfig(modelPrefix: 'google',    providerName: 'Google',    apiKeyName: 'GOOGLE_API_KEY'),
-  ProviderConfig(modelPrefix: 'mistral',   providerName: 'Mistral',   apiKeyName: 'MISTRAL_API_KEY'),
-  ProviderConfig(modelPrefix: 'cohere',    providerName: 'Cohere',    apiKeyName: 'COHERE_API_KEY'),
-  ProviderConfig(modelPrefix: 'edenai',    providerName: 'EdenAI',    apiKeyName: 'EDENAI_API_KEY'),
-  ProviderConfig(modelPrefix: 'openrouter',providerName: 'OpenRouter',apiKeyName: 'OPENROUTER_API_KEY'),
-  ProviderConfig(modelPrefix: 'xai',       providerName: 'xAI',       apiKeyName: 'XAI_API_KEY'),
+  ProviderConfig(
+    modelPrefix: 'deepseek',
+    providerName: 'DeepSeek',
+    apiKeyName: 'DEEPSEEK_API_KEY',
+  ),
+  ProviderConfig(
+    modelPrefix: 'openai',
+    providerName: 'OpenAI',
+    apiKeyName: 'OPENAI_API_KEY',
+  ),
+  ProviderConfig(
+    modelPrefix: 'anthropic',
+    providerName: 'Anthropic',
+    apiKeyName: 'ANTHROPIC_API_KEY',
+  ),
+  ProviderConfig(
+    modelPrefix: 'google',
+    providerName: 'Google',
+    apiKeyName: 'GOOGLE_API_KEY',
+  ),
+  ProviderConfig(
+    modelPrefix: 'mistral',
+    providerName: 'Mistral',
+    apiKeyName: 'MISTRAL_API_KEY',
+  ),
+  ProviderConfig(
+    modelPrefix: 'cohere',
+    providerName: 'Cohere',
+    apiKeyName: 'COHERE_API_KEY',
+  ),
+  ProviderConfig(
+    modelPrefix: 'edenai',
+    providerName: 'EdenAI',
+    apiKeyName: 'EDENAI_API_KEY',
+  ),
+  ProviderConfig(
+    modelPrefix: 'openrouter',
+    providerName: 'OpenRouter',
+    apiKeyName: 'OPENROUTER_API_KEY',
+  ),
+  ProviderConfig(
+    modelPrefix: 'xai',
+    providerName: 'xAI',
+    apiKeyName: 'XAI_API_KEY',
+  ),
 ];
 
 enum ActivePanel { none, help, chat, profiles, dataLogger, macroRecorder }
@@ -105,7 +141,9 @@ class _OsciToolbarButton extends StatelessWidget {
         child: Ink(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           decoration: BoxDecoration(
-            color: const Color(0xFF172A45).withValues(alpha: isDisabled ? 0.3 : 1.0),
+            color: const Color(
+              0xFF172A45,
+            ).withValues(alpha: isDisabled ? 0.3 : 1.0),
             borderRadius: BorderRadius.circular(8),
             boxShadow: isDisabled
                 ? []
@@ -117,7 +155,9 @@ class _OsciToolbarButton extends StatelessWidget {
                     ),
                   ],
             border: Border.all(
-              color: const Color(0xFF475569).withValues(alpha: isDisabled ? 0.3 : 1.0),
+              color: const Color(
+                0xFF475569,
+              ).withValues(alpha: isDisabled ? 0.3 : 1.0),
               width: 1.0,
             ),
           ),
@@ -191,23 +231,39 @@ WaveformData? _convertChannel({
   if (rawData == null || vdiv == null || voffset == null) return null;
   final voltages = WaveformConverter.convertVoltages(rawData, vdiv, voffset);
   final times = WaveformConverter.computeTimeAxis(
-    voltages.length, trdl, timebase, sampleRate,
+    voltages.length,
+    trdl,
+    timebase,
+    sampleRate,
     triggerPosition: triggerPosition,
   );
-  return WaveformData(points: WaveformConverter.combine(times, voltages));
+  final combined = WaveformConverter.combine(times, voltages);
+  // Downsample to 50% by taking every 2nd point
+  final downsampled = <(double, double)>[
+    for (var i = 0; i < combined.length; i += 2) combined[i],
+  ];
+  return WaveformData(points: downsampled);
 }
 
 (WaveformData?, WaveformData?, DeviceParams) _convertRawData(
   WaveformRawData raw,
 ) {
   final ch1 = _convertChannel(
-    rawData: raw.ch1Raw, vdiv: raw.vdivCh1, voffset: raw.voffsetCh1,
-    trdl: raw.trdl, timebase: raw.timebase, sampleRate: raw.sampleRate,
+    rawData: raw.ch1Raw,
+    vdiv: raw.vdivCh1,
+    voffset: raw.voffsetCh1,
+    trdl: raw.trdl,
+    timebase: raw.timebase,
+    sampleRate: raw.sampleRate,
     triggerPosition: raw.triggerPosition,
   );
   final ch2 = _convertChannel(
-    rawData: raw.ch2Raw, vdiv: raw.vdivCh2, voffset: raw.voffsetCh2,
-    trdl: raw.trdl, timebase: raw.timebase, sampleRate: raw.sampleRate,
+    rawData: raw.ch2Raw,
+    vdiv: raw.vdivCh2,
+    voffset: raw.voffsetCh2,
+    trdl: raw.trdl,
+    timebase: raw.timebase,
+    sampleRate: raw.sampleRate,
     triggerPosition: raw.triggerPosition,
   );
 
@@ -235,7 +291,8 @@ WaveformData? _convertChannel({
 ///
 /// Both channels may be present, one may be empty, or one may be missing.
 (List<(double, double)>?, List<(double, double)>?) _parseWaveformCsv(
-    String content) {
+  String content,
+) {
   final lines = content.split('\n');
   List<(double, double)>? ch1;
   List<(double, double)>? ch2;
@@ -372,10 +429,7 @@ class _FilenamePrefixDialogState extends State<_FilenamePrefixDialog> {
           onPressed: () => Navigator.pop(context),
           child: const Text('Cancel'),
         ),
-        ElevatedButton(
-          onPressed: _onSubmit,
-          child: const Text('Save'),
-        ),
+        ElevatedButton(onPressed: _onSubmit, child: const Text('Save')),
       ],
     );
   }
@@ -741,7 +795,8 @@ class _OsciHomePageState extends State<OsciHomePage>
                                                   ch2: _waveformCh2,
                                                   ref: _refWaveform,
                                                   refVisible: _refVisible,
-                                                  refChannelOrigin: _refChannelOrigin,
+                                                  refChannelOrigin:
+                                                      _refChannelOrigin,
                                                   params: _deviceParams!,
                                                   ch1Enabled: _ch1Enabled,
                                                   ch2Enabled: _ch2Enabled,
@@ -755,8 +810,24 @@ class _OsciHomePageState extends State<OsciHomePage>
                                                 cursors: _cursorState,
                                                 params: _deviceParams!,
                                                 zoom: _zoomState,
-                                                dataTMin: _waveformCh1?.points.first.$1 ?? _waveformCh2?.points.first.$1,
-                                                dataTMax: _waveformCh1?.points.last.$1 ?? _waveformCh2?.points.last.$1,
+                                                dataTMin:
+                                                    _waveformCh1
+                                                        ?.points
+                                                        .first
+                                                        .$1 ??
+                                                    _waveformCh2
+                                                        ?.points
+                                                        .first
+                                                        .$1,
+                                                dataTMax:
+                                                    _waveformCh1
+                                                        ?.points
+                                                        .last
+                                                        .$1 ??
+                                                    _waveformCh2
+                                                        ?.points
+                                                        .last
+                                                        .$1,
                                               ),
                                               child: const SizedBox.expand(),
                                             ),
@@ -767,7 +838,8 @@ class _OsciHomePageState extends State<OsciHomePage>
                                                 right: 0,
                                                 bottom: 0,
                                                 height: 24,
-                                                child: _buildHorizontalPanSlider(),
+                                                child:
+                                                    _buildHorizontalPanSlider(),
                                               ),
                                             // Vertical pan slider (only visible when zoomed)
                                             if (_zoomState.zoomFactor > 1.0)
@@ -776,7 +848,8 @@ class _OsciHomePageState extends State<OsciHomePage>
                                                 bottom: 24,
                                                 right: 0,
                                                 width: 24,
-                                                child: _buildVerticalPanSlider(),
+                                                child:
+                                                    _buildVerticalPanSlider(),
                                               ),
                                           ],
                                         ),
@@ -901,15 +974,20 @@ class _OsciHomePageState extends State<OsciHomePage>
                   ),
                   const SizedBox(width: 16),
                   _OsciToolbarButton(
-                    label: _isAcquiringWaveform ? "Acquiring..." : "Acquire Waveform",
+                    label: _isAcquiringWaveform
+                        ? "Acquiring..."
+                        : "Acquire Waveform",
                     icon: _isAcquiringWaveform
                         ? const SizedBox(
                             width: 25,
                             height: 25,
-                            child: CircularProgressIndicator(color: Colors.white),
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
                           )
                         : const Icon(Icons.show_chart, size: 25),
-                    onPressed: (_isAcquiringWaveform || !_isOnline || _isMacroPlaying)
+                    onPressed:
+                        (_isAcquiringWaveform || !_isOnline || _isMacroPlaying)
                         ? null
                         : _acquireWaveform,
                   ),
@@ -941,12 +1019,22 @@ class _OsciHomePageState extends State<OsciHomePage>
                   _OsciToolbarButton(
                     label: _isMacroPlaying
                         ? "Playback"
-                        : (_isMacroRecording ? "Recording..." : "Macro Recorder"),
-                    icon: _isMacroPlaying
-                        ? const Icon(Icons.play_circle, size: 25, color: Colors.greenAccent)
                         : (_isMacroRecording
-                            ? const Icon(Icons.fiber_manual_record, size: 25, color: Colors.red)
-                            : const Icon(Icons.movie, size: 25)),
+                              ? "Recording..."
+                              : "Macro Recorder"),
+                    icon: _isMacroPlaying
+                        ? const Icon(
+                            Icons.play_circle,
+                            size: 25,
+                            color: Colors.greenAccent,
+                          )
+                        : (_isMacroRecording
+                              ? const Icon(
+                                  Icons.fiber_manual_record,
+                                  size: 25,
+                                  color: Colors.red,
+                                )
+                              : const Icon(Icons.movie, size: 25)),
                     onPressed: _isOnline
                         ? () => _togglePanel(ActivePanel.macroRecorder)
                         : null,
@@ -992,19 +1080,21 @@ class _OsciHomePageState extends State<OsciHomePage>
             icon: const Icon(Icons.settings, size: 25),
             color: _isMacroPlaying ? Colors.white24 : Colors.white70,
             tooltip: 'Settings',
-            onPressed: _isMacroPlaying ? null : () => _showConfigDialog(context),
+            onPressed: _isMacroPlaying
+                ? null
+                : () => _showConfigDialog(context),
           ),
           IconButton(
             icon: const Icon(Icons.save_alt, size: 25),
-            color:
-                (_isMacroPlaying)
+            color: (_isMacroPlaying)
                 ? Colors.white24
                 : (_canSaveStandard || _canSaveDataLoggerReport)
                 ? Colors.white70
                 : Colors.white24,
             tooltip: 'Save',
             onPressed:
-                (_isMacroPlaying || !(_canSaveStandard || _canSaveDataLoggerReport))
+                (_isMacroPlaying ||
+                    !(_canSaveStandard || _canSaveDataLoggerReport))
                 ? null
                 : _saveCurrentView,
           ),
@@ -1012,7 +1102,6 @@ class _OsciHomePageState extends State<OsciHomePage>
       ),
     );
   }
-
 
   // =========================================================================
   // Status Bar
@@ -1235,7 +1324,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       _isMacroRecording = true;
       _isMacroModified = true;
       _loadedMacroFileName = null;
-      _currentMacroContent = _isUsb ? 'connect(usb)\n' : 'connect("$_ipAddress")\n';
+      _currentMacroContent = _isUsb
+          ? 'connect(usb)\n'
+          : 'connect("$_ipAddress")\n';
     });
 
     onScpiCommandSent = (command, operation) {
@@ -1387,8 +1478,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   /// Standard 1-second pause between macro commands.
-  Future<void> _macroDelay() =>
-      Future.delayed(const Duration(seconds: 1));
+  Future<void> _macroDelay() => Future.delayed(const Duration(seconds: 1));
 
   // ─────────────────────────────────────────────────────────────────────
   // While-loop support helpers
@@ -1429,14 +1519,18 @@ class _OsciHomePageState extends State<OsciHomePage>
         } else if (ch == '}') {
           depth--;
           if (depth < 0) {
-            _showMacroError('Line ${i + 1}: Unexpected "}" without matching "{"');
+            _showMacroError(
+              'Line ${i + 1}: Unexpected "}" without matching "{"',
+            );
             return false;
           }
         }
       }
     }
     if (depth != 0) {
-      _showMacroError('Line ${lines.length}: Unmatched "{" — missing closing "}"');
+      _showMacroError(
+        'Line ${lines.length}: Unmatched "{" — missing closing "}"',
+      );
       return false;
     }
     return true;
@@ -1448,7 +1542,11 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// [initialDepth] allows starting with a non-zero brace depth (e.g. `1`
   /// when the opening brace of an else block is inside the `}else{` token
   /// on the same line, already accounted for by the caller).
-  int _findMatchingBrace(List<String> lines, int openLine, {int initialDepth = 0}) {
+  int _findMatchingBrace(
+    List<String> lines,
+    int openLine, {
+    int initialDepth = 0,
+  }) {
     var depth = initialDepth;
     for (var i = openLine; i < lines.length; i++) {
       final line = lines[i];
@@ -1652,8 +1750,8 @@ class _OsciHomePageState extends State<OsciHomePage>
         // Check whether the closing line contains an else block.
         // Handles: }else{ , } else{ , } else {
         final closingLine = lines[bodyEnd].trim();
-        final hasElse = closingLine.startsWith('}else') ||
-            closingLine.startsWith('} else');
+        final hasElse =
+            closingLine.startsWith('}else') || closingLine.startsWith('} else');
 
         // Evaluate the condition
         final result = _evaluateCondition(varName, op, value, vars);
@@ -1673,21 +1771,13 @@ class _OsciHomePageState extends State<OsciHomePage>
             initialDepth: 1,
           );
           if (elseEnd < 0) {
-            _showMacroError(
-              'Line ${bodyEnd + 1}: Unmatched "{" in else block',
-            );
+            _showMacroError('Line ${bodyEnd + 1}: Unmatched "{" in else block');
             return lines.length;
           }
 
           if (!result) {
             // Execute the else-body (lines bodyEnd+1 .. elseEnd-1)
-            await _executeBlock(
-              lines,
-              bodyEnd + 1,
-              vars,
-              drainEchoes,
-              inLoop,
-            );
+            await _executeBlock(lines, bodyEnd + 1, vars, drainEchoes, inLoop);
           }
 
           i = elseEnd + 1;
@@ -1791,7 +1881,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       }
 
       // ── wait(<seconds>) ───────────────────────────────────────────────
-      final waitMatch = RegExp(r"""^wait\((\d+(?:\.\d+)?)\)$""").firstMatch(line);
+      final waitMatch = RegExp(
+        r"""^wait\((\d+(?:\.\d+)?)\)$""",
+      ).firstMatch(line);
       if (waitMatch != null) {
         final seconds = double.parse(waitMatch.group(1)!);
         AppLogger().log('Macro playback: wait($seconds s)');
@@ -1832,8 +1924,9 @@ class _OsciHomePageState extends State<OsciHomePage>
 
       // ── <variable>=query("CMD") ──────────────────────────────────────
       await drainEchoes();
-      final assignQueryMatch =
-          RegExp(r"""^([a-zA-Z0-9_]+)=query\("(.+)"\)$""").firstMatch(line);
+      final assignQueryMatch = RegExp(
+        r"""^([a-zA-Z0-9_]+)=query\("(.+)"\)$""",
+      ).firstMatch(line);
       if (assignQueryMatch != null) {
         final varName = assignQueryMatch.group(1)!;
         final cmd = assignQueryMatch.group(2)!;
@@ -1875,8 +1968,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       }
 
       // ── print(<variable>) ────────────────────────────────────────────
-      final printMatch =
-          RegExp(r"""^print\(([a-zA-Z0-9_]+)\)$""").firstMatch(line);
+      final printMatch = RegExp(
+        r"""^print\(([a-zA-Z0-9_]+)\)$""",
+      ).firstMatch(line);
       if (printMatch != null) {
         final varName = printMatch.group(1)!;
         final value = vars[varName];
@@ -1891,8 +1985,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       }
 
       // ── loadProfile("path") ──────────────────────────────────────────
-      final loadProfileMatch =
-          RegExp(r"""^loadProfile\("(.+)"\)$""").firstMatch(line);
+      final loadProfileMatch = RegExp(
+        r"""^loadProfile\("(.+)"\)$""",
+      ).firstMatch(line);
       if (loadProfileMatch != null) {
         final path = loadProfileMatch.group(1)!;
         AppLogger().log('Macro playback: loadProfile("$path")');
@@ -2011,9 +2106,9 @@ class _OsciHomePageState extends State<OsciHomePage>
         _isMacroModified = false;
       });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Macro "$name" saved.')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Macro "$name" saved.')));
       }
     } catch (e) {
       AppLogger().log('Save macro error: $e');
@@ -2145,7 +2240,8 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   void _togglePanel(ActivePanel panel) {
     // Stop the Data Logger immediately when switching away from it
-    if (_activePanel == ActivePanel.dataLogger && panel != ActivePanel.dataLogger) {
+    if (_activePanel == ActivePanel.dataLogger &&
+        panel != ActivePanel.dataLogger) {
       _stopDataLoggerIfRunning();
     }
     setState(() {
@@ -2636,11 +2732,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       final baseName = prefix.isNotEmpty ? prefix : 'screen_dump';
 
       final dir = await AppPaths.getOrCreateScreenshotsDir();
-      final file = await AppPaths.getUniqueFilePath(
-        dir,
-        baseName,
-        'png',
-      );
+      final file = await AppPaths.getUniqueFilePath(dir, baseName, 'png');
       await file.writeAsBytes(_screenDump!);
       final fileName = file.uri.pathSegments.last;
       if (mounted) {
@@ -2716,12 +2808,8 @@ class _OsciHomePageState extends State<OsciHomePage>
           csvBuffer.writeln('# CH2 Offset: ${_deviceParams!.voffsetCh2} V');
         }
       }
-      csvBuffer.writeln(
-        '# Cursors X Enabled: ${_cursorState.cursorsXEnabled}',
-      );
-      csvBuffer.writeln(
-        '# Cursors Y Enabled: ${_cursorState.cursorsYEnabled}',
-      );
+      csvBuffer.writeln('# Cursors X Enabled: ${_cursorState.cursorsXEnabled}');
+      csvBuffer.writeln('# Cursors Y Enabled: ${_cursorState.cursorsYEnabled}');
       csvBuffer.writeln('#');
       csvBuffer.writeln('Time (s),CH1 (V),CH2 (V)');
 
@@ -2789,8 +2877,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       }
 
       // Capture the chart image from the RepaintBoundary
-      final boundary = _dlPlotKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
+      final boundary =
+          _dlPlotKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
       if (boundary == null) {
         throw Exception('Data logger chart not rendered yet');
       }
@@ -2831,11 +2920,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
       // Write to the logger reports subdirectory
       final dir = await AppPaths.getOrCreateLoggerReportsDir();
-      final file = await AppPaths.getUniqueFilePath(
-        dir,
-        pdfBaseName,
-        'pdf',
-      );
+      final file = await AppPaths.getUniqueFilePath(dir, pdfBaseName, 'pdf');
       await file.writeAsBytes(pdfBytes);
       final pdfName = file.uri.pathSegments.last;
 
@@ -2854,9 +2939,9 @@ class _OsciHomePageState extends State<OsciHomePage>
         final msg = _saveWithParams
             ? 'Saved $pdfName + $csvName'
             : 'Saved $pdfName';
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(msg)),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(msg)));
       }
     } catch (e) {
       if (mounted) {
@@ -2890,12 +2975,8 @@ class _OsciHomePageState extends State<OsciHomePage>
     csvBuffer.writeln('# SDS-Remote Data Logger Data');
     csvBuffer.writeln('# Saved: ${DateTime.now().toIso8601String()}');
     csvBuffer.writeln('# Device: ${_deviceName ?? _ipAddress}');
-    csvBuffer.writeln(
-      '# Duration: ${config.durationMinutes} min',
-    );
-    csvBuffer.writeln(
-      '# Interval: ${config.intervalSeconds} s',
-    );
+    csvBuffer.writeln('# Duration: ${config.durationMinutes} min');
+    csvBuffer.writeln('# Interval: ${config.intervalSeconds} s');
     if (config.description.isNotEmpty) {
       csvBuffer.writeln('# Description: ${config.description}');
     }
@@ -2954,9 +3035,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
     // Data rows
     for (final point in points) {
-      final row = <String>[
-        point.elapsedSeconds.toStringAsFixed(1),
-      ];
+      final row = <String>[point.elapsedSeconds.toStringAsFixed(1)];
       for (final col in columns.skip(1)) {
         final getter = getters[col];
         if (getter == null) continue;
@@ -2970,11 +3049,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       csvBuffer.writeln(row.join(','));
     }
 
-    final csvFile = await AppPaths.getUniqueFilePath(
-      dir,
-      baseName,
-      'csv',
-    );
+    final csvFile = await AppPaths.getUniqueFilePath(dir, baseName, 'csv');
     await csvFile.writeAsString(csvBuffer.toString());
     return csvFile.uri.pathSegments.last;
   }
@@ -3001,8 +3076,9 @@ class _OsciHomePageState extends State<OsciHomePage>
     final token = await AppPreferences.getString('ai_api_token');
     final model = await AppPreferences.getString('llm_model');
     final saveWithParams = await AppPreferences.getBool('save_with_params');
-    final askForFilenamePrefix =
-        await AppPreferences.getBool('ask_for_filename_prefix');
+    final askForFilenamePrefix = await AppPreferences.getBool(
+      'ask_for_filename_prefix',
+    );
     setState(() {
       _ipAddress = ip ?? '192.168.1.100';
       _isUsb = isUsb ?? false;
@@ -3069,7 +3145,10 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// The full model string is constructed as `<prefix>:<model>` (e.g.
   /// `openai:gpt-4o`).
   void _configureAiService() {
-    final logger = AppLogger(agentName: 'main', toolName: '_configureAiService');
+    final logger = AppLogger(
+      agentName: 'main',
+      toolName: '_configureAiService',
+    );
     logger.log('ENTER: _configureAiService()');
 
     if (_aiProvider.isEmpty || _aiApiToken.trim().length < 8) {
@@ -3081,9 +3160,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
 
     if (_llmModel.trim().isEmpty) {
-      logger.log(
-        'EXIT: LLM model is empty, deactivating AI agent',
-      );
+      logger.log('EXIT: LLM model is empty, deactivating AI agent');
       _aiChatService.deactivate();
       if (mounted) {
         setState(() {});
@@ -3554,9 +3631,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xCC0D1117),
-        border: Border(
-          top: BorderSide(color: Color(0xFF475569)),
-        ),
+        border: Border(top: BorderSide(color: Color(0xFF475569))),
       ),
       child: SliderTheme(
         data: const SliderThemeData(
@@ -3567,10 +3642,7 @@ class _OsciHomePageState extends State<OsciHomePage>
           inactiveTrackColor: Colors.white24,
           thumbColor: Colors.cyanAccent,
         ),
-        child: Slider(
-          value: _zoomState.panX,
-          onChanged: _onPanXChanged,
-        ),
+        child: Slider(value: _zoomState.panX, onChanged: _onPanXChanged),
       ),
     );
   }
@@ -3579,9 +3651,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xCC0D1117),
-        border: Border(
-          left: BorderSide(color: Color(0xFF475569)),
-        ),
+        border: Border(left: BorderSide(color: Color(0xFF475569))),
       ),
       child: RotatedBox(
         quarterTurns: 1,
@@ -3594,10 +3664,7 @@ class _OsciHomePageState extends State<OsciHomePage>
             inactiveTrackColor: Colors.white24,
             thumbColor: Colors.orangeAccent,
           ),
-          child: Slider(
-            value: _zoomState.panY,
-            onChanged: _onPanYChanged,
-          ),
+          child: Slider(value: _zoomState.panY, onChanged: _onPanYChanged),
         ),
       ),
     );
@@ -3631,13 +3698,16 @@ class _OsciHomePageState extends State<OsciHomePage>
       return;
     }
 
-    final files = dir
-        .listSync()
-        .whereType<File>()
-        .where((f) => f.path.endsWith('.csv'))
-        .toList()
-      ..sort((a, b) =>
-          a.uri.pathSegments.last.compareTo(b.uri.pathSegments.last));
+    final files =
+        dir
+            .listSync()
+            .whereType<File>()
+            .where((f) => f.path.endsWith('.csv'))
+            .toList()
+          ..sort(
+            (a, b) =>
+                a.uri.pathSegments.last.compareTo(b.uri.pathSegments.last),
+          );
 
     if (files.isEmpty) {
       if (mounted) {
@@ -3685,12 +3755,17 @@ class _OsciHomePageState extends State<OsciHomePage>
             children: [
               SimpleDialogOption(
                 onPressed: () => Navigator.pop(ctx, 'ch1'),
-                child: const Text('CH1', style: TextStyle(color: Colors.yellow)),
+                child: const Text(
+                  'CH1',
+                  style: TextStyle(color: Colors.yellow),
+                ),
               ),
               SimpleDialogOption(
                 onPressed: () => Navigator.pop(ctx, 'ch2'),
-                child: const Text('CH2',
-                    style: TextStyle(color: Color(0xFFFF20FF))),
+                child: const Text(
+                  'CH2',
+                  style: TextStyle(color: Color(0xFFFF20FF)),
+                ),
               ),
             ],
           ),
@@ -3710,7 +3785,8 @@ class _OsciHomePageState extends State<OsciHomePage>
       // starts at 0 but the live data may use trigger-relative times
       // starting at a negative value (e.g. -0.00035).  Shift the
       // reference so its first sample lines up with the first live sample.
-      final liveFirstTime = _waveformCh1 != null && _waveformCh1!.points.isNotEmpty
+      final liveFirstTime =
+          _waveformCh1 != null && _waveformCh1!.points.isNotEmpty
           ? _waveformCh1!.points.first.$1
           : _waveformCh2 != null && _waveformCh2!.points.isNotEmpty
           ? _waveformCh2!.points.first.$1
@@ -3728,9 +3804,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       });
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error loading reference: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error loading reference: $e')));
       }
     }
   }
