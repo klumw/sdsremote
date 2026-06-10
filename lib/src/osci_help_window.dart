@@ -15,6 +15,7 @@ class HelpWindow extends StatefulWidget {
 
 class _HelpWindowState extends State<HelpWindow> {
   String _manualContent = '';
+  bool _isLoading = true;
 
   // Search state
   final TextEditingController _searchController = TextEditingController();
@@ -45,12 +46,16 @@ class _HelpWindowState extends State<HelpWindow> {
   }
 
   Future<void> _loadManual() async {
+    // Ensure the loading indicator stays visible for at least 400ms
+    // so the user always sees visual feedback when opening Help.
+    final minLoadTime = Future.delayed(const Duration(milliseconds: 400));
     try {
       _manualContent = await rootBundle.loadString('docs/manual.md');
+      await minLoadTime;
     } catch (e) {
       _manualContent = 'Error loading manual: $e';
     }
-    if (mounted) setState(() {});
+    if (mounted) setState(() => _isLoading = false);
   }
 
   // ---------------------------------------------------------------------------
@@ -287,8 +292,25 @@ class _HelpWindowState extends State<HelpWindow> {
             // Markdown content — using MarkdownBody (non-scrolling) inside a
             // SingleChildScrollView so WE control the ScrollController.
             Expanded(
-              child: _manualContent.isEmpty
-                  ? const Center(child: CircularProgressIndicator())
+              child: _isLoading
+                  ? const Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          CircularProgressIndicator(
+                            color: Colors.cyanAccent,
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            'Loading...',
+                            style: TextStyle(
+                              color: Colors.white54,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
                   : Scrollbar(
                       controller: _scrollController,
                       child: SingleChildScrollView(

@@ -415,7 +415,7 @@ ch1State=query("C1:TRA?")
 assert("Channel 1 must be enabled", ch1State == ON)
 ```
 
-#### 7.5.9 Complete Macro Example
+#### 7.5.9 Macro Example
 
 ```
 # Automated calibration check
