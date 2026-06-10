@@ -67,6 +67,10 @@ class AppLogger {
   static String get _logFile => '$_logDir/sds.log';
   static const int _maxLogSize = 1024 * 1024; // 1MB
 
+  /// Sequential write queue — ensures concurrent log calls never interleave
+  /// their byte output within the shared log file.
+  static Future<void> _writeQueue = Future.value();
+
   final DateFormat _dateFormat = DateFormat('yyyy-MM-dd HH:mm:ss.SSS');
 
   /// Builds a prefix string from agentName and toolName if set.
@@ -83,38 +87,43 @@ class AppLogger {
 
   bool _shouldLog(Level level) => level.value >= minimumLevel.value;
 
-  Future<void> _writeLine(Level level, String message) async {
-    if (!_shouldLog(level)) return;
+  Future<void> _writeLine(Level level, String message) {
+    // Chain onto the static sequential queue so concurrent calls from
+    // different loggers (or unawaited calls from the same logger) never
+    // interleave their bytes in the shared log file.
+    return _writeQueue = _writeQueue.then((_) async {
+      if (!_shouldLog(level)) return;
 
-    try {
-      final directory = Directory(_logDir);
-      if (!await directory.exists()) {
-        await directory.create(recursive: true);
-      }
-
-      final file = File(_logFile);
-      if (await file.exists()) {
-        final size = await file.length();
-        if (size > _maxLogSize) {
-          await _rotateLogs(file);
+      try {
+        final directory = Directory(_logDir);
+        if (!await directory.exists()) {
+          await directory.create(recursive: true);
         }
-      }
 
-      final timestamp = _dateFormat.format(DateTime.now());
-      final prefix = _buildPrefix();
-      final levelName = _formatLevelName(level);
-      final line = prefix.isNotEmpty
-          ? '[$timestamp] [$levelName] $prefix $message\n'
-          : '[$timestamp] [$levelName] $message\n';
-      await file.writeAsString(
-        line,
-        mode: FileMode.append,
-        flush: true,
-      );
-    } catch (e) {
-      // Fallback to stderr if logging fails
-      stderr.writeln('Failed to write to log file: $e');
-    }
+        final file = File(_logFile);
+        if (await file.exists()) {
+          final size = await file.length();
+          if (size > _maxLogSize) {
+            await _rotateLogs(file);
+          }
+        }
+
+        final timestamp = _dateFormat.format(DateTime.now());
+        final prefix = _buildPrefix();
+        final levelName = _formatLevelName(level);
+        final line = prefix.isNotEmpty
+            ? '[$timestamp] [$levelName] $prefix $message\n'
+            : '[$timestamp] [$levelName] $message\n';
+        await file.writeAsString(
+          line,
+          mode: FileMode.append,
+          flush: true,
+        );
+      } catch (e) {
+        // Fallback to stderr if logging fails
+        stderr.writeln('Failed to write to log file: $e');
+      }
+    });
   }
 
   String _formatLevelName(Level level) {
@@ -137,39 +146,41 @@ class AppLogger {
   Future<void> logToolCall({
     required Map<String, dynamic> input,
     required Map<String, dynamic> output,
-  }) async {
-    if (!_shouldLog(Level.FINE)) return;
+  }) {
+    return _writeQueue = _writeQueue.then((_) async {
+      if (!_shouldLog(Level.FINE)) return;
 
-    try {
-      final directory = Directory(_logDir);
-      if (!await directory.exists()) {
-        await directory.create(recursive: true);
-      }
-
-      final file = File(_logFile);
-      if (await file.exists()) {
-        final size = await file.length();
-        if (size > _maxLogSize) {
-          await _rotateLogs(file);
+      try {
+        final directory = Directory(_logDir);
+        if (!await directory.exists()) {
+          await directory.create(recursive: true);
         }
-      }
 
-      final timestamp = _dateFormat.format(DateTime.now());
-      final prefix = _buildPrefix();
-      final inputJson = const JsonEncoder.withIndent('  ').convert(input);
-      final outputJson = const JsonEncoder.withIndent('  ').convert(output);
-      final line = prefix.isNotEmpty
-          ? '[$timestamp] [DEBUG] $prefix ToolCall:\n  Input: $inputJson\n  Output: $outputJson\n'
-          : '[$timestamp] [DEBUG] ToolCall:\n  Input: $inputJson\n  Output: $outputJson\n';
-      await file.writeAsString(
-        line,
-        mode: FileMode.append,
-        flush: true,
-      );
-    } catch (e) {
-      // Fallback to stderr if logging fails
-      stderr.writeln('Failed to write tool call log: $e');
-    }
+        final file = File(_logFile);
+        if (await file.exists()) {
+          final size = await file.length();
+          if (size > _maxLogSize) {
+            await _rotateLogs(file);
+          }
+        }
+
+        final timestamp = _dateFormat.format(DateTime.now());
+        final prefix = _buildPrefix();
+        final inputJson = const JsonEncoder.withIndent('  ').convert(input);
+        final outputJson = const JsonEncoder.withIndent('  ').convert(output);
+        final line = prefix.isNotEmpty
+            ? '[$timestamp] [DEBUG] $prefix ToolCall:\n  Input: $inputJson\n  Output: $outputJson\n'
+            : '[$timestamp] [DEBUG] ToolCall:\n  Input: $inputJson\n  Output: $outputJson\n';
+        await file.writeAsString(
+          line,
+          mode: FileMode.append,
+          flush: true,
+        );
+      } catch (e) {
+        // Fallback to stderr if logging fails
+        stderr.writeln('Failed to write tool call log: $e');
+      }
+    });
   }
 
   Future<void> _rotateLogs(File currentFile) async {

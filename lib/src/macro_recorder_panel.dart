@@ -39,10 +39,14 @@ class MacroRecorderPanel extends StatefulWidget {
   /// Whether the loaded macro has been modified since last save.
   /// When true, a `*` is shown after the file name.
   final bool isModified;
+/// Status of the last macro playback: null = none, 0 = error, 1 = success,
+/// 2 = cancelled. Displayed as an icon in the header.
+final int? macroStatus;
 
-  /// Status of the last macro playback: null = none, 0 = error, 1 = success,
-  /// 2 = cancelled. Displayed as an icon in the header.
-  final int? macroStatus;
+/// Error message of the last failed macro playback, shown under the
+/// status icon when [macroStatus] is 0 (error).
+final String? macroStatusMessage;
+
 
   final VoidCallback onRecord;
   final VoidCallback onStop;
@@ -63,6 +67,7 @@ class MacroRecorderPanel extends StatefulWidget {
     this.loadedFileName,
     this.isModified = false,
     this.macroStatus,
+    this.macroStatusMessage,
     required this.onRecord,
     required this.onStop,
     required this.onPlay,
@@ -203,33 +208,58 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                   ],
                 ),
                 Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Macro playback status icon
+                    // Macro playback status icon with optional error message
                     if (widget.macroStatus != null)
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
-                        child: Tooltip(
-                          message: switch (widget.macroStatus!) {
-                            0 => 'Macro failed with error',
-                            1 => 'Macro completed successfully',
-                            2 => 'Macro playback cancelled',
-                            _ => '',
-                          },
-                          child: Icon(
-                            switch (widget.macroStatus!) {
-                              0 => Icons.error,
-                              1 => Icons.check_circle,
-                              2 => Icons.cancel,
-                              _ => Icons.help,
-                            },
-                            color: switch (widget.macroStatus!) {
-                              0 => Colors.redAccent,
-                              1 => Colors.greenAccent,
-                              2 => Colors.orangeAccent,
-                              _ => Colors.white,
-                            },
-                            size: 40,
-                          ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Tooltip(
+                              message: switch (widget.macroStatus!) {
+                                0 => 'Macro failed with error',
+                                1 => 'Macro completed successfully',
+                                2 => 'Macro playback cancelled',
+                                _ => '',
+                              },
+                              child: Icon(
+                                switch (widget.macroStatus!) {
+                                  0 => Icons.error,
+                                  1 => Icons.check_circle,
+                                  2 => Icons.cancel,
+                                  _ => Icons.help,
+                                },
+                                color: switch (widget.macroStatus!) {
+                                  0 => Colors.redAccent,
+                                  1 => Colors.greenAccent,
+                                  2 => Colors.orangeAccent,
+                                  _ => Colors.white,
+                                },
+                                size: 40,
+                              ),
+                            ),
+                            if (widget.macroStatus == 0 &&
+                                widget.macroStatusMessage != null)
+                              ConstrainedBox(
+                                constraints: const BoxConstraints(maxWidth: 280),
+                                child: Padding(
+                                  padding: const EdgeInsets.only(top: 4),
+                                  child: Text(
+                                    widget.macroStatusMessage!,
+                                    textAlign: TextAlign.right,
+                                    maxLines: 2,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.redAccent,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                          ],
                         ),
                       ),
                     IconButton(

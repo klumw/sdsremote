@@ -553,6 +553,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   // Macro playback status: null = none, 0 = error, 1 = success, 2 = cancelled
   int? _macroStatus;
+  String? _macroStatusMessage;
   bool _macroHadPlaybackError = false;
 
   // Macro while-loop control
@@ -1191,6 +1192,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       isPlaying: _isMacroPlaying,
       isSaveEnabled: _isMacroRecording || _isMacroModified,
       macroStatus: _macroStatus,
+      macroStatusMessage: _macroStatusMessage,
       loadedFileName: _loadedMacroFileName,
       isModified: _isMacroModified,
       onRecord: _onMacroStart,
@@ -1229,6 +1231,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   void _onMacroStart() {
     setState(() {
       _macroStatus = null;
+      _macroStatusMessage = null;
       _isMacroRecording = true;
       _isMacroModified = true;
       _loadedMacroFileName = null;
@@ -1370,8 +1373,10 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// Also sets [_macroHadPlaybackError] if called during active playback.
   void _showMacroError(String message) {
     if (_isMacroPlaying) _macroHadPlaybackError = true;
+    _macroStatusMessage = message;
     AppLogger().log('Macro error: $message');
     if (mounted) {
+      setState(() {});
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Macro error: $message'),
@@ -1505,9 +1510,23 @@ class _OsciHomePageState extends State<OsciHomePage>
 
     switch (op) {
       case '==':
-        return varValue == value;
+        {
+          final varNum = double.tryParse(varValue);
+          final valNum = double.tryParse(value);
+          if (varNum != null && valNum != null) {
+            return varNum == valNum;
+          }
+          return varValue == value;
+        }
       case '!=':
-        return varValue != value;
+        {
+          final varNum = double.tryParse(varValue);
+          final valNum = double.tryParse(value);
+          if (varNum != null && valNum != null) {
+            return varNum != valNum;
+          }
+          return varValue != value;
+        }
       case '<':
       case '<=':
       case '>':
@@ -1556,9 +1575,10 @@ class _OsciHomePageState extends State<OsciHomePage>
       response = response.substring(1).trim();
     }
 
-    // Strip trailing unit (alphabetic / percent characters)
-    // e.g. "1.440000E-03V" → "1.440000E-03"
-    response = response.replaceFirst(RegExp(r'[a-zA-Z%]+$'), '');
+    // Strip trailing unit (alphabetic / percent characters) only when
+    // preceded by a digit — this preserves boolean SCPI responses like
+    // "ON" / "OFF" while still cleaning "1.440000E-03V" → "1.440000E-03"
+    response = response.replaceFirst(RegExp(r'(?<=\d)[a-zA-Z%]+$'), '');
 
     return response;
   }
@@ -1722,12 +1742,12 @@ class _OsciHomePageState extends State<OsciHomePage>
       final connectMatch = RegExp(r"""^connect\("(.+)"\)$""").firstMatch(line);
       if (connectMatch != null) {
         final ip = connectMatch.group(1)!;
-        AppLogger().log('Macro playback: connect to $ip');
 
         if (_instrument != null && _ipAddress == ip) {
           _playbackInstrument = _instrument;
-          AppLogger().log('Macro playback: reusing existing instrument connection');
+          AppLogger().log('Macro playback: connect to $ip (reusing existing connection)');
         } else {
+          AppLogger().log('Macro playback: connect to $ip');
           await _playbackInstrument?.close();
           try {
             final instr = Vxi11Instrument(ip, sourceLabel: 'macroPlay');
