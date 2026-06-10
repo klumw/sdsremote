@@ -622,49 +622,44 @@ class CodeBlockElementBuilder extends MarkdownElementBuilder {
   Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
     final text = element.textContent;
     return Builder(builder: (context) {
-      return UnconstrainedBox(
-        alignment: Alignment.centerLeft,
-        child: Container(
-          decoration: BoxDecoration(
-            color: Colors.black54,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          padding: const EdgeInsets.fromLTRB(8, 4, 0, 4),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                height: 30,
-                child: Center(
-                  child: Text(
-                    text,
-                    style: TextStyle(
-                      color: Colors.greenAccent[100],
-                      fontFamily: 'Roboto Mono',
-                      fontFamilyFallback: const [
-                        'Consolas',
-                        'Courier New',
-                        'monospace'
-                      ],
-                      fontSize: 18,
-                    ),
-                  ),
+      return Container(
+        width: double.infinity,
+        decoration: BoxDecoration(
+          color: Colors.black54,
+          borderRadius: BorderRadius.circular(4),
+        ),
+        padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: SelectableText(
+                text,
+                style: TextStyle(
+                  color: Colors.greenAccent[100],
+                  fontFamily: 'Roboto Mono',
+                  fontFamilyFallback: const [
+                    'Consolas',
+                    'Courier New',
+                    'monospace'
+                  ],
+                  fontSize: 14,
                 ),
               ),
-              GestureDetector(
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: text));
-                },
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: const Padding(
-                    padding: EdgeInsets.all(8),
-                    child: Icon(Icons.copy, size: 16, color: Colors.white70),
-                  ),
+            ),
+            GestureDetector(
+              onTap: () {
+                Clipboard.setData(ClipboardData(text: text));
+              },
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: const Padding(
+                  padding: EdgeInsets.all(8),
+                  child: Icon(Icons.copy, size: 16, color: Colors.white70),
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       );
     });

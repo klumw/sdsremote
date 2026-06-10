@@ -40,17 +40,17 @@ screen capture and device interaction and help through an integrated AI-powered 
   * Save and Upload your device configuration
 
 * **Data Logger**
-   * Log key parameters over time
-   * Export pdf reports or save data points in a csv file
+  * Log key parameters over time
+  * Export pdf reports or save data points in a csv file
 
 * **Macro Recorder**
-   * Record, edit and play back SCPI command sequences
-   * Automate repetitive measurement and configuration tasks
-   * Supports variables, conditionals and loops for advanced automation
-   * Button label changes to **Recording...** during recording and **Playback** during playback
+  * Record, edit and play back SCPI command sequences
+  * Automate repetitive measurement and configuration tasks
+  * Supports variables, conditionals and loops for advanced automation
+  * Button label changes to **Recording...** during recording and **Playback** during playback
 
 * **Help**
-   * Opens this documentation
+  * Opens this documentation
 
 * **News**  
   * Displays application updates
@@ -226,6 +226,7 @@ Macro files are stored with the `.m` extension in the `automation/macros/` subdi
 The Macro Recorder panel is opened by clicking the **Macro Recorder** button in the top toolbar. The panel is divided into three areas:
 
 **Header**
+
 * Displays the panel title "Macro Recorder" with a movie-clapper icon.
 * Shows the currently loaded file name (with a `*` suffix if unsaved changes exist).
 * After playback, a status icon appears:
@@ -235,6 +236,7 @@ The Macro Recorder panel is opened by clicking the **Macro Recorder** button in 
 * **Close** button (X) closes the panel and returns to the main view.
 
 **Action Buttons**
+
 * **Record** — Starts recording. All SCPI commands sent through the AI chat, the Control Panel, or loaded via profiles are captured into the macro. During recording, the button shows a blinking red dot and the label changes to "Recording...". Disabled during playback.
 * **Stop** — Stops the current recording or playback. During playback, the label changes to "Stop Playback". Only enabled when recording or playback is active.
 * **Play** — Executes the current macro content against the connected oscilloscope. A 1-second pause is inserted between each command. Disabled during recording or playback.
@@ -242,6 +244,7 @@ The Macro Recorder panel is opened by clicking the **Macro Recorder** button in 
 * **Save** — Saves the macro to a `.m` file. If a file was previously loaded, it is overwritten silently. Otherwise, a dialog prompts for a file name (up to 30 characters, alphanumeric plus `_` and `-`). Enabled only after recording, loading, or editing a macro.
 
 **File List**
+
 * Lists all saved `.m` macro files in the `automation/macros/` directory.
 * Each entry shows the file name (without `.m` extension) and last modified date.
 * **Sorting**: Sort by **Name** or **Date** in ascending or descending order using the sort controls above the list.
@@ -254,6 +257,7 @@ The Macro Recorder panel is opened by clicking the **Macro Recorder** button in 
 Clicking the **Edit** button or the **Load** button on a file opens the Macro Editor. This is a full text editor with line numbers, designed for writing and modifying macro scripts.
 
 **Features**
+
 * Line number gutter on the left side, synchronized with scrolling.
 * Monospace font for clear command readability.
 * Full keyboard editing support.
@@ -392,6 +396,7 @@ while(myVar < 10.0) {
 Repeatedly executes the block as long as the condition is true. The condition is re-evaluated before each iteration. A maximum of **100 iterations** is enforced to prevent infinite loops. If the limit is exceeded, playback stops with an error.
 
 **Loop control:**
+
 * `break` — Immediately exits the innermost `while` loop. Using `break` outside a loop is an error.
 * `continue` — Skips the remaining commands in the current iteration and re-evaluates the loop condition. Using `continue` outside a loop is an error.
 
@@ -415,34 +420,36 @@ assert("Channel 1 must be enabled", ch1State == ON)
 ```
 # Automated calibration check
 connect("192.168.1.100")
-wait(2.0)
+wait(2)
 
 # Load reference configuration
 loadProfile("/home/user/.local/share/sdsremote/profiles/calibration.lss")
-wait(5.0)
+wait(5)
 
 # Enable both channels
 scpi("C1:TRA ON")
 scpi("C2:TRA ON")
-wait(1.0)
+wait(1)
 
 # Read and validate channel 1
 c1vdiv=query("C1:VDIV?")
 print(c1vdiv)
-assert("C1 VDIV must be 1V", c1vdiv == 1.00E+00)
+assert("C1 VDIV must be 1V", c1vdiv == 1.0)
 
 # Read and validate channel 2
 c2vdiv=query("C2:VDIV?")
 print(c2vdiv)
-if(c2vdiv != 1.00E+00) {
+if(c2vdiv != 1.0) {
     scpi("C2:VDIV 1V")
-    wait(1.0)
+    wait(1)
 }
 
 # Verify final state
 c2vdiv=query("C2:VDIV?")
-assert("C2 VDIV must be 1V after correction", c2vdiv == 1.00E+00)
+assert("C2 VDIV must be 1V after correction", c2vdiv == 1.0)
 ```
+
+After playback check your logfile to see all macro messages.
 
 ## 8. Acquire Waveform
 
