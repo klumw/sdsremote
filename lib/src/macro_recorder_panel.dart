@@ -177,27 +177,7 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
               children: [
                 Row(
                   children: [
-                    // Recording indicator: blinking red dot
-                    if (widget.isRecording)
-                      AnimatedBuilder(
-                        animation: _blinkAnimation,
-                        builder: (context, child) {
-                          return Opacity(
-                            opacity: _blinkAnimation.value,
-                            child: Container(
-                              width: 12,
-                              height: 12,
-                              margin: const EdgeInsets.only(right: 8),
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                          );
-                        },
-                      )
-                    else
-                      const Icon(Icons.movie, color: Colors.cyanAccent, size: 20),
+                    const Icon(Icons.movie, color: Colors.cyanAccent, size: 20),
                     const SizedBox(width: 8),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
