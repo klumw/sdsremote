@@ -596,16 +596,17 @@ class MarkHighlightBuilder extends MarkdownElementBuilder {
 /// Builder for inline code (single backticks: `code`).
 class InlineCodeElementBuilder extends MarkdownElementBuilder {
   @override
-  Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-      decoration: BoxDecoration(
-        color: Colors.black54,
-        borderRadius: BorderRadius.circular(4),
-      ),
-      child: SelectableText(
-        element.textContent,
-        style: TextStyle(
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    return Text.rich(
+      TextSpan(
+        text: element.textContent,
+        style: (preferredStyle ?? parentStyle ?? const TextStyle()).copyWith(
+          backgroundColor: Colors.black54,
           color: Colors.greenAccent[100],
           fontFamily: 'Roboto Mono',
           fontFamilyFallback: const ['Consolas', 'Courier New', 'monospace'],
