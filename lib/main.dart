@@ -1337,10 +1337,8 @@ class _OsciHomePageState extends State<OsciHomePage>
       });
     }
 
-    // Clean up the playback connection (only if it's not the main instrument)
-    if (_playbackInstrument != null && _playbackInstrument != _instrument) {
-      await _playbackInstrument!.close();
-    }
+    // Clean up the dedicated macro playback connection.
+    await _playbackInstrument?.close();
 
     AppLogger().log(
       _macroPlaybackCancelled
@@ -1348,7 +1346,7 @@ class _OsciHomePageState extends State<OsciHomePage>
           : 'Macro playback: finished',
     );
 
-    if (mounted) {
+    if (mounted && !_macroHadPlaybackError) {
       if (_macroPlaybackCancelled) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -1742,23 +1740,21 @@ class _OsciHomePageState extends State<OsciHomePage>
       final connectMatch = RegExp(r"""^connect\("(.+)"\)$""").firstMatch(line);
       if (connectMatch != null) {
         final ip = connectMatch.group(1)!;
+        AppLogger().log('Macro playback: connect to $ip');
 
-        if (_instrument != null && _ipAddress == ip) {
-          _playbackInstrument = _instrument;
-          AppLogger().log('Macro playback: connect to $ip (reusing existing connection)');
-        } else {
-          AppLogger().log('Macro playback: connect to $ip');
+        // Always open a dedicated connection for macro playback.
+        // Reusing the main instrument can cause "Connection not open"
+        // errors after a previous run failed and left state inconsistent.
+        await _playbackInstrument?.close();
+        try {
+          final instr = Vxi11Instrument(ip, sourceLabel: 'macroPlay');
+          await instr.open(timeoutSeconds: 5.0);
+          _playbackInstrument = instr;
+        } catch (e) {
           await _playbackInstrument?.close();
-          try {
-            final instr = Vxi11Instrument(ip, sourceLabel: 'macroPlay');
-            await instr.open(timeoutSeconds: 5.0);
-            _playbackInstrument = instr;
-          } catch (e) {
-            await _playbackInstrument?.close();
-            _playbackInstrument = null;
-            _showMacroError('connect("$ip") failed: $e');
-            return lines.length;
-          }
+          _playbackInstrument = null;
+          _showMacroError('connect("$ip") failed: $e');
+          return lines.length;
         }
         if (_macroPlaybackCancelled) return lines.length;
         await _macroDelay();
