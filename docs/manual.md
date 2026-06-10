@@ -268,7 +268,7 @@ Clicking the **Edit** button or the **Load** button on a file opens the Macro Ed
 
 1. Ensure the oscilloscope is connected and online.
 2. Open the **Macro Recorder** panel and click **Record**.
-3. A `connect("IP")` line is automatically inserted at the start of the macro.
+3. A `connect("IP")` line is automatically inserted at the start of the macro (or `connect(usb)` if USB connection mode is active).
 4. Perform actions through the AI chat, Control Panel, or load a device profile — each SCPI command is automatically appended to the macro.
 5. Click **Stop** when finished.
 6. Review the recorded commands in the editor (click **Edit**).
@@ -298,6 +298,14 @@ connect("192.168.1.100")
 ```
 
 Establishes a VXI-11 connection to the oscilloscope at the given IP address. This is always the first command in a recorded macro. Only one `connect` statement should appear per macro.
+
+```
+connect(usb)
+```
+
+> ⚠️ **Experimental** — USB direct connection support for macros is experimental and may not work reliably on all systems. Requires a USBTMC-compatible oscilloscope connected via USB.
+
+Connects to the oscilloscope via USBTMC (USB) instead of network. The device is auto-detected — no IP address is needed. When recording a macro while the application is in USB connection mode, `connect(usb)` is automatically inserted instead of `connect("IP")`.
 
 #### 7.5.2 SCPI Commands
 
@@ -538,7 +546,7 @@ Files are stored in various subfolders of the application directory, depending o
 
 * Protocol: VXI-11 over TCP/IP or USB direct connect
 * Command Interface: SCPI
-* Network-based operation only (USB connections are not supported).
+* Network-based and USB connections are supported.
 
 ### Data Formats
 

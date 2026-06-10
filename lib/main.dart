@@ -1235,7 +1235,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       _isMacroRecording = true;
       _isMacroModified = true;
       _loadedMacroFileName = null;
-      _currentMacroContent = 'connect("$_ipAddress")\n';
+      _currentMacroContent = _isUsb ? 'connect(usb)\n' : 'connect("$_ipAddress")\n';
     });
 
     onScpiCommandSent = (command, operation) {
@@ -1270,6 +1270,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   ///
   /// Supported commands:
   ///   `connect("IP")`            — Establish a VXI-11 connection to the given device.
+  ///   `connect(usb)`             — Connect via USBTMC (auto-detects the device).
   ///   `wait(<seconds>)`          — Pause playback for the given number of seconds.
   ///   `loadProfile("path")`      — Load and send a profile (.lss) file to the device.
   ///   `scpi("CMD")`              — Send a raw SCPI command to the device.
@@ -1736,11 +1737,38 @@ class _OsciHomePageState extends State<OsciHomePage>
         continue;
       }
 
+      // ── connect(usb) ──────────────────────────────────────────────────
+      if (line == 'connect(usb)') {
+        AppLogger().log('Macro playback: connect via USB (USBTMC)');
+
+        await _playbackInstrument?.close();
+        try {
+          Vxi11Instrument.isUsbMode = true;
+          // Use a dummy host — USB mode auto-detects the device and ignores host.
+          final instr = Vxi11Instrument('usb', sourceLabel: 'macroPlay');
+          await instr.open(timeoutSeconds: 5.0);
+          _playbackInstrument = instr;
+        } catch (e) {
+          await _playbackInstrument?.close();
+          _playbackInstrument = null;
+          Vxi11Instrument.isUsbMode = false;
+          _showMacroError('connect(usb) failed: $e');
+          return lines.length;
+        }
+        if (_macroPlaybackCancelled) return lines.length;
+        await _macroDelay();
+        i++;
+        continue;
+      }
+
       // ── connect("IP") ────────────────────────────────────────────────
       final connectMatch = RegExp(r"""^connect\("(.+)"\)$""").firstMatch(line);
       if (connectMatch != null) {
         final ip = connectMatch.group(1)!;
         AppLogger().log('Macro playback: connect to $ip');
+
+        // Ensure USB mode is off when connecting via IP.
+        Vxi11Instrument.isUsbMode = false;
 
         // Always open a dedicated connection for macro playback.
         // Reusing the main instrument can cause "Connection not open"
