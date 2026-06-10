@@ -39,14 +39,14 @@ class MacroRecorderPanel extends StatefulWidget {
   /// Whether the loaded macro has been modified since last save.
   /// When true, a `*` is shown after the file name.
   final bool isModified;
-/// Status of the last macro playback: null = none, 0 = error, 1 = success,
-/// 2 = cancelled. Displayed as an icon in the header.
-final int? macroStatus;
 
-/// Error message of the last failed macro playback, shown under the
-/// status icon when [macroStatus] is 0 (error).
-final String? macroStatusMessage;
+  /// Status of the last macro playback: null = none, 0 = error, 1 = success,
+  /// 2 = cancelled. Displayed as an icon in the header.
+  final int? macroStatus;
 
+  /// Error message of the last failed macro playback, shown under the
+  /// status icon when [macroStatus] is 0 (error).
+  final String? macroStatusMessage;
 
   final VoidCallback onRecord;
   final VoidCallback onStop;
@@ -126,8 +126,9 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
     final list = List<MacroInfo>.from(widget.macroFiles);
     if (_sortType == MacroSortType.name) {
       list.sort((a, b) {
-        final cmp =
-            a.fileName.toLowerCase().compareTo(b.fileName.toLowerCase());
+        final cmp = a.fileName.toLowerCase().compareTo(
+          b.fileName.toLowerCase(),
+        );
         return _isAscending ? cmp : -cmp;
       });
     } else {
@@ -244,7 +245,9 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                             if (widget.macroStatus == 0 &&
                                 widget.macroStatusMessage != null)
                               ConstrainedBox(
-                                constraints: const BoxConstraints(maxWidth: 280),
+                                constraints: const BoxConstraints(
+                                  maxWidth: 280,
+                                ),
                                 child: Padding(
                                   padding: const EdgeInsets.only(top: 4),
                                   child: Text(
@@ -263,7 +266,11 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                         ),
                       ),
                     IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                      icon: const Icon(
+                        Icons.close,
+                        color: Colors.white70,
+                        size: 20,
+                      ),
                       onPressed: widget.onClose,
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
@@ -279,79 +286,105 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
           // ==================================================================
           Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                // Record button
-                Expanded(
-                  child: _buildActionButton(
-                    label: widget.isRecording ? "Recording..." : "Record",
-                    icon: widget.isRecording
-                        ? AnimatedBuilder(
-                            animation: _blinkAnimation,
-                            builder: (context, child) {
-                              return Container(
-                                width: 14,
-                                height: 14,
-                                decoration: BoxDecoration(
-                                  color: Colors.red.withValues(
-                                    alpha: _blinkAnimation.value,
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E1E).withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.cyanAccent, width: 1.0),
+              ),
+              child: Row(
+                children: [
+                  // Record button
+                  Expanded(
+                    child: _buildActionButton(
+                      label: widget.isRecording ? "Recording..." : "Record",
+                      icon: widget.isRecording
+                          ? AnimatedBuilder(
+                              animation: _blinkAnimation,
+                              builder: (context, child) {
+                                return Container(
+                                  width: 14,
+                                  height: 14,
+                                  decoration: BoxDecoration(
+                                    color: Colors.red.withValues(
+                                      alpha: _blinkAnimation.value,
+                                    ),
+                                    shape: BoxShape.circle,
                                   ),
-                                  shape: BoxShape.circle,
-                                ),
-                              );
-                            },
-                          )
-                        : const Icon(Icons.fiber_manual_record, size: 18),
-                    onPressed: (widget.isRecording || widget.isPlaying) ? null : widget.onRecord,
-                    color: widget.isRecording ? Colors.grey[800]! : Colors.red[800]!,
-                    disabled: widget.isRecording || widget.isPlaying,
+                                );
+                              },
+                            )
+                          : const Icon(Icons.fiber_manual_record, size: 18),
+                      onPressed: (widget.isRecording || widget.isPlaying)
+                          ? null
+                          : widget.onRecord,
+                      color: widget.isRecording
+                          ? Colors.grey[800]!
+                          : Colors.red[800]!,
+                      disabled: widget.isRecording || widget.isPlaying,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                // Stop button (also active during playback to cancel it)
-                Expanded(
-                  child: _buildActionButton(
-                    label: widget.isPlaying ? "Stop Playback" : "Stop",
-                    icon: const Icon(Icons.stop, size: 18),
-                    onPressed: (widget.isRecording || widget.isPlaying) ? widget.onStop : null,
-                    color: widget.isPlaying ? Colors.red[800]! : Colors.orange[800]!,
-                    disabled: !widget.isRecording && !widget.isPlaying,
+                  const SizedBox(width: 8),
+                  // Stop button (also active during playback to cancel it)
+                  Expanded(
+                    child: _buildActionButton(
+                      label: widget.isPlaying ? "Stop Playback" : "Stop",
+                      icon: const Icon(Icons.stop, size: 18),
+                      onPressed: (widget.isRecording || widget.isPlaying)
+                          ? widget.onStop
+                          : null,
+                      color: widget.isPlaying
+                          ? Colors.red[800]!
+                          : Colors.orange[800]!,
+                      disabled: !widget.isRecording && !widget.isPlaying,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                // Play button
-                Expanded(
-                  child: _buildActionButton(
-                    label: "Play",
-                    icon: const Icon(Icons.play_arrow, size: 18),
-                    onPressed: widget.isPlaying ? null : widget.onPlay,
-                    color: Colors.green[800]!,
-                    disabled: widget.isRecording || widget.isPlaying,
+                  const SizedBox(width: 8),
+                  // Play button
+                  Expanded(
+                    child: _buildActionButton(
+                      label: "Play",
+                      icon: const Icon(Icons.play_arrow, size: 18),
+                      onPressed: widget.isPlaying ? null : widget.onPlay,
+                      color: Colors.green[800]!,
+                      disabled: widget.isRecording || widget.isPlaying,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                // Edit button
-                Expanded(
-                  child: _buildActionButton(
-                    label: "Edit",
-                    icon: const Icon(Icons.edit, size: 18),
-                    onPressed: (widget.isRecording || widget.isPlaying) ? null : widget.onEdit,
-                    color: Colors.blue[800]!,
-                    disabled: widget.isRecording || widget.isPlaying,
+                  const SizedBox(width: 8),
+                  // Edit button
+                  Expanded(
+                    child: _buildActionButton(
+                      label: "Edit",
+                      icon: const Icon(Icons.edit, size: 18),
+                      onPressed: (widget.isRecording || widget.isPlaying)
+                          ? null
+                          : widget.onEdit,
+                      color: Colors.blue[800]!,
+                      disabled: widget.isRecording || widget.isPlaying,
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                // Save button
-                Expanded(
-                  child: _buildActionButton(
-                    label: "Save",
-                    icon: const Icon(Icons.save, size: 18),
-                    onPressed: (widget.isRecording || widget.isPlaying || !widget.isSaveEnabled) ? null : widget.onSave,
-                    color: Colors.cyan[800]!,
-                    disabled: widget.isRecording || widget.isPlaying || !widget.isSaveEnabled,
+                  const SizedBox(width: 8),
+                  // Save button
+                  Expanded(
+                    child: _buildActionButton(
+                      label: "Save",
+                      icon: const Icon(Icons.save, size: 18),
+                      onPressed:
+                          (widget.isRecording ||
+                              widget.isPlaying ||
+                              !widget.isSaveEnabled)
+                          ? null
+                          : widget.onSave,
+                      color: Colors.cyan[800]!,
+                      disabled:
+                          widget.isRecording ||
+                          widget.isPlaying ||
+                          !widget.isSaveEnabled,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
 
@@ -400,7 +433,10 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                     ),
                   )
                 : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
                     itemCount: sortedList.length,
                     itemBuilder: (context, index) {
                       final macro = sortedList[index];
@@ -416,7 +452,9 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                           color: const Color(0xFF172A45).withValues(alpha: 0.5),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
-                            color: const Color(0xFF475569).withValues(alpha: 0.5),
+                            color: const Color(
+                              0xFF475569,
+                            ).withValues(alpha: 0.5),
                           ),
                         ),
                         child: Row(
@@ -501,12 +539,9 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
       label: Text(label, style: const TextStyle(fontSize: 11)),
       style: ElevatedButton.styleFrom(
         backgroundColor: effectiveColor,
-        foregroundColor:
-            disabled ? Colors.white38 : Colors.white,
+        foregroundColor: disabled ? Colors.white38 : Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(8),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         minimumSize: Size.zero,
       ),
     );
@@ -519,8 +554,9 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
         decoration: BoxDecoration(
-          color:
-              isActive ? Colors.cyan[800]?.withValues(alpha: 0.3) : Colors.transparent,
+          color: isActive
+              ? Colors.cyan[800]?.withValues(alpha: 0.3)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(4),
           border: Border.all(
             color: isActive

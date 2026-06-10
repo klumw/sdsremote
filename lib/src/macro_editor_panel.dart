@@ -63,10 +63,9 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     if (!_isSyncing && _gutterScrollController.hasClients) {
       _isSyncing = true;
       final offset = _editorScrollController.offset;
-      _gutterScrollController.jumpTo(offset.clamp(
-        0.0,
-        _gutterScrollController.position.maxScrollExtent,
-      ));
+      _gutterScrollController.jumpTo(
+        offset.clamp(0.0, _gutterScrollController.position.maxScrollExtent),
+      );
       _isSyncing = false;
     }
   }
@@ -75,10 +74,9 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     if (!_isSyncing && _editorScrollController.hasClients) {
       _isSyncing = true;
       final offset = _gutterScrollController.offset;
-      _editorScrollController.jumpTo(offset.clamp(
-        0.0,
-        _editorScrollController.position.maxScrollExtent,
-      ));
+      _editorScrollController.jumpTo(
+        offset.clamp(0.0, _editorScrollController.position.maxScrollExtent),
+      );
       _isSyncing = false;
     }
   }
@@ -175,7 +173,11 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                   ],
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.white70,
+                    size: 20,
+                  ),
                   onPressed: widget.onClose,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -191,7 +193,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
               decoration: BoxDecoration(
                 color: const Color(0xFF1A2A4A),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFF475569)),
+                border: Border.all(color: Colors.cyanAccent, width: 1.0),
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(7),
@@ -222,10 +224,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                       ),
                     ),
                     // Vertical divider
-                    Container(
-                      width: 1,
-                      color: const Color(0xFF2A3A5A),
-                    ),
+                    Container(width: 1, color: const Color(0xFF2A3A5A)),
                     // Text field
                     Expanded(
                       child: TextField(
@@ -242,10 +241,16 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                         ),
                         decoration: const InputDecoration(
                           hintText: 'Enter macro commands...',
-                          hintStyle: TextStyle(color: Colors.white24, fontSize: 13),
+                          hintStyle: TextStyle(
+                            color: Colors.white24,
+                            fontSize: 13,
+                          ),
                           border: InputBorder.none,
                           contentPadding: EdgeInsets.only(
-                            left: 8, top: 12, right: 12, bottom: 12,
+                            left: 8,
+                            top: 12,
+                            right: 12,
+                            bottom: 12,
                           ),
                         ),
                       ),
@@ -259,18 +264,26 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
           // Close button at bottom
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: SizedBox(
-              width: double.infinity,
-              child: ElevatedButton.icon(
-                onPressed: widget.onClose,
-                icon: const Icon(Icons.close, size: 18),
-                label: const Text("Close"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.cyan[800],
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: const Color(0xFF1E1E1E).withValues(alpha: 0.95),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.cyanAccent, width: 1.0),
+              ),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: widget.onClose,
+                  icon: const Icon(Icons.close, size: 18),
+                  label: const Text("Close"),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.cyan[800],
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
                   ),
                 ),
               ),
