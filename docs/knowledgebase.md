@@ -589,7 +589,7 @@ The table shows the probe attenuation factor
 
 You can also customize the probe attenuation factor . Press the Probe softkey, select Custom , and then press the Custom softkey to select Custom or Custom Fine . First, select Custom and turn the Universal Knob to achieve rough adjustment; and then select Custom Fine and turn the Universal Knob to achieve fine adjustment.
 
-## Channel Unit (V, A, amplitude display unit)
+## Channel Unit softkey (V, A, amplitude display unit)
 
 Select the amplitude display unit for the current channel. The available units are V and A. When the unit is changed, the unit displayed in the channel label will change accordingly.
 
@@ -599,7 +599,8 @@ Select the amplitude display unit for the current channel. The available units a
 
 The default setup is V.
 
-## Channel Deskew (deskew, ±100ns)
+## Channel Deskew softkey (deskew, ±100ns)
+The Deskew softkey is used to compensate for phase differences or time delays between input channels, which can occur due to varying cable lengths or different probe signal propagation delays. This feature allows you to shift the timing of an analog channel relative to others within a range of ±100 ns to ensure that signals appear correctly correlated on the display.
 
 The valid range of each analog channel is ±100ns .
 
@@ -607,18 +608,18 @@ The valid range of each analog channel is ±100ns .
 2. Press the Next Page softkey to enter the second page of the CH1 function menu.
 3. Press the Deskew softkey. Then turn the Universal Knob to change deskew.
 
-## Channel Invert (invert, voltage values, trigger settings)
+## Channel Invert softkey (invert, voltage values, trigger settings)
 
-When Invert is set to On, the voltage values of the displayed waveform are inverted. Invert affects how a channel is displayed and it keeps the trigger settings.
+When Invert softkey is set to On, the voltage values of the displayed waveform are inverted. Invert affects how a channel is displayed and it keeps the trigger settings.
 Inverting a channel also changes the result of any math function selected and
 
-## Channel measure function (measure, invert display)
+## Channel measure softkey function (measure, invert display)
 
 1. Press CH1button on the front panel to enter the CH1 function menu.
 2. Press the Next Page softkey to enter the second page of the CH1 function menu.
 3. Press the Invert softkey to turn on or off the invert display.
 
-## Channel Trace Visible/Hidden (trace, visible, hidden)
+## Channel Trace softkey Visible/Hidden (trace, visible, hidden)
 
 Set whether the current channel waveform is visible.
 
@@ -626,7 +627,7 @@ Set whether the current channel waveform is visible.
 2. Press the Next Page softkey to enter the second page of the CH1 function menu.
 3. Press the Trace softkey to visible or hidden the channel waveform
 
-## Channel Label (label text, source, display, 20 characters)
+## Channel Label softkey (label text, source, display, 20 characters)
 
 SDS1000X-E (4-channel) supports setting label text for channels .
 
@@ -2871,7 +2872,7 @@ Press the Date/Time softkey to enter the Data/Time setting menu. Press the Date 
 - 3 Press the Power On Sync softkey to select On or Off . When set to On , the oscilloscope will automatically synchronize the time after the power on.
 - 4 Press the Periodic Sync softkey to select On; press the Interval softkey and rotate Universal Knob to set the value .
 
-## Reference Position (Fixed Offset, Fixed Position, Fixed Delay, vertical, horizontal)
+## Reference Position (Fixed Offset, Fixed Position, Fixed Delay, vertical, horizontal) softkeys
 
 The reference position setting determines the physical point that the oscilloscope uses during vertical and horizontal scale changes. In some situations, it is more convenient to use a fixed position on the display.
 

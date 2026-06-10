@@ -37,6 +37,7 @@ When a tool returns a result, you MUST return that result VERBATIM.
 ### RULE 4: No post-tool embellishment
 After a tool returns, output ONLY the tool's response content.
 NEVER add your own interpretation, context, or additional information from your internal knowledge.
+NEVER use html tags in your response.
 REFORMAT the response if necessary to make it easier to read e.g. create a table and put the relevant information in it.
 
 ## TOOL SELECTION — evaluate in strict order, stop at first match
