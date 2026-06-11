@@ -44,11 +44,30 @@ class MacroGrammarDefinition extends GrammarDefinition {
 
   // ── connect("ip") | connect(usb) ────────────────────────────────────
 
-  Parser<ConnectStmt> connectStmt() => (string('connect(').trim() &
-          (ref0(stringLiteral) | string('usb')) &
-          char(')'))
+  /// Builds a case-insensitive parser for [word].
+  Parser<String> _ciKeyword(String word) {
+    final chars = word.split('');
+    Parser<dynamic> result = _ciChar(chars.first);
+    for (var i = 1; i < chars.length; i++) {
+      result = result.seq(_ciChar(chars[i]));
+    }
+    return result.flatten();
+  }
+
+  /// Matches a single character case-insensitively.
+  Parser<String> _ciChar(String c) {
+    final lo = c.toLowerCase();
+    final up = c.toUpperCase();
+    if (lo == up) return char(c);
+    return (char(lo) | char(up)).cast<String>();
+  }
+
+  Parser<ConnectStmt> connectStmt() => (_ciKeyword('connect').trim() &
+      char('(').trim() &
+      (ref0(stringLiteral) | string('usb')) &
+      char(')'))
       .map((r) {
-    final arg = r[1] as String;
+    final arg = r[2] as String;
     if (arg == 'usb') return const ConnectStmt(null);
     return ConnectStmt(arg);
   });
@@ -221,7 +240,11 @@ class MacroGrammarDefinition extends GrammarDefinition {
         char('>'),
       ].toChoiceParser().trim().map((r) => r.toString());
 
-  Parser<String> _comparisonValue() => ref0(identifier);
+  Parser<String> _comparisonValue() => [
+        ref0(number).map((n) => n.toString()),
+        ref0(stringLiteral),
+        ref0(identifier),
+      ].toChoiceParser();
 
   // ── Lexical primitives ──────────────────────────────────────────────
 

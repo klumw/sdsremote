@@ -48,7 +48,19 @@ class MacroEvaluator {
     final parser = MacroGrammarDefinition().build();
     final result = parser.parse(source);
     if (result is Failure) {
-      onError('Parse error: ${result.message}');
+      final pos = result.position;
+      // Extract a snippet of the source around the failure position for context.
+      final start = pos > 30 ? pos - 30 : 0;
+      final end = pos + 40 < source.length ? pos + 40 : source.length;
+      final snippet = source.substring(start, end)
+          .replaceAll('\n', '\\n')
+          .replaceAll('\r', '\\r');
+      final lineCol = _lineColumn(source, pos);
+      onError(
+        'Parse error at line ${lineCol.$1}, col ${lineCol.$2}: '
+        '${result.message}\n'
+        'Near: "$snippet"',
+      );
       return false;
     }
     final program = result.value as Program;
@@ -369,6 +381,21 @@ class MacroEvaluator {
   }
 
   // ── Static utility methods ─────────────────────────────────────────
+
+  /// Returns the (line, column) 1-based coordinates for [offset] in [source].
+  static (int, int) _lineColumn(String source, int offset) {
+    var line = 1;
+    var col = 1;
+    for (var i = 0; i < offset && i < source.length; i++) {
+      if (source[i] == '\n') {
+        line++;
+        col = 1;
+      } else {
+        col++;
+      }
+    }
+    return (line, col);
+  }
 
   static bool _isTruthy(String value) {
     final trimmed = value.trim();
