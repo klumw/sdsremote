@@ -80,11 +80,35 @@ class MacroGrammarDefinition extends GrammarDefinition {
           char(')'))
       .map((r) => AssignStmt(r[0] as String, r[3] as String));
 
-  // ── print(<var>) ────────────────────────────────────────────────────
+  // ── print(item + item + ...) ────────────────────────────────────────
 
   Parser<PrintStmt> printStmt() =>
-      (string('print(').trim() & ref0(identifier) & char(')'))
-          .map((r) => PrintStmt(r[1] as String));
+      (string('print(').trim() & ref0(printItem) & ref0(_printTail).star() & char(')'))
+          .map((r) {
+        final first = r[1] as PrintItem;
+        final rest = (r[2] as List).cast<PrintItem>();
+        return PrintStmt([first, ...rest]);
+      });
+
+  Parser<PrintItem> printItem() => [
+        ref0(_textItem),
+        ref0(_queryItem),
+        ref0(_variableItem),
+      ].toChoiceParser();
+
+  Parser<PrintItem> _textItem() => ref0(stringLiteral)
+      .map((s) => TextItem(s as String));
+
+  Parser<PrintItem> _queryItem() =>
+      (string('query(').trim() & ref0(stringLiteral) & char(')'))
+          .map((r) => QueryItem(r[1] as String));
+
+  Parser<PrintItem> _variableItem() => ref0(identifier)
+      .map((s) => VariableItem(s as String));
+
+  Parser<PrintItem> _printTail() =>
+      (char('+').trim() & ref0(printItem))
+          .map((r) => r[1] as PrintItem);
 
   // ── assert("text", <expr>) ──────────────────────────────────────────
   // ── assert("text", <expr> <op> <value>) ─────────────────────────────

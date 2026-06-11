@@ -128,9 +128,8 @@ class MacroEvaluator {
         _vars[varName] = response;
         onLog('Macro variable: $varName=$response');
         await _doDelay();
-      case PrintStmt(:final varName):
-        final value = _vars[varName];
-        onLog('Macro print: $varName=${value ?? '<undefined>'}');
+      case PrintStmt(:final items):
+        await _evalPrint(items);
         await _doDelay();
       case AssertStmt(:final text, :final operand, :final op, :final expectedValue):
         await _evalAssert(text, operand, op, expectedValue);
@@ -231,6 +230,29 @@ class MacroEvaluator {
     );
     await instrument!.writeString('*OPC?');
     await instrument!.readString();
+  }
+
+  Future<void> _evalPrint(List<PrintItem> items) async {
+    final buf = StringBuffer();
+    for (final item in items) {
+      buf.write(await _resolvePrintItem(item));
+    }
+    onLog('Macro print: ${buf.toString()}');
+  }
+
+  Future<String> _resolvePrintItem(PrintItem item) async {
+    switch (item) {
+      case TextItem(:final text):
+        return text;
+      case VariableItem(:final name):
+        return _vars[name] ?? '<undefined>';
+      case QueryItem(:final command):
+        await _ensureDevice();
+        await _drainEchoes();
+        await instrument!.writeString(command);
+        final raw = await instrument!.readString();
+        return _cleanQueryResponse(raw, command);
+    }
   }
 
   Future<void> _evalIf(

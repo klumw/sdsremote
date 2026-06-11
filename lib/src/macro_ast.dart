@@ -55,10 +55,34 @@ class AssignStmt extends Statement {
   const AssignStmt(this.varName, this.query);
 }
 
-/// `print(<var>)` — log a variable value.
+/// A single item in a `print()` argument list.
+sealed class PrintItem {
+  const PrintItem();
+}
+
+/// A quoted string literal in a print statement, e.g. `"Hello"`.
+class TextItem extends PrintItem {
+  final String text;
+  const TextItem(this.text);
+}
+
+/// A variable reference in a print statement, e.g. `myVar`.
+class VariableItem extends PrintItem {
+  final String name;
+  const VariableItem(this.name);
+}
+
+/// An inline SCPI query in a print statement, e.g. `query("C1:TRA?")`.
+class QueryItem extends PrintItem {
+  final String command;
+  const QueryItem(this.command);
+}
+
+/// `print(<item> + <item> + ...)` — log concatenated text, variables,
+/// and query results.
 class PrintStmt extends Statement {
-  final String varName;
-  const PrintStmt(this.varName);
+  final List<PrintItem> items;
+  const PrintStmt(this.items);
 }
 
 /// `assert("text", <expr>)` or `assert("text", <expr> <op> <value>)`
