@@ -114,8 +114,8 @@ class MacroEvaluator {
       case ContinueStmt():
         if (!inLoop) _error('continue outside of while loop');
         _continueRequested = true;
-      case ConnectStmt(:final ip):
-        await _evalConnect(ip);
+      case ConnectStmt(:final ip, :final isVariable):
+        await _evalConnect(ip, isVariable: isVariable);
         await _doDelay();
       case WaitStmt(:final seconds):
         onLog('Macro playback: wait($seconds s)');
@@ -134,15 +134,20 @@ class MacroEvaluator {
         final response = _cleanQueryResponse(raw, command);
         onLog('Macro query response: $response');
         await _doDelay();
-      case AssignStmt(:final varName, :final query):
-        await _ensureDevice();
-        await _drainEchoes();
-        onLog('Macro playback: query("$query") -> $varName');
-        await instrument!.writeString(query);
-        final raw = await instrument!.readString();
-        final response = _cleanQueryResponse(raw, query);
-        _vars[varName] = response;
-        onLog('Macro variable: $varName=$response');
+      case AssignStmt(:final varName, :final queryOrValue, :final isQuery):
+        if (isQuery) {
+          await _ensureDevice();
+          await _drainEchoes();
+          onLog('Macro playback: query("$queryOrValue") -> $varName');
+          await instrument!.writeString(queryOrValue);
+          final raw = await instrument!.readString();
+          final response = _cleanQueryResponse(raw, queryOrValue);
+          _vars[varName] = response;
+          onLog('Macro variable: $varName=$response');
+        } else {
+          _vars[varName] = queryOrValue;
+          onLog('Macro variable: $varName=$queryOrValue');
+        }
         await _doDelay();
       case PrintStmt(:final items):
         await _evalPrint(items);
@@ -163,19 +168,28 @@ class MacroEvaluator {
 
   // ── Command implementations ────────────────────────────────────────
 
-  Future<void> _evalConnect(String? ip) async {
+  Future<void> _evalConnect(String? ip, {bool isVariable = false}) async {
     await instrument?.close();
     if (ip == null) {
       onLog('Macro playback: connect via USB (USBTMC)');
       Vxi11Instrument.isUsbMode = true;
       instrument = Vxi11Instrument('usb', sourceLabel: 'macroPlay');
       await instrument!.open(timeoutSeconds: 5.0);
-    } else {
-      onLog('Macro playback: connect to $ip');
-      Vxi11Instrument.isUsbMode = false;
-      instrument = Vxi11Instrument(ip, sourceLabel: 'macroPlay');
-      await instrument!.open(timeoutSeconds: 5.0);
+      return;
     }
+    final resolved = isVariable ? _resolveVar(ip) : ip;
+    onLog('Macro playback: connect to $resolved');
+    Vxi11Instrument.isUsbMode = false;
+    instrument = Vxi11Instrument(resolved, sourceLabel: 'macroPlay');
+    await instrument!.open(timeoutSeconds: 5.0);
+  }
+
+  String _resolveVar(String name) {
+    final value = _vars[name];
+    if (value == null) {
+      _error('Variable "$name" is undefined');
+    }
+    return value!;
   }
 
   Future<void> _evalAssert(

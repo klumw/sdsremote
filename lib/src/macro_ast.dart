@@ -23,11 +23,15 @@ class Comment extends Statement {
   const Comment();
 }
 
-/// `connect("ip")` or `connect(usb)`
+/// `connect("ip")` or `connect(usb)` or `connect(varName)`
 class ConnectStmt extends Statement {
   /// The IP address string, or `null` for USB mode.
   final String? ip;
-  const ConnectStmt(this.ip);
+
+  /// True if [ip] is a variable name that should be resolved at eval time.
+  final bool isVariable;
+
+  const ConnectStmt(this.ip, {this.isVariable = false});
 }
 
 /// `wait(seconds)`
@@ -48,11 +52,20 @@ class QueryStmt extends Statement {
   const QueryStmt(this.command);
 }
 
-/// `<var> = query("CMD")` — store query result in a variable.
+/// `<var> = query("CMD")` — store query result in a variable, or
+/// `<var> = "value"` — assign a literal string, or
+/// `<var> = otherVar` — copy another variable.
 class AssignStmt extends Statement {
   final String varName;
-  final String query;
-  const AssignStmt(this.varName, this.query);
+
+  /// For [isQuery]: the SCPI query string.
+  /// For `!isQuery`: the literal value or other variable name.
+  final String queryOrValue;
+
+  /// True if this was `var = query("cmd")`; false for direct assignments.
+  final bool isQuery;
+
+  const AssignStmt(this.varName, this.queryOrValue, {this.isQuery = true});
 }
 
 /// A single item in a `print()` argument list.

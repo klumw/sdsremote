@@ -64,12 +64,14 @@ class MacroGrammarDefinition extends GrammarDefinition {
 
   Parser<ConnectStmt> connectStmt() => (_ciKeyword('connect').trim() &
       char('(').trim() &
-      (ref0(stringLiteral) | string('usb')) &
+      (ref0(stringLiteral).map((s) => (s as String, false)) |
+          string('usb').map((_) => (null, false)) |
+          ref0(identifier).map((s) => (s as String, true))) &
       char(')'))
       .map((r) {
-    final arg = r[2] as String;
-    if (arg == 'usb') return const ConnectStmt(null);
-    return ConnectStmt(arg);
+    final (arg, isVar) = r[2] as (String?, bool);
+    if (arg == null && !isVar) return const ConnectStmt(null); // usb
+    return ConnectStmt(arg, isVariable: isVar);
   });
 
   // ── wait(seconds) ───────────────────────────────────────────────────
@@ -90,14 +92,26 @@ class MacroGrammarDefinition extends GrammarDefinition {
       (string('query(').trim() & ref0(stringLiteral) & char(')'))
           .map((r) => QueryStmt(r[1] as String));
 
-  // ── <var> = query("CMD") ───────────────────────────────────────────
+  // ── <var> = query("CMD") | <var> = "value" | <var> = otherVar ──────
 
-  Parser<AssignStmt> assignStmt() => (ref0(identifier) &
-          char('=').trim() &
-          string('query(').trim() &
-          ref0(stringLiteral) &
-          char(')'))
-      .map((r) => AssignStmt(r[0] as String, r[3] as String));
+  Parser<AssignStmt> assignStmt() => [
+        // var = query("cmd")
+        (ref0(identifier) &
+            char('=').trim() &
+            string('query(').trim() &
+            ref0(stringLiteral) &
+            char(')')).map((r) => AssignStmt(r[0] as String, r[3] as String)),
+        // var = "literal string"
+        (ref0(identifier) &
+            char('=').trim() &
+            ref0(stringLiteral)).map(
+                (r) => AssignStmt(r[0] as String, r[2] as String, isQuery: false)),
+        // var = otherVar (variable copy)
+        (ref0(identifier) &
+            char('=').trim() &
+            ref0(identifier)).map(
+                (r) => AssignStmt(r[0] as String, r[2] as String, isQuery: false)),
+      ].toChoiceParser();
 
   // ── print(item + item + ...) ────────────────────────────────────────
 
