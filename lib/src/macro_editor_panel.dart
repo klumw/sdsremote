@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 /// A simple multi-line text editor for editing macro file content.
 ///
@@ -118,6 +119,30 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     }
   }
 
+  KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
+    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.tab) {
+      _insertTextAtCursor('  ');
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  void _insertTextAtCursor(String text) {
+    final value = _controller.value;
+    final selection = value.selection;
+    final newText = value.text.replaceRange(
+      selection.start,
+      selection.end,
+      text,
+    );
+    _controller.value = TextEditingValue(
+      text: newText,
+      selection: TextSelection.collapsed(
+        offset: selection.start + text.length,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Calculate gutter width based on digit count (min 32, add 8 per extra digit beyond 2)
@@ -227,11 +252,13 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                     Container(width: 1, color: const Color(0xFF2A3A5A)),
                     // Text field
                     Expanded(
-                      child: TextField(
-                        controller: _controller,
+                      child: Focus(
+                        onKeyEvent: _onKeyEvent,
+                        child: TextField(
+                          controller: _controller,
                         scrollController: _editorScrollController,
                         maxLines: null,
-                        expands: true,
+                        minLines: null,
                         textAlignVertical: TextAlignVertical.top,
                         style: const TextStyle(
                           color: Colors.white,
@@ -253,6 +280,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                             bottom: 12,
                           ),
                         ),
+                      ),
                       ),
                     ),
                   ],
