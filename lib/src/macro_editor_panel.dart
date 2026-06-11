@@ -58,6 +58,34 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
 
     // Sync the editor scroll to follow the gutter scroll.
     _gutterScrollController.addListener(_onGutterScroll);
+
+    // Register a global hardware-key handler to intercept Ctrl+D
+    // before EditableText's internal shortcut (DeleteForwardCharacterIntent
+    // on Linux) consumes it.
+    HardwareKeyboard.instance.addHandler(_hardwareKeyHandler);
+  }
+
+  @override
+  void dispose() {
+    HardwareKeyboard.instance.removeHandler(_hardwareKeyHandler);
+    _controller.removeListener(_onTextChanged);
+    _controller.dispose();
+    _gutterScrollController.removeListener(_onGutterScroll);
+    _editorScrollController.removeListener(_onEditorScroll);
+    _gutterScrollController.dispose();
+    _editorScrollController.dispose();
+    super.dispose();
+  }
+
+  bool _hardwareKeyHandler(KeyEvent event) {
+    if (event is KeyDownEvent &&
+        HardwareKeyboard.instance.isControlPressed &&
+        (event.logicalKey == LogicalKeyboardKey.keyD ||
+         event.logicalKey == LogicalKeyboardKey.keyX)) {
+      _deleteCurrentLine();
+      return true; // handled
+    }
+    return false; // not handled
   }
 
   void _onEditorScroll() {
@@ -94,17 +122,6 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     }
   }
 
-  @override
-  void dispose() {
-    _controller.removeListener(_onTextChanged);
-    _controller.dispose();
-    _gutterScrollController.removeListener(_onGutterScroll);
-    _editorScrollController.removeListener(_onEditorScroll);
-    _gutterScrollController.dispose();
-    _editorScrollController.dispose();
-    super.dispose();
-  }
-
   void _onTextChanged() {
     _updateLineCount();
     widget.onContentChanged(_controller.text);
@@ -125,6 +142,58 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
+  }
+
+  /// Deletes the line that currently contains the cursor.
+  ///
+  /// If the text is empty or there is only one line, the content is cleared.
+  /// Otherwise the line is removed along with an adjacent newline so that
+  /// lines below shift up. The cursor is placed at the beginning of the next
+  /// logical line (or the end of the previous line when deleting the last
+  /// line).
+  void _deleteCurrentLine() {
+    final text = _controller.text;
+    if (text.isEmpty) return;
+
+    final cursor = _controller.selection.baseOffset;
+
+    // Find the start of the current line.
+    // Search for the last '\n' strictly before the cursor so that if the
+    // cursor sits directly on a '\n' we find the preceding one (or -1).
+    final lineStart = cursor > 0
+        ? text.lastIndexOf('\n', cursor - 1) + 1
+        : 0;
+
+    // Find the end of the current line (the '\n' that terminates it).
+    final lineEndIndex = text.indexOf('\n', cursor);
+    final lineEnd = lineEndIndex == -1 ? text.length : lineEndIndex;
+
+    // Determine the range to remove and where to place the cursor.
+    int removeStart;
+    int removeEnd;
+    int newCursor;
+
+    if (lineStart == 0 && lineEnd == text.length) {
+      // Only line in the file – clear everything.
+      removeStart = 0;
+      removeEnd = text.length;
+      newCursor = 0;
+    } else if (lineEnd == text.length) {
+      // Last line – remove the preceding newline + this line.
+      removeStart = lineStart - 1;
+      removeEnd = text.length;
+      newCursor = lineStart - 1;
+    } else {
+      // Middle or first line – remove this line + the trailing newline.
+      removeStart = lineStart;
+      removeEnd = lineEnd + 1;
+      newCursor = lineStart;
+    }
+
+    _controller.value = TextEditingValue(
+      text: text.replaceRange(removeStart, removeEnd, ''),
+      selection: TextSelection.collapsed(offset: newCursor),
+    );
   }
 
   void _insertTextAtCursor(String text) {
