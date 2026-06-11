@@ -119,7 +119,7 @@ class MacroGrammarDefinition extends GrammarDefinition {
           char(',').trim() &
           ref0(operand) &
           ref0(_assertTail).optional() &
-          char(')'))
+          char(')').trim())
       .map((r) {
     final exp = r[3] as Expression;
     final tail = r[4] as (String, String)?;

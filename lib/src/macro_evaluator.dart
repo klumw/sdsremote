@@ -25,6 +25,7 @@ class MacroEvaluator {
   final Map<String, String> _vars = {};
   bool _echoesDrained = false;
   bool _breakRequested = false;
+  bool _continueRequested = false;
 
   MacroEvaluator({
     this.instrument,
@@ -59,6 +60,7 @@ class MacroEvaluator {
     _vars.clear();
     _echoesDrained = false;
     _breakRequested = false;
+    _continueRequested = false;
 
     try {
       await _evalStatements(program.statements, inLoop: false);
@@ -85,6 +87,7 @@ class MacroEvaluator {
       if (isCancelled()) throw _MacroStopException();
       await _evalStmt(stmt, inLoop: inLoop);
       if (_breakRequested) break;
+      if (_continueRequested) break;
       if (isCancelled()) throw _MacroStopException();
     }
   }
@@ -98,6 +101,7 @@ class MacroEvaluator {
         _breakRequested = true;
       case ContinueStmt():
         if (!inLoop) _error('continue outside of while loop');
+        _continueRequested = true;
       case ConnectStmt(:final ip):
         await _evalConnect(ip);
         await _doDelay();
@@ -293,11 +297,15 @@ class MacroEvaluator {
       }
 
       _breakRequested = false;
+      _continueRequested = false;
       await _evalStatements(body, inLoop: true);
 
       if (_breakRequested) break;
+      // continue falls through — next iteration
       iterations++;
     }
+    _breakRequested = false;
+    _continueRequested = false;
   }
 
   // ── Condition evaluation ───────────────────────────────────────────

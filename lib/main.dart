@@ -1346,7 +1346,6 @@ class _OsciHomePageState extends State<OsciHomePage>
     setState(() => _macroStatus = null);
     if (_isMacroPlaying) {
       _macroPlaybackCancelled = true;
-      AppLogger().log('Macro playback stopped by user');
     }
     if (_isMacroRecording) {
       onScpiCommandSent = null;
