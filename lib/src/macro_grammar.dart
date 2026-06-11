@@ -74,17 +74,31 @@ class MacroGrammarDefinition extends GrammarDefinition {
     return ConnectStmt(arg, isVariable: isVar);
   });
 
-  // ── wait(seconds) ───────────────────────────────────────────────────
+  // ── wait(seconds) | wait(varName) ──────────────────────────────────
 
   Parser<WaitStmt> waitStmt() =>
-      (string('wait(').trim() & ref0(number) & char(')'))
-          .map((r) => WaitStmt(r[1] as double));
+      (string('wait(').trim() &
+          (ref0(number) | ref0(identifier)) &
+          char(')'))
+          .map((r) {
+        final arg = r[1];
+        if (arg is double) {
+          return WaitStmt(arg);
+        }
+        return WaitStmt(0.0, variableName: arg as String);
+      });
 
-  // ── scpi("CMD") ─────────────────────────────────────────────────────
+  // ── scpi("CMD") | scpi(varName) ────────────────────────────────────
 
   Parser<ScpiStmt> scpiStmt() =>
-      (string('scpi(').trim() & ref0(stringLiteral) & char(')'))
-          .map((r) => ScpiStmt(r[1] as String));
+      (string('scpi(').trim() &
+          (ref0(stringLiteral).map((s) => (s as String, false)) |
+           ref0(identifier).map((s) => (s as String, true))) &
+          char(')'))
+          .map((r) {
+        final (arg, isVar) = r[1] as (String, bool);
+        return isVar ? ScpiStmt(arg, variableName: arg) : ScpiStmt(arg);
+      });
 
   // ── query("CMD") ────────────────────────────────────────────────────
 
@@ -92,26 +106,91 @@ class MacroGrammarDefinition extends GrammarDefinition {
       (string('query(').trim() & ref0(stringLiteral) & char(')'))
           .map((r) => QueryStmt(r[1] as String));
 
-  // ── <var> = query("CMD") | <var> = "value" | <var> = otherVar ──────
+  // ── <var> = query("CMD") | <var> = query(otherVar) ────────────────
+  // ── <var> = "value"      | <var> = otherVar     ────────────────────
+  // ── <var> = number       | <var> = <arithExpr>  ────────────────────
 
   Parser<AssignStmt> assignStmt() => [
-        // var = query("cmd")
+        // var = query("literal cmd")
         (ref0(identifier) &
             char('=').trim() &
             string('query(').trim() &
             ref0(stringLiteral) &
             char(')')).map((r) => AssignStmt(r[0] as String, r[3] as String)),
+        // var = query(otherVar)
+        (ref0(identifier) &
+            char('=').trim() &
+            string('query(').trim() &
+            ref0(identifier) &
+            char(')')).map(
+                (r) => AssignStmt(r[0] as String, r[3] as String, isVariable: true)),
         // var = "literal string"
         (ref0(identifier) &
             char('=').trim() &
             ref0(stringLiteral)).map(
                 (r) => AssignStmt(r[0] as String, r[2] as String, isQuery: false)),
+        // var = arithExpr (e.g. x=v+1, b=x+query("C1:VDIV?"))
+        // Must come before var=identifier / var=number so that expressions
+        // with operators are not greedily consumed as simple assignments.
+        (ref0(identifier) &
+            char('=').trim() &
+            ref0(arithExpr)).map(
+                (r) => AssignStmt(r[0] as String, '', isQuery: false, arithExpr: r[2] as ArithExpr)),
         // var = otherVar (variable copy)
         (ref0(identifier) &
             char('=').trim() &
             ref0(identifier)).map(
                 (r) => AssignStmt(r[0] as String, r[2] as String, isQuery: false)),
+        // var = number (e.g. time=2.0)
+        (ref0(identifier) &
+            char('=').trim() &
+            ref0(number)).map(
+                (r) => AssignStmt(r[0] as String, r[2].toString(), isQuery: false)),
       ].toChoiceParser();
+
+  // ── Arithmetic expressions ──────────────────────────────────────────
+  //   arithExpr  → arithMul (('+' | '-') arithMul)+    (requires 1+ op)
+  //   arithMul   → arithAtom (('*' | '/') arithAtom)*  (left-associative)
+  //   arithAtom  → number | identifier | query("...") | query(var) | '(' expr ')'
+
+  Parser<ArithExpr> arithExpr() =>
+      (ref0(arithMul) & (ref0(_addOp) & ref0(arithMul)).plus())
+          .map((r) {
+        ArithExpr result = r[0] as ArithExpr;
+        for (final item in r[1] as List) {
+          result = ArithBinaryOp(result, item[0] as String, item[1] as ArithExpr);
+        }
+        return result;
+      });
+
+  Parser<ArithExpr> arithMul() =>
+      (ref0(arithAtom) & (ref0(_mulOp) & ref0(arithAtom)).star())
+          .map((r) {
+        ArithExpr result = r[0] as ArithExpr;
+        for (final item in r[1] as List) {
+          result = ArithBinaryOp(result, item[0] as String, item[1] as ArithExpr);
+        }
+        return result;
+      });
+
+  Parser<ArithExpr> arithAtom() => [
+        ref0(number).map((n) => ArithNumber(n as double)),
+        ref0(identifier).map((name) => ArithVariable(name as String)),
+        (string('query(').trim() &
+            (ref0(stringLiteral).map((s) => (s as String, false)) |
+             ref0(identifier).map((s) => (s as String, true))) &
+            char(')')).map((r) {
+          final (cmd, isVar) = r[1] as (String, bool);
+          return isVar ? ArithQuery(cmd, variableName: cmd) : ArithQuery(cmd);
+        }),
+        (char('(').trim() & ref0(arithExpr) & char(')'))
+            .map((r) => r[1] as ArithExpr),
+      ].toChoiceParser();
+
+  Parser<String> _addOp() =>
+      (char('+') | char('-')).trim().map((r) => r.toString());
+  Parser<String> _mulOp() =>
+      (char('*') | char('/')).trim().map((r) => r.toString());
 
   // ── print(item + item + ...) ────────────────────────────────────────
 
@@ -233,12 +312,24 @@ class MacroGrammarDefinition extends GrammarDefinition {
       ].toChoiceParser();
 
   Parser<QueryExpr> queryExpr() =>
-      (string('query(').trim() & ref0(stringLiteral) & char(')'))
-          .map((r) => QueryExpr(r[1] as String));
+      (string('query(').trim() &
+          (ref0(stringLiteral).map((s) => (s as String, false)) |
+           ref0(identifier).map((s) => (s as String, true))) &
+          char(')'))
+          .map((r) {
+        final (arg, isVar) = r[1] as (String, bool);
+        return isVar ? QueryExpr(arg, variableName: arg) : QueryExpr(arg);
+      });
 
   Parser<ScpiExpr> scpiExpr() =>
-      (string('scpi(').trim() & ref0(stringLiteral) & char(')'))
-          .map((r) => ScpiExpr(r[1] as String));
+      (string('scpi(').trim() &
+          (ref0(stringLiteral).map((s) => (s as String, false)) |
+           ref0(identifier).map((s) => (s as String, true))) &
+          char(')'))
+          .map((r) {
+        final (arg, isVar) = r[1] as (String, bool);
+        return isVar ? ScpiExpr(arg, variableName: arg) : ScpiExpr(arg);
+      });
 
   Parser<VariableExpr> variableExpr() =>
       ref0(identifier).map((name) => VariableExpr(name as String));

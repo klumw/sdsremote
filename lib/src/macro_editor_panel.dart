@@ -18,6 +18,10 @@ class MacroEditorPanel extends StatefulWidget {
   /// When true, a `*` is shown after the file name.
   final bool isModified;
 
+  /// If non-null, displayed as an error banner below the filename in the
+  /// header, spanning the full panel width.
+  final String? errorMessage;
+
   /// Called whenever the user modifies the text content.
   final ValueChanged<String> onContentChanged;
 
@@ -29,6 +33,7 @@ class MacroEditorPanel extends StatefulWidget {
     this.initialContent = '',
     this.loadedFileName,
     this.isModified = false,
+    this.errorMessage,
     required this.onContentChanged,
     required this.onClose,
   });
@@ -279,6 +284,21 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
               ],
             ),
           ),
+          // Error banner — full width, below the filename line
+          if (widget.errorMessage != null)
+            Container(
+              width: double.infinity,
+              color: const Color(0xFF3D0000),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                widget.errorMessage!,
+                style: const TextStyle(
+                  color: Color(0xFFFF8888),
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
 
           // Editable text area with line numbers
           Expanded(
@@ -368,19 +388,19 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.cyanAccent, width: 1.0),
               ),
-              child: SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: widget.onClose,
-                  icon: const Icon(Icons.close, size: 18),
-                  label: const Text("Close"),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.cyan[800],
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
+              child: ElevatedButton.icon(
+                onPressed: widget.onClose,
+                icon: const Icon(Icons.close, size: 18),
+                label: const Text("Close"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.cyan[800],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 30,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
                   ),
                 ),
               ),

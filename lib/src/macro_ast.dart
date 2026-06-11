@@ -34,16 +34,25 @@ class ConnectStmt extends Statement {
   const ConnectStmt(this.ip, {this.isVariable = false});
 }
 
-/// `wait(seconds)`
+/// `wait(seconds)` or `wait(varName)`
 class WaitStmt extends Statement {
   final double seconds;
-  const WaitStmt(this.seconds);
+  final String? variableName;
+
+  /// When [variableName] is non-null, [seconds] is ignored and the actual
+  /// duration is resolved from the named variable at evaluation time.
+  const WaitStmt(this.seconds, {this.variableName});
 }
 
-/// `scpi("CMD")` — send a raw SCPI command.
+/// `scpi("CMD")` or `scpi(varName)` — send a raw SCPI command.
 class ScpiStmt extends Statement {
   final String command;
-  const ScpiStmt(this.command);
+
+  /// When non-null, [command] is a variable name whose value is the actual
+  /// SCPI command string, resolved at evaluation time.
+  final String? variableName;
+
+  const ScpiStmt(this.command, {this.variableName});
 }
 
 /// `query("CMD")` — send a SCPI query and read the response.
@@ -53,19 +62,72 @@ class QueryStmt extends Statement {
 }
 
 /// `<var> = query("CMD")` — store query result in a variable, or
+/// `<var> = query(otherVar)` — store query result using a variable as command, or
 /// `<var> = "value"` — assign a literal string, or
-/// `<var> = otherVar` — copy another variable.
+/// `<var> = otherVar` — copy another variable, or
+/// `<var> = <arithExpr>` — evaluate an arithmetic expression.
 class AssignStmt extends Statement {
   final String varName;
 
-  /// For [isQuery]: the SCPI query string.
+  /// For [isQuery]: the SCPI query string (or variable name if [isVariable]).
   /// For `!isQuery`: the literal value or other variable name.
   final String queryOrValue;
 
   /// True if this was `var = query("cmd")`; false for direct assignments.
   final bool isQuery;
 
-  const AssignStmt(this.varName, this.queryOrValue, {this.isQuery = true});
+  /// True when [queryOrValue] is a variable name that must be resolved at
+  /// evaluation time to obtain the actual SCPI command string.
+  final bool isVariable;
+
+  /// When non-null, the assignment evaluates an arithmetic expression and
+  /// stores the result as a string. Overrides all other fields.
+  final ArithExpr? arithExpr;
+
+  const AssignStmt(this.varName, this.queryOrValue, {
+    this.isQuery = true,
+    this.isVariable = false,
+    this.arithExpr,
+  });
+}
+
+// ── Arithmetic expressions ─────────────────────────────────────────────
+
+/// An arithmetic expression that evaluates to a numeric value.
+sealed class ArithExpr {
+  const ArithExpr();
+}
+
+/// A numeric literal in an arithmetic expression (e.g. `1.0`).
+class ArithNumber extends ArithExpr {
+  final double value;
+  const ArithNumber(this.value);
+}
+
+/// A variable reference in an arithmetic expression (e.g. `v`).
+class ArithVariable extends ArithExpr {
+  final String name;
+  const ArithVariable(this.name);
+}
+
+/// An inline query in an arithmetic expression, e.g. `query("C1:VDIV?")`
+/// or `query(varName)`.
+class ArithQuery extends ArithExpr {
+  final String command;
+
+  /// When non-null, [command] is a variable name whose value is the actual
+  /// SCPI query string, resolved at evaluation time.
+  final String? variableName;
+
+  const ArithQuery(this.command, {this.variableName});
+}
+
+/// A binary arithmetic operation (`+`, `-`, `*`, `/`).
+class ArithBinaryOp extends ArithExpr {
+  final ArithExpr left;
+  final String op;
+  final ArithExpr right;
+  const ArithBinaryOp(this.left, this.op, this.right);
 }
 
 /// A single item in a `print()` argument list.
@@ -171,14 +233,25 @@ class VariableExpr extends Expression {
   const VariableExpr(this.name);
 }
 
-/// An inline SCPI query `query("CMD")`.
+/// An inline SCPI query `query("CMD")` or `query(varName)`.
 class QueryExpr extends Expression {
   final String command;
-  const QueryExpr(this.command);
+
+  /// When non-null, [command] is a variable name whose value is the actual
+  /// SCPI query string, resolved at evaluation time.
+  final String? variableName;
+
+  const QueryExpr(this.command, {this.variableName});
 }
 
-/// An inline SCPI command `scpi("CMD")` used in `assert` success checks.
+/// An inline SCPI command `scpi("CMD")` or `scpi(varName)` used in `assert`
+/// success checks.
 class ScpiExpr extends Expression {
   final String command;
-  const ScpiExpr(this.command);
+
+  /// When non-null, [command] is a variable name whose value is the actual
+  /// SCPI command string, resolved at evaluation time.
+  final String? variableName;
+
+  const ScpiExpr(this.command, {this.variableName});
 }

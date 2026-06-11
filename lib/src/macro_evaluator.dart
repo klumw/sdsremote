@@ -117,13 +117,34 @@ class MacroEvaluator {
       case ConnectStmt(:final ip, :final isVariable):
         await _evalConnect(ip, isVariable: isVariable);
         await _doDelay();
-      case WaitStmt(:final seconds):
-        onLog('Macro playback: wait($seconds s)');
-        await delay(seconds.toInt().clamp(0, 3600));
-      case ScpiStmt(:final command):
+      case WaitStmt(:final seconds, :final variableName):
+        final duration = () {
+          if (variableName case final name?) {
+            final resolved = _resolveVar(name);
+            final parsed = double.tryParse(resolved);
+            if (parsed == null) {
+              _error(
+                'Variable "$name" has value "$resolved" '
+                'which is not a valid number',
+              );
+            }
+            return parsed!;
+          }
+          return seconds;
+        }();
+        onLog('Macro playback: wait(${variableName ?? duration} s)');
+        await delay(duration.toInt().clamp(0, 3600));
+      case ScpiStmt(:final command, :final variableName):
         await _ensureDevice();
-        onLog('Macro playback: scpi("$command")');
-        await instrument!.writeString(command);
+        final resolved = variableName != null ? _resolveVar(variableName) : command;
+        if (variableName != null && double.tryParse(resolved) != null) {
+          _error(
+            'Variable "$variableName" has value "$resolved" which is a '
+            'number, not a valid SCPI command string',
+          );
+        }
+        onLog('Macro playback: scpi("$resolved")');
+        await instrument!.writeString(resolved);
         await _doDelay();
       case QueryStmt(:final command):
         await _ensureDevice();
@@ -134,14 +155,25 @@ class MacroEvaluator {
         final response = _cleanQueryResponse(raw, command);
         onLog('Macro query response: $response');
         await _doDelay();
-      case AssignStmt(:final varName, :final queryOrValue, :final isQuery):
-        if (isQuery) {
+      case AssignStmt(:final varName, :final queryOrValue, :final isQuery, :final isVariable, :final arithExpr):
+        if (arithExpr != null) {
+          final result = await _evalArithExpr(arithExpr);
+          _vars[varName] = result.toStringAsFixed(4);
+          onLog('Macro variable: $varName=${_vars[varName]}');
+        } else if (isQuery) {
           await _ensureDevice();
           await _drainEchoes();
-          onLog('Macro playback: query("$queryOrValue") -> $varName');
-          await instrument!.writeString(queryOrValue);
+          final command = isVariable ? _resolveVar(queryOrValue) : queryOrValue;
+          if (isVariable && double.tryParse(command) != null) {
+            _error(
+              'Variable "$queryOrValue" has value "$command" which is a '
+              'number, not a valid SCPI command string',
+            );
+          }
+          onLog('Macro playback: query("$command") -> $varName');
+          await instrument!.writeString(command);
           final raw = await instrument!.readString();
-          final response = _cleanQueryResponse(raw, queryOrValue);
+          final response = _cleanQueryResponse(raw, command);
           _vars[varName] = response;
           onLog('Macro variable: $varName=$response');
         } else {
@@ -192,6 +224,50 @@ class MacroEvaluator {
     return value!;
   }
 
+  /// Evaluates an arithmetic expression and returns the numeric result.
+  Future<double> _evalArithExpr(ArithExpr expr) async {
+    switch (expr) {
+      case ArithNumber(:final value):
+        return value;
+      case ArithVariable(:final name):
+        final varValue = _vars[name];
+        if (varValue == null) _error('Variable "$name" is undefined');
+        final parsed = double.tryParse(varValue!);
+        if (parsed == null) {
+          _error(
+            'Variable "$name" has value "$varValue" which is not a number',
+          );
+        }
+        return parsed;
+      case ArithQuery(:final command, :final variableName):
+        await _ensureDevice();
+        await _drainEchoes();
+        final cmd = variableName != null ? _resolveVar(variableName) : command;
+        await instrument!.writeString(cmd);
+        final raw = await instrument!.readString();
+        final response = _cleanQueryResponse(raw, cmd);
+        final parsed = double.tryParse(response);
+        if (parsed == null) {
+          _error(
+            'Query response "$response" is not a valid number',
+          );
+        }
+        return parsed;
+      case ArithBinaryOp(:final left, :final op, :final right):
+        final l = await _evalArithExpr(left);
+        final r = await _evalArithExpr(right);
+        return switch (op) {
+          '+' => l + r,
+          '-' => l - r,
+          '*' => l * r,
+          '/' => r == 0
+              ? _error('Division by zero in arithmetic expression')
+              : l / r,
+          _ => _error('Unknown arithmetic operator "$op"'),
+        };
+    }
+  }
+
   Future<void> _evalAssert(
     String text,
     Expression operand,
@@ -217,13 +293,21 @@ class MacroEvaluator {
           onLog('Macro assert: $text: $varValue $op $expectedValue → True');
         }
 
-      case QueryExpr(:final command):
+      case QueryExpr(:final command, :final variableName):
         await _ensureDevice();
         await _drainEchoes();
-        onLog('Macro assert-query: "$text" query("$command")');
-        await instrument!.writeString(command);
+        final resolved =
+            variableName != null ? _resolveVar(variableName) : command;
+        if (variableName != null && double.tryParse(resolved) != null) {
+          _error(
+            'Variable "$variableName" has value "$resolved" which is a '
+            'number, not a valid SCPI query string',
+          );
+        }
+        onLog('Macro assert-query: "$text" query("$resolved")');
+        await instrument!.writeString(resolved);
         final raw = await instrument!.readString();
-        final response = _cleanQueryResponse(raw, command);
+        final response = _cleanQueryResponse(raw, resolved);
         if (op == null || expectedValue == null) {
           if (!_isTruthy(response)) {
             _error('Assertion failed: $text (got "$response")');
@@ -239,11 +323,19 @@ class MacroEvaluator {
           onLog('Macro assert: $text: $response $op $expectedValue → True');
         }
 
-      case ScpiExpr(:final command):
+      case ScpiExpr(:final command, :final variableName):
         await _ensureDevice();
-        onLog('Macro assert-scpi: "$text" scpi("$command")');
-        await instrument!.writeString(command);
-        onLog('Macro assert: $text: scpi("$command") → OK');
+        final resolved =
+            variableName != null ? _resolveVar(variableName) : command;
+        if (variableName != null && double.tryParse(resolved) != null) {
+          _error(
+            'Variable "$variableName" has value "$resolved" which is a '
+            'number, not a valid SCPI command string',
+          );
+        }
+        onLog('Macro assert-scpi: "$text" scpi("$resolved")');
+        await instrument!.writeString(resolved);
+        onLog('Macro assert: $text: scpi("$resolved") → OK');
     }
   }
 
@@ -350,12 +442,20 @@ class MacroEvaluator {
         }
         return _compareValues(varValue, op, value);
 
-      case QueryExpr(:final command):
+      case QueryExpr(:final command, :final variableName):
         await _ensureDevice();
         await _drainEchoes();
-        await instrument!.writeString(command);
+        final resolved =
+            variableName != null ? _resolveVar(variableName) : command;
+        if (variableName != null && double.tryParse(resolved) != null) {
+          _error(
+            'Variable "$variableName" has value "$resolved" which is a '
+            'number, not a valid SCPI query string',
+          );
+        }
+        await instrument!.writeString(resolved);
         final raw = await instrument!.readString();
-        final response = _cleanQueryResponse(raw, command);
+        final response = _cleanQueryResponse(raw, resolved);
         return _compareValues(response, op, value);
 
       case ScpiExpr():

@@ -1259,6 +1259,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         initialContent: _currentMacroContent,
         loadedFileName: _loadedMacroFileName,
         isModified: _isMacroModified,
+        errorMessage: _macroHadPlaybackError ? _macroStatusMessage : null,
         onContentChanged: (content) {
           _currentMacroContent = content;
           // When a loaded file is edited, enable the Save button.
@@ -1376,7 +1377,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       instrument: _playbackInstrument,
       onError: _showMacroError,
       isCancelled: () => _macroPlaybackCancelled,
-      delay: (_) => Future.delayed(const Duration(seconds: 1)),
+      delay: (seconds) => Future.delayed(Duration(seconds: seconds)),
     );
 
     final success = await evaluator.evaluateSource(source);

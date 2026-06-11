@@ -211,58 +211,32 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Macro playback status icon with optional error message
+                    // Macro playback status icon (error text moved below header)
                     if (widget.macroStatus != null)
                       Padding(
                         padding: const EdgeInsets.only(right: 8),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Tooltip(
-                              message: switch (widget.macroStatus!) {
-                                0 => 'Macro failed with error',
-                                1 => 'Macro completed successfully',
-                                2 => 'Macro playback cancelled',
-                                _ => '',
-                              },
-                              child: Icon(
-                                switch (widget.macroStatus!) {
-                                  0 => Icons.error,
-                                  1 => Icons.check_circle,
-                                  2 => Icons.cancel,
-                                  _ => Icons.help,
-                                },
-                                color: switch (widget.macroStatus!) {
-                                  0 => Colors.redAccent,
-                                  1 => Colors.greenAccent,
-                                  2 => Colors.orangeAccent,
-                                  _ => Colors.white,
-                                },
-                                size: 40,
-                              ),
-                            ),
-                            if (widget.macroStatus == 0 &&
-                                widget.macroStatusMessage != null)
-                              ConstrainedBox(
-                                constraints: const BoxConstraints(
-                                  maxWidth: 280,
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.only(top: 4),
-                                  child: Text(
-                                    widget.macroStatusMessage!,
-                                    textAlign: TextAlign.right,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    style: const TextStyle(
-                                      color: Colors.redAccent,
-                                      fontSize: 11,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                          ],
+                        child: Tooltip(
+                          message: switch (widget.macroStatus!) {
+                            0 => 'Macro failed with error',
+                            1 => 'Macro completed successfully',
+                            2 => 'Macro playback cancelled',
+                            _ => '',
+                          },
+                          child: Icon(
+                            switch (widget.macroStatus!) {
+                              0 => Icons.error,
+                              1 => Icons.check_circle,
+                              2 => Icons.cancel,
+                              _ => Icons.help,
+                            },
+                            color: switch (widget.macroStatus!) {
+                              0 => Colors.redAccent,
+                              1 => Colors.greenAccent,
+                              2 => Colors.orangeAccent,
+                              _ => Colors.white,
+                            },
+                            size: 40,
+                          ),
                         ),
                       ),
                     IconButton(
@@ -280,6 +254,21 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
               ],
             ),
           ),
+          // Error banner — full width, below the filename line
+          if (widget.macroStatus == 0 && widget.macroStatusMessage != null)
+            Container(
+              width: double.infinity,
+              color: const Color(0xFF3D0000),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              child: Text(
+                widget.macroStatusMessage!,
+                style: const TextStyle(
+                  color: Color(0xFFFF8888),
+                  fontSize: 12,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
 
           // ==================================================================
           // Action Buttons Row
