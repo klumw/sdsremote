@@ -36,6 +36,7 @@ import 'src/app_paths.dart';
 import 'src/macro_recorder_models.dart';
 import 'src/macro_recorder_panel.dart';
 import 'src/macro_editor_panel.dart';
+import 'src/macro_evaluator.dart';
 import 'src/vxi11_tool.dart' show onScpiCommandSent;
 
 // ===========================================================================
@@ -610,9 +611,8 @@ class _OsciHomePageState extends State<OsciHomePage>
   String? _macroStatusMessage;
   bool _macroHadPlaybackError = false;
 
-  // Macro while-loop control
+  // Macro playback
   Vxi11Instrument? _playbackInstrument;
-  bool _breakRequested = false;
 
   Timer? _refreshTimer;
   bool _refreshPending = false;
@@ -1357,72 +1357,41 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
   }
 
-  /// Parses and executes the macro commands in [_currentMacroContent].
+  /// Parses and executes the macro commands in [_currentMacroContent]
+  /// using the petitparser-based Grammar → AST → Evaluator pipeline.
   ///
-  /// Supported commands:
-  ///   `connect("IP")`            — Establish a VXI-11 connection to the given device.
-  ///   `connect(usb)`             — Connect via USBTMC (auto-detects the device).
-  ///   `wait(<seconds>)`          — Pause playback for the given number of seconds.
-  ///   `loadProfile("path")`      — Load and send a profile (.lss) file to the device.
-  ///   `scpi("CMD")`              — Send a raw SCPI command to the device.
-  ///   `query("CMD")`             — Send a SCPI query and read the response.
-  ///   `<var>=query("CMD")`       — Send a query and store the response in <var>.
-  ///   `print(<var>)`             — Log the value of <var> as "<var>=<value>".
-  ///   `while(<var> <op> <value>) { ... }` — Conditional loop (max 100 iterations).
-  ///   `break`                    — Exit the innermost while loop.
-  ///   `continue`                 — Skip to the next while iteration.
-  ///
-  /// Variables:
-  ///   - Names may contain alphanumeric characters and underscores.
-  ///   - Variable values persist for the duration of the playback session.
-  ///
-  /// A 1-second pause is inserted between every command.
-  /// Unknown or malformed lines abort playback with an error message.
-  /// Pressing Stop during playback sets [_macroPlaybackCancelled] = true,
-  /// which causes the loop to exit gracefully at the next opportunity.
+  /// See [MacroGrammarDefinition] and [MacroEvaluator] for the full
+  /// list of supported commands.
   Future<void> _playMacro() async {
     _macroHadPlaybackError = false;
-    final lines = _currentMacroContent.split('\n');
-    if (lines.isEmpty) {
+    final source = _currentMacroContent;
+
+    if (source.trim().isEmpty) {
       _showMacroError('Macro is empty');
       return;
     }
 
-    // Validate brace balance before execution
-    if (!_validateBraces(lines)) return;
-
     _playbackInstrument = null;
-    final Map<String, String> vars = {};
-    bool _echoesDrained = false;
 
-    /// Consumes any pending command echoes from the instrument's output buffer.
-    /// The Siglent oscilloscope echoes every command back.  Write-only
-    /// commands (`scpi`, `loadProfile`) do not read their echoes, so they
-    /// accumulate until a query tries to read — at which point the buffer
-    /// may be full and the instrument blocks new commands.
-    Future<void> _drainEchoes() async {
-      if (_echoesDrained || _playbackInstrument == null) return;
-      _echoesDrained = true;
-      // Read up to 10 echoes; stop on timeout or empty response.
-      for (var attempt = 0; attempt < 10; attempt++) {
-        try {
-          final data = await _playbackInstrument!.readString();
-          if (data.isEmpty) break;
-        } catch (_) {
-          break; // Timeout or other error — buffer is empty
-        }
-      }
-    }
+    final evaluator = MacroEvaluator(
+      instrument: _playbackInstrument,
+      onError: _showMacroError,
+      isCancelled: () => _macroPlaybackCancelled,
+      delay: (_) => Future.delayed(const Duration(seconds: 1)),
+    );
 
-    await _executeBlock(lines, 0, vars, _drainEchoes, false);
+    final success = await evaluator.evaluateSource(source);
+
+    // Keep the instrument reference updated
+    _playbackInstrument = evaluator.instrument;
 
     // Set macro status for the header icon
     if (mounted) {
       setState(() {
-        if (_macroHadPlaybackError) {
-          _macroStatus = 0; // error
-        } else if (_macroPlaybackCancelled) {
+        if (!success && _macroPlaybackCancelled) {
           _macroStatus = 2; // cancelled
+        } else if (!success) {
+          _macroStatus = 0; // error
         } else {
           _macroStatus = 1; // success
         }
@@ -1431,6 +1400,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
     // Clean up the dedicated macro playback connection.
     await _playbackInstrument?.close();
+    _playbackInstrument = null;
 
     AppLogger().log(
       _macroPlaybackCancelled
@@ -1447,7 +1417,7 @@ class _OsciHomePageState extends State<OsciHomePage>
             duration: Duration(seconds: 3),
           ),
         );
-      } else {
+      } else if (success) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Macro playback completed'),
@@ -1462,7 +1432,10 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// Shows an error snackbar and logs the error.
   /// Also sets [_macroHadPlaybackError] if called during active playback.
   void _showMacroError(String message) {
-    if (_isMacroPlaying) _macroHadPlaybackError = true;
+    if (_isMacroPlaying) {
+      _macroHadPlaybackError = true;
+      _macroStatus = 0; // show error icon immediately
+    }
     _macroStatusMessage = message;
     AppLogger().log('Macro error: $message');
     if (mounted) {
@@ -1477,566 +1450,6 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
   }
 
-  /// Standard 1-second pause between macro commands.
-  Future<void> _macroDelay() => Future.delayed(const Duration(seconds: 1));
-
-  // ─────────────────────────────────────────────────────────────────────
-  // While-loop support helpers
-  // ─────────────────────────────────────────────────────────────────────
-
-  /// Regex for while-line detection with tolerant whitespace.
-  /// Captures: group 1 = variable name, group 2 = operator, group 3 = value.
-  static final _whileLineRe = RegExp(
-    r'^\s*while\s*\(\s*([a-zA-Z0-9_]+)\s*(==|!=|<=|>=|<|>)\s*(.+?)\s*\)\s*\{\s*$',
-  );
-
-  /// Regex for if-line detection with tolerant whitespace.
-  /// Captures: group 1 = variable name, group 2 = operator, group 3 = value.
-  /// The `then` keyword between the closing `)` and `{` is optional.
-  static final _ifLineRe = RegExp(
-    r'^\s*if\s*\(\s*([a-zA-Z0-9_]+)\s*(==|!=|<=|>=|<|>)\s*(.+?)\s*\)\s*(?:then\s*)?\{\s*$',
-  );
-
-  /// Validates that all braces `{` and `}` in [lines] are balanced.
-  ///
-  /// Skips `#` comments and content inside double-quoted strings.
-  /// Reports an error via [_showMacroError] and returns `false` on failure.
-  bool _validateBraces(List<String> lines) {
-    var depth = 0;
-    for (var i = 0; i < lines.length; i++) {
-      final line = lines[i];
-      var inString = false;
-      for (var c = 0; c < line.length; c++) {
-        final ch = line[c];
-        if (ch == '#') break; // Rest of line is comment
-        if (ch == '"') {
-          inString = !inString;
-          continue;
-        }
-        if (inString) continue;
-        if (ch == '{') {
-          depth++;
-        } else if (ch == '}') {
-          depth--;
-          if (depth < 0) {
-            _showMacroError(
-              'Line ${i + 1}: Unexpected "}" without matching "{"',
-            );
-            return false;
-          }
-        }
-      }
-    }
-    if (depth != 0) {
-      _showMacroError(
-        'Line ${lines.length}: Unmatched "{" — missing closing "}"',
-      );
-      return false;
-    }
-    return true;
-  }
-
-  /// Finds the line index of the matching `}` for the opening `{` at
-  /// [openLine].  Returns `-1` if not found.
-  ///
-  /// [initialDepth] allows starting with a non-zero brace depth (e.g. `1`
-  /// when the opening brace of an else block is inside the `}else{` token
-  /// on the same line, already accounted for by the caller).
-  int _findMatchingBrace(
-    List<String> lines,
-    int openLine, {
-    int initialDepth = 0,
-  }) {
-    var depth = initialDepth;
-    for (var i = openLine; i < lines.length; i++) {
-      final line = lines[i];
-      var inString = false;
-      for (var c = 0; c < line.length; c++) {
-        final ch = line[c];
-        if (ch == '#') break;
-        if (ch == '"') {
-          inString = !inString;
-          continue;
-        }
-        if (inString) continue;
-        if (ch == '{') depth++;
-        if (ch == '}') {
-          depth--;
-          if (depth == 0) return i;
-        }
-      }
-    }
-    return -1;
-  }
-
-  /// Parses a while condition line.
-  ///
-  /// Returns a record `(varName, op, value)` on success, or `null` if the
-  /// line does not match the while pattern.
-  (String, String, String)? _parseWhileCondition(String line) {
-    final match = _whileLineRe.firstMatch(line);
-    if (match == null) return null;
-    return (match.group(1)!, match.group(2)!, match.group(3)!.trim());
-  }
-
-  /// Parses an if condition line.
-  ///
-  /// Returns a record `(varName, op, value)` on success, or `null` if the
-  /// line does not match the if pattern.
-  (String, String, String)? _parseIfCondition(String line) {
-    final match = _ifLineRe.firstMatch(line);
-    if (match == null) return null;
-    return (match.group(1)!, match.group(2)!, match.group(3)!.trim());
-  }
-
-  /// Evaluates a while-loop condition.
-  ///
-  /// Returns `true` / `false` on success, or `null` if an error occurred
-  /// (already reported via [_showMacroError]).
-  bool? _evaluateCondition(
-    String varName,
-    String op,
-    String value,
-    Map<String, String> vars,
-  ) {
-    final varValue = vars[varName];
-    if (varValue == null) {
-      _showMacroError('Variable "$varName" is undefined');
-      return null;
-    }
-
-    switch (op) {
-      case '==':
-        {
-          final varNum = double.tryParse(varValue);
-          final valNum = double.tryParse(value);
-          if (varNum != null && valNum != null) {
-            return varNum == valNum;
-          }
-          return varValue == value;
-        }
-      case '!=':
-        {
-          final varNum = double.tryParse(varValue);
-          final valNum = double.tryParse(value);
-          if (varNum != null && valNum != null) {
-            return varNum != valNum;
-          }
-          return varValue != value;
-        }
-      case '<':
-      case '<=':
-      case '>':
-      case '>=':
-        final varNum = double.tryParse(varValue);
-        final valNum = double.tryParse(value);
-        if (varNum == null || valNum == null) {
-          _showMacroError(
-            'Operator "$op" requires numeric operands, '
-            'but "$varName"="$varValue" and value="$value"',
-          );
-          return null;
-        }
-        return switch (op) {
-          '<' => varNum < valNum,
-          '<=' => varNum <= valNum,
-          '>' => varNum > valNum,
-          '>=' => varNum >= valNum,
-          _ => null, // unreachable
-        };
-    }
-    return null;
-  }
-
-  /// Strips the command echo and trailing unit from a query response.
-  ///
-  /// The Siglent oscilloscope echoes the command back (without the `?`),
-  /// followed by a comma, the value, and a unit suffix (e.g. `V`, `mV`).
-  /// This method cleans the response to just the value.
-  String _cleanQueryResponse(String raw, String cmd) {
-    var response = raw.trim();
-
-    // Strip command echo — try exact match first, then without '?'
-    if (response.startsWith(cmd)) {
-      response = response.substring(cmd.length);
-    } else {
-      final cmdNoQuery = cmd.replaceAll('?', '');
-      if (response.startsWith(cmdNoQuery)) {
-        response = response.substring(cmdNoQuery.length);
-      }
-    }
-
-    // Strip leading comma and whitespace (the echo is often "CMD,")
-    response = response.trim();
-    if (response.startsWith(',')) {
-      response = response.substring(1).trim();
-    }
-
-    // Strip trailing unit (alphabetic / percent characters) only when
-    // preceded by a digit — this preserves boolean SCPI responses like
-    // "ON" / "OFF" while still cleaning "1.440000E-03V" → "1.440000E-03"
-    response = response.replaceFirst(RegExp(r'(?<=\d)[a-zA-Z%]+$'), '');
-
-    return response;
-  }
-
-  /// Executes macro lines from [startLine] up to the end of the current
-  /// block (either end of the lines array or a closing `}`).
-  ///
-  /// Returns the line index after the last executed line.
-  /// Sets [_breakRequested] / [_continueRequested] for loop control.
-  ///
-  /// [inLoop] indicates whether this block is a while-loop body; `break`
-  /// and `continue` are errors when [inLoop] is `false`.
-  Future<int> _executeBlock(
-    List<String> lines,
-    int startLine,
-    Map<String, String> vars,
-    Future<void> Function() drainEchoes,
-    bool inLoop,
-  ) async {
-    var i = startLine;
-    while (i < lines.length) {
-      final line = lines[i].trim();
-
-      // Skip blank lines / comments
-      if (line.isEmpty || line.startsWith('#')) {
-        i++;
-        continue;
-      }
-
-      // Check if user pressed Stop during playback
-      if (_macroPlaybackCancelled) return lines.length;
-
-      // ── Block terminator ─────────────────────────────────────────
-      // Handles standalone "}" and "}else{" / "} else{" (if-block
-      // closing line that also opens the else block).
-      if (line == '}' ||
-          line.startsWith('}else') ||
-          line.startsWith('} else')) {
-        return i + 1;
-      }
-
-      // ── break / continue ─────────────────────────────────────────
-      if (line == 'break') {
-        if (!inLoop) {
-          _showMacroError('Line ${i + 1}: break outside of while loop');
-          return lines.length;
-        }
-        _breakRequested = true;
-        return i + 1;
-      }
-      if (line == 'continue') {
-        if (!inLoop) {
-          _showMacroError('Line ${i + 1}: continue outside of while loop');
-          return lines.length;
-        }
-        return i + 1;
-      }
-
-      // ── if(<var> <op> <value>) { ──────────────────────────────────
-      final ifCondition = _parseIfCondition(line);
-      if (ifCondition != null) {
-        final (varName, op, value) = ifCondition;
-        final bodyEnd = _findMatchingBrace(lines, i);
-        if (bodyEnd < 0) {
-          _showMacroError(
-            'Line ${i + 1}: Invalid if syntax — '
-            'expected: if(<var> <op> <value>) {',
-          );
-          return lines.length;
-        }
-
-        // Check whether the closing line contains an else block.
-        // Handles: }else{ , } else{ , } else {
-        final closingLine = lines[bodyEnd].trim();
-        final hasElse =
-            closingLine.startsWith('}else') || closingLine.startsWith('} else');
-
-        // Evaluate the condition
-        final result = _evaluateCondition(varName, op, value, vars);
-        if (result == null) return lines.length; // error already reported
-
-        if (result) {
-          // Execute the then-body (lines i+1 .. bodyEnd-1)
-          await _executeBlock(lines, i + 1, vars, drainEchoes, inLoop);
-        }
-
-        if (hasElse) {
-          // Find the matching } for the else block.
-          // The { inside }else{ is counted via initialDepth: 1.
-          final elseEnd = _findMatchingBrace(
-            lines,
-            bodyEnd + 1,
-            initialDepth: 1,
-          );
-          if (elseEnd < 0) {
-            _showMacroError('Line ${bodyEnd + 1}: Unmatched "{" in else block');
-            return lines.length;
-          }
-
-          if (!result) {
-            // Execute the else-body (lines bodyEnd+1 .. elseEnd-1)
-            await _executeBlock(lines, bodyEnd + 1, vars, drainEchoes, inLoop);
-          }
-
-          i = elseEnd + 1;
-        } else {
-          i = bodyEnd + 1;
-        }
-        continue;
-      }
-
-      // ── while(<var> <op> <value>) { ──────────────────────────────
-      final condition = _parseWhileCondition(line);
-      if (condition != null) {
-        final (varName, op, value) = condition;
-        final bodyEnd = _findMatchingBrace(lines, i);
-        if (bodyEnd < 0) {
-          _showMacroError(
-            'Line ${i + 1}: Invalid while syntax — '
-            'expected: while(<var> <op> <value>) {',
-          );
-          return lines.length;
-        }
-
-        var iterations = 0;
-        while (true) {
-          final result = _evaluateCondition(varName, op, value, vars);
-          if (result == null) return lines.length; // error already reported
-          if (!result) break;
-
-          if (iterations >= 100) {
-            _showMacroError(
-              'Line ${i + 1}: while loop exceeded maximum of 100 iterations',
-            );
-            return lines.length;
-          }
-
-          _breakRequested = false;
-          await _executeBlock(lines, i + 1, vars, drainEchoes, true);
-
-          if (_breakRequested) break;
-          // continue falls through to re-evaluate the condition
-
-          iterations++;
-          if (_macroPlaybackCancelled) return lines.length;
-        }
-
-        i = bodyEnd + 1;
-        continue;
-      }
-
-      // ── connect(usb) ──────────────────────────────────────────────────
-      if (line == 'connect(usb)') {
-        AppLogger().log('Macro playback: connect via USB (USBTMC)');
-
-        await _playbackInstrument?.close();
-        try {
-          Vxi11Instrument.isUsbMode = true;
-          // Use a dummy host — USB mode auto-detects the device and ignores host.
-          final instr = Vxi11Instrument('usb', sourceLabel: 'macroPlay');
-          await instr.open(timeoutSeconds: 5.0);
-          _playbackInstrument = instr;
-        } catch (e) {
-          await _playbackInstrument?.close();
-          _playbackInstrument = null;
-          Vxi11Instrument.isUsbMode = false;
-          _showMacroError('connect(usb) failed: $e');
-          return lines.length;
-        }
-        if (_macroPlaybackCancelled) return lines.length;
-        await _macroDelay();
-        i++;
-        continue;
-      }
-
-      // ── connect("IP") ────────────────────────────────────────────────
-      final connectMatch = RegExp(r"""^connect\("(.+)"\)$""").firstMatch(line);
-      if (connectMatch != null) {
-        final ip = connectMatch.group(1)!;
-        AppLogger().log('Macro playback: connect to $ip');
-
-        // Ensure USB mode is off when connecting via IP.
-        Vxi11Instrument.isUsbMode = false;
-
-        // Always open a dedicated connection for macro playback.
-        // Reusing the main instrument can cause "Connection not open"
-        // errors after a previous run failed and left state inconsistent.
-        await _playbackInstrument?.close();
-        try {
-          final instr = Vxi11Instrument(ip, sourceLabel: 'macroPlay');
-          await instr.open(timeoutSeconds: 5.0);
-          _playbackInstrument = instr;
-        } catch (e) {
-          await _playbackInstrument?.close();
-          _playbackInstrument = null;
-          _showMacroError('connect("$ip") failed: $e');
-          return lines.length;
-        }
-        if (_macroPlaybackCancelled) return lines.length;
-        await _macroDelay();
-        i++;
-        continue;
-      }
-
-      // ── wait(<seconds>) ───────────────────────────────────────────────
-      final waitMatch = RegExp(
-        r"""^wait\((\d+(?:\.\d+)?)\)$""",
-      ).firstMatch(line);
-      if (waitMatch != null) {
-        final seconds = double.parse(waitMatch.group(1)!);
-        AppLogger().log('Macro playback: wait($seconds s)');
-        await Future.delayed(Duration(milliseconds: (seconds * 1000).round()));
-        i++;
-        continue;
-      }
-
-      // ── assert("<text>",<var> <op> <value>) ──────────────────────────
-      final assertMatch = RegExp(
-        r'''^assert\("(.+?)",\s*([a-zA-Z0-9_]+)\s*(==|!=|<=|>=|<|>)\s*(.+)\)$''',
-      ).firstMatch(line);
-      if (assertMatch != null) {
-        final text = assertMatch.group(1)!;
-        final varName = assertMatch.group(2)!;
-        final op = assertMatch.group(3)!;
-        final value = assertMatch.group(4)!;
-        final result = _evaluateCondition(varName, op, value, vars);
-        if (result == null) return lines.length; // error already reported
-        if (!result) {
-          AppLogger().log('Macro assert: $text: False');
-          _showMacroError('Assertion failed: $text: False');
-          return lines.length;
-        }
-        AppLogger().log('Macro assert: $text: True');
-        i++;
-        continue;
-      }
-
-      // Ensure a device is connected for commands that need it
-      if (_playbackInstrument == null) {
-        _showMacroError(
-          'Line ${i + 1}: No device connected. '
-          'Add connect("IP") at the start of the macro.',
-        );
-        return lines.length;
-      }
-
-      // ── <variable>=query("CMD") ──────────────────────────────────────
-      await drainEchoes();
-      final assignQueryMatch = RegExp(
-        r"""^([a-zA-Z0-9_]+)=query\("(.+)"\)$""",
-      ).firstMatch(line);
-      if (assignQueryMatch != null) {
-        final varName = assignQueryMatch.group(1)!;
-        final cmd = assignQueryMatch.group(2)!;
-        AppLogger().log('Macro playback: query("$cmd") -> $varName');
-        try {
-          await _playbackInstrument!.writeString(cmd);
-          final raw = await _playbackInstrument!.readString();
-          final response = _cleanQueryResponse(raw, cmd);
-          vars[varName] = response;
-          AppLogger().log('Macro variable: $varName=$response');
-        } catch (e) {
-          _showMacroError('query("$cmd") failed: $e');
-          return lines.length;
-        }
-        if (_macroPlaybackCancelled) return lines.length;
-        await _macroDelay();
-        i++;
-        continue;
-      }
-
-      // ── query("CMD") ─────────────────────────────────────────────────
-      final queryMatch = RegExp(r"""^query\("(.+)"\)$""").firstMatch(line);
-      if (queryMatch != null) {
-        final cmd = queryMatch.group(1)!;
-        AppLogger().log('Macro playback: query("$cmd")');
-        try {
-          await _playbackInstrument!.writeString(cmd);
-          final raw = await _playbackInstrument!.readString();
-          final response = _cleanQueryResponse(raw, cmd);
-          AppLogger().log('Macro query response: $response');
-        } catch (e) {
-          _showMacroError('query("$cmd") failed: $e');
-          return lines.length;
-        }
-        if (_macroPlaybackCancelled) return lines.length;
-        await _macroDelay();
-        i++;
-        continue;
-      }
-
-      // ── print(<variable>) ────────────────────────────────────────────
-      final printMatch = RegExp(
-        r"""^print\(([a-zA-Z0-9_]+)\)$""",
-      ).firstMatch(line);
-      if (printMatch != null) {
-        final varName = printMatch.group(1)!;
-        final value = vars[varName];
-        if (value != null) {
-          AppLogger().log('Macro print: $varName=$value');
-        } else {
-          AppLogger().log('Macro print: $varName=<undefined>');
-        }
-        await _macroDelay();
-        i++;
-        continue;
-      }
-
-      // ── loadProfile("path") ──────────────────────────────────────────
-      final loadProfileMatch = RegExp(
-        r"""^loadProfile\("(.+)"\)$""",
-      ).firstMatch(line);
-      if (loadProfileMatch != null) {
-        final path = loadProfileMatch.group(1)!;
-        AppLogger().log('Macro playback: loadProfile("$path")');
-        try {
-          final file = File(path);
-          if (!await file.exists()) {
-            _showMacroError('loadProfile("$path"): file not found');
-            return lines.length;
-          }
-          final xml = await file.readAsString();
-          await _playbackInstrument!.writeProfileData(
-            xml,
-            timeout: const Duration(seconds: 15),
-          );
-          await _playbackInstrument!.writeString('*OPC?');
-          await _playbackInstrument!.readString(); // consume *OPC? response
-        } catch (e) {
-          _showMacroError('loadProfile("$path") failed: $e');
-          return lines.length;
-        }
-        if (_macroPlaybackCancelled) return lines.length;
-        await _macroDelay();
-        i++;
-        continue;
-      }
-
-      // ── scpi("CMD") ──────────────────────────────────────────────────
-      final scpiMatch = RegExp(r"""^scpi\("(.+)"\)$""").firstMatch(line);
-      if (scpiMatch != null) {
-        final cmd = scpiMatch.group(1)!;
-        AppLogger().log('Macro playback: scpi("$cmd")');
-        try {
-          await _playbackInstrument!.writeString(cmd);
-        } catch (e) {
-          _showMacroError('scpi("$cmd") failed: $e');
-          return lines.length;
-        }
-        if (_macroPlaybackCancelled) return lines.length;
-        await _macroDelay();
-        i++;
-        continue;
-      }
-
-      // ── Unknown command ──────────────────────────────────────────────
-      _showMacroError('Line ${i + 1}: Unknown command "$line"');
-      return lines.length;
-    }
-    return i;
-  }
 
   void _onMacroPlay() {
     AppLogger().log('Macro play requested');

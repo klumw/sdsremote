@@ -22,6 +22,7 @@ dependencies:
     path: packages/dartantic_ai_patched
   langchain: ^0.8.1
   pdf: ^3.11.2
+  petitparser: ^7.0.2
   usbtmc_dart:
     path: packages/usbtmc_dart_patched
 
