@@ -237,9 +237,9 @@ The Macro Recorder panel is opened by clicking the **Macro Recorder** button in 
 
 **Action Buttons**
 
-* **Record** — Starts recording. All SCPI commands sent through the AI chat, the Control Panel, or loaded via profiles are captured into the macro. During recording, the button shows a blinking red dot and the label changes to "Recording...". Disabled during playback.
+* **Record** — Starts recording a new macro. All SCPI commands sent through the AI chat, the Control Panel, or loaded via profiles are captured into the macro. During recording, the button shows a blinking red dot and the label changes to "Recording...". Disabled during playback.
 * **Stop** — Stops the current recording or playback. During playback, the label changes to "Stop Playback". Only enabled when recording or playback is active.
-* **Play** — Executes the current macro content against the connected oscilloscope. A 1-second pause is inserted between each command. Disabled during recording or playback.
+* **Play** — Executes the current macro content against the connected oscilloscope. Disabled during recording or playback.
 * **Edit** — Opens the **Macro Editor** (see section 7.2) with the current macro content for manual editing. Disabled during recording or playback.
 * **Save** — Saves the macro to a `.m` file. If a file was previously loaded, it is overwritten silently. Otherwise, a dialog prompts for a file name (up to 30 characters, alphanumeric plus `_` and `-`). Enabled only after recording, loading, or editing a macro.
 
@@ -259,7 +259,6 @@ Clicking the **Edit** button or the **Load** button on a file opens the Macro Ed
 **Features**
 
 * Line number gutter on the left side, synchronized with scrolling.
-* Monospace font for clear command readability.
 * Full keyboard editing support.
 * Unsaved changes are indicated by a `*` after the file name in the header.
 * **Close** button returns to the Macro Recorder file list.
@@ -287,7 +286,7 @@ Clicking the **Edit** button or the **Load** button on a file opens the Macro Ed
 
 ### 7.5 Macro Syntax Reference
 
-Macro files (`.m`) contain one command per line. Blank lines and lines starting with `#` (comments) are ignored. A 1-second delay is automatically inserted between each command during playback.
+Macro files (`.m`) contain one command per line. Blank lines and lines starting with `#` (comments) are ignored.
 
 All brace pairs `{` `}` must be balanced before playback begins; the parser validates this and reports errors with line numbers.
 
@@ -361,14 +360,6 @@ if(myVar == 1.0) {
 }
 ```
 
-Executes the block between `{` `}` only if the condition is true. The `then` keyword between `)` and `{` is optional:
-
-```
-if(myVar != 0) then {
-    scpi("C2:TRA ON")
-}
-```
-
 An `else` block can be appended using `}else{` or `} else {` on the closing line:
 
 ```
@@ -395,13 +386,12 @@ if(myVar >= 2.5) {
 #### 7.5.7 Loops: while
 
 ```
-while(myVar < 10.0) {
-    scpi("C1:VDIV 1V")
-    myVar=query("C1:VDIV?")
+while(query("SAST?")!="Trig'd"){
+  wait(4)
 }
 ```
 
-Repeatedly executes the block as long as the condition is true. The condition is re-evaluated before each iteration. A maximum of **100 iterations** is enforced to prevent infinite loops. If the limit is exceeded, playback stops with an error.
+Repeatedly executes the block as long as the condition isn't true. The condition is re-evaluated before each iteration. A maximum of **100 iterations** is enforced to prevent infinite loops. If the limit is exceeded, playback stops with an error.
 
 **Loop control:**
 

@@ -642,7 +642,10 @@ class InlineCodeElementBuilder extends MarkdownElementBuilder {
 class CodeBlockElementBuilder extends MarkdownElementBuilder {
   @override
   Widget? visitElementAfter(md.Element element, TextStyle? preferredStyle) {
-    final text = element.textContent;
+    // Strip the trailing newline that the markdown parser includes in the
+    // text content of fenced code blocks, otherwise an extra blank line is
+    // rendered at the bottom of the code block.
+    final text = element.textContent.replaceAll(RegExp(r'\n$'), '');
     return Builder(builder: (context) {
       return Container(
         width: double.infinity,
