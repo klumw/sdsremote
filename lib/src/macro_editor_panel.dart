@@ -67,8 +67,10 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     _controller.addListener(_onLintRequired);
     _updateLineCount();
 
-    // Run an initial lint pass on the starting content.
-    _scheduleLint();
+    // Defer the initial lint pass to after the first frame so that the
+    // onContentChanged callback (which may call setState on a parent widget)
+    // does not trigger during the build phase.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleLint());
 
     // Sync the gutter scroll to follow the editor scroll.
     _editorScrollController.addListener(_onEditorScroll);
