@@ -13,10 +13,15 @@ class MacroLintController extends TextEditingController {
 
   MacroLintController({super.text});
 
-  /// Replaces the current error list and triggers a repaint.
+  /// Replaces the current error list.
+  ///
+  /// Does NOT call [notifyListeners] because the caller ([_scheduleLint] in
+  /// [MacroEditorPanel]) already calls `setState` after invoking this method,
+  /// which triggers a full widget rebuild and re-evaluates [buildTextSpan] with
+  /// the updated error list. Removing the redundant notification prevents the
+  /// text-change listener from spuriously reporting a modification.
   void updateErrors(List<MacroLintError> errors) {
     _errors = errors;
-    notifyListeners();
   }
 
   @override
