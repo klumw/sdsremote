@@ -64,14 +64,17 @@ class MacroGrammarDefinition extends GrammarDefinition {
 
   Parser<ConnectStmt> connectStmt() => (_ciKeyword('connect').trim() &
       char('(').trim() &
-      (ref0(stringLiteral).map((s) => (s as String, false)) |
+      (ref0(concatExpr) |
+          ref0(stringLiteral).map((s) => (s as String, false)) |
           string('usb').map((_) => (null, false)) |
           ref0(identifier).map((s) => (s as String, true))) &
       char(')'))
       .map((r) {
-    final (arg, isVar) = r[2] as (String?, bool);
-    if (arg == null && !isVar) return const ConnectStmt(null); // usb
-    return ConnectStmt(arg, isVariable: isVar);
+    final arg = r[2];
+    if (arg is ConcatString) return ConnectStmt(null, concatString: arg);
+    final (argStr, isVar) = arg as (String?, bool);
+    if (argStr == null && !isVar) return const ConnectStmt(null); // usb
+    return ConnectStmt(argStr, isVariable: isVar);
   });
 
   // ── wait(seconds) | wait(varName) ──────────────────────────────────
@@ -88,54 +91,76 @@ class MacroGrammarDefinition extends GrammarDefinition {
         return WaitStmt(0.0, variableName: arg as String);
       });
 
-  // ── scpi("CMD") | scpi(varName) ────────────────────────────────────
+  // ── scpi("CMD") | scpi(varName) | scpi("str" + var + "str") ───────
 
   Parser<ScpiStmt> scpiStmt() =>
       (string('scpi(').trim() &
-          (ref0(stringLiteral).map((s) => (s as String, false)) |
+          (ref0(concatExpr) |
+           ref0(stringLiteral).map((s) => (s as String, false)) |
            ref0(identifier).map((s) => (s as String, true))) &
           char(')'))
           .map((r) {
-        final (arg, isVar) = r[1] as (String, bool);
-        return isVar ? ScpiStmt(arg, variableName: arg) : ScpiStmt(arg);
+        final arg = r[1];
+        if (arg is ConcatString) return ScpiStmt('', concatString: arg);
+        final (argStr, isVar) = arg as (String, bool);
+        return isVar ? ScpiStmt(argStr, variableName: argStr) : ScpiStmt(argStr);
       });
 
-  // ── query("CMD") ────────────────────────────────────────────────────
+  // ── query("CMD") | query(varName) | query("str" + var + "str") ─────
 
   Parser<QueryStmt> queryStmt() =>
-      (string('query(').trim() & ref0(stringLiteral) & char(')'))
-          .map((r) => QueryStmt(r[1] as String));
+      (string('query(').trim() &
+          (ref0(concatExpr) |
+           ref0(stringLiteral).map((s) => (s as String, false)) |
+           ref0(identifier).map((s) => (s as String, true))) &
+          char(')'))
+          .map((r) {
+        final arg = r[1];
+        if (arg is ConcatString) return QueryStmt('', concatString: arg);
+        final (argStr, isVar) = arg as (String, bool);
+        return isVar
+            ? QueryStmt(argStr, variableName: argStr)
+            : QueryStmt(argStr);
+      });
 
   // ── <var> = query("CMD") | <var> = query(otherVar) ────────────────
   // ── <var> = "value"      | <var> = otherVar     ────────────────────
   // ── <var> = number       | <var> = <arithExpr>  ────────────────────
 
   Parser<AssignStmt> assignStmt() => [
-        // var = query("literal cmd")
+        // var = arithExpr (e.g. x=v+1, b=v*2+1, x=v+query("C1:VDIV?"))
+        // Must come first so that expressions with operators are matched
+        // before the simpler query/string/number alternatives.
+        (ref0(identifier) &
+            char('=').trim() &
+            ref0(arithExpr)).map(
+                (r) => AssignStmt(r[0] as String, '', isQuery: false, arithExpr: r[2] as ArithExpr)),
+        // var = * or / only (e.g. x=3.0*2, x=query("C1:VDIV?")*2)
+        // Falls through when arithExpr fails (no + or - present).
+        (ref0(identifier) &
+            char('=').trim() &
+            ref0(_mulOnlyExpr)).map(
+                (r) => AssignStmt(r[0] as String, '', isQuery: false, arithExpr: r[2] as ArithExpr)),
+        // var = query("literal cmd" | concatExpr)
         (ref0(identifier) &
             char('=').trim() &
             string('query(').trim() &
-            ref0(stringLiteral) &
-            char(')')).map((r) => AssignStmt(r[0] as String, r[3] as String)),
-        // var = query(otherVar)
-        (ref0(identifier) &
-            char('=').trim() &
-            string('query(').trim() &
-            ref0(identifier) &
-            char(')')).map(
-                (r) => AssignStmt(r[0] as String, r[3] as String, isVariable: true)),
+            (ref0(concatExpr) |
+             ref0(stringLiteral).map((s) => (s as String, false)) |
+             ref0(identifier).map((s) => (s as String, true))) &
+            char(')')).map((r) {
+          final arg = r[3];
+          if (arg is ConcatString) {
+            return AssignStmt(r[0] as String, '', isQuery: true, concatString: arg);
+          }
+          final (argStr, isVar) = arg as (String, bool);
+          return AssignStmt(r[0] as String, argStr, isQuery: true, isVariable: isVar);
+        }),
         // var = "literal string"
         (ref0(identifier) &
             char('=').trim() &
             ref0(stringLiteral)).map(
                 (r) => AssignStmt(r[0] as String, r[2] as String, isQuery: false)),
-        // var = arithExpr (e.g. x=v+1, b=x+query("C1:VDIV?"))
-        // Must come before var=identifier / var=number so that expressions
-        // with operators are not greedily consumed as simple assignments.
-        (ref0(identifier) &
-            char('=').trim() &
-            ref0(arithExpr)).map(
-                (r) => AssignStmt(r[0] as String, '', isQuery: false, arithExpr: r[2] as ArithExpr)),
         // var = otherVar (variable copy)
         (ref0(identifier) &
             char('=').trim() &
@@ -175,14 +200,19 @@ class MacroGrammarDefinition extends GrammarDefinition {
 
   Parser<ArithExpr> arithAtom() => [
         ref0(number).map((n) => ArithNumber(n as double)),
-        ref0(identifier).map((name) => ArithVariable(name as String)),
+        // query("...") must come before identifier so the 'query' keyword
+        // isn't consumed as a variable name.
         (string('query(').trim() &
-            (ref0(stringLiteral).map((s) => (s as String, false)) |
+            (ref0(concatExpr) |
+             ref0(stringLiteral).map((s) => (s as String, false)) |
              ref0(identifier).map((s) => (s as String, true))) &
             char(')')).map((r) {
-          final (cmd, isVar) = r[1] as (String, bool);
+          final arg = r[1];
+          if (arg is ConcatString) return ArithQuery('', concatString: arg);
+          final (cmd, isVar) = arg as (String, bool);
           return isVar ? ArithQuery(cmd, variableName: cmd) : ArithQuery(cmd);
         }),
+        ref0(identifier).map((name) => ArithVariable(name as String)),
         (char('(').trim() & ref0(arithExpr) & char(')'))
             .map((r) => r[1] as ArithExpr),
       ].toChoiceParser();
@@ -192,10 +222,23 @@ class MacroGrammarDefinition extends GrammarDefinition {
   Parser<String> _mulOp() =>
       (char('*') | char('/')).trim().map((r) => r.toString());
 
+  /// Matches arithmetic expressions with at least one `*` or `/` operator,
+  /// e.g. `3.0 * 2`, `v / 2`, `query("C1:VDIV?") * 3`.
+  /// Unlike [arithMul] which accepts zero operators, this requires 1+.
+  Parser<ArithExpr> _mulOnlyExpr() =>
+      (ref0(arithAtom) & (ref0(_mulOp) & ref0(arithAtom)).plus())
+          .map((r) {
+        ArithExpr result = r[0] as ArithExpr;
+        for (final item in r[1] as List) {
+          result = ArithBinaryOp(result, item[0] as String, item[1] as ArithExpr);
+        }
+        return result;
+      });
+
   // ── print(item + item + ...) ────────────────────────────────────────
 
   Parser<PrintStmt> printStmt() =>
-      (string('print(').trim() & ref0(printItem) & ref0(_printTail).star() & char(')'))
+      (string('print(').trim() & ref0(printItem) & ref0(_printTail).star() & char(')').trim())
           .map((r) {
         final first = r[1] as PrintItem;
         final rest = (r[2] as List).cast<PrintItem>();
@@ -212,8 +255,19 @@ class MacroGrammarDefinition extends GrammarDefinition {
       .map((s) => TextItem(s as String));
 
   Parser<PrintItem> _queryItem() =>
-      (string('query(').trim() & ref0(stringLiteral) & char(')'))
-          .map((r) => QueryItem(r[1] as String));
+      (string('query(').trim() &
+          (ref0(concatExpr) |
+           ref0(stringLiteral).map((s) => (s as String, false)) |
+           ref0(identifier).map((s) => (s as String, true))) &
+          char(')'))
+          .map((r) {
+        final arg = r[1];
+        if (arg is ConcatString) return QueryItem('', concatString: arg);
+        final (argStr, isVar) = arg as (String, bool);
+        return isVar
+            ? QueryItem(argStr, variableName: argStr)
+            : QueryItem(argStr);
+      });
 
   Parser<PrintItem> _variableItem() => ref0(identifier)
       .map((s) => VariableItem(s as String));
@@ -227,7 +281,8 @@ class MacroGrammarDefinition extends GrammarDefinition {
   // ── assert("text", scpi("CMD")) ─────────────────────────────────────
 
   Parser<AssertStmt> assertStmt() => (string('assert(').trim() &
-          ref0(stringLiteral) &
+          (ref0(concatExpr) |
+           ref0(stringLiteral)) &
           char(',').trim() &
           ref0(operand) &
           ref0(_assertTail).optional() &
@@ -235,8 +290,12 @@ class MacroGrammarDefinition extends GrammarDefinition {
       .map((r) {
     final exp = r[3] as Expression;
     final tail = r[4] as (String, String)?;
+    final textArg = r[1];
+    if (textArg is ConcatString) {
+      return AssertStmt('', exp, op: tail?.$1, expectedValue: tail?.$2, concatText: textArg);
+    }
     return AssertStmt(
-      r[1] as String,
+      textArg as String,
       exp,
       op: tail?.$1,
       expectedValue: tail?.$2,
@@ -247,11 +306,18 @@ class MacroGrammarDefinition extends GrammarDefinition {
       (ref0(_comparisonOp) & ref0(_comparisonValue))
           .map((r) => (r[0] as String, r[1] as String));
 
-  // ── loadProfile("path") ─────────────────────────────────────────────
+  // ── loadProfile("path") | loadProfile("str" + var + "str") ─────────
 
   Parser<LoadProfileStmt> loadProfileStmt() =>
-      (string('loadProfile(').trim() & ref0(stringLiteral) & char(')'))
-          .map((r) => LoadProfileStmt(r[1] as String));
+      (string('loadProfile(').trim() &
+          (ref0(concatExpr) |
+           ref0(stringLiteral)) &
+          char(')'))
+          .map((r) {
+        final arg = r[1];
+        if (arg is ConcatString) return LoadProfileStmt('', concatString: arg);
+        return LoadProfileStmt(arg as String);
+      });
 
   // ── if (<expr> <op> <value>) { ... } ───────────────────────────────
   // ── if (<expr> <op> <value>) then { ... } ──────────────────────────
@@ -313,12 +379,15 @@ class MacroGrammarDefinition extends GrammarDefinition {
 
   Parser<QueryExpr> queryExpr() =>
       (string('query(').trim() &
-          (ref0(stringLiteral).map((s) => (s as String, false)) |
+          (ref0(concatExpr) |
+           ref0(stringLiteral).map((s) => (s as String, false)) |
            ref0(identifier).map((s) => (s as String, true))) &
           char(')'))
           .map((r) {
-        final (arg, isVar) = r[1] as (String, bool);
-        return isVar ? QueryExpr(arg, variableName: arg) : QueryExpr(arg);
+        final arg = r[1];
+        if (arg is ConcatString) return QueryExpr('', concatString: arg);
+        final (argStr, isVar) = arg as (String, bool);
+        return isVar ? QueryExpr(argStr, variableName: argStr) : QueryExpr(argStr);
       });
 
   Parser<ScpiExpr> scpiExpr() =>
@@ -349,6 +418,22 @@ class MacroGrammarDefinition extends GrammarDefinition {
         ref0(number).map((n) => n.toString()),
         ref0(stringLiteral),
         ref0(identifier),
+      ].toChoiceParser();
+
+  // ── String concatenation ────────────────────────────────────────────
+
+  /// A concatenated string expression: `"str" + var + "str"` with 2+ pieces.
+  Parser<ConcatString> concatExpr() =>
+      (ref0(_concatPiece) & (char('+').trim() & ref0(_concatPiece)).plus())
+          .map((r) {
+        final first = r[0] as ConcatPiece;
+        final rest = (r[1] as List).map((e) => e[1] as ConcatPiece);
+        return ConcatString([first, ...rest]);
+      });
+
+  Parser<ConcatPiece> _concatPiece() => [
+        ref0(stringLiteral).map((s) => ConcatTextPiece(s as String)),
+        ref0(identifier).map((s) => ConcatVarPiece(s as String)),
       ].toChoiceParser();
 
   // ── Lexical primitives ──────────────────────────────────────────────

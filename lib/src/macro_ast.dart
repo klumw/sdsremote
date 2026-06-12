@@ -23,7 +23,8 @@ class Comment extends Statement {
   const Comment();
 }
 
-/// `connect("ip")` or `connect(usb)` or `connect(varName)`
+/// `connect("ip")` or `connect(usb)` or `connect(varName)` or
+/// `connect("ip" + var + "suffix")`.
 class ConnectStmt extends Statement {
   /// The IP address string, or `null` for USB mode.
   final String? ip;
@@ -31,7 +32,11 @@ class ConnectStmt extends Statement {
   /// True if [ip] is a variable name that should be resolved at eval time.
   final bool isVariable;
 
-  const ConnectStmt(this.ip, {this.isVariable = false});
+  /// When non-null, the argument was a concatenated string expression that
+  /// must be resolved at evaluation time. Overrides [ip] / [isVariable].
+  final ConcatString? concatString;
+
+  const ConnectStmt(this.ip, {this.isVariable = false, this.concatString});
 }
 
 /// `wait(seconds)` or `wait(varName)`
@@ -44,7 +49,8 @@ class WaitStmt extends Statement {
   const WaitStmt(this.seconds, {this.variableName});
 }
 
-/// `scpi("CMD")` or `scpi(varName)` — send a raw SCPI command.
+/// `scpi("CMD")` or `scpi(varName)` or `scpi("prefix" + var + "suffix")` —
+/// send a raw SCPI command.
 class ScpiStmt extends Statement {
   final String command;
 
@@ -52,17 +58,32 @@ class ScpiStmt extends Statement {
   /// SCPI command string, resolved at evaluation time.
   final String? variableName;
 
-  const ScpiStmt(this.command, {this.variableName});
+  /// When non-null, the argument was a concatenated string expression that
+  /// must be resolved at evaluation time. Overrides [command] / [variableName].
+  final ConcatString? concatString;
+
+  const ScpiStmt(this.command, {this.variableName, this.concatString});
 }
 
-/// `query("CMD")` — send a SCPI query and read the response.
+/// `query("CMD")` or `query(varName)` or `query("prefix" + var + "suffix")` —
+/// send a SCPI query and read the response.
 class QueryStmt extends Statement {
   final String command;
-  const QueryStmt(this.command);
+
+  /// When non-null, [command] is a variable name whose value is the actual
+  /// SCPI query string, resolved at evaluation time.
+  final String? variableName;
+
+  /// When non-null, the argument was a concatenated string expression that
+  /// must be resolved at evaluation time. Overrides [command] / [variableName].
+  final ConcatString? concatString;
+
+  const QueryStmt(this.command, {this.variableName, this.concatString});
 }
 
 /// `<var> = query("CMD")` — store query result in a variable, or
 /// `<var> = query(otherVar)` — store query result using a variable as command, or
+/// `<var> = query("prefix" + var + "suffix")` — use a concatenated query, or
 /// `<var> = "value"` — assign a literal string, or
 /// `<var> = otherVar` — copy another variable, or
 /// `<var> = <arithExpr>` — evaluate an arithmetic expression.
@@ -84,11 +105,45 @@ class AssignStmt extends Statement {
   /// stores the result as a string. Overrides all other fields.
   final ArithExpr? arithExpr;
 
+  /// When non-null, the query argument was a concatenated string expression
+  /// that must be resolved at evaluation time. Only valid when [isQuery] is
+  /// true. Overrides [queryOrValue] / [isVariable].
+  final ConcatString? concatString;
+
   const AssignStmt(this.varName, this.queryOrValue, {
     this.isQuery = true,
     this.isVariable = false,
     this.arithExpr,
+    this.concatString,
   });
+}
+
+// ── String concatenation ───────────────────────────────────────────────
+
+/// A piece of a concatenated string expression.
+sealed class ConcatPiece {
+  const ConcatPiece();
+}
+
+/// A literal string piece in a concatenation, e.g. `"C1:VDIV "`.
+class ConcatTextPiece extends ConcatPiece {
+  final String text;
+  const ConcatTextPiece(this.text);
+}
+
+/// A variable reference piece in a concatenation, e.g. `val`.
+class ConcatVarPiece extends ConcatPiece {
+  final String name;
+  const ConcatVarPiece(this.name);
+}
+
+/// A concatenated string expression with 2+ pieces joined by `+`,
+/// e.g. `"C1:VDIV " + val + "V"`.
+class ConcatString {
+  /// At least two pieces — a single piece would be parsed as a literal or
+  /// variable directly.
+  final List<ConcatPiece> pieces;
+  const ConcatString(this.pieces);
 }
 
 // ── Arithmetic expressions ─────────────────────────────────────────────
@@ -111,7 +166,7 @@ class ArithVariable extends ArithExpr {
 }
 
 /// An inline query in an arithmetic expression, e.g. `query("C1:VDIV?")`
-/// or `query(varName)`.
+/// or `query(varName)` or `query("pre" + var + "suf")`.
 class ArithQuery extends ArithExpr {
   final String command;
 
@@ -119,7 +174,11 @@ class ArithQuery extends ArithExpr {
   /// SCPI query string, resolved at evaluation time.
   final String? variableName;
 
-  const ArithQuery(this.command, {this.variableName});
+  /// When non-null, the argument was a concatenated string expression that
+  /// must be resolved at evaluation time. Overrides [command] / [variableName].
+  final ConcatString? concatString;
+
+  const ArithQuery(this.command, {this.variableName, this.concatString});
 }
 
 /// A binary arithmetic operation (`+`, `-`, `*`, `/`).
@@ -147,10 +206,20 @@ class VariableItem extends PrintItem {
   const VariableItem(this.name);
 }
 
-/// An inline SCPI query in a print statement, e.g. `query("C1:TRA?")`.
+/// An inline SCPI query in a print statement, e.g. `query("C1:TRA?")`,
+/// `query(varName)`, or `query("prefix" + var + "suffix")`.
 class QueryItem extends PrintItem {
   final String command;
-  const QueryItem(this.command);
+
+  /// When non-null, [command] is a variable name whose value is the actual
+  /// SCPI query string, resolved at evaluation time.
+  final String? variableName;
+
+  /// When non-null, the argument was a concatenated string expression that
+  /// must be resolved at evaluation time. Overrides [command] / [variableName].
+  final ConcatString? concatString;
+
+  const QueryItem(this.command, {this.variableName, this.concatString});
 }
 
 /// `print(<item> + <item> + ...)` — log concatenated text, variables,
@@ -160,10 +229,15 @@ class PrintStmt extends Statement {
   const PrintStmt(this.items);
 }
 
-/// `assert("text", <expr>)` or `assert("text", <expr> <op> <value>)`
+/// `assert("text", <expr>)` or `assert("text" + var + "suffix", <expr>)`
+/// or `assert("text", <expr> <op> <value>)`.
 class AssertStmt extends Statement {
   /// Human-readable description shown on failure.
   final String text;
+
+  /// When non-null, the description was a concatenated string expression that
+  /// must be resolved at evaluation time. Overrides [text] for display.
+  final ConcatString? concatText;
 
   /// The expression to evaluate (variable or inline query/scpi).
   final Expression operand;
@@ -175,13 +249,19 @@ class AssertStmt extends Statement {
   /// Expected value for comparison, or `null` for truthiness / scpi-success.
   final String? expectedValue;
 
-  const AssertStmt(this.text, this.operand, {this.op, this.expectedValue});
+  const AssertStmt(this.text, this.operand, {this.op, this.expectedValue, this.concatText});
 }
 
-/// `loadProfile("path")` — load and send a profile (.lss) file.
+/// `loadProfile("path")` or `loadProfile("prefix" + var + "suffix")` —
+/// load and send a profile (.lss) file.
 class LoadProfileStmt extends Statement {
   final String path;
-  const LoadProfileStmt(this.path);
+
+  /// When non-null, the argument was a concatenated string expression that
+  /// must be resolved at evaluation time. Overrides [path].
+  final ConcatString? concatString;
+
+  const LoadProfileStmt(this.path, {this.concatString});
 }
 
 /// `if (<expr> <op> <value>) { ... }` with optional `else { ... }`.
@@ -233,7 +313,8 @@ class VariableExpr extends Expression {
   const VariableExpr(this.name);
 }
 
-/// An inline SCPI query `query("CMD")` or `query(varName)`.
+/// An inline SCPI query `query("CMD")` or `query(varName)` or
+/// `query("prefix" + var + "suffix")`.
 class QueryExpr extends Expression {
   final String command;
 
@@ -241,7 +322,11 @@ class QueryExpr extends Expression {
   /// SCPI query string, resolved at evaluation time.
   final String? variableName;
 
-  const QueryExpr(this.command, {this.variableName});
+  /// When non-null, the argument was a concatenated string expression that
+  /// must be resolved at evaluation time. Overrides [command] / [variableName].
+  final ConcatString? concatString;
+
+  const QueryExpr(this.command, {this.variableName, this.concatString});
 }
 
 /// An inline SCPI command `scpi("CMD")` or `scpi(varName)` used in `assert`

@@ -352,6 +352,38 @@ print(myVar)
 
 Logs the current value of the variable `myVar` to the application log. If the variable is undefined, `<undefined>` is logged. Use this for debugging macro execution or recording measurement values.
 
+##### String Concatenation
+
+String arguments in `scpi()`, `connect()`, `query()`, `loadProfile()`, and `print()` can be built from multiple pieces joined by `+`. Each piece can be a quoted string literal or a variable reference:
+
+```
+val = 1
+scpi("C1:VDIV " + val + "V")
+```
+
+This sends `C1:VDIV 1V` to the oscilloscope after resolving the variable `val`.
+
+```
+ch = "1"
+query("C" + ch + ":VDIV?")
+```
+
+Sends the query `C1:VDIV?` and reads the response.
+
+```
+subnet = "1.100"
+connect("192.168." + subnet)
+```
+
+Concatenation works with all string-accepting commands, including in `if`/`while` conditions and `assert` expressions:
+
+```
+expected = "1.0"
+if(query("C" + ch + ":VDIV?") == expected) {
+    scpi("C" + ch + ":TRA ON")
+}
+```
+
 #### 7.5.6 Conditionals: if / else
 
 ```

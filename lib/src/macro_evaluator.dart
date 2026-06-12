@@ -114,8 +114,13 @@ class MacroEvaluator {
       case ContinueStmt():
         if (!inLoop) _error('continue outside of while loop');
         _continueRequested = true;
-      case ConnectStmt(:final ip, :final isVariable):
-        await _evalConnect(ip, isVariable: isVariable);
+      case ConnectStmt(:final ip, :final isVariable, :final concatString):
+        if (concatString != null) {
+          final resolved = _resolveConcatString(concatString);
+          await _evalConnect(resolved);
+        } else {
+          await _evalConnect(ip, isVariable: isVariable);
+        }
         await _doDelay();
       case WaitStmt(:final seconds, :final variableName):
         final duration = () {
@@ -134,10 +139,14 @@ class MacroEvaluator {
         }();
         onLog('Macro playback: wait(${variableName ?? duration} s)');
         await delay(duration.toInt().clamp(0, 3600));
-      case ScpiStmt(:final command, :final variableName):
+      case ScpiStmt(:final command, :final variableName, :final concatString):
         await _ensureDevice();
-        final resolved = variableName != null ? _resolveVar(variableName) : command;
-        if (variableName != null && double.tryParse(resolved) != null) {
+        final resolved = concatString != null
+            ? _resolveConcatString(concatString)
+            : variableName != null
+                ? _resolveVar(variableName)
+                : command;
+        if (concatString == null && variableName != null && double.tryParse(resolved) != null) {
           _error(
             'Variable "$variableName" has value "$resolved" which is a '
             'number, not a valid SCPI command string',
@@ -146,16 +155,27 @@ class MacroEvaluator {
         onLog('Macro playback: scpi("$resolved")');
         await instrument!.writeString(resolved);
         await _doDelay();
-      case QueryStmt(:final command):
+      case QueryStmt(:final command, :final variableName, :final concatString):
         await _ensureDevice();
         await _drainEchoes();
-        onLog('Macro playback: query("$command")');
-        await instrument!.writeString(command);
+        final resolved = concatString != null
+            ? _resolveConcatString(concatString)
+            : variableName != null
+                ? _resolveVar(variableName)
+                : command;
+        if (concatString == null && variableName != null && double.tryParse(resolved) != null) {
+          _error(
+            'Variable "$variableName" has value "$resolved" which is a '
+            'number, not a valid SCPI query string',
+          );
+        }
+        onLog('Macro playback: query("$resolved")');
+        await instrument!.writeString(resolved);
         final raw = await instrument!.readString();
-        final response = _cleanQueryResponse(raw, command);
+        final response = _cleanQueryResponse(raw, resolved);
         onLog('Macro query response: $response');
         await _doDelay();
-      case AssignStmt(:final varName, :final queryOrValue, :final isQuery, :final isVariable, :final arithExpr):
+      case AssignStmt(:final varName, :final queryOrValue, :final isQuery, :final isVariable, :final arithExpr, :final concatString):
         if (arithExpr != null) {
           final result = await _evalArithExpr(arithExpr);
           _vars[varName] = result.toStringAsFixed(4);
@@ -163,8 +183,12 @@ class MacroEvaluator {
         } else if (isQuery) {
           await _ensureDevice();
           await _drainEchoes();
-          final command = isVariable ? _resolveVar(queryOrValue) : queryOrValue;
-          if (isVariable && double.tryParse(command) != null) {
+          final command = concatString != null
+              ? _resolveConcatString(concatString)
+              : isVariable
+                  ? _resolveVar(queryOrValue)
+                  : queryOrValue;
+          if (concatString == null && isVariable && double.tryParse(command) != null) {
             _error(
               'Variable "$queryOrValue" has value "$command" which is a '
               'number, not a valid SCPI command string',
@@ -184,12 +208,16 @@ class MacroEvaluator {
       case PrintStmt(:final items):
         await _evalPrint(items);
         await _doDelay();
-      case AssertStmt(:final text, :final operand, :final op, :final expectedValue):
-        await _evalAssert(text, operand, op, expectedValue);
+      case AssertStmt(:final text, :final operand, :final op, :final expectedValue, :final concatText):
+        final resolvedText = concatText != null ? _resolveConcatString(concatText) : text;
+        await _evalAssert(resolvedText, operand, op, expectedValue);
         await _doDelay();
-      case LoadProfileStmt(:final path):
+      case LoadProfileStmt(:final path, :final concatString):
         await _ensureDevice();
-        await _evalLoadProfile(path);
+        final resolved = concatString != null
+            ? _resolveConcatString(concatString)
+            : path;
+        await _evalLoadProfile(resolved);
         await _doDelay();
       case IfStmt(:final condition, :final op, :final value, :final thenBody, :final elseBody):
         await _evalIf(condition, op, value, thenBody, elseBody, inLoop);
@@ -224,6 +252,21 @@ class MacroEvaluator {
     return value!;
   }
 
+  /// Resolve a [ConcatString] into a single string by concatenating all
+  /// pieces — resolving variable references at evaluation time.
+  String _resolveConcatString(ConcatString cs) {
+    final buf = StringBuffer();
+    for (final piece in cs.pieces) {
+      switch (piece) {
+        case ConcatTextPiece(:final text):
+          buf.write(text);
+        case ConcatVarPiece(:final name):
+          buf.write(_resolveVar(name));
+      }
+    }
+    return buf.toString();
+  }
+
   /// Evaluates an arithmetic expression and returns the numeric result.
   Future<double> _evalArithExpr(ArithExpr expr) async {
     switch (expr) {
@@ -239,10 +282,20 @@ class MacroEvaluator {
           );
         }
         return parsed;
-      case ArithQuery(:final command, :final variableName):
+      case ArithQuery(:final command, :final variableName, :final concatString):
         await _ensureDevice();
         await _drainEchoes();
-        final cmd = variableName != null ? _resolveVar(variableName) : command;
+        final cmd = concatString != null
+            ? _resolveConcatString(concatString)
+            : variableName != null
+                ? _resolveVar(variableName)
+                : command;
+        if (concatString == null && variableName != null && double.tryParse(cmd) != null) {
+          _error(
+            'Variable "$variableName" has value "$cmd" which is a '
+            'number, not a valid SCPI query string',
+          );
+        }
         await instrument!.writeString(cmd);
         final raw = await instrument!.readString();
         final response = _cleanQueryResponse(raw, cmd);
@@ -293,12 +346,15 @@ class MacroEvaluator {
           onLog('Macro assert: $text: $varValue $op $expectedValue → True');
         }
 
-      case QueryExpr(:final command, :final variableName):
+      case QueryExpr(:final command, :final variableName, :final concatString):
         await _ensureDevice();
         await _drainEchoes();
-        final resolved =
-            variableName != null ? _resolveVar(variableName) : command;
-        if (variableName != null && double.tryParse(resolved) != null) {
+        final resolved = concatString != null
+            ? _resolveConcatString(concatString)
+            : variableName != null
+                ? _resolveVar(variableName)
+                : command;
+        if (concatString == null && variableName != null && double.tryParse(resolved) != null) {
           _error(
             'Variable "$variableName" has value "$resolved" which is a '
             'number, not a valid SCPI query string',
@@ -368,12 +424,23 @@ class MacroEvaluator {
         return text;
       case VariableItem(:final name):
         return _vars[name] ?? '<undefined>';
-      case QueryItem(:final command):
+      case QueryItem(:final command, :final variableName, :final concatString):
         await _ensureDevice();
         await _drainEchoes();
-        await instrument!.writeString(command);
+        final resolved = concatString != null
+            ? _resolveConcatString(concatString)
+            : variableName != null
+                ? _resolveVar(variableName)
+                : command;
+        if (concatString == null && variableName != null && double.tryParse(resolved) != null) {
+          _error(
+            'Variable "$variableName" has value "$resolved" which is a '
+            'number, not a valid SCPI query string',
+          );
+        }
+        await instrument!.writeString(resolved);
         final raw = await instrument!.readString();
-        return _cleanQueryResponse(raw, command);
+        return _cleanQueryResponse(raw, resolved);
     }
   }
 
@@ -442,12 +509,15 @@ class MacroEvaluator {
         }
         return _compareValues(varValue, op, value);
 
-      case QueryExpr(:final command, :final variableName):
+      case QueryExpr(:final command, :final variableName, :final concatString):
         await _ensureDevice();
         await _drainEchoes();
-        final resolved =
-            variableName != null ? _resolveVar(variableName) : command;
-        if (variableName != null && double.tryParse(resolved) != null) {
+        final resolved = concatString != null
+            ? _resolveConcatString(concatString)
+            : variableName != null
+                ? _resolveVar(variableName)
+                : command;
+        if (concatString == null && variableName != null && double.tryParse(resolved) != null) {
           _error(
             'Variable "$variableName" has value "$resolved" which is a '
             'number, not a valid SCPI query string',
