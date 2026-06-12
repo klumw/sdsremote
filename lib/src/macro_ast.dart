@@ -249,7 +249,16 @@ class AssertStmt extends Statement {
   /// Expected value for comparison, or `null` for truthiness / scpi-success.
   final String? expectedValue;
 
-  const AssertStmt(this.text, this.operand, {this.op, this.expectedValue, this.concatText});
+  /// True when [expectedValue] is a variable name that must be resolved at
+  /// evaluation time.
+  final bool expectedIsVariable;
+
+  const AssertStmt(this.text, this.operand, {
+    this.op,
+    this.expectedValue,
+    this.concatText,
+    this.expectedIsVariable = false,
+  });
 }
 
 /// `loadProfile("path")` or `loadProfile("prefix" + var + "suffix")` —
@@ -272,12 +281,17 @@ class IfStmt extends Statement {
   final List<Statement> thenBody;
   final List<Statement>? elseBody;
 
+  /// True when [value] is a variable name that must be resolved at evaluation
+  /// time.
+  final bool valueIsVariable;
+
   const IfStmt(
     this.condition,
     this.op,
     this.value,
     this.thenBody, {
     this.elseBody,
+    this.valueIsVariable = false,
   });
 }
 
@@ -288,7 +302,13 @@ class WhileStmt extends Statement {
   final String value;
   final List<Statement> body;
 
-  const WhileStmt(this.condition, this.op, this.value, this.body);
+  /// True when [value] is a variable name that must be resolved at evaluation
+  /// time.
+  final bool valueIsVariable;
+
+  const WhileStmt(this.condition, this.op, this.value, this.body, {
+    this.valueIsVariable = false,
+  });
 }
 
 /// `break` — exit the innermost while loop.

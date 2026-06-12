@@ -289,22 +289,24 @@ class MacroGrammarDefinition extends GrammarDefinition {
           char(')').trim())
       .map((r) {
     final exp = r[3] as Expression;
-    final tail = r[4] as (String, String)?;
+    final tail = r[4] as (String, (String, bool))?;
     final textArg = r[1];
     if (textArg is ConcatString) {
-      return AssertStmt('', exp, op: tail?.$1, expectedValue: tail?.$2, concatText: textArg);
+      return AssertStmt('', exp, op: tail?.$1, expectedValue: tail?.$2.$1,
+          expectedIsVariable: tail?.$2.$2 ?? false, concatText: textArg);
     }
     return AssertStmt(
       textArg as String,
       exp,
       op: tail?.$1,
-      expectedValue: tail?.$2,
+      expectedValue: tail?.$2.$1,
+      expectedIsVariable: tail?.$2.$2 ?? false,
     );
   });
 
-  Parser<(String, String)> _assertTail() =>
+  Parser<(String, (String, bool))> _assertTail() =>
       (ref0(_comparisonOp) & ref0(_comparisonValue))
-          .map((r) => (r[0] as String, r[1] as String));
+          .map((r) => (r[0] as String, r[1] as (String, bool)));
 
   // ── loadProfile("path") | loadProfile("str" + var + "str") ─────────
 
@@ -333,13 +335,17 @@ class MacroGrammarDefinition extends GrammarDefinition {
           ref0(statement).star() &
           char('}').trim() &
           ref0(_elseBlock).optional())
-      .map((r) => IfStmt(
+      .map((r) {
+        final compVal = r[4] as (String, bool);
+        return IfStmt(
             r[2] as Expression,
             r[3] as String,
-            r[4] as String,
+            compVal.$1,
             (r[8] as List).cast<Statement>(),
             elseBody: (r[10] as List<Statement>?),
-          ));
+            valueIsVariable: compVal.$2,
+          );
+      });
 
   Parser<List<Statement>> _elseBlock() =>
       (string('else').trim() & char('{').trim() & ref0(statement).star() & char('}'))
@@ -356,12 +362,16 @@ class MacroGrammarDefinition extends GrammarDefinition {
           char('{').trim() &
           ref0(statement).star() &
           char('}'))
-      .map((r) => WhileStmt(
+      .map((r) {
+        final compVal = r[4] as (String, bool);
+        return WhileStmt(
             r[2] as Expression,
             r[3] as String,
-            r[4] as String,
+            compVal.$1,
             (r[7] as List).cast<Statement>(),
-          ));
+            valueIsVariable: compVal.$2,
+          );
+      });
 
   // ── break / continue ───────────────────────────────────────────────
 
@@ -414,10 +424,10 @@ class MacroGrammarDefinition extends GrammarDefinition {
         char('>'),
       ].toChoiceParser().trim().map((r) => r.toString());
 
-  Parser<String> _comparisonValue() => [
-        ref0(number).map((n) => n.toString()),
-        ref0(stringLiteral),
-        ref0(identifier),
+  Parser<(String, bool)> _comparisonValue() => [
+        ref0(number).map((n) => (n.toString(), false)),
+        ref0(stringLiteral).map((s) => (s as String, false)),
+        ref0(identifier).map((s) => (s as String, true)),
       ].toChoiceParser();
 
   // ── String concatenation ────────────────────────────────────────────

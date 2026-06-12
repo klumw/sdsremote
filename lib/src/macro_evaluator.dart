@@ -208,9 +208,10 @@ class MacroEvaluator {
       case PrintStmt(:final items):
         await _evalPrint(items);
         await _doDelay();
-      case AssertStmt(:final text, :final operand, :final op, :final expectedValue, :final concatText):
+      case AssertStmt(:final text, :final operand, :final op, :final expectedValue, :final concatText, :final expectedIsVariable):
         final resolvedText = concatText != null ? _resolveConcatString(concatText) : text;
-        await _evalAssert(resolvedText, operand, op, expectedValue);
+        await _evalAssert(resolvedText, operand, op, expectedValue,
+            expectedIsVariable: expectedIsVariable);
         await _doDelay();
       case LoadProfileStmt(:final path, :final concatString):
         await _ensureDevice();
@@ -219,10 +220,12 @@ class MacroEvaluator {
             : path;
         await _evalLoadProfile(resolved);
         await _doDelay();
-      case IfStmt(:final condition, :final op, :final value, :final thenBody, :final elseBody):
-        await _evalIf(condition, op, value, thenBody, elseBody, inLoop);
-      case WhileStmt(:final condition, :final op, :final value, :final body):
-        await _evalWhile(condition, op, value, body);
+      case IfStmt(:final condition, :final op, :final value, :final thenBody, :final elseBody, :final valueIsVariable):
+        await _evalIf(condition, op, value, thenBody, elseBody, inLoop,
+            valueIsVariable: valueIsVariable);
+      case WhileStmt(:final condition, :final op, :final value, :final body, :final valueIsVariable):
+        await _evalWhile(condition, op, value, body,
+            valueIsVariable: valueIsVariable);
     }
   }
 
@@ -325,25 +328,34 @@ class MacroEvaluator {
     String text,
     Expression operand,
     String? op,
-    String? expectedValue,
-  ) async {
+    String? expectedValue, {
+    bool expectedIsVariable = false,
+  }) async {
+    // Resolve the expected value if it is a variable reference.
+    final resolvedExpected = expectedIsVariable && expectedValue != null
+        ? _resolveVar(expectedValue)
+        : expectedValue;
+
     switch (operand) {
       case VariableExpr(:final name):
         final varValue = _vars[name];
         if (varValue == null) _error('Variable "$name" is undefined');
-        if (op == null || expectedValue == null) {
+        if (op == null || resolvedExpected == null) {
           if (!_isTruthy(varValue!)) {
             _error('Assertion failed: $text (got "$varValue")');
           }
           onLog('Macro assert: $text: "$varValue" → True');
         } else {
-          final result = _compareValues(varValue!, op, expectedValue);
+          final result = _compareValues(varValue!, op, resolvedExpected);
           if (result == false) {
-            _error('Assertion failed: $text ($varValue $op $expectedValue)');
+            _error('Assertion failed: $text ($varValue $op $resolvedExpected)');
           } else if (result == null) {
-            return;
+            _error(
+              'Assertion failed: $text – cannot compare "$varValue" '
+              '$op "$resolvedExpected" (non-numeric values with "$op")',
+            );
           }
-          onLog('Macro assert: $text: $varValue $op $expectedValue → True');
+          onLog('Macro assert: $text: $varValue $op $resolvedExpected → True');
         }
 
       case QueryExpr(:final command, :final variableName, :final concatString):
@@ -364,19 +376,22 @@ class MacroEvaluator {
         await instrument!.writeString(resolved);
         final raw = await instrument!.readString();
         final response = _cleanQueryResponse(raw, resolved);
-        if (op == null || expectedValue == null) {
+        if (op == null || resolvedExpected == null) {
           if (!_isTruthy(response)) {
             _error('Assertion failed: $text (got "$response")');
           }
           onLog('Macro assert: $text: "$response" → True');
         } else {
-          final result = _compareValues(response, op, expectedValue);
+          final result = _compareValues(response, op, resolvedExpected);
           if (result == false) {
-            _error('Assertion failed: $text ($response $op $expectedValue)');
+            _error('Assertion failed: $text ($response $op $resolvedExpected)');
           } else if (result == null) {
-            return;
+            _error(
+              'Assertion failed: $text – cannot compare "$response" '
+              '$op "$resolvedExpected" (non-numeric values with "$op")',
+            );
           }
-          onLog('Macro assert: $text: $response $op $expectedValue → True');
+          onLog('Macro assert: $text: $response $op $resolvedExpected → True');
         }
 
       case ScpiExpr(:final command, :final variableName):
@@ -423,7 +438,9 @@ class MacroEvaluator {
       case TextItem(:final text):
         return text;
       case VariableItem(:final name):
-        return _vars[name] ?? '<undefined>';
+        final value = _vars[name];
+        if (value == null) _error('Variable "$name" is undefined in print()');
+        return value!;
       case QueryItem(:final command, :final variableName, :final concatString):
         await _ensureDevice();
         await _drainEchoes();
@@ -450,9 +467,11 @@ class MacroEvaluator {
     String value,
     List<Statement> thenBody,
     List<Statement>? elseBody,
-    bool inLoop,
-  ) async {
-    final result = await _evalCondition(condition, op, value);
+    bool inLoop, {
+    bool valueIsVariable = false,
+  }) async {
+    final resolvedValue = valueIsVariable ? _resolveVar(value) : value;
+    final result = await _evalCondition(condition, op, resolvedValue);
     if (result == null) return;
 
     if (result) {
@@ -466,14 +485,16 @@ class MacroEvaluator {
     Expression condition,
     String op,
     String value,
-    List<Statement> body,
-  ) async {
+    List<Statement> body, {
+    bool valueIsVariable = false,
+  }) async {
+    final resolvedValue = valueIsVariable ? _resolveVar(value) : value;
     var iterations = 0;
 
     while (true) {
       if (isCancelled()) throw _MacroStopException();
 
-      final result = await _evalCondition(condition, op, value);
+      final result = await _evalCondition(condition, op, resolvedValue);
       if (result == null) return;
       if (!result) break;
 
