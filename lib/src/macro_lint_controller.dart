@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'macro_lint_error.dart';
 
 /// A [TextEditingController] that highlights [MacroLintError] regions in the
-/// text with a wavy red underline and a faint red background.
+/// text with a wavy red underline.
 ///
 /// Call [updateErrors] with the latest set of lint errors to refresh the
 /// visual highlights. Errors are automatically bounds-checked against the
@@ -62,7 +62,6 @@ class MacroLintController extends TextEditingController {
         decoration: TextDecoration.underline,
         decorationColor: Colors.red,
         decorationStyle: TextDecorationStyle.wavy,
-        backgroundColor: Color(0x33FF0000),
       ),
     );
 

@@ -54,6 +54,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   bool _isSyncing = false;
   int _lineCount = 1;
   Timer? _lintDebounce;
+  Set<int> _errorLines = {};
 
   static const double _lineHeight = 13.0 * 1.5; // fontSize * height
   static const Duration _lintDelay = Duration(milliseconds: 300);
@@ -158,6 +159,8 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   void _scheduleLint() {
     final errors = lintMacro(_controller.text);
     _controller.updateErrors(errors);
+    _errorLines = errors.map((e) => e.line).toSet();
+    if (mounted) setState(() {});
   }
 
   void _updateLineCount() {
@@ -348,11 +351,13 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                         itemCount: _lineCount,
                         itemExtent: _lineHeight,
                         itemBuilder: (context, index) {
+                          final lineNum = index + 1;
+                          final hasError = _errorLines.contains(lineNum);
                           return Text(
                             '${index + 1}',
                             textAlign: TextAlign.right,
-                            style: const TextStyle(
-                              color: Colors.white38,
+                            style: TextStyle(
+                              color: hasError ? Colors.red : Colors.white38,
                               fontSize: 13,
                               fontFamily: 'monospace',
                               height: 1.5,

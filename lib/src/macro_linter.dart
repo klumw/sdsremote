@@ -20,8 +20,21 @@ List<MacroLintError> lintMacro(String source) {
     // Clamp end to at least pos+1 so the wavy underline has a pixel span,
     // and no further than text.length.
     final end = (pos + 1 < source.length) ? pos + 1 : source.length;
-    return [MacroLintError(message: result.message, start: pos, end: end)];
+    // Compute 1-based line number from the character offset.
+    final line = _lineAtOffset(source, pos);
+    return [
+      MacroLintError(message: result.message, start: pos, end: end, line: line),
+    ];
   }
 
   return const [];
+}
+
+/// Returns the 1-based line number for character [offset] in [source].
+int _lineAtOffset(String source, int offset) {
+  var line = 1;
+  for (var i = 0; i < offset && i < source.length; i++) {
+    if (source[i] == '\n') line++;
+  }
+  return line;
 }
