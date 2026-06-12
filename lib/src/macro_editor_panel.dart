@@ -1,5 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
+import 'macro_lint_controller.dart';
+import 'macro_linter.dart';
 
 /// A simple multi-line text editor for editing macro file content.
 ///
@@ -43,20 +48,26 @@ class MacroEditorPanel extends StatefulWidget {
 }
 
 class _MacroEditorPanelState extends State<MacroEditorPanel> {
-  late final TextEditingController _controller;
+  late final MacroLintController _controller;
   final ScrollController _gutterScrollController = ScrollController();
   final ScrollController _editorScrollController = ScrollController();
   bool _isSyncing = false;
   int _lineCount = 1;
+  Timer? _lintDebounce;
 
   static const double _lineHeight = 13.0 * 1.5; // fontSize * height
+  static const Duration _lintDelay = Duration(milliseconds: 300);
 
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController(text: widget.initialContent);
+    _controller = MacroLintController(text: widget.initialContent);
     _controller.addListener(_onTextChanged);
+    _controller.addListener(_onLintRequired);
     _updateLineCount();
+
+    // Run an initial lint pass on the starting content.
+    _scheduleLint();
 
     // Sync the gutter scroll to follow the editor scroll.
     _editorScrollController.addListener(_onEditorScroll);
@@ -72,8 +83,10 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
 
   @override
   void dispose() {
+    _lintDebounce?.cancel();
     HardwareKeyboard.instance.removeHandler(_hardwareKeyHandler);
     _controller.removeListener(_onTextChanged);
+    _controller.removeListener(_onLintRequired);
     _controller.dispose();
     _gutterScrollController.removeListener(_onGutterScroll);
     _editorScrollController.removeListener(_onEditorScroll);
@@ -86,7 +99,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     if (event is KeyDownEvent &&
         HardwareKeyboard.instance.isControlPressed &&
         (event.logicalKey == LogicalKeyboardKey.keyD ||
-         event.logicalKey == LogicalKeyboardKey.keyX)) {
+            event.logicalKey == LogicalKeyboardKey.keyX)) {
       _deleteCurrentLine();
       return true; // handled
     }
@@ -132,6 +145,21 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     widget.onContentChanged(_controller.text);
   }
 
+  /// Debounced handler: called on every text change, re-parses after
+  /// [_lintDelay] of inactivity to avoid excessive re-parsing during
+  /// fast typing.
+  void _onLintRequired() {
+    _lintDebounce?.cancel();
+    _lintDebounce = Timer(_lintDelay, _scheduleLint);
+  }
+
+  /// Runs the macro parser on the current text and pushes the resulting
+  /// lint errors back to the controller for visual highlighting.
+  void _scheduleLint() {
+    final errors = lintMacro(_controller.text);
+    _controller.updateErrors(errors);
+  }
+
   void _updateLineCount() {
     final lines = _controller.text.split('\n').length;
     if (lines != _lineCount) {
@@ -165,9 +193,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     // Find the start of the current line.
     // Search for the last '\n' strictly before the cursor so that if the
     // cursor sits directly on a '\n' we find the preceding one (or -1).
-    final lineStart = cursor > 0
-        ? text.lastIndexOf('\n', cursor - 1) + 1
-        : 0;
+    final lineStart = cursor > 0 ? text.lastIndexOf('\n', cursor - 1) + 1 : 0;
 
     // Find the end of the current line (the '\n' that terminates it).
     final lineEndIndex = text.indexOf('\n', cursor);
@@ -211,9 +237,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     );
     _controller.value = TextEditingValue(
       text: newText,
-      selection: TextSelection.collapsed(
-        offset: selection.start + text.length,
-      ),
+      selection: TextSelection.collapsed(offset: selection.start + text.length),
     );
   }
 
@@ -345,31 +369,31 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                         onKeyEvent: _onKeyEvent,
                         child: TextField(
                           controller: _controller,
-                        scrollController: _editorScrollController,
-                        maxLines: null,
-                        minLines: null,
-                        textAlignVertical: TextAlignVertical.top,
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13,
-                          fontFamily: 'monospace',
-                          height: 1.5,
-                        ),
-                        decoration: const InputDecoration(
-                          hintText: 'Enter macro commands...',
-                          hintStyle: TextStyle(
-                            color: Colors.white24,
+                          scrollController: _editorScrollController,
+                          maxLines: null,
+                          minLines: null,
+                          textAlignVertical: TextAlignVertical.top,
+                          style: const TextStyle(
+                            color: Colors.white,
                             fontSize: 13,
+                            fontFamily: 'monospace',
+                            height: 1.5,
                           ),
-                          border: InputBorder.none,
-                          contentPadding: EdgeInsets.only(
-                            left: 8,
-                            top: 12,
-                            right: 12,
-                            bottom: 12,
+                          decoration: const InputDecoration(
+                            hintText: 'Enter macro commands...',
+                            hintStyle: TextStyle(
+                              color: Colors.white24,
+                              fontSize: 13,
+                            ),
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.only(
+                              left: 8,
+                              top: 12,
+                              right: 12,
+                              bottom: 12,
+                            ),
                           ),
                         ),
-                      ),
                       ),
                     ),
                   ],
