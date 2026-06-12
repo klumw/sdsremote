@@ -436,6 +436,40 @@ class _FilenamePrefixDialogState extends State<_FilenamePrefixDialog> {
   }
 }
 
+/// Actions the user can take when closing with unsaved macro changes.
+enum _UnsavedMacroAction { save, discard }
+
+/// A dialog shown when the user tries to close the app while a macro has
+/// unsaved changes, prompting them to save, discard, or cancel.
+class _UnsavedChangesDialog extends StatelessWidget {
+  const _UnsavedChangesDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Unsaved Macro Changes'),
+      content: const Text(
+        'The current macro has unsaved changes.\n'
+        'Do you want to save before closing?',
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context, _UnsavedMacroAction.discard),
+          child: const Text('Discard'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('Cancel'),
+        ),
+        ElevatedButton(
+          onPressed: () => Navigator.pop(context, _UnsavedMacroAction.save),
+          child: const Text('Save'),
+        ),
+      ],
+    );
+  }
+}
+
 // ===========================================================================
 // Application Entry Point
 // ===========================================================================
@@ -727,8 +761,31 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   @override
   void onWindowClose() async {
+    // If a macro has unsaved changes, prompt the user before closing.
+    if (_isMacroModified) {
+      final action = await showDialog<_UnsavedMacroAction>(
+        context: context,
+        barrierDismissible: false,
+        builder: (ctx) => const _UnsavedChangesDialog(),
+      );
+
+      switch (action) {
+        case _UnsavedMacroAction.save:
+          await _saveMacro();
+          // If the save was cancelled (e.g. filename dialog dismissed),
+          // abort the close.
+          if (_isMacroModified) return;
+          break;
+        case _UnsavedMacroAction.discard:
+          break;
+        case null:
+          // User cancelled — keep the app open.
+          return;
+      }
+    }
+
     await AppLogger().log('SDS-Remote: application stopping');
-    exit(0);
+    await windowManager.destroy();
   }
 
   // =========================================================================
@@ -1468,7 +1525,8 @@ class _OsciHomePageState extends State<OsciHomePage>
     });
   }
 
-  void _onMacroSave() async {
+  /// Core save logic — extracted so it can be awaited from [onWindowClose].
+  Future<void> _saveMacro() async {
     setState(() => _macroStatus = null);
     if (!mounted) return;
 
@@ -1536,6 +1594,10 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
   }
 
+  void _onMacroSave() {
+    // Fire-and-forget: the recorder-panel button expects a VoidCallback.
+    _saveMacro();
+  }
   Future<void> _onMacroLoad(String fileName) async {
     try {
       final dir = AppPaths.macrosDirectory;
