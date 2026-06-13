@@ -162,6 +162,30 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     }
   }
 
+  /// Scrolls the editor and gutter to the top of the document.
+  void _scrollToTop() {
+    if (_editorScrollController.hasClients) {
+      _editorScrollController.jumpTo(0);
+    }
+    if (_gutterScrollController.hasClients) {
+      _gutterScrollController.jumpTo(0);
+    }
+  }
+
+  /// Scrolls the editor and gutter to the bottom of the document.
+  void _scrollToBottom() {
+    if (_editorScrollController.hasClients) {
+      _editorScrollController.jumpTo(
+        _editorScrollController.position.maxScrollExtent,
+      );
+    }
+    if (_gutterScrollController.hasClients) {
+      _gutterScrollController.jumpTo(
+        _gutterScrollController.position.maxScrollExtent,
+      );
+    }
+  }
+
   void _onGutterScroll() {
     if (!_isSyncing && _editorScrollController.hasClients) {
       _isSyncing = true;
@@ -266,15 +290,17 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     final ctrl = HardwareKeyboard.instance.isControlPressed;
     final shift = HardwareKeyboard.instance.isShiftPressed;
 
-    // Ctrl + Home: jump to document start
+    // Ctrl + Home: jump to document start and scroll to top
     if (ctrl && event.logicalKey == LogicalKeyboardKey.home) {
       _controller.selection = TextSelection.collapsed(offset: 0);
+      _scrollToTop();
       return KeyEventResult.handled;
     }
-    // Ctrl + End: jump to document end
+    // Ctrl + End: jump to document end and scroll to bottom
     if (ctrl && event.logicalKey == LogicalKeyboardKey.end) {
       _controller.selection =
           TextSelection.collapsed(offset: _controller.text.length);
+      _scrollToBottom();
       return KeyEventResult.handled;
     }
     // Home / Shift+Home: smart home (first non-space, then column 0 on
