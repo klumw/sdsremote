@@ -3,7 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import 'osci_knob_widgets.dart';
-import '../main.dart' show KnobId;
+import 'app_config.dart' show KnobId;
 
 /// A widget that renders a physical oscilloscope control panel overlay
 /// on top of a screen dump image.

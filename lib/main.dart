@@ -11,12 +11,18 @@ import 'package:flutter/rendering.dart';
 import 'package:image/image.dart' as img;
 import 'package:logging/logging.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
+import 'src/app_config.dart';
 import 'src/app_preferences.dart';
+import 'src/widgets/osci_toolbar_button.dart';
+import 'src/widgets/reference_file_picker_dialog.dart';
+import 'src/widgets/filename_prefix_dialog.dart';
+import 'src/widgets/unsaved_changes_dialog.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'dart_vxi11.dart';
 import 'waveform_acquisition.dart';
-import 'waveform_converter.dart';
+import 'src/waveform_processing.dart';
+import 'src/waveform_csv_parser.dart';
 import 'waveform_models.dart';
 import 'waveform_painter.dart';
 import 'ai_chat_service.dart';
@@ -39,437 +45,9 @@ import 'src/macro_editor_panel.dart';
 import 'src/macro_evaluator.dart';
 import 'src/vxi11_tool.dart' show onScpiCommandSent;
 
-// ===========================================================================
-// Provider Configuration Table
-// ===========================================================================
 
-/// Configuration for an AI provider.
-///
-/// Maps a [providerName] (shown in the UI dropdown) to its [modelPrefix]
-/// (used to construct the model string like "openai:gpt-4o") and its
-/// [apiKeyName] (the environment variable name like "OPENAI_API_KEY").
-class ProviderConfig {
-  final String modelPrefix;
-  final String providerName;
-  final String apiKeyName;
 
-  const ProviderConfig({
-    required this.modelPrefix,
-    required this.providerName,
-    required this.apiKeyName,
-  });
-}
 
-/// The canonical list of supported AI providers.
-///
-/// Each entry defines:
-/// - [ProviderConfig.modelPrefix]: used to prefix the model name (e.g. "openai:gpt-4o")
-/// - [ProviderConfig.providerName]: displayed in the UI dropdown
-/// - [ProviderConfig.apiKeyName]: the environment variable name for the API key
-const List<ProviderConfig> providerConfigs = [
-  ProviderConfig(
-    modelPrefix: 'deepseek',
-    providerName: 'DeepSeek',
-    apiKeyName: 'DEEPSEEK_API_KEY',
-  ),
-  ProviderConfig(
-    modelPrefix: 'openai',
-    providerName: 'OpenAI',
-    apiKeyName: 'OPENAI_API_KEY',
-  ),
-  ProviderConfig(
-    modelPrefix: 'anthropic',
-    providerName: 'Anthropic',
-    apiKeyName: 'ANTHROPIC_API_KEY',
-  ),
-  ProviderConfig(
-    modelPrefix: 'google',
-    providerName: 'Google',
-    apiKeyName: 'GOOGLE_API_KEY',
-  ),
-  ProviderConfig(
-    modelPrefix: 'mistral',
-    providerName: 'Mistral',
-    apiKeyName: 'MISTRAL_API_KEY',
-  ),
-  ProviderConfig(
-    modelPrefix: 'cohere',
-    providerName: 'Cohere',
-    apiKeyName: 'COHERE_API_KEY',
-  ),
-  ProviderConfig(
-    modelPrefix: 'edenai',
-    providerName: 'EdenAI',
-    apiKeyName: 'EDENAI_API_KEY',
-  ),
-  ProviderConfig(
-    modelPrefix: 'openrouter',
-    providerName: 'OpenRouter',
-    apiKeyName: 'OPENROUTER_API_KEY',
-  ),
-  ProviderConfig(
-    modelPrefix: 'xai',
-    providerName: 'xAI',
-    apiKeyName: 'XAI_API_KEY',
-  ),
-];
-
-enum ActivePanel { none, help, chat, profiles, dataLogger, macroRecorder }
-
-/// A reusable toolbar button with the standard SDS-Remote dark theme styling.
-/// Used in the top bar for Control Panel, Acquire Waveform, AI, Profiles, and Help buttons.
-class _OsciToolbarButton extends StatelessWidget {
-  final String label;
-  final Widget icon;
-  final VoidCallback? onPressed;
-  final bool alwaysEnabled;
-
-  const _OsciToolbarButton({
-    required this.label,
-    required this.icon,
-    this.onPressed,
-    this.alwaysEnabled = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isDisabled = !alwaysEnabled && onPressed == null;
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(8),
-        child: Ink(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          decoration: BoxDecoration(
-            color: const Color(
-              0xFF172A45,
-            ).withValues(alpha: isDisabled ? 0.3 : 1.0),
-            borderRadius: BorderRadius.circular(8),
-            boxShadow: isDisabled
-                ? []
-                : [
-                    BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.4),
-                      offset: const Offset(1, 1),
-                      blurRadius: 2,
-                    ),
-                  ],
-            border: Border.all(
-              color: const Color(
-                0xFF475569,
-              ).withValues(alpha: isDisabled ? 0.3 : 1.0),
-              width: 1.0,
-            ),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (isDisabled)
-                ColorFiltered(
-                  colorFilter: ColorFilter.mode(
-                    Colors.white.withValues(alpha: 0.3),
-                    BlendMode.srcIn,
-                  ),
-                  child: icon,
-                )
-              else
-                icon,
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white.withValues(alpha: isDisabled ? 0.3 : 1.0),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Identifies a physical knob on the oscilloscope for the generic
-/// [_handleKnobChanged] and [_handleKnobTapped] methods.
-enum KnobId {
-  intensityAdjust(15),
-  ch1Voltage(35),
-  ch2Voltage(36),
-  ch1Position(43),
-  ch2Position(44),
-  horizontalTime(7),
-  horizontalPosition(10),
-  triggerLevel(16);
-
-  final int scpiCommandNumber;
-  const KnobId(this.scpiCommandNumber);
-}
-
-// ===========================================================================
-// Top-level functions (used with compute())
-// ===========================================================================
-
-Uint8List _processScreenDump(Uint8List data) {
-  final img.Image? decoded = img.decodeImage(data);
-  if (decoded == null) return data;
-  // Apply slight contrast reduction for better visibility
-  img.contrast(decoded, contrast: 90);
-  return Uint8List.fromList(img.encodePng(decoded));
-}
-
-WaveformData? _convertChannel({
-  required Uint8List? rawData,
-  required double? vdiv,
-  required double? voffset,
-  required double trdl,
-  required double timebase,
-  required double sampleRate,
-  required int triggerPosition,
-}) {
-  if (rawData == null || vdiv == null || voffset == null || rawData.isEmpty)
-    return null;
-  final voltages = WaveformConverter.convertVoltages(rawData, vdiv, voffset);
-  final times = WaveformConverter.computeTimeAxis(
-    voltages.length,
-    trdl,
-    timebase,
-    sampleRate,
-    triggerPosition: triggerPosition,
-  );
-  final combined = WaveformConverter.combine(times, voltages);
-  // Downsample to 50% by taking every 2nd point
-  final downsampled = <(double, double)>[
-    for (var i = 0; i < combined.length; i += 2) combined[i],
-  ];
-  return WaveformData(points: downsampled);
-}
-
-(WaveformData?, WaveformData?, DeviceParams) _convertRawData(
-  WaveformRawData raw,
-) {
-  final ch1 = _convertChannel(
-    rawData: raw.ch1Raw,
-    vdiv: raw.vdivCh1,
-    voffset: raw.voffsetCh1,
-    trdl: raw.trdl,
-    timebase: raw.timebase,
-    sampleRate: raw.sampleRate,
-    triggerPosition: raw.triggerPosition,
-  );
-  final ch2 = _convertChannel(
-    rawData: raw.ch2Raw,
-    vdiv: raw.vdivCh2,
-    voffset: raw.voffsetCh2,
-    trdl: raw.trdl,
-    timebase: raw.timebase,
-    sampleRate: raw.sampleRate,
-    triggerPosition: raw.triggerPosition,
-  );
-
-  final params = DeviceParams(
-    vdivCh1: raw.vdivCh1,
-    voffsetCh1: raw.voffsetCh1,
-    vdivCh2: raw.vdivCh2,
-    voffsetCh2: raw.voffsetCh2,
-    timebase: raw.timebase,
-    trdl: raw.trdl,
-    sampleRate: raw.sampleRate,
-  );
-
-  return (ch1, ch2, params);
-}
-
-/// Parses a waveform CSV file content and returns (ch1Points, ch2Points).
-/// Returns null if the CSV is unparseable or has no data rows.
-///
-/// The CSV format is:
-///   # comment lines (ignored)
-///   Time (s),CH1 (V),CH2 (V)
-///   0,0.16,1.24
-///   0.000000002,-1.12,1.20
-///
-/// Both channels may be present, one may be empty, or one may be missing.
-(List<(double, double)>?, List<(double, double)>?) _parseWaveformCsv(
-  String content,
-) {
-  final lines = content.split('\n');
-  List<(double, double)>? ch1;
-  List<(double, double)>? ch2;
-
-  bool inData = false;
-  for (final line in lines) {
-    final trimmed = line.trim();
-    if (trimmed.isEmpty || trimmed.startsWith('#')) continue;
-    if (!inData) {
-      // Validate the CSV header exactly matches the expected format.
-      if (trimmed == 'Time (s),CH1 (V),CH2 (V)') {
-        inData = true;
-        ch1 = [];
-        ch2 = [];
-      } else if (trimmed.contains(',') &&
-          (trimmed.toLowerCase().contains('time') ||
-              trimmed.toLowerCase().contains('ch1') ||
-              trimmed.toLowerCase().contains('ch2'))) {
-        // Looks like a header row but doesn't match — reject the file.
-        return (null, null);
-      }
-      continue;
-    }
-
-    final parts = trimmed.split(',');
-    if (parts.length < 3) continue;
-
-    final time = double.tryParse(parts[0].trim());
-    if (time == null) continue;
-
-    final ch1Str = parts[1].trim();
-    final ch2Str = parts[2].trim();
-
-    if (ch1Str.isNotEmpty) {
-      final v = double.tryParse(ch1Str);
-      if (v != null) ch1?.add((time, v));
-    }
-    if (ch2Str.isNotEmpty) {
-      final v = double.tryParse(ch2Str);
-      if (v != null) ch2?.add((time, v));
-    }
-  }
-
-  // Return null lists as null so caller knows they're unavailable
-  final hasCh1 = ch1 != null && ch1.isNotEmpty;
-  final hasCh2 = ch2 != null && ch2.isNotEmpty;
-  if (!hasCh1 && !hasCh2) return (null, null);
-  return (hasCh1 ? ch1 : null, hasCh2 ? ch2 : null);
-}
-
-/// A simple dialog that lists CSV waveform files and lets the user pick one.
-class _ReferenceFilePickerDialog extends StatelessWidget {
-  final List<File> files;
-  const _ReferenceFilePickerDialog({required this.files});
-
-  @override
-  Widget build(BuildContext context) {
-    return SimpleDialog(
-      title: const Text('Select Waveform CSV'),
-      children: files.map((file) {
-        final name = file.uri.pathSegments.last;
-        return SimpleDialogOption(
-          onPressed: () => Navigator.pop(context, file.path),
-          child: Text(name, style: const TextStyle(fontSize: 13)),
-        );
-      }).toList(),
-    );
-  }
-}
-
-/// A dialog that prompts for a filename prefix with validation.
-///
-/// Only allows [a-zA-Z0-9_-], max 30 characters.
-/// Returns the entered prefix on confirm, or null on cancel.
-class _FilenamePrefixDialog extends StatefulWidget {
-  const _FilenamePrefixDialog();
-
-  @override
-  State<_FilenamePrefixDialog> createState() => _FilenamePrefixDialogState();
-}
-
-class _FilenamePrefixDialogState extends State<_FilenamePrefixDialog> {
-  late final TextEditingController _controller;
-  String? _errorText;
-
-  static final _validChars = RegExp(r'^[a-zA-Z0-9_-]*$');
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = TextEditingController();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  void _onSubmit() {
-    final text = _controller.text.trim();
-    if (text.isEmpty) {
-      setState(() => _errorText = 'Prefix cannot be empty');
-      return;
-    }
-    if (text.length > 30) {
-      setState(() => _errorText = 'Max 30 characters allowed');
-      return;
-    }
-    if (!_validChars.hasMatch(text)) {
-      setState(
-        () => _errorText = 'Only a-z, A-Z, 0-9, underscore and hyphen allowed',
-      );
-      return;
-    }
-    Navigator.pop(context, text);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Filename Prefix'),
-      content: TextField(
-        controller: _controller,
-        decoration: InputDecoration(
-          hintText: 'e.g. lab_measurement_1',
-          errorText: _errorText,
-        ),
-        autofocus: true,
-        onSubmitted: (_) => _onSubmit(),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(onPressed: _onSubmit, child: const Text('Save')),
-      ],
-    );
-  }
-}
-
-/// Actions the user can take when closing with unsaved macro changes.
-enum _UnsavedMacroAction { save, discard }
-
-/// A dialog shown when the user tries to close the app while a macro has
-/// unsaved changes, prompting them to save, discard, or cancel.
-class _UnsavedChangesDialog extends StatelessWidget {
-  const _UnsavedChangesDialog();
-
-  @override
-  Widget build(BuildContext context) {
-    return AlertDialog(
-      title: const Text('Unsaved Macro Changes'),
-      content: const Text(
-        'The current macro has unsaved changes.\n'
-        'Do you want to save before closing?',
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.pop(context, _UnsavedMacroAction.discard),
-          child: const Text('Discard'),
-        ),
-        TextButton(
-          onPressed: () => Navigator.pop(context),
-          child: const Text('Cancel'),
-        ),
-        ElevatedButton(
-          onPressed: () => Navigator.pop(context, _UnsavedMacroAction.save),
-          child: const Text('Save'),
-        ),
-      ],
-    );
-  }
-}
 
 // ===========================================================================
 // Application Entry Point
@@ -764,20 +342,20 @@ class _OsciHomePageState extends State<OsciHomePage>
   void onWindowClose() async {
     // If a macro has unsaved changes, prompt the user before closing.
     if (_isMacroModified) {
-      final action = await showDialog<_UnsavedMacroAction>(
+      final action = await showDialog<UnsavedMacroAction>(
         context: context,
         barrierDismissible: false,
-        builder: (ctx) => const _UnsavedChangesDialog(),
+        builder: (ctx) => const UnsavedChangesDialog(),
       );
 
       switch (action) {
-        case _UnsavedMacroAction.save:
+        case UnsavedMacroAction.save:
           await _saveMacro();
           // If the save was cancelled (e.g. filename dialog dismissed),
           // abort the close.
           if (_isMacroModified) return;
           break;
-        case _UnsavedMacroAction.discard:
+        case UnsavedMacroAction.discard:
           break;
         case null:
           // User cancelled — keep the app open.
@@ -1033,7 +611,7 @@ class _OsciHomePageState extends State<OsciHomePage>
               alignment: Alignment.centerLeft,
               child: Row(
                 children: [
-                  _OsciToolbarButton(
+                  OsciToolbarButton(
                     label: _isAcquiring ? "Acquiring..." : "Control Panel",
                     icon: _isAcquiring
                         ? const SizedBox(
@@ -1049,7 +627,7 @@ class _OsciHomePageState extends State<OsciHomePage>
                         : _acquireScreenDump,
                   ),
                   const SizedBox(width: 16),
-                  _OsciToolbarButton(
+                  OsciToolbarButton(
                     label: _isAcquiringWaveform
                         ? "Acquiring..."
                         : "Acquire Waveform",
@@ -1068,7 +646,7 @@ class _OsciHomePageState extends State<OsciHomePage>
                         : _acquireWaveform,
                   ),
                   const SizedBox(width: 16),
-                  _OsciToolbarButton(
+                  OsciToolbarButton(
                     label: "AI",
                     icon: const Icon(Icons.auto_awesome, size: 25),
                     onPressed: (_isAiEnabled && !_isMacroPlaying)
@@ -1076,7 +654,7 @@ class _OsciHomePageState extends State<OsciHomePage>
                         : null,
                   ),
                   const SizedBox(width: 16),
-                  _OsciToolbarButton(
+                  OsciToolbarButton(
                     label: "Profiles",
                     icon: const Icon(Icons.save, size: 25),
                     onPressed: (_isOnline && !_isMacroPlaying)
@@ -1084,7 +662,7 @@ class _OsciHomePageState extends State<OsciHomePage>
                         : null,
                   ),
                   const SizedBox(width: 16),
-                  _OsciToolbarButton(
+                  OsciToolbarButton(
                     label: "Data Logger",
                     icon: _buildDlButtonIcon(),
                     onPressed: (_isOnline && !_isMacroPlaying)
@@ -1092,7 +670,7 @@ class _OsciHomePageState extends State<OsciHomePage>
                         : null,
                   ),
                   const SizedBox(width: 16),
-                  _OsciToolbarButton(
+                  OsciToolbarButton(
                     label: _isMacroPlaying
                         ? "Playback"
                         : (_isMacroRecording
@@ -1119,7 +697,7 @@ class _OsciHomePageState extends State<OsciHomePage>
               ),
             ),
           ),
-          _OsciToolbarButton(
+          OsciToolbarButton(
             label: "Help",
             icon: const Icon(Icons.help_outline, size: 25),
             onPressed: _isMacroPlaying
@@ -1582,7 +1160,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     // No loaded filename — ask for a name via the prefix dialog.
     final name = await showDialog<String>(
       context: context,
-      builder: (_) => const _FilenamePrefixDialog(),
+      builder: (_) => const FilenamePrefixDialog(),
     );
     if (name == null || name.trim().isEmpty) return;
 
@@ -2095,7 +1673,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       setState(() => _isOnline = true);
       final data = await instr.getScreenDump();
 
-      final processedData = await compute(_processScreenDump, data);
+      final processedData = await compute(processScreenDump, data);
 
       if (mounted) {
         setState(() {
@@ -2148,7 +1726,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       // Dart's isolate serialization does not support record types
       // ((double, double) pairs) — they get silently truncated to ~726 points
       // instead of the full 1201 points sent by the scope (WFSU NP=1201).
-      final result = _convertRawData(raw);
+      final result = convertRawData(raw);
 
       setState(() {
         _waveformCh1 = result.$1;
@@ -2216,7 +1794,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     if (!mounted) return null;
     return showDialog<String>(
       context: context,
-      builder: (_) => const _FilenamePrefixDialog(),
+      builder: (_) => const FilenamePrefixDialog(),
     );
   }
 
@@ -2972,46 +2550,15 @@ class _OsciHomePageState extends State<OsciHomePage>
   // Button Operations (generic handler)
   // =========================================================================
 
-  /// Maps button labels to their SCPI command strings.
-  static const Map<String, String> _buttonCommands = {
-    // Menu buttons
-    'Cursors': '\$\$SY_FP 22,1',
-    'Acquire': '\$\$SY_FP 27,1',
-    'Save/Recall': '\$\$SY_FP 28,1',
-    'Measure': '\$\$SY_FP 26,1',
-    'Clear Sweeps': '\$\$SY_FP 47,1',
-    'Utility': '\$\$SY_FP 24,1',
-    'Default': '\$\$SY_FP 13,1',
-    'Display/Persist': '\$\$SY_FP 23,1',
-    'Print': '\$\$SY_FP 25,1',
-    // Vertical buttons
-    'Math': '\$\$SY_FP 31,1',
-    'Ref': '\$\$SY_FP 32,1',
-    'History': '\$\$SY_FP 48,1',
-    'Decode': '\$\$SY_FP 29,1',
-    'Run/Stop': '\$\$SY_FP 12,1',
-    'Auto\nSetup': '\$\$SY_FP 11,1',
-    // Horizontal buttons
-    'Roll': '\$\$SY_FP 49,1',
-    // Trigger buttons
-    'Setup': '\$\$SY_FP 18,1',
-    'Auto': '\$\$SY_FP 17,1',
-    'Normal': '\$\$SY_FP 19,1',
-    'Single': '\$\$SY_FP 20,1',
-    // Channel
-    'CH1': '\$\$SY_FP 39,1',
-    'CH2': '\$\$SY_FP 40,1',
-  };
-
   /// Generic handler for any button press (menu, vertical, horizontal, trigger, channel).
-  /// Looks up the SCPI command from [_buttonCommands] and sends it.
+  /// Looks up the SCPI command from [buttonCommands] and sends it.
   Future<void> _handleButtonPress(String buttonLabel) async {
     if (_isProcessingEvent || !_isOnline) return;
 
     _isProcessingEvent = true;
     if (mounted) setState(() {});
     try {
-      final command = _buttonCommands[buttonLabel];
+      final command = buttonCommands[buttonLabel];
       if (command == null) {
         AppLogger().log('Button "$buttonLabel" not implemented yet');
         if (mounted) {
@@ -3216,14 +2763,14 @@ class _OsciHomePageState extends State<OsciHomePage>
     if (!mounted) return;
     final selected = await showDialog<String>(
       context: context,
-      builder: (ctx) => _ReferenceFilePickerDialog(files: files),
+      builder: (ctx) => ReferenceFilePickerDialog(files: files),
     );
     if (selected == null || !mounted) return;
 
     try {
       final file = File(selected);
       final content = await file.readAsString();
-      final (ch1Points, ch2Points) = _parseWaveformCsv(content);
+      final (ch1Points, ch2Points) = parseWaveformCsv(content);
       if (ch1Points == null && ch2Points == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
