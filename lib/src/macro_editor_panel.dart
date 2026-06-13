@@ -54,9 +54,7 @@ class MacroEditorPanel extends StatefulWidget {
 
 class _MacroEditorPanelState extends State<MacroEditorPanel> {
   late final MacroLintController _controller;
-  final ScrollController _gutterScrollController = ScrollController();
   final ScrollController _editorScrollController = ScrollController();
-  bool _isSyncing = false;
   bool _inProgrammaticEdit = false;
   String _lastNotifiedText = '';
   TextEditingValue _lastKnownValue = TextEditingValue.empty;
@@ -66,6 +64,37 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
 
   static const double _lineHeight = 13.0 * 1.5; // fontSize * height
   static const Duration _lintDelay = Duration(milliseconds: 300);
+
+  /// Pre-computed line metrics measured by running the editor's text
+  /// through the same [TextPainter] configuration that [RenderEditable]
+  /// uses internally.  The gutter painter uses these for pixel-perfect
+  /// alignment instead of guessing with a simple formula.
+  List<LineMetrics>? _lineMetrics;
+
+  /// The distance from the top of a single-line gutter [TextPainter] to
+  /// its alphabetic baseline, measured once and cached.
+  double _gutterBaselineOffset = 0;
+
+  // Text styles used by both the editor TextField and the gutter painter.
+  // Must be kept identical so line metrics match exactly.
+  static const _editorTextStyle = TextStyle(
+    color: Colors.white,
+    fontSize: 13,
+    fontFamily: 'monospace',
+    height: 1.5,
+  );
+  static const _gutterNormalStyle = TextStyle(
+    color: Colors.white38,
+    fontSize: 13,
+    fontFamily: 'monospace',
+    height: 1.5,
+  );
+  static const _gutterErrorStyle = TextStyle(
+    color: Colors.red,
+    fontSize: 13,
+    fontFamily: 'monospace',
+    height: 1.5,
+  );
 
   @override
   void initState() {
@@ -77,16 +106,24 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     _controller.addListener(_onLintRequired);
     _updateLineCount();
 
+    // Cache the baseline offset of the gutter text so we can align
+    // its baseline with the editor's text baseline pixel-for-pixel.
+    final sample = TextPainter(
+      text: const TextSpan(text: '0', style: _gutterNormalStyle),
+      textDirection: TextDirection.ltr,
+    );
+    sample.layout();
+    _gutterBaselineOffset =
+        sample.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+
     // Defer the initial lint pass to after the first frame so that the
     // onContentChanged callback (which may call setState on a parent widget)
     // does not trigger during the build phase.
     WidgetsBinding.instance.addPostFrameCallback((_) => _scheduleLint());
 
-    // Sync the gutter scroll to follow the editor scroll.
-    _editorScrollController.addListener(_onEditorScroll);
-
-    // Sync the editor scroll to follow the gutter scroll.
-    _gutterScrollController.addListener(_onGutterScroll);
+    // Repaint the gutter whenever the editor scrolls so line numbers
+    // stay perfectly aligned with the text.
+    _editorScrollController.addListener(_onUserScrolled);
 
     // Register a global hardware-key handler to intercept Ctrl+D
     // before EditableText's internal shortcut (DeleteForwardCharacterIntent
@@ -101,9 +138,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     _controller.removeListener(_onTextChanged);
     _controller.removeListener(_onLintRequired);
     _controller.dispose();
-    _gutterScrollController.removeListener(_onGutterScroll);
-    _editorScrollController.removeListener(_onEditorScroll);
-    _gutterScrollController.dispose();
+    _editorScrollController.removeListener(_onUserScrolled);
     _editorScrollController.dispose();
     super.dispose();
   }
@@ -151,49 +186,26 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     return false;
   }
 
-  void _onEditorScroll() {
-    if (!_isSyncing && _gutterScrollController.hasClients) {
-      _isSyncing = true;
-      final offset = _editorScrollController.offset;
-      _gutterScrollController.jumpTo(
-        offset.clamp(0.0, _gutterScrollController.position.maxScrollExtent),
-      );
-      _isSyncing = false;
-    }
+  /// Called whenever the editor scrolls (user scroll, cursor movement,
+  /// programmatic jump, etc.).  Triggers a repaint of the gutter so line
+  /// numbers stay pixel-aligned with the corresponding text lines.
+  void _onUserScrolled() {
+    if (mounted) setState(() {});
   }
 
-  /// Scrolls the editor and gutter to the top of the document.
+  /// Scrolls the editor to the top of the document.
   void _scrollToTop() {
     if (_editorScrollController.hasClients) {
       _editorScrollController.jumpTo(0);
     }
-    if (_gutterScrollController.hasClients) {
-      _gutterScrollController.jumpTo(0);
-    }
   }
 
-  /// Scrolls the editor and gutter to the bottom of the document.
+  /// Scrolls the editor to the bottom of the document.
   void _scrollToBottom() {
     if (_editorScrollController.hasClients) {
       _editorScrollController.jumpTo(
         _editorScrollController.position.maxScrollExtent,
       );
-    }
-    if (_gutterScrollController.hasClients) {
-      _gutterScrollController.jumpTo(
-        _gutterScrollController.position.maxScrollExtent,
-      );
-    }
-  }
-
-  void _onGutterScroll() {
-    if (!_isSyncing && _editorScrollController.hasClients) {
-      _isSyncing = true;
-      final offset = _gutterScrollController.offset;
-      _editorScrollController.jumpTo(
-        offset.clamp(0.0, _editorScrollController.position.maxScrollExtent),
-      );
-      _isSyncing = false;
     }
   }
 
@@ -246,6 +258,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     final errors = lintMacro(_controller.text);
     _controller.updateErrors(errors);
     _errorLines = errors.map((e) => e.line).toSet();
+    _updateLineMetrics();
     if (!mounted) return;
     final savedOffset = _editorScrollController.hasClients
         ? _editorScrollController.offset
@@ -258,6 +271,22 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
         }
       });
     }
+  }
+
+  /// Measures exact line positions by running the editor text through
+  /// a [TextPainter] configured identically to [RenderEditable].
+  ///
+  /// The [TextField] (via [RenderEditable]) does not set an explicit
+  /// [TextHeightBehavior], which means both [applyHeightToFirstAscent]
+  /// and [applyHeightToLastDescent] default to `false`.  We must
+  /// replicate that here so the measured baselines match the editor.
+  void _updateLineMetrics() {
+    final tp = TextPainter(
+      text: TextSpan(text: _controller.text, style: _editorTextStyle),
+      textDirection: TextDirection.ltr,
+    );
+    tp.layout(maxWidth: double.infinity);
+    _lineMetrics = tp.computeLineMetrics();
   }
 
   void _updateLineCount() {
@@ -727,9 +756,19 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     );
   }
 
+  // ── Scroll-offset helper for the gutter painter ──────────────────────
+
+  /// The current scroll offset of the editor, or 0 if not yet laid out.
+  double get _scrollOffset {
+    return _editorScrollController.hasClients
+        ? _editorScrollController.offset
+        : 0.0;
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Calculate gutter width based on digit count (min 32, add 8 per extra digit beyond 2)
+    // Calculate gutter width based on digit count (min 32, add 8 per extra
+    // digit beyond 2).
     final gutterWidth = 32.0 + (_lineCount.toString().length - 1) * 8.0;
 
     return Container(
@@ -824,34 +863,34 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Line number gutter
+                    // ── Line number gutter ────────────────────────────
+                    // Rendered via CustomPaint that uses the SAME scroll
+                    // offset and line-height formula as the TextField,
+                    // guaranteeing pixel-perfect alignment at any depth.
                     Container(
                       width: gutterWidth,
                       color: const Color(0xFF080808),
-                      padding: const EdgeInsets.only(top: 12, right: 8),
-                      child: ListView.builder(
-                        controller: _gutterScrollController,
-                        itemCount: _lineCount,
-                        itemExtent: _lineHeight,
-                        itemBuilder: (context, index) {
-                          final lineNum = index + 1;
-                          final hasError = _errorLines.contains(lineNum);
-                          return Text(
-                            '${index + 1}',
-                            textAlign: TextAlign.right,
-                            style: TextStyle(
-                              color: hasError ? Colors.red : Colors.white38,
-                              fontSize: 13,
-                              fontFamily: 'monospace',
-                              height: 1.5,
-                            ),
-                          );
-                        },
+                      child: ClipRect(
+                        child: CustomPaint(
+                          painter: _GutterPainter(
+                            lineCount: _lineCount,
+                            errorLines: _errorLines,
+                            lineMetrics: _lineMetrics,
+                            gutterBaselineOffset: _gutterBaselineOffset,
+                            topPadding: 12.0,
+                            scrollOffset: _scrollOffset,
+                            normalStyle: _gutterNormalStyle,
+                            errorStyle: _gutterErrorStyle,
+                            gutterWidth: gutterWidth,
+                            rightPadding: 8.0,
+                          ),
+                          size: Size.infinite,
+                        ),
                       ),
                     ),
                     // Vertical divider
                     Container(width: 1, color: const Color(0xFF2A3A5A)),
-                    // Text field
+                    // ── Text field ────────────────────────────────────
                     Expanded(
                       child: Focus(
                         onKeyEvent: _onKeyEvent,
@@ -861,12 +900,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                           maxLines: null,
                           minLines: null,
                           textAlignVertical: TextAlignVertical.top,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                            fontFamily: 'monospace',
-                            height: 1.5,
-                          ),
+                          style: _editorTextStyle,
                           decoration: const InputDecoration(
                             hintText: 'Enter macro commands...',
                             hintStyle: TextStyle(
@@ -876,7 +910,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                             border: InputBorder.none,
                             contentPadding: EdgeInsets.only(
                               left: 8,
-                              top: 12,
+                              top: 18,
                               right: 12,
                               bottom: 12,
                             ),
@@ -921,5 +955,103 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
         ],
       ),
     );
+  }
+}
+
+// ============================================================================
+// Gutter painter
+// ============================================================================
+
+/// Paints line numbers in the editor gutter.
+///
+/// Uses [TextPainter] with the same [TextStyle] as the editor so that line
+/// metrics (ascent, descent, line-height) match exactly.  Line positions are
+/// computed from the editor's scroll offset using the identical formula that
+/// the [TextField]'s [RenderEditable] uses internally:
+///
+///   y = topPadding + lineIndex * lineHeight - scrollOffset
+///
+/// Because both the editor and this painter share the same scroll controller,
+/// layout constants, and text styles, alignment is guaranteed at any scroll
+/// position regardless of document length.
+class _GutterPainter extends CustomPainter {
+  final int lineCount;
+  final Set<int> errorLines;
+  final List<LineMetrics>? lineMetrics;
+  final double gutterBaselineOffset;
+  final double topPadding;
+  final double scrollOffset;
+  final TextStyle normalStyle;
+  final TextStyle errorStyle;
+  final double gutterWidth;
+  final double rightPadding;
+
+  _GutterPainter({
+    required this.lineCount,
+    required this.errorLines,
+    required this.lineMetrics,
+    required this.gutterBaselineOffset,
+    required this.topPadding,
+    required this.scrollOffset,
+    required this.normalStyle,
+    required this.errorStyle,
+    required this.gutterWidth,
+    required this.rightPadding,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (lineCount == 0) return;
+    final metrics = lineMetrics;
+    if (metrics == null) return;
+
+    // Cull: determine which lines intersect the visible viewport.
+    const double approxLineHeight = 19.5;
+    final double visibleTop = scrollOffset - topPadding;
+    final double visibleBottom = visibleTop + size.height;
+    final int firstVisible =
+        (visibleTop / approxLineHeight).floor().clamp(0, lineCount - 1);
+    final int lastVisible =
+        (visibleBottom / approxLineHeight).ceil().clamp(0, lineCount - 1);
+    final int lastMetric = metrics.length - 1;
+
+    final double textAreaWidth = gutterWidth - rightPadding;
+
+    for (int i = firstVisible; i <= lastVisible; i++) {
+      final int metricIdx = i.clamp(0, lastMetric);
+
+      // Align the gutter text's alphabetic baseline with the editor's
+      // text baseline.  [LineMetrics.baseline] is the baseline position
+      // relative to the paragraph top (content-padding top in the editor).
+      final double y = topPadding +
+          metrics[metricIdx].baseline -
+          scrollOffset -
+          gutterBaselineOffset;
+
+      // Quick cull: skip lines clearly outside the viewport.
+      if (y + gutterBaselineOffset < 0 || y > size.height) continue;
+
+      final bool isError = errorLines.contains(i + 1);
+      final style = isError ? errorStyle : normalStyle;
+
+      final tp = TextPainter(
+        text: TextSpan(text: '${i + 1}', style: style),
+        textDirection: TextDirection.ltr,
+      );
+      tp.layout(maxWidth: textAreaWidth);
+
+      // Right-align the number within the gutter.
+      final double x = textAreaWidth - tp.width;
+      tp.paint(canvas, Offset(x, y));
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _GutterPainter oldDelegate) {
+    return scrollOffset != oldDelegate.scrollOffset ||
+        lineCount != oldDelegate.lineCount ||
+        errorLines != oldDelegate.errorLines ||
+        lineMetrics != oldDelegate.lineMetrics ||
+        gutterWidth != oldDelegate.gutterWidth;
   }
 }

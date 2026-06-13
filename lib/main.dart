@@ -1118,6 +1118,8 @@ class _OsciHomePageState extends State<OsciHomePage>
   void _onMacroEdit() {
     setState(() {
       _macroStatus = null;
+      _macroStatusMessage = null;
+      _macroHadPlaybackError = false;
       _showMacroEditor = true;
     });
   }
