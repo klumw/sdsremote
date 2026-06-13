@@ -52,6 +52,9 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   final ScrollController _gutterScrollController = ScrollController();
   final ScrollController _editorScrollController = ScrollController();
   bool _isSyncing = false;
+  bool _inProgrammaticEdit = false;
+  String _lastNotifiedText = '';
+  TextEditingValue _lastKnownValue = TextEditingValue.empty;
   int _lineCount = 1;
   Timer? _lintDebounce;
   Set<int> _errorLines = {};
@@ -62,7 +65,9 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   @override
   void initState() {
     super.initState();
+    _lastNotifiedText = widget.initialContent;
     _controller = MacroLintController(text: widget.initialContent);
+    _lastKnownValue = _controller.value;
     _controller.addListener(_onTextChanged);
     _controller.addListener(_onLintRequired);
     _updateLineCount();
@@ -99,14 +104,41 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   }
 
   bool _hardwareKeyHandler(KeyEvent event) {
-    if (event is KeyDownEvent &&
-        HardwareKeyboard.instance.isControlPressed &&
-        (event.logicalKey == LogicalKeyboardKey.keyD ||
-            event.logicalKey == LogicalKeyboardKey.keyX)) {
+    if (event is! KeyDownEvent) return false;
+    final ctrl = HardwareKeyboard.instance.isControlPressed;
+    if (!ctrl) return false;
+
+    // Ctrl + D / Ctrl + X: delete current line
+    if (event.logicalKey == LogicalKeyboardKey.keyD ||
+        event.logicalKey == LogicalKeyboardKey.keyX) {
       _deleteCurrentLine();
-      return true; // handled
+      return true;
     }
-    return false; // not handled
+    // Ctrl + /: toggle line comment
+    //
+    // On US keyboards the logical key is `slash`. On German (and many
+    // other non-US) layouts `/` is Shift+7, so the logical key may be
+    // `digit7` while Shift is held. We check both variants.
+    if (event.logicalKey == LogicalKeyboardKey.slash ||
+        (HardwareKeyboard.instance.isShiftPressed &&
+            event.logicalKey == LogicalKeyboardKey.digit7)) {
+      _toggleComment();
+      return true;
+    }
+    // Ctrl + Backspace / Ctrl + Delete: delete word left / right of
+    // cursor.  We match on physicalKey so the shortcut works regardless
+    // of keyboard layout (e.g. German "Rücktaste" / "Entf").
+    if (event.logicalKey == LogicalKeyboardKey.backspace ||
+        event.physicalKey == PhysicalKeyboardKey.backspace) {
+      _deleteWordLeft();
+      return true;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.delete ||
+        event.physicalKey == PhysicalKeyboardKey.delete) {
+      _deleteWordRight();
+      return true;
+    }
+    return false;
   }
 
   void _onEditorScroll() {
@@ -138,6 +170,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     // (e.g. after loading a different macro file).
     if (widget.initialContent != oldWidget.initialContent &&
         widget.initialContent != _controller.text) {
+      _lastNotifiedText = widget.initialContent;
       _controller.text = widget.initialContent;
       _updateLineCount();
     }
@@ -145,7 +178,24 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
 
   void _onTextChanged() {
     _updateLineCount();
-    widget.onContentChanged(_controller.text);
+    // Only notify the parent when the text actually changes, not for
+    // selection-only changes (e.g. focus gain, cursor placement).
+    final currentText = _controller.text;
+    if (currentText != _lastNotifiedText) {
+      // Push the previous state to the unified undo stack for regular
+      // typing edits so that Ctrl+Z can restore both text and cursor
+      // position.  Programmatic edits are pushed separately inside
+      // _applyProgrammaticEdit.
+      if (!_inProgrammaticEdit) {
+        _programmaticUndoStack.add(_lastKnownValue);
+      }
+      _lastNotifiedText = currentText;
+      widget.onContentChanged(currentText);
+    }
+    // Track the full controller value (text + selection) so that undo
+    // can restore the exact cursor position that was active before the
+    // most recent text change.
+    _lastKnownValue = _controller.value;
   }
 
   /// Debounced handler: called on every text change, re-parses after
@@ -162,50 +212,145 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     final errors = lintMacro(_controller.text);
     _controller.updateErrors(errors);
     _errorLines = errors.map((e) => e.line).toSet();
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final savedOffset = _editorScrollController.hasClients
+        ? _editorScrollController.offset
+        : null;
+    setState(() {});
+    if (savedOffset != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_editorScrollController.hasClients) {
+          _editorScrollController.jumpTo(savedOffset);
+        }
+      });
+    }
   }
 
   void _updateLineCount() {
     final lines = _controller.text.split('\n').length;
     if (lines != _lineCount) {
-      setState(() {
-        _lineCount = lines;
+      // Defer setState to the post-frame phase so that the cursor position
+      // is stable before a gutter-width change triggers a re-layout of the
+      // TextField.  Without this, Ctrl+Z (undo) causes the cursor to jump
+      // to the next line because setState runs synchronously inside the
+      // controller listener callback and the resulting layout shift moves
+      // the cursor's rendered position.
+      final savedOffset = _editorScrollController.hasClients
+          ? _editorScrollController.offset
+          : null;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        setState(() {
+          _lineCount = lines;
+        });
+        if (savedOffset != null && _editorScrollController.hasClients) {
+          _editorScrollController.jumpTo(savedOffset);
+        }
       });
     }
   }
 
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
-    if (event is KeyDownEvent) {
-      if (event.logicalKey == LogicalKeyboardKey.tab) {
+    if (event is! KeyDownEvent) return KeyEventResult.ignored;
+
+    final ctrl = HardwareKeyboard.instance.isControlPressed;
+    final shift = HardwareKeyboard.instance.isShiftPressed;
+
+    // Ctrl + Home: jump to document start
+    if (ctrl && event.logicalKey == LogicalKeyboardKey.home) {
+      _controller.selection = TextSelection.collapsed(offset: 0);
+      return KeyEventResult.handled;
+    }
+    // Ctrl + End: jump to document end
+    if (ctrl && event.logicalKey == LogicalKeyboardKey.end) {
+      _controller.selection =
+          TextSelection.collapsed(offset: _controller.text.length);
+      return KeyEventResult.handled;
+    }
+    // Home / Shift+Home: smart home (first non-space, then column 0 on
+    // second press). With Shift, extend the selection.
+    if (event.logicalKey == LogicalKeyboardKey.home) {
+      _moveToStartOfLine(extend: shift);
+      return KeyEventResult.handled;
+    }
+    // End / Shift+End: end of line. With Shift, extend the selection.
+    if (event.logicalKey == LogicalKeyboardKey.end) {
+      _moveToEndOfLine(extend: shift);
+      return KeyEventResult.handled;
+    }
+    // Tab / Shift+Tab: indent / outdent
+    if (event.logicalKey == LogicalKeyboardKey.tab) {
+      if (shift) {
+        _outdentLines();
+      } else {
         _insertTextAtCursor('  ');
-        return KeyEventResult.handled;
       }
-      if (event.logicalKey == LogicalKeyboardKey.end) {
-        _moveToEndOfLine();
-        return KeyEventResult.handled;
+      return KeyEventResult.handled;
+    }
+    // Ctrl + Backspace: delete word left of cursor.
+    // We match on physicalKey so the shortcut works regardless of
+    // keyboard layout (e.g. German "Rücktaste" / "Entf").
+    if (ctrl &&
+        (event.logicalKey == LogicalKeyboardKey.backspace ||
+            event.physicalKey == PhysicalKeyboardKey.backspace)) {
+      _deleteWordLeft();
+      return KeyEventResult.handled;
+    }
+    // Ctrl + Delete: delete word right of cursor.
+    if (ctrl &&
+        (event.logicalKey == LogicalKeyboardKey.delete ||
+            event.physicalKey == PhysicalKeyboardKey.delete)) {
+      _deleteWordRight();
+      return KeyEventResult.handled;
+    }
+    // Ctrl + Z: undo last edit (programmatic or regular typing).
+    // We handle ALL undo ourselves so that the unified undo stack
+    // always has correct cursor positions — Flutter's UndoHistory
+    // becomes stale after programmatic edits bypass it.
+    if (ctrl && event.logicalKey == LogicalKeyboardKey.keyZ) {
+      if (_programmaticUndoStack.isNotEmpty) {
+        _undoLastProgrammaticEdit();
       }
-      if (event.logicalKey == LogicalKeyboardKey.home) {
-        _moveToStartOfLine();
-        return KeyEventResult.handled;
-      }
+      return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
   }
 
   /// Moves the cursor to the end of the current line.
-  void _moveToEndOfLine() {
+  ///
+  /// When [extend] is true (Shift is held), the selection is extended from
+  /// the current [baseOffset] to the end-of-line position while keeping the
+  /// anchor at the original cursor position.
+  void _moveToEndOfLine({bool extend = false}) {
     final text = _controller.text;
-    final cursor = _controller.selection.baseOffset;
+    final sel = _controller.selection;
+    final cursor = sel.baseOffset;
     final lineEndIndex = text.indexOf('\n', cursor);
     final target = lineEndIndex == -1 ? text.length : lineEndIndex;
-    _controller.selection = TextSelection.collapsed(offset: target);
+
+    if (extend) {
+      // Anchor stays at the original baseOffset (where the selection
+      // started); the focus moves to the line end. If the selection is
+      // already non-collapsed, keep the existing anchor.
+      _controller.selection = TextSelection(
+        baseOffset: sel.baseOffset,
+        extentOffset: target,
+      );
+    } else {
+      _controller.selection = TextSelection.collapsed(offset: target);
+    }
   }
 
   /// Moves the cursor to the start of the current line (after leading
   /// whitespace when the cursor is already at column 0 of the line).
-  void _moveToStartOfLine() {
+  ///
+  /// When [extend] is true (Shift is held), the selection is extended from
+  /// the current [baseOffset] to the target position while keeping the
+  /// anchor at the original cursor position.
+  void _moveToStartOfLine({bool extend = false}) {
     final text = _controller.text;
-    final cursor = _controller.selection.baseOffset;
+    final sel = _controller.selection;
+    final cursor = sel.baseOffset;
     // Find the start of the current line.
     final lineStart =
         cursor > 0 ? text.lastIndexOf('\n', cursor - 1) + 1 : 0;
@@ -219,7 +364,261 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     // Otherwise go to the first non-space position.
     final target =
         (cursor == firstNonSpace) ? lineStart : firstNonSpace;
-    _controller.selection = TextSelection.collapsed(offset: target);
+
+    if (extend) {
+      // Anchor stays at the original baseOffset (where the selection
+      // started); the focus moves to the target. If the selection is
+      // already non-collapsed, keep the existing anchor.
+      _controller.selection = TextSelection(
+        baseOffset: sel.baseOffset,
+        extentOffset: target,
+      );
+    } else {
+      _controller.selection = TextSelection.collapsed(offset: target);
+    }
+  }
+
+  // ── Line-based operations ─────────────────────────────────────────────
+
+  /// Toggles the `#` comment character on each line that intersects the
+  /// current selection, or on the current cursor line when nothing is
+  /// selected.
+  void _toggleComment() {
+    final text = _controller.text;
+    final sel = _controller.selection;
+    final lines = _lineRange(text, sel.start, sel.end);
+    final buf = text.split('\n');
+
+    for (var i = lines.$1; i <= lines.$2; i++) {
+      final original = buf[i];
+      final trimmed = original.trimLeft();
+      if (trimmed.startsWith('#')) {
+        // Uncomment: remove `# ` (hash + space) when present, otherwise
+        // only the `#`.  Removing exactly two characters when a space
+        // follows the hash guarantees idempotent toggling.
+        final hashIdx = original.indexOf('#');
+        if (trimmed.startsWith('# ')) {
+          buf[i] =
+              '${original.substring(0, hashIdx)}${original.substring(hashIdx + 2)}';
+        } else {
+          buf[i] =
+              '${original.substring(0, hashIdx)}${original.substring(hashIdx + 1)}';
+        }
+      } else {
+        // Comment: prepend `# ` (hash + one space).  Together with the
+        // uncomment branch above this makes toggling idempotent — no
+        // spaces accumulate across repeated comment / uncomment cycles.
+        buf[i] = '# $original';
+      }
+    }
+
+    final newText = buf.join('\n');
+
+    // Recompute selection to span exactly the originally-affected lines
+    // in the new text.  Simple delta arithmetic (sel.start + delta) can
+    // undershoot when uncommenting (negative delta), bleeding the
+    // selection into the previous line.
+    final newBuf = newText.split('\n');
+    var charOffset = 0;
+    var newStart = newText.length;
+    var newEnd = 0;
+    for (var i = 0; i < newBuf.length; i++) {
+      if (i == lines.$1) newStart = charOffset;
+      if (i == lines.$2) newEnd = charOffset + newBuf[i].length;
+      charOffset += newBuf[i].length + 1; // +1 for the '\n' separator
+    }
+    _replaceText(newText, newStart: newStart, newEnd: newEnd);
+  }
+
+  /// Removes up to 2 leading spaces from each line that intersects the
+  /// current selection, or from the current cursor line when nothing is
+  /// selected.
+  void _outdentLines() {
+    final text = _controller.text;
+    final sel = _controller.selection;
+    final lines = _lineRange(text, sel.start, sel.end);
+    final buf = text.split('\n');
+
+    var delta = 0;
+    for (var i = lines.$1; i <= lines.$2; i++) {
+      final original = buf[i];
+      var removed = 0;
+      if (original.startsWith('  ')) {
+        buf[i] = original.substring(2);
+        removed = 2;
+      } else if (original.startsWith(' ')) {
+        buf[i] = original.substring(1);
+        removed = 1;
+      }
+      delta -= removed;
+    }
+
+    final newText = buf.join('\n');
+    _replaceText(newText,
+        newStart: (sel.start + delta).clamp(0, newText.length),
+        newEnd: (sel.end + delta).clamp(0, newText.length));
+  }
+
+  // ── Word-delete operations ────────────────────────────────────────────
+
+  /// Deletes the word to the left of the cursor (or the current selection).
+  void _deleteWordLeft() {
+    final text = _controller.text;
+    final sel = _controller.selection;
+    if (!sel.isCollapsed) {
+      _replaceText(
+        text.replaceRange(sel.start, sel.end, ''),
+        newStart: sel.start,
+        newEnd: sel.start,
+      );
+      return;
+    }
+    final boundary = _prevWordBoundary(text, sel.start);
+    _replaceText(
+      text.replaceRange(boundary, sel.start, ''),
+      newStart: boundary,
+      newEnd: boundary,
+    );
+  }
+
+  /// Deletes the word to the right of the cursor (or the current selection).
+  void _deleteWordRight() {
+    final text = _controller.text;
+    final sel = _controller.selection;
+    if (!sel.isCollapsed) {
+      _replaceText(
+        text.replaceRange(sel.start, sel.end, ''),
+        newStart: sel.start,
+        newEnd: sel.start,
+      );
+      return;
+    }
+    final boundary = _nextWordBoundary(text, sel.start);
+    _replaceText(
+      text.replaceRange(sel.start, boundary, ''),
+      newStart: sel.start,
+      newEnd: sel.start,
+    );
+  }
+
+  /// Returns the start offset of the word before [pos] in [text].
+  ///
+  /// Never crosses a `\n` line boundary; stops at the beginning of the
+  /// current line if the cursor is at the start of the line.
+  static int _prevWordBoundary(String text, int pos) {
+    // Clamp [pos] so we never look beyond the current line — if the
+    // cursor sits on a `\n` or at column 0 we have nothing to delete.
+    var i = pos;
+    if (i > 0 && text[i - 1] == '\n') return i; // at start of a line
+    // Find start of the current line (the `\n` before [pos], or 0).
+    final lineStart = i > 0 ? text.lastIndexOf('\n', i - 1) + 1 : 0;
+    // Skip trailing whitespace (spaces / tabs only, never `\n`).
+    while (i > lineStart &&
+        (text[i - 1] == ' ' || text[i - 1] == '\t')) {
+      i--;
+    }
+    // Skip word characters.
+    while (i > lineStart && _isWordChar(text[i - 1])) {
+      i--;
+    }
+    return i;
+  }
+
+  /// Returns the end offset of the word after [pos] in [text].
+  ///
+  /// Never crosses a `\n` line boundary; stops at the end of the
+  /// current line if the cursor is at the end of the line.
+  static int _nextWordBoundary(String text, int pos) {
+    final len = text.length;
+    // Find end of the current line (the next `\n`, or text length).
+    final lineEnd = text.indexOf('\n', pos);
+    final maxPos = lineEnd == -1 ? len : lineEnd;
+    var i = pos;
+    // Skip word characters (never cross `\n`).
+    while (i < maxPos && _isWordChar(text[i])) {
+      i++;
+    }
+    // Skip trailing whitespace (spaces / tabs only, never `\n`).
+    while (i < maxPos &&
+        (text[i] == ' ' || text[i] == '\t')) {
+      i++;
+    }
+    return i;
+  }
+
+  static bool _isWordChar(String ch) {
+    final code = ch.codeUnitAt(0);
+    return (code >= 65 && code <= 90) || // A-Z
+        (code >= 97 && code <= 122) || // a-z
+        (code >= 48 && code <= 57) || // 0-9
+        code == 95; // _
+  }
+
+  // ── Helpers ───────────────────────────────────────────────────────────
+
+  /// Returns the inclusive line range (start, end) covered by character
+  /// offsets [from] .. [to] in [text].
+  static (int, int) _lineRange(String text, int from, int to) {
+    int lineOf(int pos) {
+      if (pos <= 0) return 0;
+      final newlines = '\n'.allMatches(text.substring(0, pos));
+      return newlines.length;
+    }
+
+    // When there is no selection, use the cursor line.
+    if (from == to) return (lineOf(from), lineOf(from));
+
+    final startLine = lineOf(from);
+    final endLine = lineOf(to > 0 ? to - 1 : 0);
+    return (startLine, endLine);
+  }
+
+  /// A lightweight undo stack for programmatic edits that bypass
+  /// Flutter's [UndoHistory].  Each entry stores the controller value
+  /// before a programmatic edit so that Ctrl+Z can restore it.
+  final List<TextEditingValue> _programmaticUndoStack =
+      <TextEditingValue>[];
+
+  /// Applies [newValue] to the controller and records the previous state
+  /// in [_programmaticUndoStack] for manual undo handling.
+  ///
+  /// Flutter's [UndoHistory] does not update its internal snapshot for
+  /// selection-only changes, so programmatic text edits can push a stale
+  /// selection onto the platform undo stack.  We work around this by
+  /// maintaining our own undo history: before each edit we save the
+  /// current value, and Ctrl+Z pops from our stack first.
+  void _applyProgrammaticEdit(TextEditingValue newValue) {
+    if (_controller.value == newValue) return;
+
+    // Save the current state so Ctrl+Z can restore it with the correct
+    // text *and* selection.
+    _programmaticUndoStack.add(_controller.value);
+    _inProgrammaticEdit = true;
+    _controller.value = newValue;
+    _inProgrammaticEdit = false;
+  }
+
+  /// Handles Ctrl+Z (undo) by checking our own undo stack before letting
+  /// Flutter's native undo run.
+  void _undoLastProgrammaticEdit() {
+    if (_programmaticUndoStack.isEmpty) return;
+    final previousValue = _programmaticUndoStack.removeLast();
+    _inProgrammaticEdit = true;
+    _controller.value = previousValue;
+    _inProgrammaticEdit = false;
+  }
+
+  /// Replaces the entire text with [newText] and positions the selection
+  /// at the given offsets.
+  void _replaceText(String newText,
+      {required int newStart, required int newEnd}) {
+    _applyProgrammaticEdit(TextEditingValue(
+      text: newText,
+      selection: TextSelection(
+        baseOffset: newStart,
+        extentOffset: newEnd,
+      ),
+    ));
   }
 
   /// Deletes the line that currently contains the cursor.
@@ -266,10 +665,10 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
       newCursor = lineStart;
     }
 
-    _controller.value = TextEditingValue(
+    _applyProgrammaticEdit(TextEditingValue(
       text: text.replaceRange(removeStart, removeEnd, ''),
       selection: TextSelection.collapsed(offset: newCursor),
-    );
+    ));
   }
 
   void _insertTextAtCursor(String text) {
@@ -280,10 +679,10 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
       selection.end,
       text,
     );
-    _controller.value = TextEditingValue(
+    _applyProgrammaticEdit(TextEditingValue(
       text: newText,
       selection: TextSelection.collapsed(offset: selection.start + text.length),
-    );
+    ));
   }
 
   @override
@@ -374,7 +773,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
             child: Container(
               margin: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1A2A4A),
+                color: const Color(0xFF0D0D0D),
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.cyanAccent, width: 1.0),
               ),
@@ -386,7 +785,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                     // Line number gutter
                     Container(
                       width: gutterWidth,
-                      color: const Color(0xFF152238),
+                      color: const Color(0xFF080808),
                       padding: const EdgeInsets.only(top: 12, right: 8),
                       child: ListView.builder(
                         controller: _gutterScrollController,
@@ -455,7 +854,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
             child: Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF1E1E1E).withValues(alpha: 0.95),
+                color: const Color(0xFF0A192F),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: Colors.cyanAccent, width: 1.0),
               ),
