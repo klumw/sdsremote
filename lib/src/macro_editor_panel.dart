@@ -175,11 +175,51 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   }
 
   KeyEventResult _onKeyEvent(FocusNode node, KeyEvent event) {
-    if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.tab) {
-      _insertTextAtCursor('  ');
-      return KeyEventResult.handled;
+    if (event is KeyDownEvent) {
+      if (event.logicalKey == LogicalKeyboardKey.tab) {
+        _insertTextAtCursor('  ');
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.end) {
+        _moveToEndOfLine();
+        return KeyEventResult.handled;
+      }
+      if (event.logicalKey == LogicalKeyboardKey.home) {
+        _moveToStartOfLine();
+        return KeyEventResult.handled;
+      }
     }
     return KeyEventResult.ignored;
+  }
+
+  /// Moves the cursor to the end of the current line.
+  void _moveToEndOfLine() {
+    final text = _controller.text;
+    final cursor = _controller.selection.baseOffset;
+    final lineEndIndex = text.indexOf('\n', cursor);
+    final target = lineEndIndex == -1 ? text.length : lineEndIndex;
+    _controller.selection = TextSelection.collapsed(offset: target);
+  }
+
+  /// Moves the cursor to the start of the current line (after leading
+  /// whitespace when the cursor is already at column 0 of the line).
+  void _moveToStartOfLine() {
+    final text = _controller.text;
+    final cursor = _controller.selection.baseOffset;
+    // Find the start of the current line.
+    final lineStart =
+        cursor > 0 ? text.lastIndexOf('\n', cursor - 1) + 1 : 0;
+    // Find first non-whitespace character on this line.
+    var firstNonSpace = lineStart;
+    while (firstNonSpace < text.length &&
+        (text[firstNonSpace] == ' ' || text[firstNonSpace] == '\t')) {
+      firstNonSpace++;
+    }
+    // If cursor is already at the first non-space position, go to column 0.
+    // Otherwise go to the first non-space position.
+    final target =
+        (cursor == firstNonSpace) ? lineStart : firstNonSpace;
+    _controller.selection = TextSelection.collapsed(offset: target);
   }
 
   /// Deletes the line that currently contains the cursor.
