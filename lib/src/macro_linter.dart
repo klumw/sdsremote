@@ -13,6 +13,13 @@ import 'macro_lint_error.dart';
 List<MacroLintError> lintMacro(String source) {
   if (source.isEmpty) return [];
 
+  // Pre-scan for unclosed double-quoted string literals.  When petitparser
+  // backtracks on a missing closing `"`, the original position is lost and
+  // the top-level `end()` reports "end of input expected" at offset 0.
+  // Detecting unclosed strings before parsing gives precise line/column info.
+  final unclosed = _scanUnclosedStrings(source);
+  if (unclosed != null) return [unclosed];
+
   final parser = MacroGrammarDefinition().build();
   final result = parser.parse(source);
 
@@ -374,4 +381,38 @@ int _lineAtOffset(String source, int offset) {
     if (source[i] == '\n') line++;
   }
   return line;
+}
+
+/// Scans [source] line-by-line for an unclosed double-quoted string literal.
+///
+/// Since macro statements are line-oriented, a line with an odd number of
+/// `"` characters has an unclosed string.  The function returns a
+/// [MacroLintError] pointing at the first `"` on the first such line, or
+/// `null` when every line has balanced quotes.
+MacroLintError? _scanUnclosedStrings(String source) {
+  final lines = source.split('\n');
+  var offset = 0;
+  for (var lineNum = 0; lineNum < lines.length; lineNum++) {
+    final line = lines[lineNum];
+    var quoteCount = 0;
+    var firstQuoteCol = -1;
+    for (var col = 0; col < line.length; col++) {
+      if (line[col] == '"') {
+        if (firstQuoteCol < 0) firstQuoteCol = col;
+        quoteCount++;
+      }
+    }
+    if (quoteCount.isOdd && firstQuoteCol >= 0) {
+      final start = offset + firstQuoteCol;
+      final end = (start + 1 < source.length) ? start + 1 : source.length;
+      return MacroLintError(
+        message: 'Unclosed string literal (missing closing ")',
+        start: start,
+        end: end,
+        line: lineNum + 1,
+      );
+    }
+    offset += line.length + 1; // +1 for the '\n' split delimiter
+  }
+  return null;
 }
