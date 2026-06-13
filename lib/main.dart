@@ -229,7 +229,8 @@ WaveformData? _convertChannel({
   required double sampleRate,
   required int triggerPosition,
 }) {
-  if (rawData == null || vdiv == null || voffset == null || rawData.isEmpty) return null;
+  if (rawData == null || vdiv == null || voffset == null || rawData.isEmpty)
+    return null;
   final voltages = WaveformConverter.convertVoltages(rawData, vdiv, voffset);
   final times = WaveformConverter.computeTimeAxis(
     voltages.length,
@@ -869,20 +870,40 @@ class _OsciHomePageState extends State<OsciHomePage>
                                                 zoom: _zoomState,
                                                 dataTMin:
                                                     _waveformCh1 != null &&
-                                                            _waveformCh1!.points.isNotEmpty
-                                                        ? _waveformCh1!.points.first.$1
-                                                        : _waveformCh2 != null &&
-                                                                _waveformCh2!.points.isNotEmpty
-                                                            ? _waveformCh2!.points.first.$1
-                                                            : null,
+                                                        _waveformCh1!
+                                                            .points
+                                                            .isNotEmpty
+                                                    ? _waveformCh1!
+                                                          .points
+                                                          .first
+                                                          .$1
+                                                    : _waveformCh2 != null &&
+                                                          _waveformCh2!
+                                                              .points
+                                                              .isNotEmpty
+                                                    ? _waveformCh2!
+                                                          .points
+                                                          .first
+                                                          .$1
+                                                    : null,
                                                 dataTMax:
                                                     _waveformCh1 != null &&
-                                                            _waveformCh1!.points.isNotEmpty
-                                                        ? _waveformCh1!.points.last.$1
-                                                        : _waveformCh2 != null &&
-                                                                _waveformCh2!.points.isNotEmpty
-                                                            ? _waveformCh2!.points.last.$1
-                                                            : null,
+                                                        _waveformCh1!
+                                                            .points
+                                                            .isNotEmpty
+                                                    ? _waveformCh1!
+                                                          .points
+                                                          .last
+                                                          .$1
+                                                    : _waveformCh2 != null &&
+                                                          _waveformCh2!
+                                                              .points
+                                                              .isNotEmpty
+                                                    ? _waveformCh2!
+                                                          .points
+                                                          .last
+                                                          .$1
+                                                    : null,
                                               ),
                                               child: const SizedBox.expand(),
                                             ),
@@ -1506,7 +1527,6 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
   }
 
-
   void _onMacroPlay() {
     AppLogger().log('Macro play requested');
     setState(() => _macroStatus = null);
@@ -1597,6 +1617,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     // Fire-and-forget: the recorder-panel button expects a VoidCallback.
     _saveMacro();
   }
+
   Future<void> _onMacroLoad(String fileName) async {
     try {
       final dir = AppPaths.macrosDirectory;

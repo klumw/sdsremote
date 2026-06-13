@@ -259,7 +259,8 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
     // Yield a text fallback so the consumer receives SOMETHING even if the
     // model keeps making tool calls despite the error results.
     if (state.maxToolCallsTriggered) {
-      final message = 'Maximum tool calls (${state.maxToolCalls}) reached. '
+      final message =
+          'Maximum tool calls (${state.maxToolCalls}) reached. '
           'Please try rephrasing your request to be more specific.';
       _logger.info(
         'Max tool calls (${state.maxToolCalls}) already triggered; '
@@ -276,14 +277,12 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
       return;
     }
 
-    _logger.info(
-      'Executing ${toolCalls.length} tool calls: [$toolNames]',
-    );
+    _logger.info('Executing ${toolCalls.length} tool calls: [$toolNames]');
 
     // Phase 2: Check if these tool calls would exceed the limit.
     final maxCalls = state.maxToolCalls;
-    final wouldExceed = maxCalls != null &&
-        (state.toolCallCount + toolCalls.length) > maxCalls;
+    final wouldExceed =
+        maxCalls != null && (state.toolCallCount + toolCalls.length) > maxCalls;
 
     List<ToolPart> callsToExecute;
     List<ToolPart> callsToReject;
@@ -347,15 +346,19 @@ class DefaultStreamingOrchestrator implements StreamingOrchestrator {
     // processIteration call. The maxToolCallsTriggered flag prevents
     // infinite retry if the model keeps making tool calls.
     if (callsToReject.isNotEmpty) {
-      final errorParts = callsToReject.map((tc) => ToolPart.result(
-        callId: tc.callId,
-        toolName: tc.toolName,
-        result: jsonEncode({
-          'error':
-              'Maximum tool calls (${state.maxToolCalls}) reached. '
-              'Please respond with what you have so far.',
-        }),
-      )).toList();
+      final errorParts = callsToReject
+          .map(
+            (tc) => ToolPart.result(
+              callId: tc.callId,
+              toolName: tc.toolName,
+              result: jsonEncode({
+                'error':
+                    'Maximum tool calls (${state.maxToolCalls}) reached. '
+                    'Please respond with what you have so far.',
+              }),
+            ),
+          )
+          .toList();
 
       final errorMessage = ChatMessage(
         role: ChatMessageRole.user,

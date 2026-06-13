@@ -132,11 +132,11 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
                         if (refLabel != null) ...[
                           const SizedBox(width: 4),
                           _buildChannelStatus(
-                            label: refLabel!,
+                            label: refLabel,
                             enabled: refVisible,
                             activeColor: Colors.white54,
                             onTap: onRefToggled != null
-                                ? () => onRefToggled!(!refVisible)
+                                ? () => onRefToggled(!refVisible)
                                 : null,
                           ),
                         ],

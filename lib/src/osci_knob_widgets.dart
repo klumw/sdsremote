@@ -75,7 +75,10 @@ class _KnobWithDisplayState extends State<KnobWithDisplay> {
                       decoration: BoxDecoration(
                         color: const Color(0xFF1B2631),
                         borderRadius: BorderRadius.circular(4),
-                        border: Border.all(color: const Color(0xFF8BA9D1), width: 1),
+                        border: Border.all(
+                          color: const Color(0xFF8BA9D1),
+                          width: 1,
+                        ),
                         boxShadow: [
                           BoxShadow(
                             color: Colors.black.withValues(alpha: 0.3),
@@ -87,7 +90,8 @@ class _KnobWithDisplayState extends State<KnobWithDisplay> {
                       child: Center(
                         child: Text(
                           (widget.enabled
-                              ? ((_currentValue % 1.0).abs() * 100).toStringAsFixed(0)
+                              ? ((_currentValue % 1.0).abs() * 100)
+                                    .toStringAsFixed(0)
                               : "---"),
                           style: const TextStyle(
                             color: Colors.cyanAccent,
@@ -116,7 +120,7 @@ class _KnobWithDisplayState extends State<KnobWithDisplay> {
                 onPointerMove: (details) {
                   if (!_isPanning) return;
                   if (!widget.enabled) return;
-                  
+
                   double currentAngle = _getAngle(details.localPosition);
                   double delta = currentAngle - _lastAngle;
 

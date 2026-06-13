@@ -51,8 +51,7 @@ Tool<Map<String, dynamic>> createVxi11Tool({
         },
         'host': {
           'type': 'string',
-          'description':
-              'The IP address of the instrument. Defaults to $host.',
+          'description': 'The IP address of the instrument. Defaults to $host.',
         },
       },
       'required': ['operation', 'command'],
@@ -65,12 +64,12 @@ Tool<Map<String, dynamic>> createVxi11Tool({
       // Notify the macro recorder (if any) that a SCPI command is being sent.
       onScpiCommandSent?.call(command, operation);
 
-      final logger = AppLogger(
-        agentName: agentName,
-        toolName: 'vxi11',
-      );
+      final logger = AppLogger(agentName: agentName, toolName: 'vxi11');
 
-      final instrument = Vxi11Instrument(effectiveHost, sourceLabel: 'AI-tool($agentName)');
+      final instrument = Vxi11Instrument(
+        effectiveHost,
+        sourceLabel: 'AI-tool($agentName)',
+      );
 
       try {
         await instrument.open(timeoutSeconds: 10.0);

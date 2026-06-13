@@ -21,17 +21,18 @@ class VisaResource {
 
   static final RegExp _visaRegExp = RegExp(
     r'^([A-Za-z]+)(\d*)::' // interfaceType & boardIndex
-    r'([^\s:]+)::'         // manufacturerID
-    r'([^\s:]+)'           // modelCode
-    r'(?:::([^\s:]+))?'    // serialNumber (optional)
-    r'(?:::([^\s:]+))?'    // interfaceNumber (optional)
-    r'::([^\s:]+)$',       // resourceClass
+    r'([^\s:]+)::' // manufacturerID
+    r'([^\s:]+)' // modelCode
+    r'(?:::([^\s:]+))?' // serialNumber (optional)
+    r'(?:::([^\s:]+))?' // interfaceNumber (optional)
+    r'::([^\s:]+)$', // resourceClass
   );
 
   static VisaResource parse(String resourceString) {
     final match = _visaRegExp.firstMatch(resourceString);
     if (match == null) {
-      throw FormatException('visa: resource string did not match expected format');
+      throw FormatException(
+          'visa: resource string did not match expected format');
     }
 
     final interfaceType = match.group(1)!.toUpperCase();
@@ -53,9 +54,10 @@ class VisaResource {
     final serialNumber = match.group(5) ?? '';
 
     final interfaceIndexStr = match.group(6);
-    final interfaceIndex = interfaceIndexStr != null && interfaceIndexStr.isNotEmpty
-        ? int.parse(interfaceIndexStr)
-        : 0;
+    final interfaceIndex =
+        interfaceIndexStr != null && interfaceIndexStr.isNotEmpty
+            ? int.parse(interfaceIndexStr)
+            : 0;
 
     final resourceClass = match.group(7)!.toUpperCase();
     if (resourceClass != 'INSTR') {

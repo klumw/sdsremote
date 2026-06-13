@@ -50,10 +50,7 @@ class DataLoggerReport {
           pw.Center(
             child: pw.Text(
               'Data Logger Report',
-              style: pw.TextStyle(
-                fontSize: 24,
-                fontWeight: pw.FontWeight.bold,
-              ),
+              style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
             ),
           ),
 
@@ -62,9 +59,7 @@ class DataLoggerReport {
             pw.SizedBox(height: 8),
             pw.Text(
               'Report Name: ${config.description}',
-              style: const pw.TextStyle(
-                fontSize: 12,
-              ),
+              style: const pw.TextStyle(fontSize: 12),
             ),
           ],
           pw.SizedBox(height: 20),

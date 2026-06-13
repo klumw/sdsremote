@@ -4,7 +4,8 @@ import 'package:dartantic_interface/dartantic_interface.dart';
 import 'package:logging/logging.dart';
 import 'package:openai_dart/openai_dart.dart'
     hide ChatMessage, FinishReason, Tool;
-import 'package:openai_dart/openai_dart.dart' as oai
+import 'package:openai_dart/openai_dart.dart'
+    as oai
     show ChatMessage, Tool, AssistantMessage;
 
 import '../../shared/openai_utils.dart';

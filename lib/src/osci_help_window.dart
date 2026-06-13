@@ -80,8 +80,9 @@ class _HelpWindowState extends State<HelpWindow> {
           _matchOffsets = [];
           int searchStart = 0;
           while (searchStart < _manualContent.length) {
-            final match =
-                regex.firstMatch(_manualContent.substring(searchStart));
+            final match = regex.firstMatch(
+              _manualContent.substring(searchStart),
+            );
             if (match == null) break;
             _matchOffsets.add(searchStart + match.start);
             searchStart += match.end;
@@ -135,10 +136,12 @@ class _HelpWindowState extends State<HelpWindow> {
     // character count because markdown elements (headings, code blocks, etc.)
     // render at roughly one visual "block" per line.
     final offset = _matchOffsets[index];
-    final lineIndex =
-        '\n'.allMatches(_manualContent.substring(0, offset)).length;
-    final totalLines =
-        _manualContent.isEmpty ? 1 : '\n'.allMatches(_manualContent).length + 1;
+    final lineIndex = '\n'
+        .allMatches(_manualContent.substring(0, offset))
+        .length;
+    final totalLines = _manualContent.isEmpty
+        ? 1
+        : '\n'.allMatches(_manualContent).length + 1;
     final ratio = lineIndex / totalLines;
 
     if (_scrollController.hasClients) {
@@ -154,8 +157,7 @@ class _HelpWindowState extends State<HelpWindow> {
   void _goToNextMatch() {
     if (_matchOffsets.isEmpty) return;
     setState(() {
-      _currentMatchIndex =
-          (_currentMatchIndex + 1) % _matchOffsets.length;
+      _currentMatchIndex = (_currentMatchIndex + 1) % _matchOffsets.length;
     });
     _scheduleScrollToMatch(_currentMatchIndex);
   }
@@ -163,7 +165,8 @@ class _HelpWindowState extends State<HelpWindow> {
   void _goToPrevMatch() {
     if (_matchOffsets.isEmpty) return;
     setState(() {
-      _currentMatchIndex = (_currentMatchIndex - 1 + _matchOffsets.length) %
+      _currentMatchIndex =
+          (_currentMatchIndex - 1 + _matchOffsets.length) %
           _matchOffsets.length;
     });
     _scheduleScrollToMatch(_currentMatchIndex);
@@ -297,9 +300,7 @@ class _HelpWindowState extends State<HelpWindow> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          CircularProgressIndicator(
-                            color: Colors.cyanAccent,
-                          ),
+                          CircularProgressIndicator(color: Colors.cyanAccent),
                           SizedBox(height: 16),
                           Text(
                             'Loading...',
@@ -329,70 +330,73 @@ class _HelpWindowState extends State<HelpWindow> {
                             'pre': CodeBlockElementBuilder(),
                             'mark': MarkHighlightBuilder(),
                           },
-                          styleSheet: MarkdownStyleSheet.fromTheme(
-                                  Theme.of(context))
-                              .copyWith(
-                            p: const TextStyle(
-                                color: Colors.white, fontSize: 16),
-                            h1: const TextStyle(
-                              color: Colors.cyanAccent,
-                              fontSize: 28,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            h2: const TextStyle(
-                              color: Colors.cyanAccent,
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            h3: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                            ),
-                            code: TextStyle(
-                              backgroundColor: Colors.black54,
-                              color: Colors.greenAccent[100],
-                              fontFamily: 'Roboto Mono',
-                              fontFamilyFallback: const [
-                                'Consolas',
-                                'Courier New',
-                                'monospace'
-                              ],
-                            ),
-                            codeblockDecoration: const BoxDecoration(
-                              color: Colors.transparent,
-                            ),
-                            blockquote: const TextStyle(
-                              color: Colors.white70,
-                              fontSize: 15,
-                              fontStyle: FontStyle.italic,
-                            ),
-                            blockquoteDecoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.05),
-                              borderRadius: BorderRadius.circular(4),
-                              border: Border(
-                                left: BorderSide(
-                                  color: Colors.cyanAccent
-                                      .withValues(alpha: 0.6),
-                                  width: 3,
+                          styleSheet:
+                              MarkdownStyleSheet.fromTheme(
+                                Theme.of(context),
+                              ).copyWith(
+                                p: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 16,
                                 ),
+                                h1: const TextStyle(
+                                  color: Colors.cyanAccent,
+                                  fontSize: 28,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                h2: const TextStyle(
+                                  color: Colors.cyanAccent,
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                h3: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                                code: TextStyle(
+                                  backgroundColor: Colors.black54,
+                                  color: Colors.greenAccent[100],
+                                  fontFamily: 'Roboto Mono',
+                                  fontFamilyFallback: const [
+                                    'Consolas',
+                                    'Courier New',
+                                    'monospace',
+                                  ],
+                                ),
+                                codeblockDecoration: const BoxDecoration(
+                                  color: Colors.transparent,
+                                ),
+                                blockquote: const TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 15,
+                                  fontStyle: FontStyle.italic,
+                                ),
+                                blockquoteDecoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.05),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border(
+                                    left: BorderSide(
+                                      color: Colors.cyanAccent.withValues(
+                                        alpha: 0.6,
+                                      ),
+                                      width: 3,
+                                    ),
+                                  ),
+                                ),
+                                horizontalRuleDecoration: const BoxDecoration(
+                                  border: Border(
+                                    top: BorderSide(
+                                      color: Colors.white38,
+                                      width: 1.3,
+                                    ),
+                                    bottom: BorderSide(
+                                      color: Colors.black38,
+                                      width: 1.3,
+                                    ),
+                                  ),
+                                ),
+                                tableColumnWidth: const IntrinsicColumnWidth(),
                               ),
-                            ),
-                            horizontalRuleDecoration: const BoxDecoration(
-                              border: Border(
-                                top: BorderSide(
-                                  color: Colors.white38,
-                                  width: 1.3,
-                                ),
-                                bottom: BorderSide(
-                                  color: Colors.black38,
-                                  width: 1.3,
-                                ),
-                              ),
-                            ),
-                            tableColumnWidth:
-                                const IntrinsicColumnWidth(),
-                          ),
                         ),
                       ),
                     ),
@@ -460,7 +464,9 @@ class _HelpWindowState extends State<HelpWindow> {
                         borderSide: const BorderSide(color: Colors.cyanAccent),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 10, vertical: 8),
+                        horizontal: 10,
+                        vertical: 8,
+                      ),
                       isDense: true,
                       // Always render the clear button so the TextField's
                       // internal layout never changes — use opacity to hide
@@ -646,47 +652,49 @@ class CodeBlockElementBuilder extends MarkdownElementBuilder {
     // text content of fenced code blocks, otherwise an extra blank line is
     // rendered at the bottom of the code block.
     final text = element.textContent.replaceAll(RegExp(r'\n$'), '');
-    return Builder(builder: (context) {
-      return Container(
-        width: double.infinity,
-        decoration: BoxDecoration(
-          color: Colors.black54,
-          borderRadius: BorderRadius.circular(4),
-        ),
-        padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: SelectableText(
-                text,
-                style: TextStyle(
-                  color: Colors.greenAccent[100],
-                  fontFamily: 'Roboto Mono',
-                  fontFamilyFallback: const [
-                    'Consolas',
-                    'Courier New',
-                    'monospace'
-                  ],
-                  fontSize: 14,
+    return Builder(
+      builder: (context) {
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.black54,
+            borderRadius: BorderRadius.circular(4),
+          ),
+          padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(
+                child: SelectableText(
+                  text,
+                  style: TextStyle(
+                    color: Colors.greenAccent[100],
+                    fontFamily: 'Roboto Mono',
+                    fontFamilyFallback: const [
+                      'Consolas',
+                      'Courier New',
+                      'monospace',
+                    ],
+                    fontSize: 14,
+                  ),
                 ),
               ),
-            ),
-            GestureDetector(
-              onTap: () {
-                Clipboard.setData(ClipboardData(text: text));
-              },
-              child: MouseRegion(
-                cursor: SystemMouseCursors.click,
-                child: const Padding(
-                  padding: EdgeInsets.all(8),
-                  child: Icon(Icons.copy, size: 16, color: Colors.white70),
+              GestureDetector(
+                onTap: () {
+                  Clipboard.setData(ClipboardData(text: text));
+                },
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: const Padding(
+                    padding: EdgeInsets.all(8),
+                    child: Icon(Icons.copy, size: 16, color: Colors.white70),
+                  ),
                 ),
               ),
-            ),
-          ],
-        ),
-      );
-    });
+            ],
+          ),
+        );
+      },
+    );
   }
 }

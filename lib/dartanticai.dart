@@ -7,7 +7,7 @@
 /// to remote instruments.
 ///
 /// This library can be used in both console applications and Flutter apps.
-library ;
+library;
 
 export 'src/instrument_agent.dart';
 export 'src/frontend_agent.dart';

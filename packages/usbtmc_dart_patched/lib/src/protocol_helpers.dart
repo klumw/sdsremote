@@ -26,7 +26,7 @@ class UsbtmcProtocolHelpers {
   static Uint8List encodeBulkOutHeader(int tag, int transferSize, bool eom) {
     final header = Uint8List(12);
     final prefix = encodeBulkHeaderPrefix(tag, UsbtmcConstants.devDepMsgOut);
-    
+
     // Bytes 0-3: Prefix
     header.setRange(0, 4, prefix);
 
@@ -53,7 +53,8 @@ class UsbtmcProtocolHelpers {
     int termChar,
   ) {
     final header = Uint8List(12);
-    final prefix = encodeBulkHeaderPrefix(tag, UsbtmcConstants.requestDevDepMsgIn);
+    final prefix =
+        encodeBulkHeaderPrefix(tag, UsbtmcConstants.requestDevDepMsgIn);
 
     // Bytes 0-3: Prefix
     header.setRange(0, 4, prefix);

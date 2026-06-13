@@ -53,7 +53,16 @@ class DataLoggerDialog extends StatefulWidget {
 /// durations (1, 5, 10, 20 min) are easy to select, while longer ones
 /// use coarser granularity up to 24 hours.
 const List<int> _durationPresetsMinutes = [
-  1, 5, 10, 20, 30, 60, 120, 360, 720, 1440,
+  1,
+  5,
+  10,
+  20,
+  30,
+  60,
+  120,
+  360,
+  720,
+  1440,
 ];
 
 class _DataLoggerDialogState extends State<DataLoggerDialog> {
@@ -119,26 +128,27 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
   static const int _maxSelected = 5;
 
   /// True if at least one measurement is enabled and at most 5.
-  bool get _isValid =>
-      _selectedCount >= 1 && _selectedCount <= _maxSelected;
+  bool get _isValid => _selectedCount >= 1 && _selectedCount <= _maxSelected;
   int get _durationMinutes => _durationPresetsMinutes[_durationIndex];
 
   void _emitConfig() {
-    widget.onConfigChanged?.call(DataLoggerConfig(
-      ch1VppEnabled: _ch1VppEnabled,
-      ch1MeanEnabled: _ch1MeanEnabled,
-      ch1RmsEnabled: _ch1RmsEnabled,
-      ch1DutyEnabled: _ch1DutyEnabled,
-      ch1FreqEnabled: _ch1FreqEnabled,
-      ch2VppEnabled: _ch2VppEnabled,
-      ch2MeanEnabled: _ch2MeanEnabled,
-      ch2RmsEnabled: _ch2RmsEnabled,
-      ch2DutyEnabled: _ch2DutyEnabled,
-      ch2FreqEnabled: _ch2FreqEnabled,
-      intervalSeconds: _intervalSeconds.round(),
-      durationMinutes: _durationMinutes,
-      description: _descriptionController.text.trim(),
-    ));
+    widget.onConfigChanged?.call(
+      DataLoggerConfig(
+        ch1VppEnabled: _ch1VppEnabled,
+        ch1MeanEnabled: _ch1MeanEnabled,
+        ch1RmsEnabled: _ch1RmsEnabled,
+        ch1DutyEnabled: _ch1DutyEnabled,
+        ch1FreqEnabled: _ch1FreqEnabled,
+        ch2VppEnabled: _ch2VppEnabled,
+        ch2MeanEnabled: _ch2MeanEnabled,
+        ch2RmsEnabled: _ch2RmsEnabled,
+        ch2DutyEnabled: _ch2DutyEnabled,
+        ch2FreqEnabled: _ch2FreqEnabled,
+        intervalSeconds: _intervalSeconds.round(),
+        durationMinutes: _durationMinutes,
+        description: _descriptionController.text.trim(),
+      ),
+    );
   }
 
   String _formatDuration(int minutes) {
@@ -208,7 +218,10 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
               hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
               filled: true,
               fillColor: const Color(0xFF172A45).withValues(alpha: 0.5),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
                 borderSide: const BorderSide(color: Color(0xFF475569)),
@@ -221,7 +234,10 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                 borderRadius: BorderRadius.circular(8),
                 borderSide: const BorderSide(color: Colors.cyanAccent),
               ),
-              counterStyle: const TextStyle(color: Colors.white38, fontSize: 10),
+              counterStyle: const TextStyle(
+                color: Colors.white38,
+                fontSize: 10,
+              ),
             ),
             onChanged: (_) => _emitConfig(),
           ),
@@ -267,7 +283,9 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                   // when the probe label appears/disappears.
                   SizedBox(
                     height: 30,
-                    child: (_ch1VppEnabled || _ch1MeanEnabled || _ch1RmsEnabled) && widget.currentConfig != null
+                    child:
+                        (_ch1VppEnabled || _ch1MeanEnabled || _ch1RmsEnabled) &&
+                            widget.currentConfig != null
                         ? Padding(
                             padding: const EdgeInsets.only(left: 4, top: 4),
                             child: _buildProbeChip(
@@ -333,7 +351,9 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                   // when the probe label appears/disappears.
                   SizedBox(
                     height: 30,
-                    child: (_ch2VppEnabled || _ch2MeanEnabled || _ch2RmsEnabled) && widget.currentConfig != null
+                    child:
+                        (_ch2VppEnabled || _ch2MeanEnabled || _ch2RmsEnabled) &&
+                            widget.currentConfig != null
                         ? Padding(
                             padding: const EdgeInsets.only(left: 4, top: 4),
                             child: _buildProbeChip(
@@ -394,13 +414,19 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                 child: SliderTheme(
                   data: SliderThemeData(
                     trackHeight: 4,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                    thumbShape: const RoundSliderThumbShape(
+                      enabledThumbRadius: 8,
+                    ),
+                    overlayShape: const RoundSliderOverlayShape(
+                      overlayRadius: 14,
+                    ),
                     activeTrackColor: Colors.cyanAccent,
                     inactiveTrackColor: Colors.white24,
                     thumbColor: Colors.cyanAccent,
                     valueIndicatorColor: const Color(0xFF172A45),
-                    valueIndicatorTextStyle: const TextStyle(color: Colors.white),
+                    valueIndicatorTextStyle: const TextStyle(
+                      color: Colors.white,
+                    ),
                   ),
                   child: Slider(
                     value: _intervalSeconds,
@@ -419,7 +445,11 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                 width: 50,
                 child: Text(
                   '${_intervalSeconds.round()} s',
-                  style: const TextStyle(color: Colors.cyanAccent, fontSize: 14, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Colors.cyanAccent,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -435,20 +465,28 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                 child: SliderTheme(
                   data: SliderThemeData(
                     trackHeight: 4,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),
+                    thumbShape: const RoundSliderThumbShape(
+                      enabledThumbRadius: 8,
+                    ),
+                    overlayShape: const RoundSliderOverlayShape(
+                      overlayRadius: 14,
+                    ),
                     activeTrackColor: Colors.cyanAccent,
                     inactiveTrackColor: Colors.white24,
                     thumbColor: Colors.cyanAccent,
                     valueIndicatorColor: const Color(0xFF172A45),
-                    valueIndicatorTextStyle: const TextStyle(color: Colors.white),
+                    valueIndicatorTextStyle: const TextStyle(
+                      color: Colors.white,
+                    ),
                   ),
                   child: Slider(
                     value: _durationIndex.toDouble(),
                     min: 0,
                     max: (_durationPresetsMinutes.length - 1).toDouble(),
                     divisions: _durationPresetsMinutes.length - 1,
-                    label: _formatDuration(_durationPresetsMinutes[_durationIndex]),
+                    label: _formatDuration(
+                      _durationPresetsMinutes[_durationIndex],
+                    ),
                     onChanged: (v) {
                       setState(() => _durationIndex = v.round());
                       _emitConfig();
@@ -460,13 +498,16 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                 width: 80,
                 child: Text(
                   _formatDuration(_durationPresetsMinutes[_durationIndex]),
-                  style: const TextStyle(color: Colors.cyanAccent, fontSize: 12, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    color: Colors.cyanAccent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
           ),
           const SizedBox(height: 16),
-
 
           // ---- Total Points Info ----
           Container(
@@ -508,7 +549,10 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
               style: ElevatedButton.styleFrom(
                 backgroundColor: _isValid ? Colors.cyan[800] : Colors.grey[800],
                 foregroundColor: _isValid ? Colors.white : Colors.white38,
-                padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 30),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 14,
+                  horizontal: 30,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -523,7 +567,8 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
   Widget _buildRunningState() {
     final elapsed = widget.elapsedSeconds;
     final remaining = widget.totalPoints > 0
-        ? (widget.totalPoints - widget.pointCount) * widget.currentConfig!.intervalSeconds
+        ? (widget.totalPoints - widget.pointCount) *
+              widget.currentConfig!.intervalSeconds
         : 0;
 
     return Container(
@@ -562,10 +607,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
               ),
               Text(
                 'Data Points: ${widget.pointCount}/${widget.totalPoints}',
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 13,
-                ),
+                style: const TextStyle(color: Colors.white70, fontSize: 13),
               ),
             ],
           ),
@@ -596,11 +638,17 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
               icon: const Icon(Icons.stop, size: 18, color: Colors.redAccent),
               label: const Text(
                 'Stop',
-                style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  color: Colors.redAccent,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               style: OutlinedButton.styleFrom(
                 side: const BorderSide(color: Colors.redAccent),
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 30),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 30,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -656,7 +704,10 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
               style: OutlinedButton.styleFrom(
                 foregroundColor: Colors.cyanAccent,
                 side: const BorderSide(color: Colors.cyanAccent),
-                padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 30),
+                padding: const EdgeInsets.symmetric(
+                  vertical: 10,
+                  horizontal: 30,
+                ),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
@@ -673,17 +724,21 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
   Widget _buildProbeLabelRow(DataLoggerConfig config) {
     final items = <Widget>[];
     if (config.ch1VppEnabled || config.ch1MeanEnabled || config.ch1RmsEnabled) {
-      items.add(Text(
-        'CH1-Probe: ${_fmtProbe(config.probeDividerCh1)}',
-        style: const TextStyle(color: Color(0xFFFFFF00), fontSize: 11),
-      ));
+      items.add(
+        Text(
+          'CH1-Probe: ${_fmtProbe(config.probeDividerCh1)}',
+          style: const TextStyle(color: Color(0xFFFFFF00), fontSize: 11),
+        ),
+      );
     }
     if (config.ch2VppEnabled || config.ch2MeanEnabled || config.ch2RmsEnabled) {
       if (items.isNotEmpty) items.add(const SizedBox(height: 2));
-      items.add(Text(
-        'CH2-Probe: ${_fmtProbe(config.probeDividerCh2)}',
-        style: const TextStyle(color: Color(0xFFFF20FF), fontSize: 11),
-      ));
+      items.add(
+        Text(
+          'CH2-Probe: ${_fmtProbe(config.probeDividerCh2)}',
+          style: const TextStyle(color: Color(0xFFFF20FF), fontSize: 11),
+        ),
+      );
     }
     if (items.isEmpty) return const SizedBox.shrink();
     return Align(
@@ -712,9 +767,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(
-          color: color.withValues(alpha: 0.4),
-        ),
+        border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Text(
         label,
@@ -745,7 +798,9 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
               : const Color(0xFF172A45).withValues(alpha: 0.3),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: value ? activeColor.withValues(alpha: 0.6) : _axisColor.withValues(alpha: 0.3),
+            color: value
+                ? activeColor.withValues(alpha: 0.6)
+                : _axisColor.withValues(alpha: 0.3),
           ),
         ),
         child: Row(

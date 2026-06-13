@@ -298,8 +298,9 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     }
     // Ctrl + End: jump to document end and scroll to bottom
     if (ctrl && event.logicalKey == LogicalKeyboardKey.end) {
-      _controller.selection =
-          TextSelection.collapsed(offset: _controller.text.length);
+      _controller.selection = TextSelection.collapsed(
+        offset: _controller.text.length,
+      );
       _scrollToBottom();
       return KeyEventResult.handled;
     }
@@ -388,8 +389,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     final sel = _controller.selection;
     final cursor = sel.baseOffset;
     // Find the start of the current line.
-    final lineStart =
-        cursor > 0 ? text.lastIndexOf('\n', cursor - 1) + 1 : 0;
+    final lineStart = cursor > 0 ? text.lastIndexOf('\n', cursor - 1) + 1 : 0;
     // Find first non-whitespace character on this line.
     var firstNonSpace = lineStart;
     while (firstNonSpace < text.length &&
@@ -398,8 +398,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     }
     // If cursor is already at the first non-space position, go to column 0.
     // Otherwise go to the first non-space position.
-    final target =
-        (cursor == firstNonSpace) ? lineStart : firstNonSpace;
+    final target = (cursor == firstNonSpace) ? lineStart : firstNonSpace;
 
     if (extend) {
       // Anchor stays at the original baseOffset (where the selection
@@ -490,9 +489,11 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     }
 
     final newText = buf.join('\n');
-    _replaceText(newText,
-        newStart: (sel.start + delta).clamp(0, newText.length),
-        newEnd: (sel.end + delta).clamp(0, newText.length));
+    _replaceText(
+      newText,
+      newStart: (sel.start + delta).clamp(0, newText.length),
+      newEnd: (sel.end + delta).clamp(0, newText.length),
+    );
   }
 
   // ── Word-delete operations ────────────────────────────────────────────
@@ -549,8 +550,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     // Find start of the current line (the `\n` before [pos], or 0).
     final lineStart = i > 0 ? text.lastIndexOf('\n', i - 1) + 1 : 0;
     // Skip trailing whitespace (spaces / tabs only, never `\n`).
-    while (i > lineStart &&
-        (text[i - 1] == ' ' || text[i - 1] == '\t')) {
+    while (i > lineStart && (text[i - 1] == ' ' || text[i - 1] == '\t')) {
       i--;
     }
     // Skip word characters.
@@ -575,8 +575,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
       i++;
     }
     // Skip trailing whitespace (spaces / tabs only, never `\n`).
-    while (i < maxPos &&
-        (text[i] == ' ' || text[i] == '\t')) {
+    while (i < maxPos && (text[i] == ' ' || text[i] == '\t')) {
       i++;
     }
     return i;
@@ -612,8 +611,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   /// A lightweight undo stack for programmatic edits that bypass
   /// Flutter's [UndoHistory].  Each entry stores the controller value
   /// before a programmatic edit so that Ctrl+Z can restore it.
-  final List<TextEditingValue> _programmaticUndoStack =
-      <TextEditingValue>[];
+  final List<TextEditingValue> _programmaticUndoStack = <TextEditingValue>[];
 
   /// Applies [newValue] to the controller and records the previous state
   /// in [_programmaticUndoStack] for manual undo handling.
@@ -646,15 +644,17 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
 
   /// Replaces the entire text with [newText] and positions the selection
   /// at the given offsets.
-  void _replaceText(String newText,
-      {required int newStart, required int newEnd}) {
-    _applyProgrammaticEdit(TextEditingValue(
-      text: newText,
-      selection: TextSelection(
-        baseOffset: newStart,
-        extentOffset: newEnd,
+  void _replaceText(
+    String newText, {
+    required int newStart,
+    required int newEnd,
+  }) {
+    _applyProgrammaticEdit(
+      TextEditingValue(
+        text: newText,
+        selection: TextSelection(baseOffset: newStart, extentOffset: newEnd),
       ),
-    ));
+    );
   }
 
   /// Deletes the line that currently contains the cursor.
@@ -701,10 +701,12 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
       newCursor = lineStart;
     }
 
-    _applyProgrammaticEdit(TextEditingValue(
-      text: text.replaceRange(removeStart, removeEnd, ''),
-      selection: TextSelection.collapsed(offset: newCursor),
-    ));
+    _applyProgrammaticEdit(
+      TextEditingValue(
+        text: text.replaceRange(removeStart, removeEnd, ''),
+        selection: TextSelection.collapsed(offset: newCursor),
+      ),
+    );
   }
 
   void _insertTextAtCursor(String text) {
@@ -715,10 +717,14 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
       selection.end,
       text,
     );
-    _applyProgrammaticEdit(TextEditingValue(
-      text: newText,
-      selection: TextSelection.collapsed(offset: selection.start + text.length),
-    ));
+    _applyProgrammaticEdit(
+      TextEditingValue(
+        text: newText,
+        selection: TextSelection.collapsed(
+          offset: selection.start + text.length,
+        ),
+      ),
+    );
   }
 
   @override

@@ -2,8 +2,14 @@ import 'package:flutter/material.dart';
 
 /// Callbacks for the settings panel to communicate with the parent state.
 class SettingsPanelCallbacks {
-  final void Function(String ip, String provider, String token, String model, bool isUsb)
-      onSave;
+  final void Function(
+    String ip,
+    String provider,
+    String token,
+    String model,
+    bool isUsb,
+  )
+  onSave;
   final void Function() onClose;
   final void Function(Offset delta) onDrag;
 
@@ -149,7 +155,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     children: [
                       const Row(
                         children: [
-                          Icon(Icons.settings, color: Colors.cyanAccent, size: 20),
+                          Icon(
+                            Icons.settings,
+                            color: Colors.cyanAccent,
+                            size: 20,
+                          ),
                           SizedBox(width: 8),
                           Text(
                             'Device Configuration',
@@ -161,7 +171,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         ],
                       ),
                       IconButton(
-                        icon: const Icon(Icons.close, color: Colors.white60, size: 20),
+                        icon: const Icon(
+                          Icons.close,
+                          color: Colors.white60,
+                          size: 20,
+                        ),
                         padding: EdgeInsets.zero,
                         constraints: const BoxConstraints(),
                         onPressed: widget.callbacks.onClose,
@@ -204,7 +218,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         children: [
                           const Text(
                             'Save csv data',
-                            style: TextStyle(color: Colors.white70, fontSize: 13),
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
                           ),
                           Switch(
                             value: widget.saveWithParams,
@@ -219,7 +236,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         children: [
                           const Text(
                             'Ask for filename on save',
-                            style: TextStyle(color: Colors.white70, fontSize: 13),
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
                           ),
                           Switch(
                             value: widget.askForFilenamePrefix,
@@ -350,10 +370,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
       style: const TextStyle(color: Colors.white, fontSize: 14),
       iconEnabledColor: Colors.cyanAccent,
       items: widget.providerNames.map((name) {
-        return DropdownMenuItem<String>(
-          value: name,
-          child: Text(name),
-        );
+        return DropdownMenuItem<String>(value: name, child: Text(name));
       }).toList(),
       onChanged: (v) {
         setState(() => _selectedProvider = v);
@@ -373,23 +390,14 @@ class _SettingsPanelState extends State<SettingsPanel> {
         focusedBorder: OutlineInputBorder(
           borderSide: BorderSide(color: Colors.cyanAccent),
         ),
-        contentPadding: EdgeInsets.symmetric(
-          horizontal: 16,
-          vertical: 14,
-        ),
+        contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       ),
       dropdownColor: const Color(0xFF252525),
       style: const TextStyle(color: Colors.white, fontSize: 14),
       iconEnabledColor: Colors.cyanAccent,
       items: const [
-        DropdownMenuItem<String>(
-          value: 'Network',
-          child: Text('Network'),
-        ),
-        DropdownMenuItem<String>(
-          value: 'USB',
-          child: Text('USB'),
-        ),
+        DropdownMenuItem<String>(value: 'Network', child: Text('Network')),
+        DropdownMenuItem<String>(value: 'USB', child: Text('USB')),
       ],
       onChanged: (v) {
         setState(() => _isUsb = v == 'USB');

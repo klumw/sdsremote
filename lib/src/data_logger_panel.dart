@@ -41,7 +41,8 @@ class DataLoggerPanel extends StatefulWidget {
     DataLoggerConfig? config,
     DataLoggerStatus status,
     Set<String> hiddenLines,
-  )? onSaveState;
+  )?
+  onSaveState;
 
   /// Called when the service is created so the parent can stop it
   /// when switching panels.
@@ -49,10 +50,8 @@ class DataLoggerPanel extends StatefulWidget {
 
   /// Called when recording finishes with the final points and config.
   /// Fires both on manual stop and when the configured duration elapses.
-  final void Function(
-    List<DataLoggerPoint> points,
-    DataLoggerConfig? config,
-  )? onRecordingFinished;
+  final void Function(List<DataLoggerPoint> points, DataLoggerConfig? config)?
+  onRecordingFinished;
 
   /// Saved state to restore after panel is reopened.
   final List<DataLoggerPoint>? savedPoints;
@@ -151,12 +150,7 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       _status = DataLoggerStatus.stopped;
     }
     // Notify parent to save current state before panel is destroyed
-    widget.onSaveState?.call(
-      _points,
-      _config,
-      _status,
-      _hiddenLines,
-    );
+    widget.onSaveState?.call(_points, _config, _status, _hiddenLines);
     super.dispose();
   }
 
@@ -195,24 +189,28 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       if (ch1) {
         await instr.writeString('C1:ATTN?');
         final resp = (await instr.readString()).trim();
-        final m = RegExp(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?')
-            .allMatches(resp)
-            .toList();
+        final m = RegExp(
+          r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?',
+        ).allMatches(resp).toList();
         if (m.isNotEmpty) p1 = double.tryParse(m.last.group(0)!);
       }
       if (ch2) {
         await instr.writeString('C2:ATTN?');
         final resp = (await instr.readString()).trim();
-        final m = RegExp(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?')
-            .allMatches(resp)
-            .toList();
+        final m = RegExp(
+          r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?',
+        ).allMatches(resp).toList();
         if (m.isNotEmpty) p2 = double.tryParse(m.last.group(0)!);
       }
       if (p1 != null && p1 > 0 || p2 != null && p2 > 0) {
         setState(() {
           _config = _config!.copyWith(
-            probeDividerCh1: p1 != null && p1 > 0 ? p1 : _config!.probeDividerCh1,
-            probeDividerCh2: p2 != null && p2 > 0 ? p2 : _config!.probeDividerCh2,
+            probeDividerCh1: p1 != null && p1 > 0
+                ? p1
+                : _config!.probeDividerCh1,
+            probeDividerCh2: p2 != null && p2 > 0
+                ? p2
+                : _config!.probeDividerCh2,
           );
         });
       }
@@ -309,7 +307,8 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
 
   @override
   Widget build(BuildContext context) {
-    final isExpanded = _status == DataLoggerStatus.running ||
+    final isExpanded =
+        _status == DataLoggerStatus.running ||
         _status == DataLoggerStatus.stopped;
     return Container(
       width: isExpanded ? double.infinity : 700,
@@ -360,7 +359,9 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
                       child: Padding(
                         padding: EdgeInsets.fromLTRB(
                           16,
-                          (_config != null && _config!.description.isNotEmpty) ? 8 : 16,
+                          (_config != null && _config!.description.isNotEmpty)
+                              ? 8
+                              : 16,
                           16,
                           0,
                         ),
@@ -373,18 +374,30 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
                                     children: [
                                       DataLoggerPlot(
                                         points: _points,
-                                        ch1VppEnabled: _config?.ch1VppEnabled ?? true,
-                                        ch1MeanEnabled: _config?.ch1MeanEnabled ?? false,
-                                        ch1RmsEnabled: _config?.ch1RmsEnabled ?? false,
-                                        ch1DutyEnabled: _config?.ch1DutyEnabled ?? false,
-                                        ch1FreqEnabled: _config?.ch1FreqEnabled ?? true,
-                                        ch2VppEnabled: _config?.ch2VppEnabled ?? false,
-                                        ch2MeanEnabled: _config?.ch2MeanEnabled ?? false,
-                                        ch2RmsEnabled: _config?.ch2RmsEnabled ?? false,
-                                        ch2DutyEnabled: _config?.ch2DutyEnabled ?? false,
-                                        ch2FreqEnabled: _config?.ch2FreqEnabled ?? false,
+                                        ch1VppEnabled:
+                                            _config?.ch1VppEnabled ?? true,
+                                        ch1MeanEnabled:
+                                            _config?.ch1MeanEnabled ?? false,
+                                        ch1RmsEnabled:
+                                            _config?.ch1RmsEnabled ?? false,
+                                        ch1DutyEnabled:
+                                            _config?.ch1DutyEnabled ?? false,
+                                        ch1FreqEnabled:
+                                            _config?.ch1FreqEnabled ?? true,
+                                        ch2VppEnabled:
+                                            _config?.ch2VppEnabled ?? false,
+                                        ch2MeanEnabled:
+                                            _config?.ch2MeanEnabled ?? false,
+                                        ch2RmsEnabled:
+                                            _config?.ch2RmsEnabled ?? false,
+                                        ch2DutyEnabled:
+                                            _config?.ch2DutyEnabled ?? false,
+                                        ch2FreqEnabled:
+                                            _config?.ch2FreqEnabled ?? false,
                                         status: _status,
-                                        totalDurationSeconds: (_config?.durationMinutes ?? 1) * 60.0,
+                                        totalDurationSeconds:
+                                            (_config?.durationMinutes ?? 1) *
+                                            60.0,
                                         hiddenLines: _hiddenLines,
                                         onToggleLine: (id) {
                                           setState(() {
@@ -397,16 +410,21 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
                                         },
                                         onHover: (time, localX, localY) {
                                           setState(() {
-                                            _hoveredTime = time < 0 ? null : time;
+                                            _hoveredTime = time < 0
+                                                ? null
+                                                : time;
                                             _hoverX = localX;
                                             _hoverY = localY;
                                           });
                                         },
                                       ),
-                                      if (_hoveredTime != null && _points.isNotEmpty)
+                                      if (_hoveredTime != null &&
+                                          _points.isNotEmpty)
                                         _buildHoverTooltip(
-                                          tooltipAreaWidth: constraints.maxWidth,
-                                          tooltipAreaHeight: constraints.maxHeight,
+                                          tooltipAreaWidth:
+                                              constraints.maxWidth,
+                                          tooltipAreaHeight:
+                                              constraints.maxHeight,
                                         ),
                                     ],
                                   );
@@ -471,62 +489,102 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     ];
     if (_config?.ch1VppEnabled == true) {
       if (!_hiddenLines.contains('ch1_vpp') && nearest.ch1Vpp != null) {
-        rows.add(Text('CH1 Vpp: ${nearest.ch1Vpp!.toStringAsFixed(3)}V',
-            style: const TextStyle(color: Color(0xFFFFFF00), fontSize: 11)));
+        rows.add(
+          Text(
+            'CH1 Vpp: ${nearest.ch1Vpp!.toStringAsFixed(3)}V',
+            style: const TextStyle(color: Color(0xFFFFFF00), fontSize: 11),
+          ),
+        );
       }
     }
     if (_config?.ch1MeanEnabled == true) {
       if (!_hiddenLines.contains('ch1_mean') && nearest.ch1Mean != null) {
-        rows.add(Text('CH1 Mean: ${nearest.ch1Mean!.toStringAsFixed(3)}V',
-            style: const TextStyle(color: Color(0xFF00E676), fontSize: 11)));
+        rows.add(
+          Text(
+            'CH1 Mean: ${nearest.ch1Mean!.toStringAsFixed(3)}V',
+            style: const TextStyle(color: Color(0xFF00E676), fontSize: 11),
+          ),
+        );
       }
     }
     if (_config?.ch1RmsEnabled == true) {
       if (!_hiddenLines.contains('ch1_rms') && nearest.ch1Rms != null) {
-        rows.add(Text('CH1 Rms: ${nearest.ch1Rms!.toStringAsFixed(3)}V',
-            style: const TextStyle(color: Color(0xFF00E676), fontSize: 11)));
+        rows.add(
+          Text(
+            'CH1 Rms: ${nearest.ch1Rms!.toStringAsFixed(3)}V',
+            style: const TextStyle(color: Color(0xFF00E676), fontSize: 11),
+          ),
+        );
       }
     }
     if (_config?.ch1DutyEnabled == true) {
       if (!_hiddenLines.contains('ch1_duty') && nearest.ch1Duty != null) {
-        rows.add(Text('CH1 Duty: ${nearest.ch1Duty!.toStringAsFixed(1)}%',
-            style: const TextStyle(color: Color(0xFFFFFF00), fontSize: 11)));
+        rows.add(
+          Text(
+            'CH1 Duty: ${nearest.ch1Duty!.toStringAsFixed(1)}%',
+            style: const TextStyle(color: Color(0xFFFFFF00), fontSize: 11),
+          ),
+        );
       }
     }
     if (_config?.ch1FreqEnabled == true) {
       if (!_hiddenLines.contains('ch1_freq') && nearest.ch1Freq != null) {
-        rows.add(Text('CH1 Freq: ${_fmtSi(nearest.ch1Freq!)}Hz',
-            style: const TextStyle(color: Color(0xFFFFFF00), fontSize: 11)));
+        rows.add(
+          Text(
+            'CH1 Freq: ${_fmtSi(nearest.ch1Freq!)}Hz',
+            style: const TextStyle(color: Color(0xFFFFFF00), fontSize: 11),
+          ),
+        );
       }
     }
     if (_config?.ch2VppEnabled == true) {
       if (!_hiddenLines.contains('ch2_vpp') && nearest.ch2Vpp != null) {
-        rows.add(Text('CH2 Vpp: ${nearest.ch2Vpp!.toStringAsFixed(3)}V',
-            style: const TextStyle(color: Color(0xFFFF20FF), fontSize: 11)));
+        rows.add(
+          Text(
+            'CH2 Vpp: ${nearest.ch2Vpp!.toStringAsFixed(3)}V',
+            style: const TextStyle(color: Color(0xFFFF20FF), fontSize: 11),
+          ),
+        );
       }
     }
     if (_config?.ch2MeanEnabled == true) {
       if (!_hiddenLines.contains('ch2_mean') && nearest.ch2Mean != null) {
-        rows.add(Text('CH2 Mean: ${nearest.ch2Mean!.toStringAsFixed(3)}V',
-            style: const TextStyle(color: Color(0xFFFF5252), fontSize: 11)));
+        rows.add(
+          Text(
+            'CH2 Mean: ${nearest.ch2Mean!.toStringAsFixed(3)}V',
+            style: const TextStyle(color: Color(0xFFFF5252), fontSize: 11),
+          ),
+        );
       }
     }
     if (_config?.ch2RmsEnabled == true) {
       if (!_hiddenLines.contains('ch2_rms') && nearest.ch2Rms != null) {
-        rows.add(Text('CH2 Rms: ${nearest.ch2Rms!.toStringAsFixed(3)}V',
-            style: const TextStyle(color: Color(0xFFFF5252), fontSize: 11)));
+        rows.add(
+          Text(
+            'CH2 Rms: ${nearest.ch2Rms!.toStringAsFixed(3)}V',
+            style: const TextStyle(color: Color(0xFFFF5252), fontSize: 11),
+          ),
+        );
       }
     }
     if (_config?.ch2DutyEnabled == true) {
       if (!_hiddenLines.contains('ch2_duty') && nearest.ch2Duty != null) {
-        rows.add(Text('CH2 Duty: ${nearest.ch2Duty!.toStringAsFixed(1)}%',
-            style: const TextStyle(color: Color(0xFFFF20FF), fontSize: 11)));
+        rows.add(
+          Text(
+            'CH2 Duty: ${nearest.ch2Duty!.toStringAsFixed(1)}%',
+            style: const TextStyle(color: Color(0xFFFF20FF), fontSize: 11),
+          ),
+        );
       }
     }
     if (_config?.ch2FreqEnabled == true) {
       if (!_hiddenLines.contains('ch2_freq') && nearest.ch2Freq != null) {
-        rows.add(Text('CH2 Freq: ${_fmtSi(nearest.ch2Freq!)}Hz',
-            style: const TextStyle(color: Color(0xFFFF20FF), fontSize: 11)));
+        rows.add(
+          Text(
+            'CH2 Freq: ${_fmtSi(nearest.ch2Freq!)}Hz',
+            style: const TextStyle(color: Color(0xFFFF20FF), fontSize: 11),
+          ),
+        );
       }
     }
     // Position tooltip near the cursor, clamped within the actual available area.
@@ -542,9 +600,15 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     // When on the left, we want it to be at _hoverX + tooltipGap.
     // When on the right, we want it to be at _hoverX - tooltipW - tooltipGap.
     final left = _hoverX >= midX
-        ? (_hoverX - tooltipW - tooltipGap + 60.0).clamp(0.0, tooltipAreaWidth - tooltipW)
+        ? (_hoverX - tooltipW - tooltipGap + 60.0).clamp(
+            0.0,
+            tooltipAreaWidth - tooltipW,
+          )
         : (_hoverX + tooltipGap).clamp(0.0, tooltipAreaWidth - tooltipW);
-    final top = (_hoverY - tooltipH - 8).clamp(0.0, tooltipAreaHeight - tooltipH - 8);
+    final top = (_hoverY - tooltipH - 8).clamp(
+      0.0,
+      tooltipAreaHeight - tooltipH - 8,
+    );
     return Positioned(
       left: left,
       top: top,
@@ -576,53 +640,43 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     final items = <Widget>[];
     if (_config?.ch1VppEnabled == true) {
       if (items.isNotEmpty) items.add(const SizedBox(width: 8));
-      items.add(_legendChip('CH1 Vpp', 'ch1_vpp',
-          const Color(0xFFFFFF00)));
+      items.add(_legendChip('CH1 Vpp', 'ch1_vpp', const Color(0xFFFFFF00)));
     }
     if (_config?.ch1MeanEnabled == true) {
       if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH1 Mean', 'ch1_mean',
-          const Color(0xFF00E676)));
+      items.add(_legendChip('CH1 Mean', 'ch1_mean', const Color(0xFF00E676)));
     }
     if (_config?.ch1RmsEnabled == true) {
       if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH1 Rms', 'ch1_rms',
-          const Color(0xFF00E676)));
+      items.add(_legendChip('CH1 Rms', 'ch1_rms', const Color(0xFF00E676)));
     }
     if (_config?.ch1DutyEnabled == true) {
       if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH1 Duty', 'ch1_duty',
-          const Color(0xFFFFFF00)));
+      items.add(_legendChip('CH1 Duty', 'ch1_duty', const Color(0xFFFFFF00)));
     }
     if (_config?.ch1FreqEnabled == true) {
       if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH1 Freq', 'ch1_freq',
-          const Color(0xFFFFFF00)));
+      items.add(_legendChip('CH1 Freq', 'ch1_freq', const Color(0xFFFFFF00)));
     }
     if (_config?.ch2VppEnabled == true) {
       if (items.isNotEmpty) items.add(const SizedBox(width: 8));
-      items.add(_legendChip('CH2 Vpp', 'ch2_vpp',
-          const Color(0xFFFF20FF)));
+      items.add(_legendChip('CH2 Vpp', 'ch2_vpp', const Color(0xFFFF20FF)));
     }
     if (_config?.ch2MeanEnabled == true) {
       if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH2 Mean', 'ch2_mean',
-          const Color(0xFFFF5252)));
+      items.add(_legendChip('CH2 Mean', 'ch2_mean', const Color(0xFFFF5252)));
     }
     if (_config?.ch2RmsEnabled == true) {
       if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH2 Rms', 'ch2_rms',
-          const Color(0xFFFF5252)));
+      items.add(_legendChip('CH2 Rms', 'ch2_rms', const Color(0xFFFF5252)));
     }
     if (_config?.ch2DutyEnabled == true) {
       if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH2 Duty', 'ch2_duty',
-          const Color(0xFFFF20FF)));
+      items.add(_legendChip('CH2 Duty', 'ch2_duty', const Color(0xFFFF20FF)));
     }
     if (_config?.ch2FreqEnabled == true) {
       if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH2 Freq', 'ch2_freq',
-          const Color(0xFFFF20FF)));
+      items.add(_legendChip('CH2 Freq', 'ch2_freq', const Color(0xFFFF20FF)));
     }
     if (items.isEmpty) return const SizedBox.shrink();
     return SingleChildScrollView(
@@ -723,7 +777,8 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
   }
 
   Widget _buildBottomControls() {
-    final isExpanded = _status == DataLoggerStatus.running ||
+    final isExpanded =
+        _status == DataLoggerStatus.running ||
         _status == DataLoggerStatus.stopped;
     return Container(
       padding: const EdgeInsets.all(16),
@@ -733,9 +788,7 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
           bottomLeft: Radius.circular(12),
           bottomRight: Radius.circular(12),
         ),
-        border: const Border(
-          top: BorderSide(color: Color(0xFF475569)),
-        ),
+        border: const Border(top: BorderSide(color: Color(0xFF475569))),
       ),
       child: isExpanded
           ? Center(

@@ -79,21 +79,17 @@ class OpenAIChatModel extends ChatModel<OpenAIChatOptions> {
       final text = msg.text;
       final toolCallsInfo = msg.hasToolCalls
           ? ' toolCalls=[${msg.toolCalls.map((t) {
-                final args = t.argumentsRaw;
-                final truncatedArgs = args.length > 200
-                    ? '${args.substring(0, 200)}...'
-                    : args;
-                return '${t.toolName}($truncatedArgs)';
-              }).join('; ')}]'
+              final args = t.argumentsRaw;
+              final truncatedArgs = args.length > 200 ? '${args.substring(0, 200)}...' : args;
+              return '${t.toolName}($truncatedArgs)';
+            }).join('; ')}]'
           : '';
       final toolResultsInfo = msg.hasToolResults
           ? ' toolResults=[${msg.toolResults.map((t) {
-                final resultStr = t.result?.toString() ?? '';
-                final truncatedResult = resultStr.length > 200
-                    ? '${resultStr.substring(0, 200)}...'
-                    : resultStr;
-                return '${t.toolName}=>$truncatedResult';
-              }).join('; ')}]'
+              final resultStr = t.result?.toString() ?? '';
+              final truncatedResult = resultStr.length > 200 ? '${resultStr.substring(0, 200)}...' : resultStr;
+              return '${t.toolName}=>$truncatedResult';
+            }).join('; ')}]'
           : '';
       _logger.info(
         '[DEBUG OpenAI sendStream]$agentTag [$i] '

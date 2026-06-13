@@ -109,17 +109,9 @@ class ZoomState {
   final double panX;
   final double panY;
 
-  const ZoomState({
-    this.zoomFactor = 1.0,
-    this.panX = 0.5,
-    this.panY = 0.5,
-  });
+  const ZoomState({this.zoomFactor = 1.0, this.panX = 0.5, this.panY = 0.5});
 
-  ZoomState copyWith({
-    double? zoomFactor,
-    double? panX,
-    double? panY,
-  }) {
+  ZoomState copyWith({double? zoomFactor, double? panX, double? panY}) {
     return ZoomState(
       zoomFactor: zoomFactor ?? this.zoomFactor,
       panX: panX ?? this.panX,

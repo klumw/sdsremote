@@ -8,7 +8,8 @@ library;
 ///
 /// The frontend agent is the primary user-facing agent that coordinates
 /// instrument control and knowledgebase queries.
-const String frontendAgentDefaultSystemPrompt = """You are the AI assistant module for the sdsremote software.
+const String frontendAgentDefaultSystemPrompt =
+    """You are the AI assistant module for the sdsremote software.
 ## ROLE
 You are SDS-Remote, a specialized assistant for Siglent SDS1000X-E series oscilloscopes (SDS1102X-E, SDS1202X-E, SDS1104X-E, SDS1204X-E).
 Support scope: device features, specifications, UI, measurements, SCPI remote control, troubleshooting.
@@ -84,7 +85,8 @@ Action:
 ///
 /// This agent is a sub-agent that handles only SCPI command/query
 /// interactions with the physical oscilloscope instrument.
-const String instrumentAgentSystemPrompt = """You are the Siglent SDS1000X-E Series SCPI Command Specialist for sdsremote.
+const String instrumentAgentSystemPrompt =
+    """You are the Siglent SDS1000X-E Series SCPI Command Specialist for sdsremote.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ROLE
@@ -837,7 +839,8 @@ KNOBS — exact command strings:
 ///
 /// This agent is a sub-agent that searches the oscilloscope knowledgebase
 /// and returns summarized information.
-const String searchAgentSystemPrompt = """You are a knowledge base specialist for Siglent SDS1000X-E series oscilloscopes. Your sole task is to answer questions using the search tool — never from memory.
+const String searchAgentSystemPrompt =
+    """You are a knowledge base specialist for Siglent SDS1000X-E series oscilloscopes. Your sole task is to answer questions using the search tool — never from memory.
 
 SEARCH RULES (strictly follow):
 1. Translate the user query into at most 2 concise English keyword phrases, ranked by relevance.

@@ -81,7 +81,10 @@ class DataLoggerPlot extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ranges = _AxisRanges.compute(points, totalDurationSeconds: totalDurationSeconds);
+    final ranges = _AxisRanges.compute(
+      points,
+      totalDurationSeconds: totalDurationSeconds,
+    );
     final maxTime = ranges.niceMaxTime;
 
     return Container(
@@ -96,7 +99,8 @@ class DataLoggerPlot extends StatelessWidget {
           onHover: (event) {
             if (onHover != null && maxTime > 0) {
               final plotWidth = context.size?.width ?? 1;
-              final plotAreaWidth = plotWidth - 75 - 75; // _marginLeft + _marginRight
+              final plotAreaWidth =
+                  plotWidth - 75 - 75; // _marginLeft + _marginRight
               if (plotAreaWidth > 0) {
                 final relX = (event.localPosition.dx - 60) / plotAreaWidth;
                 final time = (relX.clamp(0.0, 1.0)) * maxTime;
@@ -164,8 +168,10 @@ class _AxisRanges {
   double get niceMinFreq => minFreq;
   double get niceMaxFreq => maxFreq;
 
-
-  static _AxisRanges compute(List<DataLoggerPoint> points, {double totalDurationSeconds = 60}) {
+  static _AxisRanges compute(
+    List<DataLoggerPoint> points, {
+    double totalDurationSeconds = 60,
+  }) {
     // X-axis: Use the total configured recording duration for the X-axis max,
     // so the axis doesn't shift as data is collected during recording, but
     // expand it if any recorded points exceed totalDurationSeconds.
@@ -303,8 +309,8 @@ class _DataLoggerPlotPainter extends CustomPainter {
   });
 
   // Layout constants
-  static const double _marginLeft = 75.0;   // Left Y-axis labels + ticks
-  static const double _marginRight = 75.0;  // Right Y-axis labels + ticks
+  static const double _marginLeft = 75.0; // Left Y-axis labels + ticks
+  static const double _marginRight = 75.0; // Right Y-axis labels + ticks
   static const double _marginTop = 16.0;
   static const double _marginBottom = 40.0; // X-axis labels
   static const double _legendWidth = 140.0;
@@ -325,14 +331,24 @@ class _DataLoggerPlotPainter extends CustomPainter {
 
     // Determine which axes to show based on selected measurements.
     // Vpp, Mean, and Rms are voltage-based — contribute to the left (voltage) axis.
-    final vppEnabled = ch1VppEnabled || ch1MeanEnabled || ch1RmsEnabled ||
-        ch2VppEnabled || ch2MeanEnabled || ch2RmsEnabled;
+    final vppEnabled =
+        ch1VppEnabled ||
+        ch1MeanEnabled ||
+        ch1RmsEnabled ||
+        ch2VppEnabled ||
+        ch2MeanEnabled ||
+        ch2RmsEnabled;
     final freqEnabled = ch1FreqEnabled || ch2FreqEnabled;
     final dutyEnabled = ch1DutyEnabled || ch2DutyEnabled;
     final effectiveMarginLeft = vppEnabled ? _marginLeft : 10.0;
-    final effectiveMarginRight = (freqEnabled || dutyEnabled) ? _marginRight : 10.0;
+    final effectiveMarginRight = (freqEnabled || dutyEnabled)
+        ? _marginRight
+        : 10.0;
 
-    final ranges = _AxisRanges.compute(points, totalDurationSeconds: totalDurationSeconds);
+    final ranges = _AxisRanges.compute(
+      points,
+      totalDurationSeconds: totalDurationSeconds,
+    );
     final plotRect = Rect.fromLTWH(
       effectiveMarginLeft,
       _marginTop,
@@ -343,14 +359,27 @@ class _DataLoggerPlotPainter extends CustomPainter {
     if (plotRect.width <= 0 || plotRect.height <= 0) return;
 
     // Draw grid
-    _drawGrid(canvas, plotRect, ranges, vppEnabled: vppEnabled, freqEnabled: freqEnabled);
+    _drawGrid(
+      canvas,
+      plotRect,
+      ranges,
+      vppEnabled: vppEnabled,
+      freqEnabled: freqEnabled,
+    );
 
     // Draw data lines
     _drawDataLines(canvas, plotRect, ranges);
 
     // Draw axes labels
-    _drawAxesLabels(canvas, plotRect, ranges, size,
-        vppEnabled: vppEnabled, freqEnabled: freqEnabled, dutyEnabled: dutyEnabled);
+    _drawAxesLabels(
+      canvas,
+      plotRect,
+      ranges,
+      size,
+      vppEnabled: vppEnabled,
+      freqEnabled: freqEnabled,
+      dutyEnabled: dutyEnabled,
+    );
 
     // Draw legend
     _drawLegend(canvas, plotRect, size);
@@ -390,7 +419,9 @@ class _DataLoggerPlotPainter extends CustomPainter {
     if (rawRange <= 0) return 1.0;
     // Target ~5 ticks
     final rough = rawRange / 5;
-    final magnitude = math.pow(10, (math.log(rough) / math.ln10).floor()).toDouble();
+    final magnitude = math
+        .pow(10, (math.log(rough) / math.ln10).floor())
+        .toDouble();
     final fraction = rough / magnitude;
     if (fraction <= 1.5) return magnitude;
     if (fraction <= 3.5) return 2.0 * magnitude;
@@ -430,8 +461,13 @@ class _DataLoggerPlotPainter extends CustomPainter {
     return positions;
   }
 
-  void _drawGrid(Canvas canvas, Rect plotRect, _AxisRanges ranges,
-      {required bool vppEnabled, required bool freqEnabled}) {
+  void _drawGrid(
+    Canvas canvas,
+    Rect plotRect,
+    _AxisRanges ranges, {
+    required bool vppEnabled,
+    required bool freqEnabled,
+  }) {
     final gridPaint = Paint()
       ..color = _gridColor
       ..strokeWidth = 0.5;
@@ -442,16 +478,34 @@ class _DataLoggerPlotPainter extends CustomPainter {
       final vppStep = _tickStep(ranges.niceMinVpp, ranges.niceMaxVpp);
       double v = ranges.niceMinVpp;
       while (v <= ranges.niceMaxVpp + 0.001) {
-        final y = _mapValueToY(v, ranges.niceMinVpp, ranges.niceMaxVpp, plotRect);
-        canvas.drawLine(Offset(plotRect.left, y), Offset(plotRect.right, y), gridPaint);
+        final y = _mapValueToY(
+          v,
+          ranges.niceMinVpp,
+          ranges.niceMaxVpp,
+          plotRect,
+        );
+        canvas.drawLine(
+          Offset(plotRect.left, y),
+          Offset(plotRect.right, y),
+          gridPaint,
+        );
         v += vppStep;
       }
     } else if (freqEnabled) {
       final freqStep = _tickStep(ranges.niceMinFreq, ranges.niceMaxFreq);
       double f = ranges.niceMinFreq;
       while (f <= ranges.niceMaxFreq + 0.001) {
-        final y = _mapValueToY(f, ranges.niceMinFreq, ranges.niceMaxFreq, plotRect);
-        canvas.drawLine(Offset(plotRect.left, y), Offset(plotRect.right, y), gridPaint);
+        final y = _mapValueToY(
+          f,
+          ranges.niceMinFreq,
+          ranges.niceMaxFreq,
+          plotRect,
+        );
+        canvas.drawLine(
+          Offset(plotRect.left, y),
+          Offset(plotRect.right, y),
+          gridPaint,
+        );
         f += freqStep;
       }
     }
@@ -462,12 +516,22 @@ class _DataLoggerPlotPainter extends CustomPainter {
     final tickPositions = _timeTickPositions(ranges.niceMaxTime, timeFactor);
     for (final t in tickPositions) {
       final x = plotRect.left + (t / ranges.niceMaxTime) * plotRect.width;
-      canvas.drawLine(Offset(x, plotRect.top), Offset(x, plotRect.bottom), gridPaint);
+      canvas.drawLine(
+        Offset(x, plotRect.top),
+        Offset(x, plotRect.bottom),
+        gridPaint,
+      );
     }
   }
 
-  double _mapValueToY(double value, double axisMin, double axisMax, Rect plotRect) {
-    return plotRect.bottom - ((value - axisMin) / (axisMax - axisMin)) * plotRect.height;
+  double _mapValueToY(
+    double value,
+    double axisMin,
+    double axisMax,
+    Rect plotRect,
+  ) {
+    return plotRect.bottom -
+        ((value - axisMin) / (axisMax - axisMin)) * plotRect.height;
   }
 
   void _drawDataLines(Canvas canvas, Rect plotRect, _AxisRanges ranges) {
@@ -481,9 +545,11 @@ class _DataLoggerPlotPainter extends CustomPainter {
     double mapTime(double t) =>
         plotRect.left + (t / timeRange) * plotRect.width;
     double mapVpp(double v) =>
-        plotRect.bottom - ((v - ranges.niceMinVpp) / vppRange) * plotRect.height;
+        plotRect.bottom -
+        ((v - ranges.niceMinVpp) / vppRange) * plotRect.height;
     double mapFreq(double f) =>
-        plotRect.bottom - ((f - ranges.niceMinFreq) / freqRange) * plotRect.height;
+        plotRect.bottom -
+        ((f - ranges.niceMinFreq) / freqRange) * plotRect.height;
     final dutyRange = ranges.maxDuty - ranges.minDuty;
     double mapDuty(double d) =>
         plotRect.bottom - ((d - ranges.minDuty) / dutyRange) * plotRect.height;
@@ -503,17 +569,11 @@ class _DataLoggerPlotPainter extends CustomPainter {
       if (dotted) {
         final path = Path();
         path.addPolygon(pts, false);
-        canvas.drawPath(
-          _dashPath(path, 2, 6),
-          paint,
-        );
+        canvas.drawPath(_dashPath(path, 2, 6), paint);
       } else if (dashed) {
         final path = Path();
         path.addPolygon(pts, false);
-        canvas.drawPath(
-          _dashPath(path, 6, 4),
-          paint,
-        );
+        canvas.drawPath(_dashPath(path, 6, 4), paint);
       } else {
         final path = Path();
         path.addPolygon(pts, false);
@@ -527,10 +587,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
         final ch1VppPts = <Offset>[];
         for (final p in points) {
           if (p.ch1Vpp != null) {
-            ch1VppPts.add(Offset(
-              mapTime(p.elapsedSeconds),
-              mapVpp(p.ch1Vpp!),
-            ));
+            ch1VppPts.add(Offset(mapTime(p.elapsedSeconds), mapVpp(p.ch1Vpp!)));
           }
         }
         drawLine(ch1VppPts, _ch1Color, 'CH1 Vpp', dashed: false);
@@ -542,10 +599,9 @@ class _DataLoggerPlotPainter extends CustomPainter {
         final ch1MeanPts = <Offset>[];
         for (final p in points) {
           if (p.ch1Mean != null) {
-            ch1MeanPts.add(Offset(
-              mapTime(p.elapsedSeconds),
-              mapVpp(p.ch1Mean!),
-            ));
+            ch1MeanPts.add(
+              Offset(mapTime(p.elapsedSeconds), mapVpp(p.ch1Mean!)),
+            );
           }
         }
         drawLine(ch1MeanPts, _ch1MeanColor, 'CH1 Mean', dashed: true);
@@ -557,10 +613,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
         final ch1RmsPts = <Offset>[];
         for (final p in points) {
           if (p.ch1Rms != null) {
-            ch1RmsPts.add(Offset(
-              mapTime(p.elapsedSeconds),
-              mapVpp(p.ch1Rms!),
-            ));
+            ch1RmsPts.add(Offset(mapTime(p.elapsedSeconds), mapVpp(p.ch1Rms!)));
           }
         }
         drawLine(ch1RmsPts, _ch1MeanColor, 'CH1 Rms', dashed: false);
@@ -572,10 +625,9 @@ class _DataLoggerPlotPainter extends CustomPainter {
         final ch1DutyPts = <Offset>[];
         for (final p in points) {
           if (p.ch1Duty != null) {
-            ch1DutyPts.add(Offset(
-              mapTime(p.elapsedSeconds),
-              mapDuty(p.ch1Duty!),
-            ));
+            ch1DutyPts.add(
+              Offset(mapTime(p.elapsedSeconds), mapDuty(p.ch1Duty!)),
+            );
           }
         }
         drawLine(ch1DutyPts, _ch1Color, 'CH1 Duty', dotted: true);
@@ -586,10 +638,9 @@ class _DataLoggerPlotPainter extends CustomPainter {
         final ch1FreqPts = <Offset>[];
         for (final p in points) {
           if (p.ch1Freq != null) {
-            ch1FreqPts.add(Offset(
-              mapTime(p.elapsedSeconds),
-              mapFreq(p.ch1Freq!),
-            ));
+            ch1FreqPts.add(
+              Offset(mapTime(p.elapsedSeconds), mapFreq(p.ch1Freq!)),
+            );
           }
         }
         drawLine(ch1FreqPts, _ch1Color, 'CH1 Freq', dashed: true);
@@ -602,10 +653,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
         final ch2VppPts = <Offset>[];
         for (final p in points) {
           if (p.ch2Vpp != null) {
-            ch2VppPts.add(Offset(
-              mapTime(p.elapsedSeconds),
-              mapVpp(p.ch2Vpp!),
-            ));
+            ch2VppPts.add(Offset(mapTime(p.elapsedSeconds), mapVpp(p.ch2Vpp!)));
           }
         }
         drawLine(ch2VppPts, _ch2Color, 'CH2 Vpp', dashed: false);
@@ -617,10 +665,9 @@ class _DataLoggerPlotPainter extends CustomPainter {
         final ch2MeanPts = <Offset>[];
         for (final p in points) {
           if (p.ch2Mean != null) {
-            ch2MeanPts.add(Offset(
-              mapTime(p.elapsedSeconds),
-              mapVpp(p.ch2Mean!),
-            ));
+            ch2MeanPts.add(
+              Offset(mapTime(p.elapsedSeconds), mapVpp(p.ch2Mean!)),
+            );
           }
         }
         drawLine(ch2MeanPts, _ch2MeanColor, 'CH2 Mean', dashed: true);
@@ -632,10 +679,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
         final ch2RmsPts = <Offset>[];
         for (final p in points) {
           if (p.ch2Rms != null) {
-            ch2RmsPts.add(Offset(
-              mapTime(p.elapsedSeconds),
-              mapVpp(p.ch2Rms!),
-            ));
+            ch2RmsPts.add(Offset(mapTime(p.elapsedSeconds), mapVpp(p.ch2Rms!)));
           }
         }
         drawLine(ch2RmsPts, _ch2MeanColor, 'CH2 Rms', dashed: false);
@@ -647,10 +691,9 @@ class _DataLoggerPlotPainter extends CustomPainter {
         final ch2DutyPts = <Offset>[];
         for (final p in points) {
           if (p.ch2Duty != null) {
-            ch2DutyPts.add(Offset(
-              mapTime(p.elapsedSeconds),
-              mapDuty(p.ch2Duty!),
-            ));
+            ch2DutyPts.add(
+              Offset(mapTime(p.elapsedSeconds), mapDuty(p.ch2Duty!)),
+            );
           }
         }
         drawLine(ch2DutyPts, _ch2Color, 'CH2 Duty', dotted: true);
@@ -661,10 +704,9 @@ class _DataLoggerPlotPainter extends CustomPainter {
         final ch2FreqPts = <Offset>[];
         for (final p in points) {
           if (p.ch2Freq != null) {
-            ch2FreqPts.add(Offset(
-              mapTime(p.elapsedSeconds),
-              mapFreq(p.ch2Freq!),
-            ));
+            ch2FreqPts.add(
+              Offset(mapTime(p.elapsedSeconds), mapFreq(p.ch2Freq!)),
+            );
           }
         }
         drawLine(ch2FreqPts, _ch2Color, 'CH2 Freq', dashed: true);
@@ -722,10 +764,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
       textPainter.layout();
       textPainter.paint(
         canvas,
-        Offset(
-          4,
-          plotRect.top + (plotRect.height - textPainter.height) / 2,
-        ),
+        Offset(4, plotRect.top + (plotRect.height - textPainter.height) / 2),
       );
     }
 
@@ -759,7 +798,12 @@ class _DataLoggerPlotPainter extends CustomPainter {
       final vppStep = _tickStep(ranges.niceMinVpp, ranges.niceMaxVpp);
       double v = ranges.niceMinVpp;
       while (v <= ranges.niceMaxVpp + 0.001) {
-        final y = _mapValueToY(v, ranges.niceMinVpp, ranges.niceMaxVpp, plotRect);
+        final y = _mapValueToY(
+          v,
+          ranges.niceMinVpp,
+          ranges.niceMaxVpp,
+          plotRect,
+        );
         textPainter.text = TextSpan(
           text: _formatAxisValue(v),
           style: textStyle,
@@ -767,25 +811,34 @@ class _DataLoggerPlotPainter extends CustomPainter {
         textPainter.layout();
         textPainter.paint(
           canvas,
-          Offset(plotRect.left - textPainter.width - 4, y - textPainter.height / 2),
+          Offset(
+            plotRect.left - textPainter.width - 4,
+            y - textPainter.height / 2,
+          ),
         );
         v += vppStep;
       }
       // Always show the 0 label when the axis spans across zero and
       // the tick step didn't already place a label at exactly 0.
       if (ranges.niceMinVpp < 0 && ranges.niceMaxVpp > 0) {
-        final zeroOnTick = ((0 - ranges.niceMinVpp) / vppStep) % 1.0 < 0.001 ||
+        final zeroOnTick =
+            ((0 - ranges.niceMinVpp) / vppStep) % 1.0 < 0.001 ||
             ((0 - ranges.niceMinVpp) / vppStep) % 1.0 > 0.999;
         if (!zeroOnTick) {
-          final zeroY = _mapValueToY(0, ranges.niceMinVpp, ranges.niceMaxVpp, plotRect);
-          textPainter.text = TextSpan(
-            text: '0',
-            style: textStyle,
+          final zeroY = _mapValueToY(
+            0,
+            ranges.niceMinVpp,
+            ranges.niceMaxVpp,
+            plotRect,
           );
+          textPainter.text = TextSpan(text: '0', style: textStyle);
           textPainter.layout();
           textPainter.paint(
             canvas,
-            Offset(plotRect.left - textPainter.width - 4, zeroY - textPainter.height / 2),
+            Offset(
+              plotRect.left - textPainter.width - 4,
+              zeroY - textPainter.height / 2,
+            ),
           );
         }
       }
@@ -796,7 +849,12 @@ class _DataLoggerPlotPainter extends CustomPainter {
       final freqStep = _tickStep(ranges.niceMinFreq, ranges.niceMaxFreq);
       double f = ranges.niceMinFreq;
       while (f <= ranges.niceMaxFreq + 0.001) {
-        final y = _mapValueToY(f, ranges.niceMinFreq, ranges.niceMaxFreq, plotRect);
+        final y = _mapValueToY(
+          f,
+          ranges.niceMinFreq,
+          ranges.niceMaxFreq,
+          plotRect,
+        );
         textPainter.text = TextSpan(
           text: _formatAxisValue(f),
           style: textStyle,
@@ -905,8 +963,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
     );
 
     // Background
-    final bgPaint = Paint()
-      ..color = const Color(0xB00A192F);
+    final bgPaint = Paint()..color = const Color(0xB00A192F);
     canvas.drawRRect(
       RRect.fromRectAndRadius(legendRect, const Radius.circular(4)),
       bgPaint,
@@ -928,8 +985,14 @@ class _DataLoggerPlotPainter extends CustomPainter {
       final y = legendRect.top + _legendPadding + i * _legendItemHeight;
 
       // Line sample
-      final lineStart = Offset(legendRect.left + 8, y + _legendItemHeight / 2 - 1);
-      final lineEnd = Offset(legendRect.left + 28, y + _legendItemHeight / 2 - 1);
+      final lineStart = Offset(
+        legendRect.left + 8,
+        y + _legendItemHeight / 2 - 1,
+      );
+      final lineEnd = Offset(
+        legendRect.left + 28,
+        y + _legendItemHeight / 2 - 1,
+      );
       final linePaint = Paint()
         ..color = item.color
         ..strokeWidth = 2.0
@@ -955,10 +1018,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
         style: const TextStyle(color: Colors.white70, fontSize: 10),
       );
       textPainter.layout();
-      textPainter.paint(
-        canvas,
-        Offset(lineEnd.dx + 6, y),
-      );
+      textPainter.paint(canvas, Offset(lineEnd.dx + 6, y));
     }
   }
 

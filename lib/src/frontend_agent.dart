@@ -43,10 +43,7 @@ Tool<Map<String, dynamic>> _createScpiAgentTool(
         toolName: 'scpi_instrument_agent',
       );
       final response = await vxiAgent.send(prompt);
-      logger.logToolCall(
-        input: args,
-        output: {'response': response},
-      );
+      logger.logToolCall(input: args, output: {'response': response});
       return {'response': response};
     },
   );
@@ -87,15 +84,9 @@ Tool<Map<String, dynamic>> _createSearchAgentTool(
     }),
     onCall: (args) async {
       final query = args['query'] as String;
-      final logger = AppLogger(
-        agentName: agentName,
-        toolName: 'search_agent',
-      );
+      final logger = AppLogger(agentName: agentName, toolName: 'search_agent');
       final response = await searchAgent.send(query);
-      logger.logToolCall(
-        input: args,
-        output: {'response': response},
-      );
+      logger.logToolCall(input: args, output: {'response': response});
       return {'response': response};
     },
   );
@@ -127,7 +118,6 @@ Tool<Map<String, dynamic>> _createSearchAgentTool(
 /// }
 /// ```
 class FrontendAgent {
-
   /// Default maximum number of tool calls per user input for the instrument
   /// (VXI-11) sub-agent.
   static const int defaultInstrumentToolCalls = 10;
@@ -191,30 +181,32 @@ class FrontendAgent {
     this.instrumentToolCalls = defaultInstrumentToolCalls,
     this.searchToolCalls = defaultSearchToolCalls,
   }) : _frontendAgent = Agent(
-          model,
-          displayName: 'FrontendAgent',
-          tools: [
-            if (vxi11Host != null)
-              _createScpiAgentTool(
-                _createVxiAgent(
-                  model: model,
-                  vxi11Host: vxi11Host,
-                  maxToolCalls: instrumentToolCalls,
-                ),
-                agentName: 'FrontendAgent',
-              ),
-            _createSearchAgentTool(
-              _createSearchSubAgent(
-                model: model,
-                knowledgebasePath: knowledgebasePath,
-                maxToolCalls: searchToolCalls,
-              ),
-              agentName: 'FrontendAgent',
-            ),
-            if (tools != null) ...tools,
-          ],
-        ) {
-    _history.add(ChatMessage.system(systemPrompt ?? frontendAgentDefaultSystemPrompt));
+         model,
+         displayName: 'FrontendAgent',
+         tools: [
+           if (vxi11Host != null)
+             _createScpiAgentTool(
+               _createVxiAgent(
+                 model: model,
+                 vxi11Host: vxi11Host,
+                 maxToolCalls: instrumentToolCalls,
+               ),
+               agentName: 'FrontendAgent',
+             ),
+           _createSearchAgentTool(
+             _createSearchSubAgent(
+               model: model,
+               knowledgebasePath: knowledgebasePath,
+               maxToolCalls: searchToolCalls,
+             ),
+             agentName: 'FrontendAgent',
+           ),
+           if (tools != null) ...tools,
+         ],
+       ) {
+    _history.add(
+      ChatMessage.system(systemPrompt ?? frontendAgentDefaultSystemPrompt),
+    );
   }
 
   /// The display name of the agent.
@@ -228,10 +220,7 @@ class FrontendAgent {
   /// The conversation history is automatically maintained for multi-turn
   /// conversations.
   Future<String> send(String prompt) async {
-    final logger = AppLogger(
-      agentName: 'FrontendAgent',
-      toolName: 'send',
-    );
+    final logger = AppLogger(agentName: 'FrontendAgent', toolName: 'send');
     logger.debug(
       '[DEBUG FrontendAgent.send] _history has ${_history.length} messages:',
     );
@@ -244,17 +233,11 @@ class FrontendAgent {
         '${msg.hasToolResults ? ' hasToolResults' : ''}',
       );
     }
-    logger.logToolCall(
-      input: {'prompt': prompt},
-      output: {},
-    );
+    logger.logToolCall(input: {'prompt': prompt}, output: {});
     final result = await _frontendAgent.send(prompt, history: _history);
     _history.addAll(result.messages);
     final output = result.output.trim();
-    logger.logToolCall(
-      input: {'prompt': prompt},
-      output: {'response': output},
-    );
+    logger.logToolCall(input: {'prompt': prompt}, output: {'response': output});
     return output;
   }
 
@@ -283,8 +266,10 @@ class FrontendAgent {
     // Whether we've already flushed the buffer (after tool calls complete).
     var hasFlushedAfterTools = false;
 
-    await for (final chunk
-        in _frontendAgent.sendStream(prompt, history: _history)) {
+    await for (final chunk in _frontendAgent.sendStream(
+      prompt,
+      history: _history,
+    )) {
       // Check if this chunk contains tool call messages.
       final hasToolCalls = chunk.messages.any((msg) => msg.hasToolCalls);
 

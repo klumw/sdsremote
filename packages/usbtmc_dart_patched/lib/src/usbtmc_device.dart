@@ -74,7 +74,6 @@ class UsbtmcDevice {
     return _lock.protect(() async {
       if (payload.isEmpty) return 0;
 
-
       // Use ONE bTag for ALL chunks (per USBTMC spec §3.2.1.1).
       _bTag = UsbtmcProtocolHelpers.nextbTag(_bTag);
 
@@ -92,14 +91,16 @@ class UsbtmcDevice {
         // Compute alignment padding for this USB transaction:
         // transaction length = header(12) + chunk payload
         final chunkTotalLen = UsbtmcConstants.headerSize + chunkLen;
-        final paddingLen = UsbtmcProtocolHelpers.getPaddingLength(chunkTotalLen);
+        final paddingLen =
+            UsbtmcProtocolHelpers.getPaddingLength(chunkTotalLen);
         final padding = Uint8List(paddingLen);
 
         // Build the packet: header + chunk data + padding
         final packet = Uint8List(chunkTotalLen + paddingLen);
         packet.setRange(0, header.length, header);
         packet.setRange(
-          header.length, header.length + chunkLen,
+          header.length,
+          header.length + chunkLen,
           Uint8List.sublistView(payload, offset, offset + chunkLen),
         );
         if (paddingLen > 0) {
@@ -206,18 +207,21 @@ class UsbtmcDevice {
   }
 
   /// Initiates a Request Bulk-IN and reads the formatted response.
-  Future<Uint8List> doRead(int maxBytesRequested, {required bool useTermChar, Duration? timeout}) async {
+  Future<Uint8List> doRead(int maxBytesRequested,
+      {required bool useTermChar, Duration? timeout}) async {
     return _lock.protect(() async {
       // print('USBTMC: doRead start - maxBytesRequested: $maxBytesRequested');
       final List<int> accumulatedData = [];
       bool isLastMessage = false;
       int? totalExpectedSize;
 
-      const int maxChunkSize = 128 * 1024; // Cap single transfer size to 128 KB for safety and compatibility
+      const int maxChunkSize = 128 *
+          1024; // Cap single transfer size to 128 KB for safety and compatibility
 
       while (true) {
         if (accumulatedData.isNotEmpty) {
-          if (totalExpectedSize != null && accumulatedData.length >= totalExpectedSize) {
+          if (totalExpectedSize != null &&
+              accumulatedData.length >= totalExpectedSize) {
             // print('USBTMC: Stopping outer loop - reached expected size $totalExpectedSize (accumulated: ${accumulatedData.length})');
             break;
           }
@@ -304,7 +308,8 @@ class UsbtmcDevice {
 
           if (isFirstRead) {
             if (rawBuffer.length < UsbtmcConstants.headerSize) {
-              throw UsbtmcException('Short read: no space for USBTMC response header');
+              throw UsbtmcException(
+                  'Short read: no space for USBTMC response header');
             }
 
             // Validate Bulk-IN Response Header
@@ -315,10 +320,12 @@ class UsbtmcDevice {
             if (respMsgId != UsbtmcConstants.devDepMsgIn) {
               // print('USBTMC ERROR: MsgID mismatch! respMsgId: $respMsgId, expected: ${UsbtmcConstants.devDepMsgIn}');
               // print('USBTMC ERROR: rawBuffer contents (len=${rawBuffer.length}): $rawBuffer');
-              throw UsbtmcException('Unexpected MsgID in Bulk-IN header: $respMsgId');
+              throw UsbtmcException(
+                  'Unexpected MsgID in Bulk-IN header: $respMsgId');
             }
             if (respBTag != _bTag) {
-              throw UsbtmcException('bTag mismatch in response: got $respBTag, expected $_bTag');
+              throw UsbtmcException(
+                  'bTag mismatch in response: got $respBTag, expected $_bTag');
             }
             if (respBTagInv != UsbtmcProtocolHelpers.invertbTag(respBTag)) {
               throw UsbtmcException('Invalid bTagInverse in response');
@@ -340,7 +347,8 @@ class UsbtmcDevice {
               // Check if we also have an IEEE definite-length header that indicates a larger size
               if (rawBuffer.length > UsbtmcConstants.headerSize) {
                 final payloadStart = rawBuffer[UsbtmcConstants.headerSize];
-                if (payloadStart == 0x23) { // '#' character
+                if (payloadStart == 0x23) {
+                  // '#' character
                   int idx = UsbtmcConstants.headerSize + 1;
                   if (idx < rawBuffer.length) {
                     final nDigitsChar = rawBuffer[idx];
@@ -348,7 +356,8 @@ class UsbtmcDevice {
                       final nDigits = nDigitsChar - 0x30;
                       idx++;
                       if (idx + nDigits <= rawBuffer.length) {
-                        final lenStr = String.fromCharCodes(rawBuffer.sublist(idx, idx + nDigits));
+                        final lenStr = String.fromCharCodes(
+                            rawBuffer.sublist(idx, idx + nDigits));
                         final parsedSize = int.tryParse(lenStr);
                         if (parsedSize != null) {
                           final ieeeSize = 1 + 1 + nDigits + parsedSize;
@@ -376,7 +385,8 @@ class UsbtmcDevice {
           }
 
           // Add payload data to accumulator (excluding header)
-          final actualChunk = rawBuffer.sublist(payloadOffset, payloadOffset + payloadLen);
+          final actualChunk =
+              rawBuffer.sublist(payloadOffset, payloadOffset + payloadLen);
           accumulatedData.addAll(actualChunk);
           messageBytesRead += actualChunk.length;
           // print('USBTMC: Accumulated chunk of ${actualChunk.length} bytes (messageBytesRead: $messageBytesRead/$expectedTransferSize)');
@@ -438,7 +448,8 @@ class UsbtmcDevice {
       int totalDrained = 0;
       while (true) {
         // Read with a very short timeout to check for leftover data in the FIFO
-        final data = await _usbDevice.read(131072, timeout: const Duration(milliseconds: 50));
+        final data = await _usbDevice.read(131072,
+            timeout: const Duration(milliseconds: 50));
         if (data.isEmpty) {
           break;
         }
@@ -480,8 +491,10 @@ class UsbtmcDevice {
     try {
       // print('USBTMC: Initiating USBTMC Clear control request (INITIATE_CLEAR, bRequest=5)...');
       final initStatus = await _usbDevice.controlTransfer(
-        requestType: 0xA1, // Class-specific, interface recipient, Device-to-Host
-        request: UsbtmcConstants.initiateClear, // bRequest=5 per USBTMC spec Table 15
+        requestType:
+            0xA1, // Class-specific, interface recipient, Device-to-Host
+        request: UsbtmcConstants
+            .initiateClear, // bRequest=5 per USBTMC spec Table 15
         value: 0,
         index: 0, // Interface 0
         data: Uint8List(1),
@@ -491,13 +504,15 @@ class UsbtmcDevice {
       if (initStatus.isNotEmpty) {
         final status = initStatus[0];
         // print('USBTMC: INITIATE_CLEAR returned status: $status');
-        if (status == 2) { // PENDING
+        if (status == 2) {
+          // PENDING
           // Poll CHECK_CLEAR_STATUS until success or failure
           for (int i = 0; i < 10; i++) {
             await Future.delayed(const Duration(milliseconds: 100));
             final checkStatus = await _usbDevice.controlTransfer(
               requestType: 0xA1,
-              request: UsbtmcConstants.checkClearStatus, // bRequest=6 per USBTMC spec Table 15
+              request: UsbtmcConstants
+                  .checkClearStatus, // bRequest=6 per USBTMC spec Table 15
               value: 0,
               index: 0,
               data: Uint8List(2),
@@ -506,9 +521,11 @@ class UsbtmcDevice {
             if (checkStatus.length >= 2) {
               final pollStatus = checkStatus[0];
               // print('USBTMC: CHECK_CLEAR_STATUS returned: $pollStatus');
-              if (pollStatus == 1) { // SUCCESS
+              if (pollStatus == 1) {
+                // SUCCESS
                 break;
-              } else if (pollStatus >= 0x80) { // FAILED (any status >= 0x80 is an error)
+              } else if (pollStatus >= 0x80) {
+                // FAILED (any status >= 0x80 is an error)
                 // print('USBTMC: CHECK_CLEAR_STATUS reported failure: $pollStatus');
                 break;
               }
@@ -528,7 +545,7 @@ class UsbtmcDevice {
       // print('USBTMC: Querying GET_CAPABILITIES...');
       final caps = await _usbDevice.controlTransfer(
         requestType: 0xA1, // Device-to-Host, Class, Interface
-        request: 7,        // GET_CAPABILITIES
+        request: 7, // GET_CAPABILITIES
         value: 0,
         index: 0,
         data: Uint8List(24),
@@ -550,8 +567,8 @@ class UsbtmcDevice {
           // final renStatus =
           await _usbDevice.controlTransfer(
             requestType: 0xA1, // Device-to-Host, Class, Interface
-            request: 0xA0,     // REN_CONTROL
-            value: 0x01,       // Assert REN
+            request: 0xA0, // REN_CONTROL
+            value: 0x01, // Assert REN
             index: 0,
             data: Uint8List(1), // 1-byte buffer for device status response
             timeout: const Duration(seconds: 2),

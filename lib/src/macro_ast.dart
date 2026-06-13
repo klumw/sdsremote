@@ -110,7 +110,9 @@ class AssignStmt extends Statement {
   /// true. Overrides [queryOrValue] / [isVariable].
   final ConcatString? concatString;
 
-  const AssignStmt(this.varName, this.queryOrValue, {
+  const AssignStmt(
+    this.varName,
+    this.queryOrValue, {
     this.isQuery = true,
     this.isVariable = false,
     this.arithExpr,
@@ -253,7 +255,9 @@ class AssertStmt extends Statement {
   /// evaluation time.
   final bool expectedIsVariable;
 
-  const AssertStmt(this.text, this.operand, {
+  const AssertStmt(
+    this.text,
+    this.operand, {
     this.op,
     this.expectedValue,
     this.concatText,
@@ -306,7 +310,11 @@ class WhileStmt extends Statement {
   /// time.
   final bool valueIsVariable;
 
-  const WhileStmt(this.condition, this.op, this.value, this.body, {
+  const WhileStmt(
+    this.condition,
+    this.op,
+    this.value,
+    this.body, {
     this.valueIsVariable = false,
   });
 }

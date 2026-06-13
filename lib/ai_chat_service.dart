@@ -58,16 +58,14 @@ class AiChatService {
       _agent = FrontendAgent(
         model: model,
         vxi11Host: vxi11Host,
-        instrumentToolCalls: instrumentToolCalls ?? FrontendAgent.defaultInstrumentToolCalls,
-        searchToolCalls: searchToolCalls ?? FrontendAgent.defaultSearchToolCalls,
+        instrumentToolCalls:
+            instrumentToolCalls ?? FrontendAgent.defaultInstrumentToolCalls,
+        searchToolCalls:
+            searchToolCalls ?? FrontendAgent.defaultSearchToolCalls,
       );
-      logger.debug(
-        'SUCCESS: FrontendAgent created, agent=${_agent != null}',
-      );
+      logger.debug('SUCCESS: FrontendAgent created, agent=${_agent != null}');
     } catch (e) {
-      logger.debug(
-        'FAILURE: FrontendAgent constructor threw: $e',
-      );
+      logger.debug('FAILURE: FrontendAgent constructor threw: $e');
       // _agent remains null — caller should handle this.
     }
   }
@@ -96,9 +94,10 @@ class AiChatService {
         yield chunk;
       }
     } catch (e) {
-      AppLogger(agentName: 'AiChatService', toolName: 'sendMessageStream').debug(
-        'Error during AI streaming: $e',
-      );
+      AppLogger(
+        agentName: 'AiChatService',
+        toolName: 'sendMessageStream',
+      ).debug('Error during AI streaming: $e');
       yield 'Error: AI request failed ($e)';
     }
   }
@@ -107,9 +106,10 @@ class AiChatService {
   /// disposing the service. The service can be re-activated later with
   /// [configure].
   void deactivate() {
-    AppLogger(agentName: 'AiChatService', toolName: 'deactivate').debug(
-      'Service deactivated',
-    );
+    AppLogger(
+      agentName: 'AiChatService',
+      toolName: 'deactivate',
+    ).debug('Service deactivated');
     _agent = null;
   }
 

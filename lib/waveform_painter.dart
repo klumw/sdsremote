@@ -6,9 +6,10 @@ import 'waveform_models.dart';
 class WaveformBasePainter extends CustomPainter {
   final WaveformData? ch1;
   final WaveformData? ch2;
-  final WaveformData? ref;          // loaded reference waveform (ghost)
-  final bool refVisible;            // whether the reference is visible
-  final String? refChannelOrigin;   // 'ch1' or 'ch2' — which channel's V/div to use
+  final WaveformData? ref; // loaded reference waveform (ghost)
+  final bool refVisible; // whether the reference is visible
+  final String?
+  refChannelOrigin; // 'ch1' or 'ch2' — which channel's V/div to use
   final DeviceParams params;
   final bool ch1Enabled;
   final bool ch2Enabled;
@@ -38,7 +39,8 @@ class WaveformBasePainter extends CustomPainter {
     );
 
     final hasRef = refVisible && ref != null && ref!.points.isNotEmpty;
-    final hasData = (ch1 != null && ch1!.points.isNotEmpty) ||
+    final hasData =
+        (ch1 != null && ch1!.points.isNotEmpty) ||
         (ch2 != null && ch2!.points.isNotEmpty) ||
         hasRef;
 
@@ -61,12 +63,20 @@ class WaveformBasePainter extends CustomPainter {
       dataTMax = ch1!.points.last.$1;
     }
     if (ch2 != null && ch2!.points.isNotEmpty) {
-      dataTMin = dataTMin < ch2!.points.first.$1 ? dataTMin : ch2!.points.first.$1;
-      dataTMax = dataTMax > ch2!.points.last.$1 ? dataTMax : ch2!.points.last.$1;
+      dataTMin = dataTMin < ch2!.points.first.$1
+          ? dataTMin
+          : ch2!.points.first.$1;
+      dataTMax = dataTMax > ch2!.points.last.$1
+          ? dataTMax
+          : ch2!.points.last.$1;
     }
     if (hasRef) {
-      dataTMin = dataTMin < ref!.points.first.$1 ? dataTMin : ref!.points.first.$1;
-      dataTMax = dataTMax > ref!.points.last.$1 ? dataTMax : ref!.points.last.$1;
+      dataTMin = dataTMin < ref!.points.first.$1
+          ? dataTMin
+          : ref!.points.first.$1;
+      dataTMax = dataTMax > ref!.points.last.$1
+          ? dataTMax
+          : ref!.points.last.$1;
     }
     if (dataTMin == double.infinity) return;
 
@@ -119,8 +129,16 @@ class WaveformBasePainter extends CustomPainter {
       final double visibleVRange = vRange / zoom.zoomFactor;
       final double visibleVMin = centerVoltage - visibleVRange / 2;
       final double visibleVMax = centerVoltage + visibleVRange / 2;
-      _drawWaveform(canvas, size, ch1!, Colors.yellow,
-          visibleTMin, visibleTMax, visibleVMin, visibleVMax);
+      _drawWaveform(
+        canvas,
+        size,
+        ch1!,
+        Colors.yellow,
+        visibleTMin,
+        visibleTMax,
+        visibleVMin,
+        visibleVMax,
+      );
     }
 
     if (ch2Enabled && ch2 != null && ch2!.points.isNotEmpty) {
@@ -133,8 +151,16 @@ class WaveformBasePainter extends CustomPainter {
       final double visibleVRange = vRange / zoom.zoomFactor;
       final double visibleVMin = centerVoltage - visibleVRange / 2;
       final double visibleVMax = centerVoltage + visibleVRange / 2;
-      _drawWaveform(canvas, size, ch2!, const Color(0xFFFF20FF),
-          visibleTMin, visibleTMax, visibleVMin, visibleVMax);
+      _drawWaveform(
+        canvas,
+        size,
+        ch2!,
+        const Color(0xFFFF20FF),
+        visibleTMin,
+        visibleTMax,
+        visibleVMin,
+        visibleVMax,
+      );
     }
 
     // Draw reference waveform as a ghost overlay
@@ -154,9 +180,17 @@ class WaveformBasePainter extends CustomPainter {
       final double visibleVRange = vRange / zoom.zoomFactor;
       final double visibleVMinRef = centerVoltage - visibleVRange / 2;
       final double visibleVMaxRef = centerVoltage + visibleVRange / 2;
-      _drawWaveform(canvas, size, ref!, Colors.white.withAlpha(80),
-          visibleTMin, visibleTMax, visibleVMinRef, visibleVMaxRef,
-          strokeWidth: 1.0);
+      _drawWaveform(
+        canvas,
+        size,
+        ref!,
+        Colors.white.withAlpha(80),
+        visibleTMin,
+        visibleTMax,
+        visibleVMinRef,
+        visibleVMaxRef,
+        strokeWidth: 1.0,
+      );
     }
   }
 
@@ -170,9 +204,14 @@ class WaveformBasePainter extends CustomPainter {
   ///
   /// Minor sub-division lines (1/5 of the main interval) provide finer
   /// detail when zoomed in.
-  void _drawGrid(Canvas canvas, Size size,
-      double visibleTMin, double visibleTMax,
-      double visibleVMin, double visibleVMax) {
+  void _drawGrid(
+    Canvas canvas,
+    Size size,
+    double visibleTMin,
+    double visibleTMax,
+    double visibleVMin,
+    double visibleVMax,
+  ) {
     final double visibleTRange = visibleTMax - visibleTMin;
     final double visibleVRange = visibleVMax - visibleVMin;
     if (visibleTRange <= 0 || visibleVRange <= 0) return;
@@ -186,8 +225,7 @@ class WaveformBasePainter extends CustomPainter {
     final double vMinorInterval = vMajorInterval / 5.0;
 
     // Helper: map time → pixel X, voltage → pixel Y.
-    double timeToPx(double t) =>
-        (t - visibleTMin) / visibleTRange * size.width;
+    double timeToPx(double t) => (t - visibleTMin) / visibleTRange * size.width;
     double voltageToPy(double v) =>
         (visibleVMax - v) / visibleVRange * size.height;
 
@@ -199,21 +237,25 @@ class WaveformBasePainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     // Find the first minor line inside the visible range.
-    final double tMinorStart = (visibleTMin / tMinorInterval).ceil() * tMinorInterval;
+    final double tMinorStart =
+        (visibleTMin / tMinorInterval).ceil() * tMinorInterval;
     for (double t = tMinorStart; t <= visibleTMax; t += tMinorInterval) {
       // Skip positions that fall on a major line.
       final double remainder = (t / tMajorInterval).roundToDouble();
-      if ((t - remainder * tMajorInterval).abs() < tMinorInterval * 0.01) continue;
+      if ((t - remainder * tMajorInterval).abs() < tMinorInterval * 0.01)
+        continue;
       final double x = timeToPx(t);
       if (x >= 0 && x <= size.width) {
         canvas.drawLine(Offset(x, 0), Offset(x, size.height), minorPaint);
       }
     }
 
-    final double vMinorStart = (visibleVMin / vMinorInterval).ceil() * vMinorInterval;
+    final double vMinorStart =
+        (visibleVMin / vMinorInterval).ceil() * vMinorInterval;
     for (double v = vMinorStart; v <= visibleVMax; v += vMinorInterval) {
       final double remainder = (v / vMajorInterval).roundToDouble();
-      if ((v - remainder * vMajorInterval).abs() < vMinorInterval * 0.01) continue;
+      if ((v - remainder * vMajorInterval).abs() < vMinorInterval * 0.01)
+        continue;
       final double y = voltageToPy(v);
       if (y >= 0 && y <= size.height) {
         canvas.drawLine(Offset(0, y), Offset(size.width, y), minorPaint);
@@ -228,7 +270,8 @@ class WaveformBasePainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     // Vertical major lines (time divisions at nice intervals)
-    final double tMajorStart = (visibleTMin / tMajorInterval).ceil() * tMajorInterval;
+    final double tMajorStart =
+        (visibleTMin / tMajorInterval).ceil() * tMajorInterval;
     for (double t = tMajorStart; t <= visibleTMax; t += tMajorInterval) {
       final double x = timeToPx(t);
       if (x >= 0 && x <= size.width) {
@@ -237,7 +280,8 @@ class WaveformBasePainter extends CustomPainter {
     }
 
     // Horizontal major lines (voltage divisions at nice intervals)
-    final double vMajorStart = (visibleVMin / vMajorInterval).ceil() * vMajorInterval;
+    final double vMajorStart =
+        (visibleVMin / vMajorInterval).ceil() * vMajorInterval;
     for (double v = vMajorStart; v <= visibleVMax; v += vMajorInterval) {
       final double y = voltageToPy(v);
       if (y >= 0 && y <= size.height) {
@@ -287,12 +331,17 @@ class WaveformBasePainter extends CustomPainter {
     }
   }
 
-  void _drawWaveform(Canvas canvas, Size size, WaveformData data,
-      Color color,
-      double visibleTMin, double visibleTMax,
-      double visibleVMin, double visibleVMax, {
-      double strokeWidth = 1.5,
-    }) {
+  void _drawWaveform(
+    Canvas canvas,
+    Size size,
+    WaveformData data,
+    Color color,
+    double visibleTMin,
+    double visibleTMax,
+    double visibleVMin,
+    double visibleVMax, {
+    double strokeWidth = 1.5,
+  }) {
     if (data.points.length < 2) return;
 
     final paint = Paint()
@@ -318,7 +367,8 @@ class WaveformBasePainter extends CustomPainter {
     final dataTFirst = data.points.first.$1;
     final dataTLast = data.points.last.$1;
     final dataTRange = dataTLast - dataTFirst;
-    final bool expandToDisplay = dataTRange <= 0 || dataTRange < visibleTRange * 0.25;
+    final bool expandToDisplay =
+        dataTRange <= 0 || dataTRange < visibleTRange * 0.25;
 
     // Restrict waveform drawing to the grid area to prevent
     // overflow beyond the grid when zoom factor > 1.
@@ -334,7 +384,8 @@ class WaveformBasePainter extends CustomPainter {
         final point = data.points[i];
         final double rel = n == 1 ? 0.0 : i / (n - 1);
         final double px = rel * size.width;
-        final double py = (visibleVMax - point.$2) / visibleVRange * size.height;
+        final double py =
+            (visibleVMax - point.$2) / visibleVRange * size.height;
         if (first) {
           path.moveTo(px, py);
           first = false;
@@ -364,10 +415,7 @@ class WaveformBasePainter extends CustomPainter {
     final textPainter = TextPainter(
       text: const TextSpan(
         text: text,
-        style: TextStyle(
-          color: Colors.white54,
-          fontSize: 16,
-        ),
+        style: TextStyle(color: Colors.white54, fontSize: 16),
       ),
       textDirection: TextDirection.ltr,
     )..layout();
@@ -491,12 +539,17 @@ class CursorPainter extends CustomPainter {
     while (drawn < totalLength) {
       final segmentLength = drawingDash ? dashLength : gapLength;
       final remaining = totalLength - drawn;
-      final actualLength = segmentLength < remaining ? segmentLength : remaining;
+      final actualLength = segmentLength < remaining
+          ? segmentLength
+          : remaining;
 
       if (drawingDash) {
         canvas.drawLine(
           Offset(p1.dx + unitX * drawn, p1.dy + unitY * drawn),
-          Offset(p1.dx + unitX * (drawn + actualLength), p1.dy + unitY * (drawn + actualLength)),
+          Offset(
+            p1.dx + unitX * (drawn + actualLength),
+            p1.dy + unitY * (drawn + actualLength),
+          ),
           paint,
         );
       }
@@ -632,12 +685,14 @@ class CursorPainter extends CustomPainter {
     final int yRows = cursors.cursorsYEnabled ? 3 : 0;
     final int xRows = cursors.cursorsXEnabled ? 2 : 0;
     final double sectionsGap = (yRows > 0 && xRows > 0) ? sectionGap : 0;
-    final double panelHeight = headerHeight +
+    final double panelHeight =
+        headerHeight +
         (yRows + xRows) * rowHeight +
         sectionsGap +
         panelPadding * 2;
 
-    final double panelX = size.width - panelWidth - 12 + cursors.cursorInfoOffset.dx;
+    final double panelX =
+        size.width - panelWidth - 12 + cursors.cursorInfoOffset.dx;
     final double panelY = 12 + cursors.cursorInfoOffset.dy;
 
     final bgPaint = Paint()
@@ -657,7 +712,12 @@ class CursorPainter extends CustomPainter {
 
     double curY = panelY + panelPadding;
 
-    void drawRow(String label, String value, Color labelColor, Color valueColor) {
+    void drawRow(
+      String label,
+      String value,
+      Color labelColor,
+      Color valueColor,
+    ) {
       final labelPainter = TextPainter(
         text: TextSpan(
           text: label,
@@ -705,8 +765,18 @@ class CursorPainter extends CustomPainter {
     curY += headerHeight;
 
     if (cursors.cursorsYEnabled) {
-      drawRow('Y1:', fmtVoltage(yV1!), Colors.orangeAccent, Colors.orangeAccent);
-      drawRow('Y2:', fmtVoltage(yV2!), Colors.orangeAccent, Colors.orangeAccent);
+      drawRow(
+        'Y1:',
+        fmtVoltage(yV1!),
+        Colors.orangeAccent,
+        Colors.orangeAccent,
+      );
+      drawRow(
+        'Y2:',
+        fmtVoltage(yV2!),
+        Colors.orangeAccent,
+        Colors.orangeAccent,
+      );
       drawRow('ΔY:', fmtVoltage(yDelta!), Colors.white70, Colors.yellowAccent);
       curY += sectionGap;
     }

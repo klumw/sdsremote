@@ -60,10 +60,20 @@ class DataLoggerConfig {
   final double probeDividerCh2;
 
   /// True if any measurement is enabled for CH1.
-  bool get ch1Enabled => ch1VppEnabled || ch1MeanEnabled || ch1RmsEnabled || ch1DutyEnabled || ch1FreqEnabled;
+  bool get ch1Enabled =>
+      ch1VppEnabled ||
+      ch1MeanEnabled ||
+      ch1RmsEnabled ||
+      ch1DutyEnabled ||
+      ch1FreqEnabled;
 
   /// True if any measurement is enabled for CH2.
-  bool get ch2Enabled => ch2VppEnabled || ch2MeanEnabled || ch2RmsEnabled || ch2DutyEnabled || ch2FreqEnabled;
+  bool get ch2Enabled =>
+      ch2VppEnabled ||
+      ch2MeanEnabled ||
+      ch2RmsEnabled ||
+      ch2DutyEnabled ||
+      ch2FreqEnabled;
 
   const DataLoggerConfig({
     this.ch1VppEnabled = false,
@@ -146,22 +156,22 @@ class DataLoggerConfig {
 
   @override
   int get hashCode => Object.hash(
-        ch1VppEnabled,
-        ch1MeanEnabled,
-        ch1RmsEnabled,
-        ch1DutyEnabled,
-        ch1FreqEnabled,
-        ch2VppEnabled,
-        ch2MeanEnabled,
-        ch2RmsEnabled,
-        ch2DutyEnabled,
-        ch2FreqEnabled,
-        intervalSeconds,
-        durationMinutes,
-        description,
-        probeDividerCh1,
-        probeDividerCh2,
-      );
+    ch1VppEnabled,
+    ch1MeanEnabled,
+    ch1RmsEnabled,
+    ch1DutyEnabled,
+    ch1FreqEnabled,
+    ch2VppEnabled,
+    ch2MeanEnabled,
+    ch2RmsEnabled,
+    ch2DutyEnabled,
+    ch2FreqEnabled,
+    intervalSeconds,
+    durationMinutes,
+    description,
+    probeDividerCh1,
+    probeDividerCh2,
+  );
 
   @override
   String toString() =>

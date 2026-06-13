@@ -52,13 +52,19 @@ class UsbtmcConstants {
   // Descriptions for bRequest
   static const Map<int, String> requestDescriptions = {
     initiateAbortBulkOut: 'Aborts a Bulk-OUT transfer.',
-    checkAbortBulkOutStatus: 'Returns the status of the previously sent initiateAbortBulkOut request.',
+    checkAbortBulkOutStatus:
+        'Returns the status of the previously sent initiateAbortBulkOut request.',
     initiateAbortBulkIn: 'Aborts a Bulk-IN transfer.',
-    checkAbortBulkInStatus: 'Returns the status of the previously sent initiateAbortBulkIn request.',
-    initiateClear: 'Clears all previously sent pending and unprocessed Bulk-OUT USBTMC message content and clears all pending Bulk-IN transfers from the USBTMC interface.',
-    checkClearStatus: 'Returns the status of the previously sent initiateClear request.',
-    getCapabilities: 'Returns attributes and capabilities of the USBTMC interface.',
-    indicatorPulse: 'A mechanism to turn on an activity indicator for identification purposes.',
+    checkAbortBulkInStatus:
+        'Returns the status of the previously sent initiateAbortBulkIn request.',
+    initiateClear:
+        'Clears all previously sent pending and unprocessed Bulk-OUT USBTMC message content and clears all pending Bulk-IN transfers from the USBTMC interface.',
+    checkClearStatus:
+        'Returns the status of the previously sent initiateClear request.',
+    getCapabilities:
+        'Returns attributes and capabilities of the USBTMC interface.',
+    indicatorPulse:
+        'A mechanism to turn on an activity indicator for identification purposes.',
     readStatusByte: 'Returns the IEEE 488 Status Byte.',
     renControl: 'Mechanism to enable or disable local controls on a device.',
     goToLocal: 'Mechanism to enable local controls on a device.',

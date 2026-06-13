@@ -59,17 +59,15 @@ class InstrumentAgent with MaxToolCallsHandler {
     List<Tool>? tools,
     this.maxToolCalls = defaultMaxToolCalls,
   }) : _agent = Agent(
-          model,
-          displayName: 'InstrumentAgent',
-          tools: [
-            if (vxi11Host != null) createVxi11Tool(
-              host: vxi11Host,
-              agentName: 'InstrumentAgent',
-            ),
-            if (tools != null) ...tools,
-          ],
-          maxToolCalls: maxToolCalls,
-        ) {
+         model,
+         displayName: 'InstrumentAgent',
+         tools: [
+           if (vxi11Host != null)
+             createVxi11Tool(host: vxi11Host, agentName: 'InstrumentAgent'),
+           if (tools != null) ...tools,
+         ],
+         maxToolCalls: maxToolCalls,
+       ) {
     if (systemPrompt != null) {
       _history.add(ChatMessage.system(systemPrompt));
     }

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -47,12 +46,10 @@ class _StreamingIndicatorState extends State<_StreamingIndicator>
       duration: const Duration(milliseconds: 530),
     );
     // Smooth pulsing: 0.3 → 1.0 → 0.3 using easeInOut sine-like curve
-    _opacity = Tween<double>(begin: 0.3, end: 1.0).animate(
-      CurvedAnimation(
-        parent: _controller,
-        curve: Curves.easeInOut,
-      ),
-    );
+    _opacity = Tween<double>(
+      begin: 0.3,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
     _controller.repeat(reverse: true);
   }
 
@@ -67,18 +64,11 @@ class _StreamingIndicatorState extends State<_StreamingIndicator>
     return AnimatedBuilder(
       animation: _opacity,
       builder: (context, child) {
-        return Opacity(
-          opacity: _opacity.value,
-          child: child,
-        );
+        return Opacity(opacity: _opacity.value, child: child);
       },
       child: const Text(
         '▊',
-        style: TextStyle(
-          color: Colors.cyanAccent,
-          fontSize: 15,
-          height: 1.0,
-        ),
+        style: TextStyle(color: Colors.cyanAccent, fontSize: 15, height: 1.0),
       ),
     );
   }
@@ -298,18 +288,11 @@ class _ChatWindowState extends State<ChatWindow> {
   /// is in progress. Shows the message content with an animated streaming
   /// indicator at the end when content has started arriving but the agent is
   /// still generating. Otherwise renders the content as markdown.
-  Widget _buildMessageContent(
-    Map<String, String> msg,
-    int index,
-    bool isUser,
-  ) {
-    final isLastAiMessage =
-        !isUser && index == widget.chatMessages.length - 1;
+  Widget _buildMessageContent(Map<String, String> msg, int index, bool isUser) {
+    final isLastAiMessage = !isUser && index == widget.chatMessages.length - 1;
 
     // Case 1: Empty content while streaming → "Thinking..." spinner
-    if (isLastAiMessage &&
-        msg['content']!.isEmpty &&
-        widget.isChatting) {
+    if (isLastAiMessage && msg['content']!.isEmpty && widget.isChatting) {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -343,9 +326,7 @@ class _ChatWindowState extends State<ChatWindow> {
           SelectionArea(
             child: MarkdownBody(
               selectable: true,
-              data: _convertBareUrlsToMarkdownLinks(
-                msg['content']!,
-              ),
+              data: _convertBareUrlsToMarkdownLinks(msg['content']!),
               onTapLink: (text, href, title) {
                 if (href != null) {
                   launchUrl(
@@ -354,49 +335,41 @@ class _ChatWindowState extends State<ChatWindow> {
                   );
                 }
               },
-              styleSheet: MarkdownStyleSheet.fromTheme(
-                Theme.of(context),
-              ).copyWith(
-                p: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                ),
-                h1: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-                h2: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-                h3: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-                listBullet: const TextStyle(
-                  color: Colors.cyanAccent,
-                ),
-                code: TextStyle(
-                  backgroundColor: Colors.black26,
-                  color: Colors.cyanAccent[100],
-                  fontFamily: 'monospace',
-                  fontSize: 14,
-                ),
-                codeblockDecoration: BoxDecoration(
-                  color: Colors.black26,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                blockquote: const TextStyle(
-                  color: Colors.yellow,
-                ),
-                blockquoteDecoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(4),
-                ),
-              ),
+              styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
+                  .copyWith(
+                    p: const TextStyle(color: Colors.white, fontSize: 15),
+                    h1: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    h2: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    h3: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    listBullet: const TextStyle(color: Colors.cyanAccent),
+                    code: TextStyle(
+                      backgroundColor: Colors.black26,
+                      color: Colors.cyanAccent[100],
+                      fontFamily: 'monospace',
+                      fontSize: 14,
+                    ),
+                    codeblockDecoration: BoxDecoration(
+                      color: Colors.black26,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    blockquote: const TextStyle(color: Colors.yellow),
+                    blockquoteDecoration: BoxDecoration(
+                      color: Colors.black,
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                  ),
             ),
           ),
           const SizedBox(height: 2),
@@ -409,24 +382,14 @@ class _ChatWindowState extends State<ChatWindow> {
     return SelectionArea(
       child: MarkdownBody(
         selectable: true,
-        data: _convertBareUrlsToMarkdownLinks(
-          msg['content']!,
-        ),
+        data: _convertBareUrlsToMarkdownLinks(msg['content']!),
         onTapLink: (text, href, title) {
           if (href != null) {
-            launchUrl(
-              Uri.parse(href),
-              mode: LaunchMode.externalApplication,
-            );
+            launchUrl(Uri.parse(href), mode: LaunchMode.externalApplication);
           }
         },
-        styleSheet: MarkdownStyleSheet.fromTheme(
-          Theme.of(context),
-        ).copyWith(
-          p: const TextStyle(
-            color: Colors.white,
-            fontSize: 15,
-          ),
+        styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+          p: const TextStyle(color: Colors.white, fontSize: 15),
           h1: const TextStyle(
             color: Colors.white,
             fontSize: 20,
@@ -442,9 +405,7 @@ class _ChatWindowState extends State<ChatWindow> {
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
-          listBullet: const TextStyle(
-            color: Colors.cyanAccent,
-          ),
+          listBullet: const TextStyle(color: Colors.cyanAccent),
           code: TextStyle(
             backgroundColor: Colors.black26,
             color: Colors.cyanAccent[100],
@@ -455,9 +416,7 @@ class _ChatWindowState extends State<ChatWindow> {
             color: Colors.black26,
             borderRadius: BorderRadius.circular(4),
           ),
-          blockquote: const TextStyle(
-            color: Colors.yellow,
-          ),
+          blockquote: const TextStyle(color: Colors.yellow),
           blockquoteDecoration: BoxDecoration(
             color: Colors.black,
             borderRadius: BorderRadius.circular(4),

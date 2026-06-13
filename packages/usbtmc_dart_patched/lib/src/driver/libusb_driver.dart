@@ -83,10 +83,8 @@ typedef _libusb_clear_halt_c = Int32 Function(
 typedef _libusb_clear_halt_dart = int Function(
     Pointer<Void> dev_handle, int endpoint);
 
-typedef _libusb_reset_device_c = Int32 Function(
-    Pointer<Void> dev_handle);
-typedef _libusb_reset_device_dart = int Function(
-    Pointer<Void> dev_handle);
+typedef _libusb_reset_device_c = Int32 Function(Pointer<Void> dev_handle);
+typedef _libusb_reset_device_dart = int Function(Pointer<Void> dev_handle);
 
 typedef _libusb_set_auto_detach_kernel_driver_c = Int32 Function(
     Pointer<Void> ctx, Int32 enable);
@@ -100,7 +98,8 @@ class LibusbBindings {
   late final _libusb_init_dart libusb_init;
   late final _libusb_exit_dart libusb_exit;
   late final _libusb_set_debug_dart libusb_set_debug;
-  late final _libusb_open_device_with_vid_pid_dart libusb_open_device_with_vid_pid;
+  late final _libusb_open_device_with_vid_pid_dart
+      libusb_open_device_with_vid_pid;
   late final _libusb_close_dart libusb_close;
   late final _libusb_claim_interface_dart libusb_claim_interface;
   late final _libusb_release_interface_dart libusb_release_interface;
@@ -108,19 +107,18 @@ class LibusbBindings {
   late final _libusb_control_transfer_dart libusb_control_transfer;
   late final _libusb_detach_kernel_driver_dart libusb_detach_kernel_driver;
   late final _libusb_attach_kernel_driver_dart libusb_attach_kernel_driver;
-  late final _libusb_set_auto_detach_kernel_driver_dart libusb_set_auto_detach_kernel_driver;
+  late final _libusb_set_auto_detach_kernel_driver_dart
+      libusb_set_auto_detach_kernel_driver;
   late final _libusb_clear_halt_dart libusb_clear_halt;
   late final _libusb_reset_device_dart libusb_reset_device;
 
   LibusbBindings() {
     _lib = _loadLibrary();
 
-    libusb_init = _lib
-        .lookup<NativeFunction<_libusb_init_c>>('libusb_init')
-        .asFunction();
-    libusb_exit = _lib
-        .lookup<NativeFunction<_libusb_exit_c>>('libusb_exit')
-        .asFunction();
+    libusb_init =
+        _lib.lookup<NativeFunction<_libusb_init_c>>('libusb_init').asFunction();
+    libusb_exit =
+        _lib.lookup<NativeFunction<_libusb_exit_c>>('libusb_exit').asFunction();
     libusb_set_debug = _lib
         .lookup<NativeFunction<_libusb_set_debug_c>>('libusb_set_debug')
         .asFunction();
@@ -249,7 +247,8 @@ class LibusbContext implements UsbContext {
       await _checkAndExitAgilentBootMode(vendorId, productId);
     }
 
-    final handle = _bindings.libusb_open_device_with_vid_pid(_ctx, vendorId, productId);
+    final handle =
+        _bindings.libusb_open_device_with_vid_pid(_ctx, vendorId, productId);
     if (handle == nullptr) {
       throw Exception(
           'Failed to open USB device with VID 0x${vendorId.toRadixString(16)} and PID 0x${productId.toRadixString(16)}. Please check physical connection and USB permissions.');
@@ -259,7 +258,8 @@ class LibusbContext implements UsbContext {
     if (res < 0) {
       final errDesc = LibusbDevice._libusbErrorString(res);
       _bindings.libusb_close(handle);
-      throw Exception('Failed to claim interface 0: error code $res ($errDesc)');
+      throw Exception(
+          'Failed to claim interface 0: error code $res ($errDesc)');
     }
 
     // In USBTMC, endpoints are standardized as:
@@ -282,11 +282,12 @@ class LibusbContext implements UsbContext {
     if (bootPid == null) return;
 
     // Check if the device is currently in boot mode
-    final bootHandle = _bindings.libusb_open_device_with_vid_pid(_ctx, vid, bootPid);
+    final bootHandle =
+        _bindings.libusb_open_device_with_vid_pid(_ctx, vid, bootPid);
     if (bootHandle == nullptr) return; // Not in boot mode
 
     // print('Found Keysight modular device in boot mode. Initiating escape sequence...');
-    
+
     // Sequence of specific control transfers to exit boot mode
     int thirdIndex = (bootPid == 0x2818 || bootPid == 0x3E18) ? 0x0484 : 0x0487;
     final packets = [
@@ -295,7 +296,8 @@ class LibusbContext implements UsbContext {
       _ControlTransferPacket(0xC0, 0x0C, 0x0000, thirdIndex, Uint8List(5)),
       _ControlTransferPacket(0xC0, 0x0C, 0x0000, 0x0472, Uint8List(12)),
       _ControlTransferPacket(0xC0, 0x0C, 0x0000, 0x047A, Uint8List(1)),
-      _ControlTransferPacket(0x40, 0x0C, 0x0000, 0x0475, Uint8List.fromList([0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x08, 0x01])),
+      _ControlTransferPacket(0x40, 0x0C, 0x0000, 0x0475,
+          Uint8List.fromList([0x00, 0x00, 0x01, 0x01, 0x00, 0x00, 0x08, 0x01])),
     ];
 
     try {
@@ -318,7 +320,8 @@ class LibusbContext implements UsbContext {
 
         calloc.free(dataPtr);
         if (res < 0) {
-          throw Exception('Control transfer failed during boot mode escape: $res');
+          throw Exception(
+              'Control transfer failed during boot mode escape: $res');
         }
       }
     } finally {
@@ -343,25 +346,40 @@ class LibusbDevice implements UsbDevice {
   final int bulkInEp;
   bool _closed = false;
 
-  LibusbDevice._(this._handle, {required this.bulkOutEp, required this.bulkInEp});
+  LibusbDevice._(this._handle,
+      {required this.bulkOutEp, required this.bulkInEp});
 
   /// Maps a libusb error code to a human-readable description.
   static String _libusbErrorString(int code) {
     switch (code) {
-      case 0:  return 'SUCCESS';
-      case -1: return 'IO_ERROR';
-      case -2: return 'INVALID_PARAM';
-      case -3: return 'ACCESS';
-      case -4: return 'NO_DEVICE';
-      case -5: return 'NOT_FOUND';
-      case -6: return 'BUSY';
-      case -7: return 'TIMEOUT';
-      case -8: return 'OVERFLOW';
-      case -9: return 'PIPE';
-      case -10: return 'INTERRUPTED';
-      case -11: return 'NO_MEM';
-      case -12: return 'NOT_SUPPORTED';
-      default: return 'UNKNOWN';
+      case 0:
+        return 'SUCCESS';
+      case -1:
+        return 'IO_ERROR';
+      case -2:
+        return 'INVALID_PARAM';
+      case -3:
+        return 'ACCESS';
+      case -4:
+        return 'NO_DEVICE';
+      case -5:
+        return 'NOT_FOUND';
+      case -6:
+        return 'BUSY';
+      case -7:
+        return 'TIMEOUT';
+      case -8:
+        return 'OVERFLOW';
+      case -9:
+        return 'PIPE';
+      case -10:
+        return 'INTERRUPTED';
+      case -11:
+        return 'NO_MEM';
+      case -12:
+        return 'NOT_SUPPORTED';
+      default:
+        return 'UNKNOWN';
     }
   }
 

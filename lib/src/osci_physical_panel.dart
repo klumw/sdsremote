@@ -146,11 +146,15 @@ class PhysicalControlPanel extends StatelessWidget {
                                 'Intensity\nAdjust',
                                 60,
                                 onChanged: onKnobChanged != null
-                                    ? (v) => onKnobChanged!(KnobId.intensityAdjust, v)
+                                    ? (v) => onKnobChanged!(
+                                        KnobId.intensityAdjust,
+                                        v,
+                                      )
                                     : null,
                                 showCounter: false,
                                 onTap: onKnobTapped != null
-                                    ? () => onKnobTapped!(KnobId.intensityAdjust)
+                                    ? () =>
+                                          onKnobTapped!(KnobId.intensityAdjust)
                                     : null,
                               ),
                               const SizedBox(width: 10),
@@ -184,7 +188,8 @@ class PhysicalControlPanel extends StatelessWidget {
                                   child: _buildSectionWrapper(
                                     'Vertical',
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         _buildChannelColumn('CH1'),
                                         const SizedBox(width: 20),
@@ -209,23 +214,31 @@ class PhysicalControlPanel extends StatelessWidget {
                                         _buildKnob(
                                           70,
                                           onChanged: onKnobChanged != null
-                                              ? (v) => onKnobChanged!(KnobId.horizontalTime, v)
+                                              ? (v) => onKnobChanged!(
+                                                  KnobId.horizontalTime,
+                                                  v,
+                                                )
                                               : null,
                                           showCounter: false,
                                           onTap: onKnobTapped != null
-                                              ? () => onKnobTapped!(KnobId.horizontalTime)
+                                              ? () => onKnobTapped!(
+                                                  KnobId.horizontalTime,
+                                                )
                                               : null,
                                         ),
                                         const SizedBox(height: 25),
                                         _buildOscButton(
                                           'Roll',
                                           onTap:
-                                              (isOnline && onHorizontalButtonPressed != null && !isProcessingEvent)
-                                                  ? () =>
-                                                      onHorizontalButtonPressed!(
-                                                        'Roll',
-                                                      )
-                                                  : null,
+                                              (isOnline &&
+                                                  onHorizontalButtonPressed !=
+                                                      null &&
+                                                  !isProcessingEvent)
+                                              ? () =>
+                                                    onHorizontalButtonPressed!(
+                                                      'Roll',
+                                                    )
+                                              : null,
                                         ),
                                         const Spacer(),
                                         const Text(
@@ -237,7 +250,9 @@ class PhysicalControlPanel extends StatelessWidget {
                                           50,
                                           showCounter: false,
                                           onTap: onKnobTapped != null
-                                              ? () => onKnobTapped!(KnobId.horizontalPosition)
+                                              ? () => onKnobTapped!(
+                                                  KnobId.horizontalPosition,
+                                                )
                                               : null,
                                         ),
                                       ],
@@ -255,45 +270,53 @@ class PhysicalControlPanel extends StatelessWidget {
                                         _buildOscButton(
                                           'Setup',
                                           onTap:
-                                              (isOnline && onTriggerButtonPressed != null && !isProcessingEvent)
-                                                  ? () =>
-                                                      onTriggerButtonPressed!(
-                                                        'Setup',
-                                                      )
-                                                  : null,
+                                              (isOnline &&
+                                                  onTriggerButtonPressed !=
+                                                      null &&
+                                                  !isProcessingEvent)
+                                              ? () => onTriggerButtonPressed!(
+                                                  'Setup',
+                                                )
+                                              : null,
                                         ),
                                         const SizedBox(height: 10),
                                         _buildOscButton(
                                           'Auto',
                                           onTap:
-                                              (isOnline && onTriggerButtonPressed != null && !isProcessingEvent)
-                                                  ? () =>
-                                                      onTriggerButtonPressed!(
-                                                        'Auto',
-                                                      )
-                                                  : null,
+                                              (isOnline &&
+                                                  onTriggerButtonPressed !=
+                                                      null &&
+                                                  !isProcessingEvent)
+                                              ? () => onTriggerButtonPressed!(
+                                                  'Auto',
+                                                )
+                                              : null,
                                         ),
                                         const SizedBox(height: 10),
                                         _buildOscButton(
                                           'Normal',
                                           onTap:
-                                              (isOnline && onTriggerButtonPressed != null && !isProcessingEvent)
-                                                  ? () =>
-                                                      onTriggerButtonPressed!(
-                                                        'Normal',
-                                                      )
-                                                  : null,
+                                              (isOnline &&
+                                                  onTriggerButtonPressed !=
+                                                      null &&
+                                                  !isProcessingEvent)
+                                              ? () => onTriggerButtonPressed!(
+                                                  'Normal',
+                                                )
+                                              : null,
                                         ),
                                         const SizedBox(height: 10),
                                         _buildOscButton(
                                           'Single',
                                           onTap:
-                                              (isOnline && onTriggerButtonPressed != null && !isProcessingEvent)
-                                                  ? () =>
-                                                      onTriggerButtonPressed!(
-                                                        'Single',
-                                                      )
-                                                  : null,
+                                              (isOnline &&
+                                                  onTriggerButtonPressed !=
+                                                      null &&
+                                                  !isProcessingEvent)
+                                              ? () => onTriggerButtonPressed!(
+                                                  'Single',
+                                                )
+                                              : null,
                                         ),
                                         const Spacer(),
                                         const Text(
@@ -304,11 +327,16 @@ class PhysicalControlPanel extends StatelessWidget {
                                         _buildKnob(
                                           50,
                                           onChanged: onKnobChanged != null
-                                              ? (v) => onKnobChanged!(KnobId.triggerLevel, v)
+                                              ? (v) => onKnobChanged!(
+                                                  KnobId.triggerLevel,
+                                                  v,
+                                                )
                                               : null,
                                           showCounter: false,
                                           onTap: onKnobTapped != null
-                                              ? () => onKnobTapped!(KnobId.triggerLevel)
+                                              ? () => onKnobTapped!(
+                                                  KnobId.triggerLevel,
+                                                )
                                               : null,
                                         ),
                                       ],
@@ -364,7 +392,8 @@ class PhysicalControlPanel extends StatelessWidget {
   }
 
   Widget _buildRoundMenuButton() {
-    final bool canPress = isOnline && onMenuPressed != null && !isProcessingEvent;
+    final bool canPress =
+        isOnline && onMenuPressed != null && !isProcessingEvent;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -381,9 +410,7 @@ class PhysicalControlPanel extends StatelessWidget {
                   ? [const Color(0xFF475569), const Color(0xFF1E293B)]
                   : [const Color(0xFF2D3748), const Color(0xFF1A202C)],
             ),
-            border: Border.all(
-              color: isOnline ? Colors.white : Colors.white24,
-            ),
+            border: Border.all(color: isOnline ? Colors.white : Colors.white24),
             boxShadow: isOnline
                 ? [
                     BoxShadow(
@@ -412,7 +439,11 @@ class PhysicalControlPanel extends StatelessWidget {
   Widget _buildSoftKey(String label, {int flex = 20}) {
     // Extract button number from label (M1 -> 1, M2 -> 2, etc.)
     final buttonNumber = int.tryParse(label.substring(1));
-    final bool canPress = isOnline && buttonNumber != null && onSoftKeyPressed != null && !isProcessingEvent;
+    final bool canPress =
+        isOnline &&
+        buttonNumber != null &&
+        onSoftKeyPressed != null &&
+        !isProcessingEvent;
 
     return Expanded(
       flex: flex,
@@ -429,7 +460,13 @@ class PhysicalControlPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildKnobSection(String label, double size, {ValueChanged<double>? onChanged, bool showCounter = true, VoidCallback? onTap}) {
+  Widget _buildKnobSection(
+    String label,
+    double size, {
+    ValueChanged<double>? onChanged,
+    bool showCounter = true,
+    VoidCallback? onTap,
+  }) {
     return _buildBorderedSectionWithoutTitle(
       Column(
         children: [
@@ -439,19 +476,37 @@ class PhysicalControlPanel extends StatelessWidget {
             style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 5),
-          _buildKnob(size, onChanged: onChanged, showCounter: showCounter, onTap: onTap),
+          _buildKnob(
+            size,
+            onChanged: onChanged,
+            showCounter: showCounter,
+            onTap: onTap,
+          ),
         ],
       ),
     );
   }
 
-  Widget _buildKnob(double size, {bool enabled = true, ValueChanged<double>? onChanged, bool showCounter = true, VoidCallback? onTap}) {
+  Widget _buildKnob(
+    double size, {
+    bool enabled = true,
+    ValueChanged<double>? onChanged,
+    bool showCounter = true,
+    VoidCallback? onTap,
+  }) {
     final bool isDisabled = isProcessingEvent || !enabled;
-    return KnobWithDisplay(size: size, enabled: !isDisabled, onChanged: isDisabled ? null : onChanged, showCounter: showCounter, onTap: isDisabled ? null : onTap);
+    return KnobWithDisplay(
+      size: size,
+      enabled: !isDisabled,
+      onChanged: isDisabled ? null : onChanged,
+      showCounter: showCounter,
+      onTap: isDisabled ? null : onTap,
+    );
   }
 
   Widget _buildMenuGrid() {
-    final bool canPress = isOnline && onMenuButtonPressed != null && !isProcessingEvent;
+    final bool canPress =
+        isOnline && onMenuButtonPressed != null && !isProcessingEvent;
     return Column(
       children: [
         Container(
@@ -465,18 +520,48 @@ class PhysicalControlPanel extends StatelessWidget {
             crossAxisCount: 3,
             mainAxisSpacing: 4,
             crossAxisSpacing: 4,
-            childAspectRatio:
-                3.0,
+            childAspectRatio: 3.0,
             physics: const NeverScrollableScrollPhysics(),
             children: [
-              _buildOscButton('Cursors', onTap: canPress ? () => onMenuButtonPressed!('Cursors') : null),
-              _buildOscButton('Acquire', onTap: canPress ? () => onMenuButtonPressed!('Acquire') : null),
-              _buildOscButton('Save/\nRecall', onTap: canPress ? () => onMenuButtonPressed!('Save/Recall') : null),
-              _buildOscButton('Measure', onTap: canPress ? () => onMenuButtonPressed!('Measure') : null),
-              _buildOscButton('Clear\nSweeps', onTap: canPress ? () => onMenuButtonPressed!('Clear Sweeps') : null),
-              _buildOscButton('Utility', onTap: canPress ? () => onMenuButtonPressed!('Utility') : null),
-              _buildOscButton('Default', color: Colors.cyan[700], onTap: canPress ? () => onMenuButtonPressed!('Default') : null),
-              _buildOscButton('Display/\nPersist', onTap: canPress ? () => onMenuButtonPressed!('Display/Persist') : null),
+              _buildOscButton(
+                'Cursors',
+                onTap: canPress ? () => onMenuButtonPressed!('Cursors') : null,
+              ),
+              _buildOscButton(
+                'Acquire',
+                onTap: canPress ? () => onMenuButtonPressed!('Acquire') : null,
+              ),
+              _buildOscButton(
+                'Save/\nRecall',
+                onTap: canPress
+                    ? () => onMenuButtonPressed!('Save/Recall')
+                    : null,
+              ),
+              _buildOscButton(
+                'Measure',
+                onTap: canPress ? () => onMenuButtonPressed!('Measure') : null,
+              ),
+              _buildOscButton(
+                'Clear\nSweeps',
+                onTap: canPress
+                    ? () => onMenuButtonPressed!('Clear Sweeps')
+                    : null,
+              ),
+              _buildOscButton(
+                'Utility',
+                onTap: canPress ? () => onMenuButtonPressed!('Utility') : null,
+              ),
+              _buildOscButton(
+                'Default',
+                color: Colors.cyan[700],
+                onTap: canPress ? () => onMenuButtonPressed!('Default') : null,
+              ),
+              _buildOscButton(
+                'Display/\nPersist',
+                onTap: canPress
+                    ? () => onMenuButtonPressed!('Display/Persist')
+                    : null,
+              ),
               _buildOscButton(
                 'Print',
                 color: Colors.lightBlue[300],
@@ -490,7 +575,8 @@ class PhysicalControlPanel extends StatelessWidget {
   }
 
   Widget _buildVerticalButtonGroup(List<String> labels) {
-    final bool canPress = isOnline && onVerticalButtonPressed != null && !isProcessingEvent;
+    final bool canPress =
+        isOnline && onVerticalButtonPressed != null && !isProcessingEvent;
     return _buildBorderedSectionWithoutTitle(
       Column(
         children: [
@@ -503,7 +589,9 @@ class PhysicalControlPanel extends StatelessWidget {
                 labels[i],
                 height: 45,
                 color: labels[i] == 'Auto\nSetup' ? Colors.blue[900] : null,
-                onTap: canPress ? () => onVerticalButtonPressed!(labels[i]) : null,
+                onTap: canPress
+                    ? () => onVerticalButtonPressed!(labels[i])
+                    : null,
               ),
             ),
         ],
@@ -512,7 +600,8 @@ class PhysicalControlPanel extends StatelessWidget {
   }
 
   Widget _buildChannelColumn(String ch) {
-    final bool canPressVertical = isOnline && onVerticalButtonPressed != null && !isProcessingEvent;
+    final bool canPressVertical =
+        isOnline && onVerticalButtonPressed != null && !isProcessingEvent;
     // Channel toggle is always allowed when online
     final bool canToggleChannel = isOnline && !isProcessingEvent;
     return Column(
@@ -522,12 +611,20 @@ class PhysicalControlPanel extends StatelessWidget {
           children: [
             const Text('V <-> mV', style: TextStyle(fontSize: 10)),
             const SizedBox(height: 8),
-            _buildKnob(70, enabled: true, showCounter: false,
+            _buildKnob(
+              70,
+              enabled: true,
+              showCounter: false,
               onChanged: onKnobChanged != null
-                  ? (v) => onKnobChanged!(ch == 'CH1' ? KnobId.ch1Voltage : KnobId.ch2Voltage, v)
+                  ? (v) => onKnobChanged!(
+                      ch == 'CH1' ? KnobId.ch1Voltage : KnobId.ch2Voltage,
+                      v,
+                    )
                   : null,
               onTap: onKnobTapped != null
-                  ? () => onKnobTapped!(ch == 'CH1' ? KnobId.ch1Voltage : KnobId.ch2Voltage)
+                  ? () => onKnobTapped!(
+                      ch == 'CH1' ? KnobId.ch1Voltage : KnobId.ch2Voltage,
+                    )
                   : null,
             ),
           ],
@@ -539,7 +636,9 @@ class PhysicalControlPanel extends StatelessWidget {
           ch == 'CH1' ? 'Math' : 'Ref',
           width: 50,
           color: Colors.blue[900],
-          onTap: canPressVertical ? () => onVerticalButtonPressed!(ch == 'CH1' ? 'Math' : 'Ref') : null,
+          onTap: canPressVertical
+              ? () => onVerticalButtonPressed!(ch == 'CH1' ? 'Math' : 'Ref')
+              : null,
         ),
         const SizedBox(height: 10),
 
@@ -559,12 +658,20 @@ class PhysicalControlPanel extends StatelessWidget {
           children: [
             const Text('Position', style: TextStyle(fontSize: 10)),
             const SizedBox(height: 8),
-            _buildKnob(50, enabled: true, showCounter: false,
+            _buildKnob(
+              50,
+              enabled: true,
+              showCounter: false,
               onChanged: onKnobChanged != null
-                  ? (v) => onKnobChanged!(ch == 'CH1' ? KnobId.ch1Position : KnobId.ch2Position, v)
+                  ? (v) => onKnobChanged!(
+                      ch == 'CH1' ? KnobId.ch1Position : KnobId.ch2Position,
+                      v,
+                    )
                   : null,
               onTap: onKnobTapped != null
-                  ? () => onKnobTapped!(ch == 'CH1' ? KnobId.ch1Position : KnobId.ch2Position)
+                  ? () => onKnobTapped!(
+                      ch == 'CH1' ? KnobId.ch1Position : KnobId.ch2Position,
+                    )
                   : null,
             ),
           ],

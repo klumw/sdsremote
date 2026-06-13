@@ -8,8 +8,5 @@ class MacroInfo {
   /// The last-modified timestamp of the file.
   final DateTime lastModified;
 
-  const MacroInfo({
-    required this.fileName,
-    required this.lastModified,
-  });
+  const MacroInfo({required this.fileName, required this.lastModified});
 }

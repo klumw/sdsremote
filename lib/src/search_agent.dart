@@ -59,23 +59,20 @@ class SearchAgent with MaxToolCallsHandler {
     String? systemPrompt,
     this.maxToolCalls = defaultMaxToolCalls,
   }) : _agent = Agent(
-          model,
-          displayName: 'SearchAgent',
-          tools: [
-            _createKnowledgebaseSearchTool(
-              knowledgebasePath,
-              agentName: 'SearchAgent',
-            ),
-          ],
-          maxToolCalls: maxToolCalls,
-        ) {
+         model,
+         displayName: 'SearchAgent',
+         tools: [
+           _createKnowledgebaseSearchTool(
+             knowledgebasePath,
+             agentName: 'SearchAgent',
+           ),
+         ],
+         maxToolCalls: maxToolCalls,
+       ) {
     if (systemPrompt != null) {
       _history.add(ChatMessage.system(systemPrompt));
     }
-    final logger = AppLogger(
-      agentName: 'SearchAgent',
-      toolName: 'constructor',
-    );
+    final logger = AppLogger(agentName: 'SearchAgent', toolName: 'constructor');
     logger.debug(
       '[DEBUG SearchAgent.constructor] systemPrompt=$systemPrompt, '
       '_history.length=${_history.length}, '
@@ -120,7 +117,8 @@ class SearchAgent with MaxToolCallsHandler {
     if (resolvedPath == null) {
       try {
         final exeDir = File(Platform.resolvedExecutable).parent.path;
-        final altPath = '$exeDir${Platform.pathSeparator}docs'
+        final altPath =
+            '$exeDir${Platform.pathSeparator}docs'
             '${Platform.pathSeparator}knowledgebase.md';
         if (File(altPath).existsSync()) {
           resolvedPath = altPath;
@@ -134,7 +132,8 @@ class SearchAgent with MaxToolCallsHandler {
     if (resolvedPath == null) {
       try {
         final exeDir = File(Platform.resolvedExecutable).parent.path;
-        final altPath = '$exeDir${Platform.pathSeparator}..'
+        final altPath =
+            '$exeDir${Platform.pathSeparator}..'
             '${Platform.pathSeparator}docs'
             '${Platform.pathSeparator}knowledgebase.md';
         if (File(altPath).existsSync()) {
@@ -154,7 +153,8 @@ class SearchAgent with MaxToolCallsHandler {
         var dir = File(Platform.resolvedExecutable).parent;
         // Walk up at most 10 levels to avoid infinite loops.
         for (var i = 0; i < 10; i++) {
-          final candidate = '${dir.path}${Platform.pathSeparator}docs'
+          final candidate =
+              '${dir.path}${Platform.pathSeparator}docs'
               '${Platform.pathSeparator}knowledgebase.md';
           if (File(candidate).existsSync()) {
             resolvedPath = candidate;
@@ -176,7 +176,8 @@ class SearchAgent with MaxToolCallsHandler {
     if (resolvedPath == null) {
       try {
         final exeDir = File(Platform.resolvedExecutable).parent.path;
-        final flutterAssetsDir = '$exeDir${Platform.pathSeparator}data'
+        final flutterAssetsDir =
+            '$exeDir${Platform.pathSeparator}data'
             '${Platform.pathSeparator}flutter_assets';
         final assetsPath = '$flutterAssetsDir${Platform.pathSeparator}$path';
         if (File(assetsPath).existsSync()) {
@@ -200,10 +201,7 @@ class SearchAgent with MaxToolCallsHandler {
 
     final markdownText = File(resolvedPath).readAsStringSync();
 
-    final splitter = MarkdownTextSplitter(
-      chunkSize: 100,
-      chunkOverlap: 0,
-    );
+    final splitter = MarkdownTextSplitter(chunkSize: 100, chunkOverlap: 0);
 
     return splitter.createDocuments([markdownText]);
   }
@@ -260,8 +258,10 @@ class SearchAgent with MaxToolCallsHandler {
         }
 
         final query = (args['query'] as String).toLowerCase();
-        final queryWords =
-            query.split(RegExp(r'\s+')).where((w) => w.length > 2).toList();
+        final queryWords = query
+            .split(RegExp(r'\s+'))
+            .where((w) => w.length > 2)
+            .toList();
 
         // Score each chunk by how many query words it contains.
         final scored = <_ScoredChunk>[];
@@ -285,14 +285,15 @@ class SearchAgent with MaxToolCallsHandler {
         Map<String, dynamic> result;
         if (topChunks.isEmpty) {
           result = {
-            'results':
-                'No relevant information found in the knowledgebase.',
+            'results': 'No relevant information found in the knowledgebase.',
           };
         } else {
-          final results = topChunks.map((sc) {
-            final chunk = chunks[sc.index];
-            return '--- Chunk (relevance: ${sc.score}) ---\n${chunk.pageContent}';
-          }).join('\n\n');
+          final results = topChunks
+              .map((sc) {
+                final chunk = chunks[sc.index];
+                return '--- Chunk (relevance: ${sc.score}) ---\n${chunk.pageContent}';
+              })
+              .join('\n\n');
           result = {'results': results};
         }
 

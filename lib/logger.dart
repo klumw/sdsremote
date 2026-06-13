@@ -114,11 +114,7 @@ class AppLogger {
         final line = prefix.isNotEmpty
             ? '[$timestamp] [$levelName] $prefix $message\n'
             : '[$timestamp] [$levelName] $message\n';
-        await file.writeAsString(
-          line,
-          mode: FileMode.append,
-          flush: true,
-        );
+        await file.writeAsString(line, mode: FileMode.append, flush: true);
       } catch (e) {
         // Fallback to stderr if logging fails
         stderr.writeln('Failed to write to log file: $e');
@@ -136,8 +132,10 @@ class AppLogger {
   Future<void> info(String message) async => _writeLine(Level.INFO, message);
   Future<void> debug(String message) async => _writeLine(Level.FINE, message);
   Future<void> trace(String message) async => _writeLine(traceLevel, message);
-  Future<void> warning(String message) async => _writeLine(Level.WARNING, message);
-  Future<void> severe(String message) async => _writeLine(Level.SEVERE, message);
+  Future<void> warning(String message) async =>
+      _writeLine(Level.WARNING, message);
+  Future<void> severe(String message) async =>
+      _writeLine(Level.SEVERE, message);
 
   /// Logs a tool call with structured input/output data.
   ///
@@ -171,11 +169,7 @@ class AppLogger {
         final line = prefix.isNotEmpty
             ? '[$timestamp] [DEBUG] $prefix ToolCall:\n  Input: $inputJson\n  Output: $outputJson\n'
             : '[$timestamp] [DEBUG] ToolCall:\n  Input: $inputJson\n  Output: $outputJson\n';
-        await file.writeAsString(
-          line,
-          mode: FileMode.append,
-          flush: true,
-        );
+        await file.writeAsString(line, mode: FileMode.append, flush: true);
       } catch (e) {
         // Fallback to stderr if logging fails
         stderr.writeln('Failed to write tool call log: $e');

@@ -10,15 +10,12 @@ class ScpiParser {
     // The instrument may prefix the block with a command echo such as
     // "C1:WF DAT2," before the '#' marker. Scan forward to find '#'.
     int offset = 0;
-    while (offset < raw.length && raw[offset] != 0x23 /* '#' */) {
+    while (offset < raw.length && raw[offset] != 0x23 /* '#' */ ) {
       offset++;
     }
 
     if (offset >= raw.length) {
-      throw FormatException(
-        'Invalid IEEE-488.2 block: missing # marker',
-        raw,
-      );
+      throw FormatException('Invalid IEEE-488.2 block: missing # marker', raw);
     }
 
     // Work on the sub-view starting at '#'
@@ -34,7 +31,7 @@ class ScpiParser {
     // Siglent non-standard variant: #! followed by 4-byte big-endian length
     int dataStart;
     int dataLen;
-    if (raw2[1] == 0x21 /* '!' */) {
+    if (raw2[1] == 0x21 /* '!' */ ) {
       if (raw2.length < 6) {
         throw FormatException(
           'Invalid IEEE-488.2 block: too short for #! header',
@@ -123,9 +120,7 @@ class ScpiParser {
     // Walk through the string to find the numeric part.
     // A valid number may start with an optional '-' or '+', then digits,
     // optional '.', more digits, optional exponent 'E'/'e' with sign and digits.
-    final numRegex = RegExp(
-      r'^([+-]?\d+(?:\.\d+)?(?:[Ee][+-]?\d+)?)',
-    );
+    final numRegex = RegExp(r'^([+-]?\d+(?:\.\d+)?(?:[Ee][+-]?\d+)?)');
     final match = numRegex.firstMatch(s);
     if (match == null) {
       throw FormatException('Invalid SCPI value: no numeric part found', raw);

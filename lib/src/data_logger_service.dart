@@ -97,7 +97,9 @@ class DataLoggerService {
   void _scheduleAt(DataLoggerConfig cfg, int elapsedTarget) {
     if (_hasStopped) return;
     final now = DateTime.now();
-    final delay = (elapsedTarget * 1000 - now.difference(_startTime!).inMilliseconds) / 1000.0;
+    final delay =
+        (elapsedTarget * 1000 - now.difference(_startTime!).inMilliseconds) /
+        1000.0;
     if (delay <= 0) {
       // We're already past this target — take it immediately
       _sampleAtExactTime(cfg, elapsedTarget);
@@ -138,9 +140,10 @@ class DataLoggerService {
     try {
       final instr = await _getInstrument();
       if (instr == null) {
-        AppLogger(agentName: 'DataLogger', toolName: '_doSample').log(
-          'Instrument not available, skipping sample',
-        );
+        AppLogger(
+          agentName: 'DataLogger',
+          toolName: '_doSample',
+        ).log('Instrument not available, skipping sample');
         return;
       }
 
@@ -166,16 +169,18 @@ class DataLoggerService {
         if (cfg.ch1Enabled) {
           final v = await _queryDouble(instr, 'C1:ATTN?');
           if (v != null && v > 0) _probeDividerCh1 = v;
-          AppLogger(agentName: 'DataLogger', toolName: '_doSample').log(
-            'Probe divider CH1: C1:ATTN? => $_probeDividerCh1',
-          );
+          AppLogger(
+            agentName: 'DataLogger',
+            toolName: '_doSample',
+          ).log('Probe divider CH1: C1:ATTN? => $_probeDividerCh1');
         }
         if (cfg.ch2Enabled) {
           final v = await _queryDouble(instr, 'C2:ATTN?');
           if (v != null && v > 0) _probeDividerCh2 = v;
-          AppLogger(agentName: 'DataLogger', toolName: '_doSample').log(
-            'Probe divider CH2: C2:ATTN? => $_probeDividerCh2',
-          );
+          AppLogger(
+            agentName: 'DataLogger',
+            toolName: '_doSample',
+          ).log('Probe divider CH2: C2:ATTN? => $_probeDividerCh2');
         }
 
         // Store probe dividers back into the config so the UI can display them.
@@ -272,9 +277,10 @@ class DataLoggerService {
         stop();
       }
     } catch (e) {
-      AppLogger(agentName: 'DataLogger', toolName: '_doSample').log(
-        'Sample error: $e',
-      );
+      AppLogger(
+        agentName: 'DataLogger',
+        toolName: '_doSample',
+      ).log('Sample error: $e');
     }
   }
 
@@ -293,17 +299,20 @@ class DataLoggerService {
       final rawResponse = (await instr.readString()).trim();
       // Find the last number in the response (value is always at the end).
       // Matches: sign, digits, optional decimal, optional exponent.
-      final numberRegex =
-          RegExp(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', caseSensitive: false);
+      final numberRegex = RegExp(
+        r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?',
+        caseSensitive: false,
+      );
       final matches = numberRegex.allMatches(rawResponse).toList();
       if (matches.isNotEmpty) {
         return double.tryParse(matches.last.group(0)!);
       }
       return null;
     } catch (e) {
-      AppLogger(agentName: 'DataLogger', toolName: '_queryDouble').log(
-        'SCPI query failed: $cmd → $e',
-      );
+      AppLogger(
+        agentName: 'DataLogger',
+        toolName: '_queryDouble',
+      ).log('SCPI query failed: $cmd → $e');
       return null;
     }
   }
@@ -331,9 +340,10 @@ class DataLoggerService {
           await instr.writeString('ASET');
           await Future.delayed(const Duration(seconds: 5));
           // Retry the PAVA query exactly once.
-          AppLogger(agentName: 'DataLogger', toolName: '_queryPava').log(
-            'Retrying PAVA query after ASET: $cmd',
-          );
+          AppLogger(
+            agentName: 'DataLogger',
+            toolName: '_queryPava',
+          ).log('Retrying PAVA query after ASET: $cmd');
         } else {
           AppLogger(agentName: 'DataLogger', toolName: '_queryPava').log(
             'ASET limit reached ($_maxAsetCommands), cannot auto-setup '
@@ -342,14 +352,17 @@ class DataLoggerService {
         }
         await instr.writeString(cmd);
         rawResponse = (await instr.readString()).trim();
-        AppLogger(agentName: 'DataLogger', toolName: '_queryPava').log(
-          'PAVA retry response: $cmd → $rawResponse',
-        );
+        AppLogger(
+          agentName: 'DataLogger',
+          toolName: '_queryPava',
+        ).log('PAVA retry response: $cmd → $rawResponse');
       }
 
       // Parse the last number from the response (value is always at the end).
-      final numberRegex =
-          RegExp(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', caseSensitive: false);
+      final numberRegex = RegExp(
+        r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?',
+        caseSensitive: false,
+      );
       final matches = numberRegex.allMatches(rawResponse).toList();
       if (matches.isNotEmpty) {
         return double.tryParse(matches.last.group(0)!);
@@ -357,9 +370,10 @@ class DataLoggerService {
 
       return null;
     } catch (e) {
-      AppLogger(agentName: 'DataLogger', toolName: '_queryPava').log(
-        'PAVA query failed: $cmd → $e',
-      );
+      AppLogger(
+        agentName: 'DataLogger',
+        toolName: '_queryPava',
+      ).log('PAVA query failed: $cmd → $e');
       return null;
     }
   }
@@ -371,9 +385,10 @@ class DataLoggerService {
     _timer = null;
     _finalTimer?.cancel();
     _finalTimer = null;
-    AppLogger(agentName: 'DataLogger', toolName: 'stop').log(
-      'Data Logger stopped. Points collected: $_pointCount',
-    );
+    AppLogger(
+      agentName: 'DataLogger',
+      toolName: 'stop',
+    ).log('Data Logger stopped. Points collected: $_pointCount');
   }
 
   /// Dispose all resources (timers, stream controller).

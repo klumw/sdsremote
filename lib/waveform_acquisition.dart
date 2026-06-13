@@ -27,7 +27,8 @@ class WaveformAcquisition {
     Vxi11Instrument? instr,
   }) async {
     final bool ownInstr = instr == null;
-    final activeInstr = instr ?? Vxi11Instrument(ipAddress, sourceLabel: 'waveformAcq');
+    final activeInstr =
+        instr ?? Vxi11Instrument(ipAddress, sourceLabel: 'waveformAcq');
     String? originalTriggerMode;
     try {
       if (ownInstr) {
@@ -74,7 +75,8 @@ class WaveformAcquisition {
       // waveform long enough to show all cycles visible on the screen.
       const int horizontalDivisions = 14;
       const int maxTransferPoints = 12000000;
-      final int desiredPoints = (timebase * horizontalDivisions * sampleRate).ceil();
+      final int desiredPoints = (timebase * horizontalDivisions * sampleRate)
+          .ceil();
       final int transferPoints = desiredPoints.clamp(1201, maxTransferPoints);
       try {
         await activeInstr.writeString('WFSU SP,7,NP,$transferPoints,FP,0');
@@ -103,14 +105,26 @@ class WaveformAcquisition {
       final isCh2Active = ch2 && await _queryStatus(activeInstr, 'C2:TRACE?');
 
       // --- Per-channel parameters ---
-      final vdivCh1 = isCh1Active ? await _queryValue(activeInstr, 'C1:VDIV?') : null;
-      final voffsetCh1 = isCh1Active ? await _queryValue(activeInstr, 'C1:OFST?') : null;
-      final vdivCh2 = isCh2Active ? await _queryValue(activeInstr, 'C2:VDIV?') : null;
-      final voffsetCh2 = isCh2Active ? await _queryValue(activeInstr, 'C2:OFST?') : null;
+      final vdivCh1 = isCh1Active
+          ? await _queryValue(activeInstr, 'C1:VDIV?')
+          : null;
+      final voffsetCh1 = isCh1Active
+          ? await _queryValue(activeInstr, 'C1:OFST?')
+          : null;
+      final vdivCh2 = isCh2Active
+          ? await _queryValue(activeInstr, 'C2:VDIV?')
+          : null;
+      final voffsetCh2 = isCh2Active
+          ? await _queryValue(activeInstr, 'C2:OFST?')
+          : null;
 
       // --- Waveform data ---
-      final ch1Raw = isCh1Active ? await _queryDataBlock(activeInstr, 'C1:WF? DAT2') : null;
-      final ch2Raw = isCh2Active ? await _queryDataBlock(activeInstr, 'C2:WF? DAT2') : null;
+      final ch1Raw = isCh1Active
+          ? await _queryDataBlock(activeInstr, 'C1:WF? DAT2')
+          : null;
+      final ch2Raw = isCh2Active
+          ? await _queryDataBlock(activeInstr, 'C2:WF? DAT2')
+          : null;
 
       // --- Restore original trigger mode ---
       // Do this before the finally block so the connection is still fully open.

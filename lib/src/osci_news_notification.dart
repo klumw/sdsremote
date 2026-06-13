@@ -32,12 +32,15 @@ class SdsNotification {
 }
 
 class NewsNotificationService {
-  static const String _url = 'https://drive.google.com/uc?export=download&id=1Ra5ScXp8KdcuLaCgJeiXLB_eFM7xzVaC';
+  static const String _url =
+      'https://drive.google.com/uc?export=download&id=1Ra5ScXp8KdcuLaCgJeiXLB_eFM7xzVaC';
   static const String _prefKey = 'news_last_read_id';
 
   Future<SdsNotification?> fetchNotification() async {
     try {
-      final response = await http.get(Uri.parse(_url)).timeout(const Duration(seconds: 15));
+      final response = await http
+          .get(Uri.parse(_url))
+          .timeout(const Duration(seconds: 15));
       if (response.statusCode == 200) {
         final json = jsonDecode(response.body);
         return SdsNotification.fromJson(json);
@@ -129,27 +132,31 @@ class NewsNotificationDialog extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-             SizedBox(
-               height: 300,
-               child: Markdown(
-                 data: notification.description,
-                 extensionSet: md.ExtensionSet(
-                   md.ExtensionSet.gitHubFlavored.blockSyntaxes,
-                   [IconSyntax(), ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes],
-                 ),
-                 builders: {
-                   'icon': IconMarkdownBuilder(),
-                 },
-                 onTapLink: (text, href, title) {
-                   if (href != null) {
-                     launchUrl(Uri.parse(href), mode: LaunchMode.externalApplication);
-                   }
-                 },
-                 styleSheet: MarkdownStyleSheet(
-                   p: const TextStyle(color: Colors.white70, fontSize: 14),
-                 ),
-               ),
-             ),
+            SizedBox(
+              height: 300,
+              child: Markdown(
+                data: notification.description,
+                extensionSet: md.ExtensionSet(
+                  md.ExtensionSet.gitHubFlavored.blockSyntaxes,
+                  [
+                    IconSyntax(),
+                    ...md.ExtensionSet.gitHubFlavored.inlineSyntaxes,
+                  ],
+                ),
+                builders: {'icon': IconMarkdownBuilder()},
+                onTapLink: (text, href, title) {
+                  if (href != null) {
+                    launchUrl(
+                      Uri.parse(href),
+                      mode: LaunchMode.externalApplication,
+                    );
+                  }
+                },
+                styleSheet: MarkdownStyleSheet(
+                  p: const TextStyle(color: Colors.white70, fontSize: 14),
+                ),
+              ),
+            ),
             const SizedBox(height: 24),
             Align(
               alignment: Alignment.centerRight,

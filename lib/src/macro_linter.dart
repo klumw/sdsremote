@@ -68,13 +68,16 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
     final pos = _nextPos(posMap, nextIdx, name);
     final ctx = context != null ? ' in $context' : '';
     if (pos != null) {
-      errors.add(MacroLintError(
-        message: 'Variable "$name" holds a string value and cannot be '
-            'used with "$opName"$ctx',
-        start: pos.$1,
-        end: pos.$2,
-        line: pos.$3,
-      ));
+      errors.add(
+        MacroLintError(
+          message:
+              'Variable "$name" holds a string value and cannot be '
+              'used with "$opName"$ctx',
+          start: pos.$1,
+          end: pos.$2,
+          line: pos.$3,
+        ),
+      );
     }
   }
 
@@ -88,13 +91,16 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
     if (opIdx < matches.length) {
       final m = matches[opIdx];
       final line = _lineAtOffset(source, m.start);
-      errors.add(MacroLintError(
-        message: 'A string literal cannot be used with "$op" '
-            '(only numbers can be compared with $op)',
-        start: m.start,
-        end: m.end,
-        line: line,
-      ));
+      errors.add(
+        MacroLintError(
+          message:
+              'A string literal cannot be used with "$op" '
+              '(only numbers can be compared with $op)',
+          start: m.start,
+          end: m.end,
+          line: line,
+        ),
+      );
     }
     nextIdx[opKey] = opIdx + 1;
   }
@@ -115,12 +121,14 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
     _nextPos(posMap, nextIdx, name);
 
     if (!defined.contains(name) && pos != null) {
-      errors.add(MacroLintError(
-        message: 'Variable "$name" is not defined',
-        start: pos.$1,
-        end: pos.$2,
-        line: pos.$3,
-      ));
+      errors.add(
+        MacroLintError(
+          message: 'Variable "$name" is not defined',
+          start: pos.$1,
+          end: pos.$2,
+          line: pos.$3,
+        ),
+      );
     }
   }
 
@@ -241,9 +249,14 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
           checkRef(v);
         }
 
-      case AssignStmt(:final varName, :final arithExpr, :final isVariable,
-                       :final isQuery, :final queryOrValue,
-                       :final concatString):
+      case AssignStmt(
+        :final varName,
+        :final arithExpr,
+        :final isVariable,
+        :final isQuery,
+        :final queryOrValue,
+        :final concatString,
+      ):
         // Check references on the RHS before adding varName to defined.
         if (arithExpr != null) {
           walkArith(arithExpr);
@@ -287,8 +300,13 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
           }
         }
 
-      case AssertStmt(:final operand, :final op, :final expectedValue,
-                       :final expectedIsVariable, :final concatText):
+      case AssertStmt(
+        :final operand,
+        :final op,
+        :final expectedValue,
+        :final expectedIsVariable,
+        :final concatText,
+      ):
         walkExpr(operand);
         if (expectedIsVariable && expectedValue != null) {
           checkRef(expectedValue);
@@ -302,9 +320,14 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
       case LoadProfileStmt(:final concatString):
         if (concatString != null) walkConcat(concatString);
 
-      case IfStmt(:final condition, :final op, :final value,
-                   :final valueIsVariable, :final thenBody,
-                   :final elseBody):
+      case IfStmt(
+        :final condition,
+        :final op,
+        :final value,
+        :final valueIsVariable,
+        :final thenBody,
+        :final elseBody,
+      ):
         walkExpr(condition);
         if (valueIsVariable) checkRef(value);
         // Type-check numeric comparisons.
@@ -314,8 +337,13 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
         walkStmts(thenBody);
         if (elseBody != null) walkStmts(elseBody);
 
-      case WhileStmt(:final condition, :final op, :final value,
-                      :final valueIsVariable, :final body):
+      case WhileStmt(
+        :final condition,
+        :final op,
+        :final value,
+        :final valueIsVariable,
+        :final body,
+      ):
         walkExpr(condition);
         if (valueIsVariable) checkRef(value);
         // Type-check numeric comparisons.
@@ -365,7 +393,10 @@ Map<String, List<_Pos>> _buildPositionMap(String source) {
 /// the per-name cursor tracked in [nextIdx]. Returns `null` if no more
 /// occurrences exist.
 _Pos? _nextPos(
-    Map<String, List<_Pos>> posMap, Map<String, int> nextIdx, String name) {
+  Map<String, List<_Pos>> posMap,
+  Map<String, int> nextIdx,
+  String name,
+) {
   final list = posMap[name];
   if (list == null) return null;
   final idx = nextIdx[name] ?? 0;
