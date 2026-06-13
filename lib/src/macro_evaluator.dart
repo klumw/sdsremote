@@ -78,6 +78,9 @@ class MacroEvaluator {
       await _evalStatements(program.statements, inLoop: false);
     } on _MacroStopException {
       return false;
+    } catch (e) {
+      onError('$e');
+      return false;
     }
 
     return true;

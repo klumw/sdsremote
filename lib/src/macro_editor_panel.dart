@@ -33,6 +33,10 @@ class MacroEditorPanel extends StatefulWidget {
   /// Called when the Close button is pressed.
   final VoidCallback onClose;
 
+  /// Called when Ctrl+S is pressed while the editor has focus.
+  /// If null, Ctrl+S is ignored.
+  final VoidCallback? onSave;
+
   const MacroEditorPanel({
     super.key,
     this.initialContent = '',
@@ -41,6 +45,7 @@ class MacroEditorPanel extends StatefulWidget {
     this.errorMessage,
     required this.onContentChanged,
     required this.onClose,
+    this.onSave,
   });
 
   @override
@@ -136,6 +141,11 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     if (event.logicalKey == LogicalKeyboardKey.delete ||
         event.physicalKey == PhysicalKeyboardKey.delete) {
       _deleteWordRight();
+      return true;
+    }
+    // Ctrl + S: save macro file
+    if (event.logicalKey == LogicalKeyboardKey.keyS) {
+      widget.onSave?.call();
       return true;
     }
     return false;

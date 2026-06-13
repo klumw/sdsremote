@@ -1322,6 +1322,7 @@ class _OsciHomePageState extends State<OsciHomePage>
             setState(() => _isMacroModified = true);
           }
         },
+        onSave: _isMacroModified ? _onMacroSave : null,
         onClose: () {
           setState(() {
             _showMacroEditor = false;
