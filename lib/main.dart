@@ -936,6 +936,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       isRecording: _isMacroRecording,
       isPlaying: _isMacroPlaying,
       isSaveEnabled: _isMacroRecording || _isMacroModified,
+      hasContent: _currentMacroContent.trim().isNotEmpty,
       macroStatus: _macroStatus,
       macroStatusMessage: _macroStatusMessage,
       loadedFileName: _loadedMacroFileName,

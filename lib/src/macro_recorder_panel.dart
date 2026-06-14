@@ -32,6 +32,10 @@ class MacroRecorderPanel extends StatefulWidget {
   /// Whether the Save button should be enabled.
   final bool isSaveEnabled;
 
+  /// Whether there is macro content available to play or edit.
+  /// When false, the Play and Edit buttons are disabled.
+  final bool hasContent;
+
   /// The file name of the currently loaded macro, if any.
   /// Shown in the header; cleared when recording a new macro.
   final String? loadedFileName;
@@ -64,6 +68,7 @@ class MacroRecorderPanel extends StatefulWidget {
     required this.isRecording,
     this.isPlaying = false,
     this.isSaveEnabled = false,
+    this.hasContent = false,
     this.loadedFileName,
     this.isModified = false,
     this.macroStatus,
@@ -335,9 +340,14 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                     child: _buildActionButton(
                       label: "Play",
                       icon: const Icon(Icons.play_arrow, size: 18),
-                      onPressed: widget.isPlaying ? null : widget.onPlay,
+                      onPressed: (widget.isPlaying || !widget.hasContent)
+                          ? null
+                          : widget.onPlay,
                       color: Colors.green[800]!,
-                      disabled: widget.isRecording || widget.isPlaying,
+                      disabled:
+                          widget.isRecording ||
+                          widget.isPlaying ||
+                          !widget.hasContent,
                     ),
                   ),
                   const SizedBox(width: 8),
@@ -346,11 +356,16 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                     child: _buildActionButton(
                       label: "Edit",
                       icon: const Icon(Icons.edit, size: 18),
-                      onPressed: (widget.isRecording || widget.isPlaying)
+                      onPressed: (widget.isRecording ||
+                              widget.isPlaying ||
+                              !widget.hasContent)
                           ? null
                           : widget.onEdit,
                       color: Colors.blue[800]!,
-                      disabled: widget.isRecording || widget.isPlaying,
+                      disabled:
+                          widget.isRecording ||
+                          widget.isPlaying ||
+                          !widget.hasContent,
                     ),
                   ),
                   const SizedBox(width: 8),
