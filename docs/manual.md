@@ -131,100 +131,228 @@ See section 10 (Application Directory) for a complete breakdown of subdirectorie
 
 ## 3. Settings
 
-### 3.1.1 Connection Dropdown
+The **Settings** panel is a draggable dialog opened by clicking the gear icon in the top toolbar. All settings are persisted automatically to the application preferences file and restored on the next launch.
 
-* **Choose between network or USB connection**
+### 3.1 Opening Settings
 
-* **IP Address**
-  Example:
-  `192.168.1.100`
-  (only available in network mode)
+Click the **Settings** icon (gear) in the top toolbar. The panel appears as a floating dialog titled "Device Configuration" that can be dragged by its header to any position on screen. Click the **X** button or the gear icon again to close it.
 
-### 3.1.2 CSV data export
+### 3.2 Connection Mode
 
-* **Save csv data**  
-  Enables additional csv data export for waveform acquisition and data logger
+Select the physical connection type used to communicate with the oscilloscope:
 
-### 3.1.3 Ask for filename on save
+* **Network (VXI-11)** — Connects via TCP/IP using the VXI-11 protocol on port 111. This is the recommended mode for most setups. Requires the oscilloscope to be on the same network as the host computer.
+* **USB (USBTMC)** — Connects via USB using the USBTMC protocol. The device is auto-detected — no IP address is needed. USB support is experimental and may have compatibility issues depending on the device's USB firmware version. On Linux, the application detaches the kernel's `usbtmc` driver to claim the device.
 
-* Enables a file name dialog on save.
+> **Note:** Switching between Network and USB mode requires saving the configuration. The application will reconnect using the new mode after saving.
 
-### 3.1.4 AI Settings
+### 3.3 IP Address
 
-> **See section 4.2 for more information**
+*Available only in Network (VXI-11) connection mode.*
+
+Enter the IPv4 address of the oscilloscope. The address must be reachable from the host computer on port 111.
+
+**Example:** `192.168.1.100`
+
+The current IP address is also displayed in the status bar at the bottom of the main window. If the address is incorrect or the device is unreachable, the status bar shows `OFFLINE` in red.
+
+### 3.4 AI Provider Settings
+
+Refer to [section 4.1](#41-ai-model-configuration) for detailed instructions on configuring the AI chat feature. The Settings panel provides three fields for AI configuration:
+
+* **AI Provider** — Dropdown list of supported providers (DeepSeek, OpenAI, Anthropic, Google, Mistral, Cohere, EdenAI, OpenRouter, xAI).
+* **AI API Token** — Your provider API key. The field masks input for privacy. A minimum of 8 characters is required.
+* **LLM Model** — The exact model name string as specified by your provider (e.g. `gpt-4o`, `deepseek-v4-flash`, `claude-haiku`).
+
+The AI chat feature is only enabled when all three fields are populated. If the AI button in the top toolbar appears disabled, verify these settings.
+
+### 3.5 Export Options
+
+Two toggle switches control default export behavior across the application:
+
+* **Save CSV data** — When enabled, waveform acquisitions and data logger recordings automatically export a companion CSV file alongside the primary output (PNG image or PDF report). CSV files contain raw numerical data suitable for import into spreadsheet applications or analysis tools. When disabled, only the primary output format is saved.
+* **Ask for filename on save** — When enabled, a dialog prompts for a custom filename prefix before each save operation. When disabled, default prefixes are used (e.g. `screen_dump`, `waveform`, `data_logging_report`). A numeric suffix is always appended to avoid overwriting existing files, regardless of this setting.
+
+Both settings take effect immediately and persist across application restarts.
+
+### 3.6 Connection Test
+
+The **TEST CONNECTION** button runs a low-level connectivity diagnostic against the configured IP address or USB device. This verifies that the host can reach the oscilloscope at the network or USB transport level before attempting SCPI communication.
+
+During the test (which takes up to 5 seconds), a progress indicator is shown. Results appear in a scrollable log area below the button:
+
+* **SUCCESS** (green) — The diagnostic step passed.
+* **FAILURE** or **ERROR** (red) — The step failed, with details about what went wrong.
+
+Common failure reasons include incorrect IP address, firewall blocking port 111, device powered off, USB driver conflicts, or network unreachability.
+
+> **Tip:** Always run the connection test after changing connection settings and before using other features. A successful test confirms basic connectivity but does not guarantee full SCPI command compatibility.
+
+### 3.7 Saving Configuration
+
+Click the **SAVE CONFIGURATION** button to persist all settings. The application:
+
+1. Stores the connection mode, IP address, AI provider, API token, and model name to the preferences file.
+2. Reconnects to the oscilloscope using the new connection settings.
+3. Initializes the AI chat service if all AI fields are populated.
+4. Closes the Settings panel.
+
+The status bar updates to reflect the new connection state. If `ONLINE` is shown, the oscilloscope is reachable and ready for operation.
+
+> **Note:** The API token is stored in plain text in the preferences file (`preferences/preferences.json`) within the application directory. Ensure appropriate file system permissions if working in a shared environment.
 
 ---
 
 ## 4. AI System
 
-This feature enables interaction with the oscilloscope using natural-language commands and allows users to ask questions about device functionality and operation.
+The AI chat feature enables natural-language interaction with the oscilloscope — ask device-related questions, send SCPI commands, or get troubleshooting help. The AI communicates directly with your chosen provider's API (no intermediate server) and requires an active internet connection.
 
-### 4.1 AI Server Requirements
+### 4.1 AI Model Configuration
 
-The AI chat feature communicates directly with AI providers via their APIs.
+Before using the AI, configure it in the **Settings** panel (see section 3.4):
 
-#### Supported Providers and Models
+1. Open **Settings** (gear icon in the top toolbar).
+2. Select your **AI Provider** from the dropdown (DeepSeek, OpenAI, Anthropic, Google, Mistral, Cohere, EdenAI, OpenRouter, or xAI).
+3. Enter your **API Key** (token). The field masks input for privacy. Minimum 8 characters.
+4. Enter the **LLM Model** name exactly as specified by your provider. The format is `provider:model` internally (e.g. `deepseek:deepseek-v4-flash`).
+5. Click **SAVE CONFIGURATION**.
 
-| Provider |
-|------|
-| DeepSeek |
-| OpenAI |
-| Anthropic |
-| Google |
-| Mistral |
-| Cohere |
-| EdenAI |
-| OpenRouter |
-| xAI |
+After saving, the **AI** button in the top toolbar becomes enabled (colored icon instead of greyed out). The application initializes the agent system immediately — no restart is needed.
 
-The following large language models (LLMs) are known to operate correctly with the application:
+#### Supported Providers
 
-**deepseek-v4-flash, gpt-4o, gpt-5.4-mini, gemini-3.5-flash, claude-haiku**  
-*For exact model names, see your provider homepage.*
+| Provider | Notes |
+|:---------|:------|
+| DeepSeek | Recommended default. Good balance of speed and accuracy. |
+| OpenAI | Requires an OpenAI API key (`sk-...`). |
+| Anthropic | Claude models. Requires an Anthropic API key. |
+| Google | Gemini models. Requires a Google AI Studio API key. |
+| Mistral | Requires a Mistral API key. |
+| Cohere | Requires a Cohere API key. |
+| EdenAI | Multi-provider gateway. |
+| OpenRouter | Multi-provider gateway with unified billing. |
+| xAI | Grok models. Requires an xAI API key. |
 
-> Important: The AI subsystem may generate inaccurate information or incorrect operating instructions. Use this functionality at your own risk.
----
+#### Recommended Models
 
-### 4.2 AI Model Configuration
+The following models are verified to work correctly:
 
-1. Open **Settings**
-2. Select AI provider from dropdown
-3. Enter API Key
-4. Enter model name
-5. Save configuration
+`deepseek-v4-flash`, `gpt-4o`, `gpt-5.4-mini`, `gemini-3.5-flash`, `claude-haiku`
 
----
+For the exact model name string required by your provider, consult your provider's API documentation or model listing page.
 
-### 4.3 AI Chat Interface
+> **Warning:** The AI subsystem may generate inaccurate information or incorrect operating instructions. Always verify critical SCPI commands before execution. SDS-Remote is not liable for any damage resulting from AI-generated instructions.
 
-#### Access
+### 4.2 AI Chat Interface
 
-* Open or close the AI chat interface using the **AI** button in the top toolbar.
+#### Opening and Closing
 
-#### Capabilities
+Click the **AI** button in the top toolbar to open or close the chat interface. The chat replaces the main content area (Control Panel, Waveform, etc.) while open. Your conversation history is preserved while the panel remains open; closing and reopening the chat clears the history.
 
-* **Technical Assistance**  
-  Example: *“How do I configure the trigger delay?”*
+#### Interface Layout
 
-* **SCPI Command Execution**  
-  Examples:
-  * “Set channel 1 vertical scale to 1V/div”
-  * “Get current timebase setting”
-  * “Switch channel 1 on“
+The chat window consists of:
 
-> Note: For best results, English language input is recommended.
-> Use **send command** syntax to send native SCPI commands (e.g.: 'send command C1:TRA ON').
----
+* **Message Area** — A scrollable conversation history. User messages appear right-aligned in cyan bubbles. AI responses appear left-aligned with grey backgrounds. The area auto-scrolls as new content arrives.
+* **Streaming Indicator** — While the AI is generating a response, a pulsing cyan cursor (`▊`) appears at the end of the message, indicating more content is coming.
+* **Input Field** — A text field at the bottom for typing messages. Press **Enter** to send (Shift+Enter for newline is not supported — text wraps automatically). The field auto-focuses when the chat opens and after each response completes.
+* **Send Button** — A paper-plane icon to the right of the input field. Disabled while the AI is generating a response.
 
-### 4.4 AI Troubleshooting
+#### Response Format
 
-* **AI Disabled**
-  * Verify the AI configuration settings.
+AI responses are rendered as **Markdown**, supporting:
 
-* **No AI Response**
-  * Verify API credentials and account quota availability.
-  * Check logs
-  * Confirm internet connectivity
+* Headings, bold, italic
+* Bulleted and numbered lists
+* Tables
+* Code blocks (with monospace font)
+* Clickable URLs (automatically detected and linkified)
+
+#### Message History
+
+The chat maintains a multi-turn conversation history within the session. The AI remembers previous exchanges, so you can ask follow-up questions or refine commands without repeating context. Closing the chat panel clears the history; a fresh conversation starts when reopened.
+
+### 4.3 Capabilities and Usage
+
+#### Device Questions (Knowledge Base)
+
+Ask questions about oscilloscope features, specifications, measurements, or troubleshooting. The AI searches the built-in knowledge base and returns the relevant documentation.
+
+**Examples:**
+* *"What is the maximum sample rate of the SDS1204X-E?"*
+* *"How do I configure the trigger delay?"*
+* *"Explain the difference between Auto and Normal trigger mode."*
+* *"What SCPI command sets the timebase?"*
+
+The knowledge base is a curated Markdown document (`docs/knowledgebase.md`) bundled with the application. The Search Agent queries it using semantic search and returns the most relevant sections.
+
+#### SCPI Command Execution
+
+Describe what you want to do in natural language, and the Instrument Agent translates it to SCPI commands sent to the connected oscilloscope.
+
+**Examples:**
+* *"Set channel 1 vertical scale to 1V/div"* → sends `C1:VDIV 1V`
+* *"Get the current timebase setting"* → sends `TDIV?` and returns the value
+* *"Switch channel 1 on"* → sends `C1:TRA ON`
+* *"What is the device identification?"* → sends `*IDN?` and returns the response
+
+#### Native SCPI Commands
+
+For precise control, use the **send command** syntax to bypass natural-language interpretation:
+
+```
+send command C1:VDIV 500mV
+```
+
+This sends the SCPI command directly to the oscilloscope without any translation. The device response (for queries) is returned verbatim.
+
+**Examples:**
+* `send command C1:TRA ON`
+* `send command C1:VDIV?`
+* `send command *IDN?`
+
+#### SDS-Remote Software Help
+
+When you ask about the SDS-Remote application itself (installation, configuration, features), the AI directs you to the built-in Help system rather than attempting to answer from its own knowledge.
+
+### 4.4 Limitations and Best Practices
+
+* **AI Accuracy** — The AI does not use its training data for oscilloscope answers. All responses are grounded in the knowledge base or actual device responses. However, the underlying language model may still misinterpret queries or produce incorrect SCPI command syntax. Always verify critical commands.
+* **Provider Dependency** — Response quality and speed depend entirely on the chosen AI provider and model. Different providers have different strengths for technical content.
+* **Internet Required** — AI features require an active internet connection to reach the provider's API. Without internet, the AI button is effectively non-functional even if configured.
+* **No Concurrent AI During Macro Playback** — The AI chat is disabled while a macro is playing, as the macro uses a dedicated instrument connection.
+* **API Costs** — The AI communicates directly with your provider's API. Usage may incur costs according to your provider's pricing. Monitor your API usage to avoid unexpected charges.
+* **English Recommended** — The knowledge base and system prompts are written in English. Queries in other languages may produce less accurate results.
+
+### 4.5 Troubleshooting
+
+* **AI button appears disabled (grey)**
+  * The AI has not been configured or configuration is incomplete.
+  * Verify that all three fields in Settings are populated: Provider, API Token, and Model name.
+  * The API token must be at least 8 characters.
+  * Save the configuration and check that the button becomes enabled.
+
+* **No response / timeout**
+  * Verify your API credentials and account quota.
+  * Check internet connectivity.
+  * Try a different model — some models may be temporarily unavailable.
+  * Check the application logs at `/tmp/sds/logging/sds.log` (Linux) or `%TEMP%\sds\logging\sds.log` (Windows) for detailed error messages.
+
+* **Irrelevant or incorrect SCPI commands**
+  * Use the **send command** syntax for precise control: `send command C1:VDIV 1V`.
+  * Try rephrasing your request more specifically.
+  * Switch to a more capable model (e.g. `gpt-4o` instead of a smaller/faster model).
+
+* **Knowledge base returns no results**
+  * The question may be outside the documented scope of the SDS1000X-E series.
+  * Try rephrasing with more general terms.
+  * Consult the official Siglent documentation for topics not covered in the knowledge base.
+
+* **Provider API errors**
+  * Verify the API token is correct and has not expired.
+  * Check that your provider account has available quota/credits.
+  * Ensure the model name exactly matches your provider's naming convention.
+  * Some providers require specific account tiers for API access.
 
 ---
 
@@ -672,7 +800,7 @@ assert("C1 frequency must be <= 1010 Hz", freq <= 1010)
 ```
 
 Detailed macro playback message are available in your log file.  
-  
+
 ## 8. Acquire Waveform
 
 The Waveform Acquisition feature captures waveform data from the connected oscilloscope and displays it as an interactive chart. The waveform display supports cursor measurements, zoom and pan controls, reference waveform overlays, and export of both PNG images and CSV data.
