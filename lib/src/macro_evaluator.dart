@@ -550,12 +550,12 @@ class MacroEvaluator {
     List<Statement> body, {
     bool valueIsVariable = false,
   }) async {
-    final resolvedValue = valueIsVariable ? _resolveVar(value) : value;
     var iterations = 0;
 
     while (true) {
       if (isCancelled()) throw _MacroStopException();
 
+      final resolvedValue = valueIsVariable ? _resolveVar(value) : value;
       final result = await _evalCondition(condition, op, resolvedValue);
       if (result == null) return;
       if (!result) break;

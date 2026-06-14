@@ -646,40 +646,33 @@ assert("Channel 1 must be enabled", ch1State == ON)
 #### 7.5.9 Macro Example
 
 ```
-# Automated calibration check
-connect("192.168.1.100")
-wait(2)
+# connect via network or usb 
+connect(usb)
 
-# Load reference configuration
-loadProfile("/home/user/.local/share/sdsremote/profiles/calibration.lss")
-wait(5)
+# set trigger mode to normal
+scpi("TRMD NORM")
 
-# Enable both channels
-scpi("C1:TRA ON")
-scpi("C2:TRA ON")
-wait(1)
-
-# Read and validate channel 1
-c1vdiv=query("C1:VDIV?")
-print(c1vdiv)
-assert("C1 VDIV must be 1V", c1vdiv == 1.0)
-
-# Read and validate channel 2
-c2vdiv=query("C2:VDIV?")
-print(c2vdiv)
-if(c2vdiv != 1.0) {
-    scpi("C2:VDIV 1V")
-    wait(1)
+# wait for trigger
+while(query("SAST?")!="Trig'd"){
+  wait(4) # wait 4 seconds
 }
 
-# Verify final state
-c2vdiv=query("C2:VDIV?")
-assert("C2 VDIV must be 1V after correction", c2vdiv == 1.0)
+# Minimum Peak to Peak voltage
+minVpp = 3.0
+
+#Check Peak to Peak Voltage for Channel 1
+assert("C1 Vpp must be >= " + minVpp, query("C1:PAVA? PKPK") >= minVpp)
+
+# Get channel 1 frequency in Hertz
+freq=query("C1:PAVA? FREQ")
+
+# Check that Channel 1 frequency is between 990-1010 Hz
+assert("C1 frequency must be >= 990 Hz", freq >= 990)
+assert("C1 frequency must be <= 1010 Hz", freq <= 1010)
 ```
 
-After playback check your logfile to see all macro messages.
-
-
+Detailed macro playback message are available in your log file.  
+  
 ## 8. Acquire Waveform
 
 The Waveform Acquisition feature captures waveform data from the connected oscilloscope and displays it as an interactive chart. The waveform display supports cursor measurements, zoom and pan controls, reference waveform overlays, and export of both PNG images and CSV data.
