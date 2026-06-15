@@ -6,7 +6,7 @@
 
 ---
 
-## 1. What is SDS-Remote and What Can it Do?
+## 1. What is SDS-Remote and What It Can Do?
 
 SDS-Remote enables remote control and AI-enhanced operation of Siglent SDS1202X-E, SDS1104X-E, SDS1204X-E, and SDS1102X-E oscilloscopes from **Linux** and **Windows**.
 
@@ -26,7 +26,7 @@ Acquire and visualize waveform data. Perform advanced measurements using X/Y cur
 
 ### Remote Control Panel
 
- Acquire and display oscilloscope screenshots in real time. Control your oscilloscope remotely using a virtual front panel.
+Acquire and display oscilloscope screenshots in real time. Control your oscilloscope remotely using a virtual front panel.
 
 ![Remote Control Panel](docs/sdsremote_cp.png)
 
@@ -38,13 +38,13 @@ Send commands and query oscilloscope functionality using natural-language prompt
 
 ### Device Profile Management
 
- Save and restore oscilloscope configurations using local `.lss` profile files.
+Save and restore oscilloscope configurations using local `.lss` profile files.
 
 ![Device Profile Management](docs/sdsremote_dp.png)
 
 ### Data Logging
 
- Log key measurement data over configurable durations ranging from 1 minute to 24 hours. Measure frequency drift and peak-to-peak voltage variations and generate reports with a detailed diagram, start/end and min/max values. All data points can also be saved in a separate csv file.
+Log key measurement data over configurable durations ranging from 1 minute to 24 hours. Measure frequency drift and peak-to-peak voltage variations and generate reports with a detailed diagram, start/end and min/max values. All data points can also be saved in a separate CSV file.
 
 ![Data Logger](docs/sdsremote_dl.png)
 
@@ -61,7 +61,7 @@ Record, edit and play back SCPI command sequences to automate repetitive measure
 
 ### 2.1 Linux Debian `.deb` Package
 
-To install the precompiled Debian `.deb` package on Debian-based Linux distributions (for example Ubuntu 24.04 or newer), download the [latest package](https://github.com/klumw/sdsremote/releases) from the Releases page and run the following command in your terminal:
+To install the precompiled Debian `.deb` package on Debian-based Linux distributions (for example, Ubuntu 24.04 or newer), download the [latest package](https://github.com/klumw/sdsremote/releases) from the Releases page and run the following command in your terminal:
 
 ```bash
 sudo apt install ./sdsremote_[version]_amd64.deb
@@ -182,7 +182,7 @@ Some Siglent USB firmware versions are not fully USB compliant. Perform the foll
    usb 1-4: config 1 interface 0 altsetting 0 bulk endpoint 0x1 has invalid maxpacket 64
    ```
 
-   then the device USB firmware is not fully compliant with the USB standard, and some SDS-Remote functionality, such as profile upload, may not work correctly under Linux.
+   then the device's USB firmware is not fully compliant with the USB standard, and some SDS-Remote functionality, such as profile upload, may not work correctly under Linux.
 
 ### 3.4 Running the Application
 

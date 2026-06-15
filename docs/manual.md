@@ -2,11 +2,9 @@
 
 ## 1. Introduction & Overview
 
-**SDS-Remote** is a remote control interface and help center for Siglent SDS 1000X-E series oscilloscopes.
-It provides a modern graphical user interface (GUI) for instrument control, waveform acquisition and analysis, data logging,
-screen capture and device interaction and help through an integrated AI-powered chat interface.
+Welcome to the SDS-Remote Help Center.
 
-> **Note:** This application is not affiliated with Siglent or any other commercial entity.
+***SDS-Remote*** delivers a comprehensive remote control solution designed specifically for the Siglent SDS 1000X-E series. The platform streamlines device interaction by integrating robust instrument control and waveform analysis with advanced features like data logging, macro recording/playback, and screen capture— supported by a built-in, AI-powered chat interface.
 
 ### 1.1 Compatibility
 
@@ -39,7 +37,7 @@ SDS-Remote is designed for the **Siglent SDS 1000X-E** series oscilloscopes (SDS
 * Network (VXI-11) connections are generally more reliable than USB for sustained operation. USB support is experimental and may have device-specific compatibility issues.
 * When using USB mode, the application detaches the kernel driver (`usbtmc`) to claim the device. Other software accessing the oscilloscope via USB may interfere.
 * Screen captures (Control Panel) update after every command, which takes approximately 1–3 seconds depending on network latency and screen complexity. Rapid consecutive button presses are rate-limited to prevent command queue overflows.
-* Waveform acquisition downloads the full 1201-point-per-channel dataset from the oscilloscope, which may take several seconds. The waveform is downsampled for rendering performance.
+* Waveform acquisition downloads the full dataset from the oscilloscope, which may take several seconds. The waveform is downsampled for rendering performance.
 * The Data Logger queries the oscilloscope at the configured interval. Very short intervals (10 seconds) with many parameters enabled may cause measurement timing jitter due to SCPI query overhead.
 
 **File Storage**
@@ -60,9 +58,7 @@ See section 10 (Application Directory) for a complete breakdown of subdirectorie
 * **Single Device** — The application connects to one oscilloscope at a time. Simultaneous control of multiple instruments is not supported.
 * **No Data Streaming** — The application uses request-response SCPI communication. Continuous high-speed data streaming (e.g., at the full sample rate) is not supported. The Data Logger operates at minimum 10-second intervals.
 * **Macro Playback** — Macros run on a dedicated VXI-11 connection. During playback, most UI functions are disabled. The Control Panel, Acquire Waveform, Data Logger, and AI Chat cannot be used concurrently with macro playback.
-* **Window Close Protection** — The application intercepts the window close event. If a macro has unsaved changes, a dialog prompts to save or discard before closing.
-* **Waveform Downsampling** — Acquired waveforms are downsampled to approximately 800–1000 points for display to maintain rendering performance. The full dataset is preserved in CSV exports.
-* **Command Echo Handling** — The oscilloscope echoes every SCPI command back. The application automatically drains these echoes before queries, but this adds a small latency overhead to each command-response cycle.
+* **Waveform Downsampling** — Acquired waveforms are downsampled for display to maintain rendering performance. The full dataset is preserved in CSV exports.
 
 ---
 
@@ -88,7 +84,7 @@ See section 10 (Application Directory) for a complete breakdown of subdirectorie
   * Displays status during acquisition
   * Supports cursor measurements
 
-* **AI Toggle**  
+* **AI**  
   * Shows/hides AI chat interface
   * Disabled if AI is not configured
 
@@ -131,20 +127,18 @@ See section 10 (Application Directory) for a complete breakdown of subdirectorie
 
 ## 3. Settings
 
-The **Settings** panel is a draggable dialog opened by clicking the gear icon in the top toolbar. All settings are persisted automatically to the application preferences file and restored on the next launch.
+The **Settings** panel is a draggable dialog opened by clicking the gear icon in the top toolbar. All settings are persisted to the application preferences file and restored on the next launch.
 
 ### 3.1 Opening Settings
 
-Click the **Settings** icon (gear) in the top toolbar. The panel appears as a floating dialog titled "Device Configuration" that can be dragged by its header to any position on screen. Click the **X** button or the gear icon again to close it.
+Click the **Settings** icon (gear) in the top toolbar. The panel appears as a floating dialog titled "Device Configuration".
 
 ### 3.2 Connection Mode
 
 Select the physical connection type used to communicate with the oscilloscope:
 
-* **Network (VXI-11)** — Connects via TCP/IP using the VXI-11 protocol on port 111. This is the recommended mode for most setups. Requires the oscilloscope to be on the same network as the host computer.
-* **USB (USBTMC)** — Connects via USB using the USBTMC protocol. The device is auto-detected — no IP address is needed. USB support is experimental and may have compatibility issues depending on the device's USB firmware version. On Linux, the application detaches the kernel's `usbtmc` driver to claim the device.
-
-> **Note:** Switching between Network and USB mode requires saving the configuration. The application will reconnect using the new mode after saving.
+* **Network (VXI-11)** — Connects via TCP/IP using the VXI-11 protocol. This is the recommended mode for most setups. Requires the oscilloscope to be on the same network as the host computer.
+* **USB (USBTMC)** — Connects via USB using the USBTMC protocol. The device is auto-detected — no IP address is needed. USB support is experimental and may have compatibility issues depending on the device's USB firmware version.
 
 ### 3.3 IP Address
 
@@ -214,7 +208,7 @@ Before using the AI, configure it in the **Settings** panel (see section 3.4):
 1. Open **Settings** (gear icon in the top toolbar).
 2. Select your **AI Provider** from the dropdown (DeepSeek, OpenAI, Anthropic, Google, Mistral, Cohere, EdenAI, OpenRouter, or xAI).
 3. Enter your **API Key** (token). The field masks input for privacy. Minimum 8 characters.
-4. Enter the **LLM Model** name exactly as specified by your provider. The format is `provider:model` internally (e.g. `deepseek:deepseek-v4-flash`).
+4. Enter the **LLM Model** name exactly as specified by your provider.
 5. Click **SAVE CONFIGURATION**.
 
 After saving, the **AI** button in the top toolbar becomes enabled (colored icon instead of greyed out). The application initializes the agent system immediately — no restart is needed.
@@ -235,13 +229,11 @@ After saving, the **AI** button in the top toolbar becomes enabled (colored icon
 
 #### Recommended Models
 
-The following models are verified to work correctly:
+The following models are verified to work with the application:
 
 `deepseek-v4-flash`, `gpt-4o`, `gpt-5.4-mini`, `gemini-3.5-flash`, `claude-haiku`
 
 For the exact model name string required by your provider, consult your provider's API documentation or model listing page.
-
-> **Warning:** The AI subsystem may generate inaccurate information or incorrect operating instructions. Always verify critical SCPI commands before execution. SDS-Remote is not liable for any damage resulting from AI-generated instructions.
 
 ### 4.2 AI Chat Interface
 
@@ -255,7 +247,7 @@ The chat window consists of:
 
 * **Message Area** — A scrollable conversation history. User messages appear right-aligned in cyan bubbles. AI responses appear left-aligned with grey backgrounds. The area auto-scrolls as new content arrives.
 * **Streaming Indicator** — While the AI is generating a response, a pulsing cyan cursor (`▊`) appears at the end of the message, indicating more content is coming.
-* **Input Field** — A text field at the bottom for typing messages. Press **Enter** to send (Shift+Enter for newline is not supported — text wraps automatically). The field auto-focuses when the chat opens and after each response completes.
+* **Input Field** — A text field at the bottom for typing messages. Press **Enter** to send (Shift+Enter for newline is not supported — text wraps automatically).
 * **Send Button** — A paper-plane icon to the right of the input field. Disabled while the AI is generating a response.
 
 #### Response Format
@@ -320,9 +312,11 @@ When you ask about the SDS-Remote application itself (installation, configuratio
 * **AI Accuracy** — The AI does not use its training data for oscilloscope answers. All responses are grounded in the knowledge base or actual device responses. However, the underlying language model may still misinterpret queries or produce incorrect SCPI command syntax. Always verify critical commands.
 * **Provider Dependency** — Response quality and speed depend entirely on the chosen AI provider and model. Different providers have different strengths for technical content.
 * **Internet Required** — AI features require an active internet connection to reach the provider's API. Without internet, the AI button is effectively non-functional even if configured.
-* **No Concurrent AI During Macro Playback** — The AI chat is disabled while a macro is playing, as the macro uses a dedicated instrument connection.
 * **API Costs** — The AI communicates directly with your provider's API. Usage may incur costs according to your provider's pricing. Monitor your API usage to avoid unexpected charges.
 * **English Recommended** — The knowledge base and system prompts are written in English. Queries in other languages may produce less accurate results.
+
+> **Warning:** The AI subsystem may generate inaccurate information or incorrect operating instructions. Always verify critical SCPI commands before execution. SDS-Remote is not liable for any damage resulting from AI-generated instructions.
+
 
 ### 4.5 Troubleshooting
 
@@ -718,7 +712,7 @@ if(myVar == 1.0) {
 }
 ```
 
-An `else` block can be appended using `}else{` or `} else {` on the closing line:
+An `else` block can be appended:
 
 ```
 if(myVar >= 2.5) {
@@ -799,7 +793,7 @@ assert("C1 frequency must be >= 990 Hz", freq >= 990)
 assert("C1 frequency must be <= 1010 Hz", freq <= 1010)
 ```
 
-Detailed macro playback message are available in your log file.  
+Detailed macro playback messages are available in your log file.  
 
 ## 8. Acquire Waveform
 
@@ -1048,7 +1042,7 @@ The **Trigger** section provides four trigger mode buttons and a level knob:
 Virtual knobs support two interaction modes:
 
 * **Drag** — Click and drag a knob up/down or left/right to adjust the value continuously. The knob rotates visually to reflect the change. Each drag gesture translates to a SCPI knob command sent to the oscilloscope.
-* **Tap** — Click a knob without dragging to set a specific value. This opens a numeric input dialog where you can type the exact value.
+* **Tap** — Click a knob without dragging to set a specific value. This executes the knob specific tap function.
 
 Knobs are disabled while another command is being processed to prevent overlapping SCPI requests, which could cause command queue overflows on the oscilloscope.
 
@@ -1138,7 +1132,6 @@ Files are stored in various subfolders of the application directory, depending o
 
 * Protocol: VXI-11 over TCP/IP or USB direct connect
 * Command Interface: SCPI
-* Network-based and USB connections are supported.
 
 ### Data Formats
 
@@ -1166,6 +1159,8 @@ The log directory  is at `/tmp/sds/logging/sds.log` (Linux) or `%TEMP%\sds\loggi
 * Review the troubleshooting section
 * Check logs at the given log directory  
 * Submit issues or feature requests via the [sdsremote](https://github.com/klumw/sdsremote) GitHub repository Issues section
+
+> **Note:** This application is not affiliated with Siglent or any other commercial entity.
 
 ---
 
