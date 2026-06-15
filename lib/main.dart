@@ -542,7 +542,7 @@ class _OsciHomePageState extends State<OsciHomePage>
                                       ),
                                       const SizedBox(height: 16),
                                       Text(
-                                        "Version 0.2.4",
+                                        "Version 0.2.5",
                                         style: TextStyle(
                                           color: Colors.white.withValues(
                                             alpha: 0.4,
