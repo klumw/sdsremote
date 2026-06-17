@@ -271,7 +271,13 @@ class _OsciHomePageState extends State<OsciHomePage>
       }
     }
 
-    await AppLogger().log('SDS-Remote: application stopping');
+    // Fire-and-forget the final log entry. On Windows, awaiting this
+    // log call would block until the entire sequential _writeQueue
+    // (see logger.dart) drains, which can take 4-5 seconds due to
+    // expensive flush-on-every-write semantics.  The OS will flush the
+    // file buffer on process exit anyway.
+    unawaited(AppLogger().log('SDS-Remote: application stopping'));
+
     await windowManager.destroy();
   }
 
