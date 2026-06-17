@@ -62,7 +62,6 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   Timer? _lintDebounce;
   Set<int> _errorLines = {};
 
-  static const double _lineHeight = 13.0 * 1.5; // fontSize * height
   static const Duration _lintDelay = Duration(milliseconds: 300);
 
   /// Pre-computed line metrics measured by running the editor's text

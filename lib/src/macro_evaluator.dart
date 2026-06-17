@@ -588,7 +588,6 @@ class MacroEvaluator {
         final varValue = _vars[name];
         if (varValue == null) {
           _error('Variable "$name" is undefined');
-          return null;
         }
         return _compareValues(varValue, op, value);
 
@@ -615,7 +614,6 @@ class MacroEvaluator {
 
       case ScpiExpr():
         _error('scpi() cannot be used in a condition (it returns no value)');
-        return null;
     }
   }
 

@@ -73,8 +73,9 @@ class MacroGrammarDefinition extends GrammarDefinition {
               char(')'))
           .map((r) {
             final arg = r[2];
-            if (arg is ConcatString)
+            if (arg is ConcatString) {
               return ConnectStmt(null, concatString: arg);
+            }
             final (argStr, isVar) = arg as (String?, bool);
             if (argStr == null && !isVar) return const ConnectStmt(null); // usb
             return ConnectStmt(argStr, isVariable: isVar);
@@ -351,8 +352,9 @@ class MacroGrammarDefinition extends GrammarDefinition {
               char(')'))
           .map((r) {
             final arg = r[1];
-            if (arg is ConcatString)
+            if (arg is ConcatString) {
               return LoadProfileStmt('', concatString: arg);
+            }
             return LoadProfileStmt(arg as String);
           });
 

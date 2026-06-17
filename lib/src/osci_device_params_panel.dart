@@ -76,8 +76,6 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
     final cursorsYEnabled = widget.cursorsYEnabled;
     final onCursorXToggled = widget.onCursorXToggled;
     final onCursorYToggled = widget.onCursorYToggled;
-    final onLoadReference = widget.onLoadReference;
-    final onChannelToggle = widget.onChannelToggle;
     return Container(
       width: 300,
       margin: const EdgeInsets.only(top: 24, bottom: 24, right: 24),

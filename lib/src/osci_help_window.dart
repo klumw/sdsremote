@@ -353,6 +353,7 @@ class _HelpWindowState extends State<HelpWindow> {
               baseOffset: 0,
               extentOffset: _searchController.text.length,
             );
+            return null;
           },
         ),
       },

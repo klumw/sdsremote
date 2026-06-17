@@ -242,8 +242,9 @@ class WaveformBasePainter extends CustomPainter {
     for (double t = tMinorStart; t <= visibleTMax; t += tMinorInterval) {
       // Skip positions that fall on a major line.
       final double remainder = (t / tMajorInterval).roundToDouble();
-      if ((t - remainder * tMajorInterval).abs() < tMinorInterval * 0.01)
+      if ((t - remainder * tMajorInterval).abs() < tMinorInterval * 0.01) {
         continue;
+      }
       final double x = timeToPx(t);
       if (x >= 0 && x <= size.width) {
         canvas.drawLine(Offset(x, 0), Offset(x, size.height), minorPaint);
@@ -254,8 +255,9 @@ class WaveformBasePainter extends CustomPainter {
         (visibleVMin / vMinorInterval).ceil() * vMinorInterval;
     for (double v = vMinorStart; v <= visibleVMax; v += vMinorInterval) {
       final double remainder = (v / vMajorInterval).roundToDouble();
-      if ((v - remainder * vMajorInterval).abs() < vMinorInterval * 0.01)
+      if ((v - remainder * vMajorInterval).abs() < vMinorInterval * 0.01) {
         continue;
+      }
       final double y = voltageToPy(v);
       if (y >= 0 && y <= size.height) {
         canvas.drawLine(Offset(0, y), Offset(size.width, y), minorPaint);
