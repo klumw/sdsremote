@@ -12,6 +12,7 @@ import 'package:image/image.dart' as img;
 import 'package:logging/logging.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'src/app_config.dart';
+import 'src/app_theme.dart';
 import 'src/app_preferences.dart';
 import 'src/widgets/osci_toolbar_button.dart';
 import 'src/widgets/reference_file_picker_dialog.dart';
@@ -23,6 +24,8 @@ import 'dart_vxi11.dart';
 import 'waveform_acquisition.dart';
 import 'src/waveform_processing.dart';
 import 'src/waveform_csv_parser.dart';
+import 'src/waveform_csv_writer.dart';
+import 'src/data_logger_csv_writer.dart';
 import 'waveform_models.dart';
 import 'waveform_painter.dart';
 import 'ai_chat_service.dart';
@@ -122,7 +125,7 @@ class OscilloscopeApp extends StatelessWidget {
       title: 'SDS-Remote',
       debugShowCheckedModeBanner: false,
       theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF0D1117),
+        scaffoldBackgroundColor: AppColors.scaffoldBackground,
       ),
       home: const OsciHomePage(),
     );
@@ -386,176 +389,14 @@ class _OsciHomePageState extends State<OsciHomePage>
                       child: Container(
                         margin: const EdgeInsets.all(24),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF0A192F),
+                          color: AppColors.panelBackground,
                           border: Border.all(
-                            color: const Color(0xFF475569),
+                            color: AppColors.border,
                             width: 1.5,
                           ),
                           borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Center(
-                          child: _activePanel == ActivePanel.help
-                              ? _buildHelpWindow()
-                              : _activePanel == ActivePanel.chat
-                              ? _buildChatWindow()
-                              : _activePanel == ActivePanel.profiles
-                              ? _buildProfilesWindow()
-                              : _activePanel == ActivePanel.dataLogger
-                              ? _buildDataLoggerWindow()
-                              : _activePanel == ActivePanel.macroRecorder
-                              ? _buildMacroRecorderWindow()
-                              : _waveformAcquired
-                              ? AspectRatio(
-                                  aspectRatio: 14 / 8,
-                                  child: RepaintBoundary(
-                                    key: _waveformKey,
-                                    child: MouseRegion(
-                                      cursor: _hoveredCursorType == 'x'
-                                          ? SystemMouseCursors.resizeColumn
-                                          : _hoveredCursorType == 'y'
-                                          ? SystemMouseCursors.resizeRow
-                                          : _hoveredCursorType == 'info'
-                                          ? SystemMouseCursors.move
-                                          : SystemMouseCursors.basic,
-                                      onHover: _onCursorHover,
-                                      child: GestureDetector(
-                                        onPanStart: _onCursorDragStart,
-                                        onPanUpdate: _onCursorDragUpdate,
-                                        onPanEnd: _onCursorDragEnd,
-                                        child: Stack(
-                                          children: [
-                                            RepaintBoundary(
-                                              child: CustomPaint(
-                                                painter: WaveformBasePainter(
-                                                  ch1: _waveformCh1,
-                                                  ch2: _waveformCh2,
-                                                  ref: _refWaveform,
-                                                  refVisible: _refVisible,
-                                                  refChannelOrigin:
-                                                      _refChannelOrigin,
-                                                  params: _deviceParams!,
-                                                  ch1Enabled: _ch1Enabled,
-                                                  ch2Enabled: _ch2Enabled,
-                                                  zoom: _zoomState,
-                                                ),
-                                                child: const SizedBox.expand(),
-                                              ),
-                                            ),
-                                            CustomPaint(
-                                              painter: CursorPainter(
-                                                cursors: _cursorState,
-                                                params: _deviceParams!,
-                                                zoom: _zoomState,
-                                                dataTMin:
-                                                    _waveformCh1 != null &&
-                                                        _waveformCh1!
-                                                            .points
-                                                            .isNotEmpty
-                                                    ? _waveformCh1!
-                                                          .points
-                                                          .first
-                                                          .$1
-                                                    : _waveformCh2 != null &&
-                                                          _waveformCh2!
-                                                              .points
-                                                              .isNotEmpty
-                                                    ? _waveformCh2!
-                                                          .points
-                                                          .first
-                                                          .$1
-                                                    : null,
-                                                dataTMax:
-                                                    _waveformCh1 != null &&
-                                                        _waveformCh1!
-                                                            .points
-                                                            .isNotEmpty
-                                                    ? _waveformCh1!
-                                                          .points
-                                                          .last
-                                                          .$1
-                                                    : _waveformCh2 != null &&
-                                                          _waveformCh2!
-                                                              .points
-                                                              .isNotEmpty
-                                                    ? _waveformCh2!
-                                                          .points
-                                                          .last
-                                                          .$1
-                                                    : null,
-                                              ),
-                                              child: const SizedBox.expand(),
-                                            ),
-                                            // Horizontal pan slider (only visible when zoomed)
-                                            if (_zoomState.zoomFactor > 1.0)
-                                              Positioned(
-                                                left: 0,
-                                                right: 0,
-                                                bottom: 0,
-                                                height: 24,
-                                                child:
-                                                    _buildHorizontalPanSlider(),
-                                              ),
-                                            // Vertical pan slider (only visible when zoomed)
-                                            if (_zoomState.zoomFactor > 1.0)
-                                              Positioned(
-                                                top: 0,
-                                                bottom: 24,
-                                                right: 0,
-                                                width: 24,
-                                                child:
-                                                    _buildVerticalPanSlider(),
-                                              ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                  ),
-                                )
-                              : _screenDump != null
-                              ? PhysicalControlPanel(
-                                  isOnline: _isOnline,
-                                  isProcessingEvent: _isProcessingEvent,
-                                  screenDump: _screenDump!,
-                                  ch1Enabled: _ch1Enabled,
-                                  ch2Enabled: _ch2Enabled,
-                                  onChannelToggle: _handleButtonPress,
-                                  onSoftKeyPressed: _handleSoftKeyPress,
-                                  onMenuPressed: _handleMenuPress,
-                                  onKnobChanged: _handleKnobChanged,
-                                  onKnobTapped: _handleKnobTapped,
-                                  onMenuButtonPressed: _handleButtonPress,
-                                  onVerticalButtonPressed: _handleButtonPress,
-                                  onHorizontalButtonPressed: _handleButtonPress,
-                                  onTriggerButtonPressed: _handleButtonPress,
-                                )
-                              : Center(
-                                  child: Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      Opacity(
-                                        opacity: 0.8,
-                                        child: Image.asset(
-                                          'assets/sds-remote.png',
-                                          width: 400,
-                                          fit: BoxFit.contain,
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Text(
-                                        "Version 0.2.5",
-                                        style: TextStyle(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.4,
-                                          ),
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.w300,
-                                          letterSpacing: 1.5,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                        ),
+                        child: Center(child: _buildMainContent()),
                       ),
                     ),
                     if (_waveformAcquired &&
@@ -590,6 +431,151 @@ class _OsciHomePageState extends State<OsciHomePage>
     );
   }
 
+  Widget _buildMainContent() {
+    if (_activePanel != ActivePanel.none) {
+      return switch (_activePanel) {
+        ActivePanel.help => _buildHelpWindow(),
+        ActivePanel.chat => _buildChatWindow(),
+        ActivePanel.profiles => _buildProfilesWindow(),
+        ActivePanel.dataLogger => _buildDataLoggerWindow(),
+        ActivePanel.macroRecorder => _buildMacroRecorderWindow(),
+        _ => const SizedBox.shrink(),
+      };
+    }
+    if (_waveformAcquired) return _buildWaveformView();
+    if (_screenDump != null) return _buildPhysicalPanel();
+    return _buildWelcomeScreen();
+  }
+
+  Widget _buildWaveformView() {
+    return AspectRatio(
+      aspectRatio: 14 / 8,
+      child: RepaintBoundary(
+        key: _waveformKey,
+        child: MouseRegion(
+          cursor: _hoveredCursorType == 'x'
+              ? SystemMouseCursors.resizeColumn
+              : _hoveredCursorType == 'y'
+              ? SystemMouseCursors.resizeRow
+              : _hoveredCursorType == 'info'
+              ? SystemMouseCursors.move
+              : SystemMouseCursors.basic,
+          onHover: _onCursorHover,
+          child: GestureDetector(
+            onPanStart: _onCursorDragStart,
+            onPanUpdate: _onCursorDragUpdate,
+            onPanEnd: _onCursorDragEnd,
+            child: Stack(
+              children: [
+                RepaintBoundary(
+                  child: CustomPaint(
+                    painter: WaveformBasePainter(
+                      ch1: _waveformCh1,
+                      ch2: _waveformCh2,
+                      ref: _refWaveform,
+                      refVisible: _refVisible,
+                      refChannelOrigin: _refChannelOrigin,
+                      params: _deviceParams!,
+                      ch1Enabled: _ch1Enabled,
+                      ch2Enabled: _ch2Enabled,
+                      zoom: _zoomState,
+                    ),
+                    child: const SizedBox.expand(),
+                  ),
+                ),
+                CustomPaint(
+                  painter: CursorPainter(
+                    cursors: _cursorState,
+                    params: _deviceParams!,
+                    zoom: _zoomState,
+                    dataTMin: _waveformCh1 != null &&
+                            _waveformCh1!.points.isNotEmpty
+                        ? _waveformCh1!.points.first.$1
+                        : _waveformCh2 != null &&
+                                _waveformCh2!.points.isNotEmpty
+                            ? _waveformCh2!.points.first.$1
+                            : null,
+                    dataTMax: _waveformCh1 != null &&
+                            _waveformCh1!.points.isNotEmpty
+                        ? _waveformCh1!.points.last.$1
+                        : _waveformCh2 != null &&
+                                _waveformCh2!.points.isNotEmpty
+                            ? _waveformCh2!.points.last.$1
+                            : null,
+                  ),
+                  child: const SizedBox.expand(),
+                ),
+                if (_zoomState.zoomFactor > 1.0)
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    height: 24,
+                    child: _buildHorizontalPanSlider(),
+                  ),
+                if (_zoomState.zoomFactor > 1.0)
+                  Positioned(
+                    top: 0,
+                    bottom: 24,
+                    right: 0,
+                    width: 24,
+                    child: _buildVerticalPanSlider(),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPhysicalPanel() {
+    return PhysicalControlPanel(
+      isOnline: _isOnline,
+      isProcessingEvent: _isProcessingEvent,
+      screenDump: _screenDump!,
+      ch1Enabled: _ch1Enabled,
+      ch2Enabled: _ch2Enabled,
+      onChannelToggle: _handleButtonPress,
+      onSoftKeyPressed: _handleSoftKeyPress,
+      onMenuPressed: _handleMenuPress,
+      onKnobChanged: _handleKnobChanged,
+      onKnobTapped: _handleKnobTapped,
+      onMenuButtonPressed: _handleButtonPress,
+      onVerticalButtonPressed: _handleButtonPress,
+      onHorizontalButtonPressed: _handleButtonPress,
+      onTriggerButtonPressed: _handleButtonPress,
+    );
+  }
+
+  Widget _buildWelcomeScreen() {
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Opacity(
+            opacity: 0.8,
+            child: Image.asset(
+              'assets/sds-remote.png',
+              width: 400,
+              fit: BoxFit.contain,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            "Version 0.2.5",
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.4),
+              fontSize: 16,
+              fontWeight: FontWeight.w300,
+              letterSpacing: 1.5,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // =========================================================================
   // Top Bar
   // =========================================================================
@@ -598,9 +584,9 @@ class _OsciHomePageState extends State<OsciHomePage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: const BoxDecoration(
-        color: Color(0xFF0A192F),
+        color: AppColors.panelBackground,
         border: Border(
-          bottom: BorderSide(color: Color(0xFF475569), width: 1.5),
+          bottom: BorderSide(color: AppColors.border, width: 1.5),
         ),
       ),
       child: Row(
@@ -765,7 +751,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
       decoration: const BoxDecoration(
-        color: Color(0xFF151515),
+        color: AppColors.statusBar,
         border: Border(top: BorderSide(color: Colors.white12, width: 2)),
       ),
       child: Row(
@@ -1408,9 +1394,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         );
       }
     } finally {
-      if (_isUsb) {
-        await _closeInstrument();
-      }
+      await _closeInstrumentIfUsb();
     }
   }
 
@@ -1463,9 +1447,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         );
       }
     } finally {
-      if (_isUsb) {
-        await _closeInstrument();
-      }
+      await _closeInstrumentIfUsb();
     }
   }
 
@@ -1698,9 +1680,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         _isOnline = false;
       });
     } finally {
-      if (_isUsb) {
-        await _closeInstrument();
-      }
+      await _closeInstrumentIfUsb();
       if (mounted) {
         setState(() {
           _isAcquiring = false;
@@ -1756,9 +1736,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         );
       }
     } finally {
-      if (_isUsb) {
-        await _closeInstrument();
-      }
+      await _closeInstrumentIfUsb();
       if (mounted) {
         setState(() {
           _isAcquiringWaveform = false;
@@ -1865,50 +1843,14 @@ class _OsciHomePageState extends State<OsciHomePage>
       await file.writeAsBytes(pngBytes);
       final pngName = file.uri.pathSegments.last;
 
-      // Always save waveform data as CSV alongside the PNG, including device
-      // parameters (Timebase, Trigger Delay, Sample Rate, V/div and Offset per channel).
-      final csvBuffer = StringBuffer();
-      csvBuffer.writeln('# SDS-Remote Waveform Data');
-      csvBuffer.writeln('# Saved: ${DateTime.now().toIso8601String()}');
-      csvBuffer.writeln('# Device: ${_deviceName ?? _ipAddress}');
-      if (_deviceParams != null) {
-        csvBuffer.writeln('# Timebase: ${_deviceParams!.timebase} s/div');
-        csvBuffer.writeln('# Trigger Delay: ${_deviceParams!.trdl} s');
-        csvBuffer.writeln('# Sample Rate: ${_deviceParams!.sampleRate} Sa/s');
-        if (_deviceParams!.vdivCh1 != null) {
-          csvBuffer.writeln('# CH1 V/div: ${_deviceParams!.vdivCh1} V');
-          csvBuffer.writeln('# CH1 Offset: ${_deviceParams!.voffsetCh1} V');
-        }
-        if (_deviceParams!.vdivCh2 != null) {
-          csvBuffer.writeln('# CH2 V/div: ${_deviceParams!.vdivCh2} V');
-          csvBuffer.writeln('# CH2 Offset: ${_deviceParams!.voffsetCh2} V');
-        }
-      }
-      csvBuffer.writeln('# Cursors X Enabled: ${_cursorState.cursorsXEnabled}');
-      csvBuffer.writeln('# Cursors Y Enabled: ${_cursorState.cursorsYEnabled}');
-      csvBuffer.writeln('#');
-      csvBuffer.writeln('Time (s),CH1 (V),CH2 (V)');
-
-      // Determine the maximum number of points across both channels
-      final int maxPoints = [
-        if (_waveformCh1 != null) _waveformCh1!.points.length,
-        if (_waveformCh2 != null) _waveformCh2!.points.length,
-      ].fold(0, (a, b) => a > b ? a : b);
-
-      // CSV time starts at 0 and increments by 1/sampleRate for each sample.
-      final csvDt = _deviceParams != null
-          ? 1.0 / _deviceParams!.sampleRate
-          : 0.0;
-      for (int i = 0; i < maxPoints; i++) {
-        final time = i * csvDt;
-        final ch1V = _waveformCh1 != null && i < _waveformCh1!.points.length
-            ? _waveformCh1!.points[i].$2.toStringAsFixed(6)
-            : '';
-        final ch2V = _waveformCh2 != null && i < _waveformCh2!.points.length
-            ? _waveformCh2!.points[i].$2.toStringAsFixed(6)
-            : '';
-        csvBuffer.writeln('$time,$ch1V,$ch2V');
-      }
+      // Build waveform CSV using the extracted pure function.
+      final csvContent = buildWaveformCsv(
+        ch1: _waveformCh1,
+        ch2: _waveformCh2,
+        params: _deviceParams!,
+        deviceName: _deviceName ?? _ipAddress,
+        cursorState: _cursorState,
+      );
 
       final csvDir = await AppPaths.getOrCreateWaveformCsvDir();
       final csvFile = await AppPaths.getUniqueFilePath(
@@ -1916,7 +1858,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         csvBaseName,
         'csv',
       );
-      await csvFile.writeAsString(csvBuffer.toString());
+      await csvFile.writeAsString(csvContent);
       final csvName = csvFile.uri.pathSegments.last;
 
       if (mounted) {
@@ -2033,8 +1975,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   /// Writes a CSV file with the data logger's recorded data points.
   ///
-  /// Returns the saved filename (e.g. `data_logger_data.csv` or
-  /// `data_logger_data(1).csv` if the original name was already taken).
+  /// Returns the saved filename.
   ///
   /// Only includes columns for measurements that are enabled in the config
   /// AND not hidden via the chip toggle buttons ([_savedDlHiddenLines]).
@@ -2044,89 +1985,15 @@ class _OsciHomePageState extends State<OsciHomePage>
     List<DataLoggerPoint> points, [
     String baseName = 'data_logger_data',
   ]) async {
-    final hidden = _savedDlHiddenLines ?? <String>{};
-    final csvBuffer = StringBuffer();
-
-    // ---- Header comments ----
-    csvBuffer.writeln('# SDS-Remote Data Logger Data');
-    csvBuffer.writeln('# Saved: ${DateTime.now().toIso8601String()}');
-    csvBuffer.writeln('# Device: ${_deviceName ?? _ipAddress}');
-    csvBuffer.writeln('# Duration: ${config.durationMinutes} min');
-    csvBuffer.writeln('# Interval: ${config.intervalSeconds} s');
-    if (config.description.isNotEmpty) {
-      csvBuffer.writeln('# Description: ${config.description}');
-    }
-    csvBuffer.writeln('#');
-
-    // Determine which columns to include based on config AND chip visibility.
-    final columns = <String>[];
-    final getters = <String, double? Function(DataLoggerPoint)>{};
-
-    columns.add('Time (s)');
-    // (no getter for time — handled inline)
-
-    if (config.ch1VppEnabled && !hidden.contains('ch1_vpp')) {
-      columns.add('CH1 Vpp (V)');
-      getters['CH1 Vpp (V)'] = (p) => p.ch1Vpp;
-    }
-    if (config.ch1MeanEnabled && !hidden.contains('ch1_mean')) {
-      columns.add('CH1 Mean (V)');
-      getters['CH1 Mean (V)'] = (p) => p.ch1Mean;
-    }
-    if (config.ch1RmsEnabled && !hidden.contains('ch1_rms')) {
-      columns.add('CH1 Rms (V)');
-      getters['CH1 Rms (V)'] = (p) => p.ch1Rms;
-    }
-    if (config.ch1DutyEnabled && !hidden.contains('ch1_duty')) {
-      columns.add('CH1 Duty (%)');
-      getters['CH1 Duty (%)'] = (p) => p.ch1Duty;
-    }
-    if (config.ch1FreqEnabled && !hidden.contains('ch1_freq')) {
-      columns.add('CH1 Freq (Hz)');
-      getters['CH1 Freq (Hz)'] = (p) => p.ch1Freq;
-    }
-    if (config.ch2VppEnabled && !hidden.contains('ch2_vpp')) {
-      columns.add('CH2 Vpp (V)');
-      getters['CH2 Vpp (V)'] = (p) => p.ch2Vpp;
-    }
-    if (config.ch2MeanEnabled && !hidden.contains('ch2_mean')) {
-      columns.add('CH2 Mean (V)');
-      getters['CH2 Mean (V)'] = (p) => p.ch2Mean;
-    }
-    if (config.ch2RmsEnabled && !hidden.contains('ch2_rms')) {
-      columns.add('CH2 Rms (V)');
-      getters['CH2 Rms (V)'] = (p) => p.ch2Rms;
-    }
-    if (config.ch2DutyEnabled && !hidden.contains('ch2_duty')) {
-      columns.add('CH2 Duty (%)');
-      getters['CH2 Duty (%)'] = (p) => p.ch2Duty;
-    }
-    if (config.ch2FreqEnabled && !hidden.contains('ch2_freq')) {
-      columns.add('CH2 Freq (Hz)');
-      getters['CH2 Freq (Hz)'] = (p) => p.ch2Freq;
-    }
-
-    // CSV header row
-    csvBuffer.writeln(columns.join(','));
-
-    // Data rows
-    for (final point in points) {
-      final row = <String>[point.elapsedSeconds.toStringAsFixed(1)];
-      for (final col in columns.skip(1)) {
-        final getter = getters[col];
-        if (getter == null) continue;
-        final value = getter(point);
-        if (value == null) {
-          row.add('');
-        } else {
-          row.add(value.toStringAsFixed(6));
-        }
-      }
-      csvBuffer.writeln(row.join(','));
-    }
+    final csvContent = buildDataLoggerCsv(
+      config: config,
+      points: points,
+      hiddenLines: _savedDlHiddenLines ?? <String>{},
+      deviceName: _deviceName ?? _ipAddress,
+    );
 
     final csvFile = await AppPaths.getUniqueFilePath(dir, baseName, 'csv');
-    await csvFile.writeAsString(csvBuffer.toString());
+    await csvFile.writeAsString(csvContent);
     return csvFile.uri.pathSegments.last;
   }
 
@@ -2335,6 +2202,13 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
   }
 
+  /// Closes the instrument connection if running in USB mode.
+  /// In USB mode the connection must be released after each SCPI
+  /// transaction so the kernel driver can re-attach.
+  Future<void> _closeInstrumentIfUsb() async {
+    if (_isUsb) await _closeInstrument();
+  }
+
   void _scheduleRefresh() {
     if (_refreshPending) return;
     _refreshPending = true;
@@ -2388,166 +2262,99 @@ class _OsciHomePageState extends State<OsciHomePage>
       }
       return false;
     } finally {
-      if (_isUsb) {
-        await _closeInstrument();
-      }
+      await _closeInstrumentIfUsb();
     }
+  }
+
+  // =========================================================================
+  // SnackBar Helpers
+  // =========================================================================
+
+  void _showErrorSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
+
+  void _showInfoSnackBar(String message, {Duration duration = const Duration(seconds: 3)}) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), duration: duration),
+    );
+  }
+
+  // =========================================================================
+  // Shared SCPI Event-Processing Helper
+  // =========================================================================
+
+  /// Sends a SCPI command, waits for the instrument to process it,
+  /// refreshes the screen dump, and enforces a cooldown.
+  ///
+  /// Returns `true` if the command was sent and screen refreshed successfully.
+  Future<bool> _processScpiEvent(
+    String command, {
+    String? errorContext,
+  }) async {
+    if (_isProcessingEvent || !_isOnline) return false;
+
+    _isProcessingEvent = true;
+    if (mounted) setState(() {});
+
+    try {
+      if (await _sendCommand(command)) {
+        // Wait for oscilloscope to process the command
+        await Future.delayed(const Duration(milliseconds: _refreshDelayMs));
+        // Fetch the screen dump synchronously
+        await _acquireScreenDump(keepPanels: true);
+        // Final cooldown before next event is allowed
+        await Future.delayed(const Duration(milliseconds: 500));
+        return true;
+      }
+    } catch (e) {
+      final ctx = errorContext ?? command;
+      AppLogger().log('$ctx handler error: $e');
+      if (mounted) {
+        _showErrorSnackBar('Error processing $ctx: $e');
+      }
+    } finally {
+      _isProcessingEvent = false;
+      if (mounted) setState(() {});
+    }
+    return false;
   }
 
   /// Handles soft key button press (M1-M6).
   /// Sends $$SY_FP X,1 command where X is button number, then refreshes screen.
-  void _handleSoftKeyPress(int buttonNumber) async {
-    // Discard event if already processing another event or offline
-    if (_isProcessingEvent || !_isOnline) {
-      return;
-    }
-
-    _isProcessingEvent = true;
-    if (mounted) setState(() {});
-
-    try {
-      // Send the SCPI command
-      final command = '\$\$SY_FP $buttonNumber,1';
-      final success = await _sendCommand(command);
-
-      if (success) {
-        // Wait for oscilloscope to process the command
-        await Future.delayed(const Duration(milliseconds: _refreshDelayMs));
-        // Fetch the screen dump synchronously
-        await _acquireScreenDump(keepPanels: true);
-        // Final cooldown before next event is allowed
-        await Future.delayed(const Duration(milliseconds: 500));
-      }
-    } catch (e) {
-      AppLogger().log('Soft key handler error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error processing button M$buttonNumber: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      _isProcessingEvent = false;
-      if (mounted) setState(() {});
-    }
-  }
+  void _handleSoftKeyPress(int buttonNumber) =>
+      _processScpiEvent('\$\$SY_FP $buttonNumber,1', errorContext: 'M$buttonNumber');
 
   /// Handles MENU button press.
   /// Sends $$SY_FP 0,1 command (VXI special SPCI command for MENU button),
   /// then immediately requests a screen dump image.
-  void _handleMenuPress() async {
-    // Discard event if already processing another event or offline
-    if (_isProcessingEvent || !_isOnline) {
-      return;
-    }
+  void _handleMenuPress() =>
+      _processScpiEvent('\$\$SY_FP 0,1', errorContext: 'MENU');
 
-    _isProcessingEvent = true;
-    if (mounted) setState(() {});
-
-    try {
-      // Send the VXI special SPCI command for MENU button
-      final command = '\$\$SY_FP 0,1';
-      final success = await _sendCommand(command);
-
-      if (success) {
-        // Wait for oscilloscope to process the command
-        await Future.delayed(const Duration(milliseconds: _refreshDelayMs));
-        // Fetch the screen dump synchronously
-        await _acquireScreenDump(keepPanels: true);
-        // Final cooldown before next event is allowed
-        await Future.delayed(const Duration(milliseconds: 500));
-      }
-    } catch (e) {
-      AppLogger().log('MENU button handler error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error processing MENU button: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      _isProcessingEvent = false;
-      if (mounted) setState(() {});
-    }
-  }
-
-  /// Handles Intensity/Adjust knob turned right or left.
-  /// Sends $$SY_FP 15,1 command when turned right (value increases)
-  /// Sends $$SY_FP 15,-1 command when turned left (value decreases)
-  /// then immediately requests a screen dump image.
-  /// Reuses functionality from button M1.
   /// Generic handler for knob rotation (value changes).
   /// Sends `$$SY_FP <cmd>,1` when turned right or `$$SY_FP <cmd>,-1` when left.
   Future<void> _handleKnobChanged(KnobId knob, double newValue) async {
     final prev = _knobPreviousValues[knob]!;
     if (newValue == prev || !_isOnline || _isProcessingEvent) return;
-
-    _isProcessingEvent = true;
-    if (mounted) setState(() {});
-    try {
-      final dir = newValue > prev ? 1 : -1;
-      final command = '\$\$SY_FP ${knob.scpiCommandNumber},$dir';
-      if (await _sendCommand(command)) {
-        // Wait for oscilloscope to process the command
-        await Future.delayed(const Duration(milliseconds: _refreshDelayMs));
-        // Fetch the screen dump synchronously
-        await _acquireScreenDump(keepPanels: true);
-        // Final cooldown before next event is allowed
-        await Future.delayed(const Duration(milliseconds: 500));
-      }
-    } catch (e) {
-      AppLogger().log('${knob.name} knob handler error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error processing ${knob.name} knob: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      _isProcessingEvent = false;
-      if (mounted) setState(() {});
-    }
+    final dir = newValue > prev ? 1 : -1;
+    await _processScpiEvent(
+      '\$\$SY_FP ${knob.scpiCommandNumber},$dir',
+      errorContext: '${knob.name} knob',
+    );
     _knobPreviousValues[knob] = newValue;
   }
 
   /// Generic handler for knob tap/click.
   /// Sends `$$SY_FP <cmd>,0`.
-  Future<void> _handleKnobTapped(KnobId knob) async {
-    if (!_isOnline || _isProcessingEvent) return;
-
-    _isProcessingEvent = true;
-    if (mounted) setState(() {});
-    try {
-      final command = '\$\$SY_FP ${knob.scpiCommandNumber},0';
-      if (await _sendCommand(command)) {
-        // Wait for oscilloscope to process the command
-        await Future.delayed(const Duration(milliseconds: _refreshDelayMs));
-        // Fetch the screen dump synchronously
-        await _acquireScreenDump(keepPanels: true);
-        // Final cooldown before next event is allowed
-        await Future.delayed(const Duration(milliseconds: 500));
-      }
-    } catch (e) {
-      AppLogger().log('${knob.name} knob tap handler error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error processing ${knob.name} knob tap: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      _isProcessingEvent = false;
-      if (mounted) setState(() {});
-    }
-  }
+  Future<void> _handleKnobTapped(KnobId knob) =>
+      _processScpiEvent(
+        '\$\$SY_FP ${knob.scpiCommandNumber},0',
+        errorContext: '${knob.name} knob tap',
+      );
 
   // =========================================================================
   // Button Operations (generic handler)
@@ -2556,46 +2363,15 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// Generic handler for any button press (menu, vertical, horizontal, trigger, channel).
   /// Looks up the SCPI command from [buttonCommands] and sends it.
   Future<void> _handleButtonPress(String buttonLabel) async {
-    if (_isProcessingEvent || !_isOnline) return;
-
-    _isProcessingEvent = true;
-    if (mounted) setState(() {});
-    try {
-      final command = buttonCommands[buttonLabel];
-      if (command == null) {
-        AppLogger().log('Button "$buttonLabel" not implemented yet');
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Button "$buttonLabel" not implemented yet'),
-              backgroundColor: Colors.blue,
-            ),
-          );
-        }
-        return;
-      }
-      if (await _sendCommand(command)) {
-        // Wait for oscilloscope to process the command
-        await Future.delayed(const Duration(milliseconds: _refreshDelayMs));
-        // Fetch the screen dump synchronously
-        await _acquireScreenDump(keepPanels: true);
-        // Final cooldown before next event is allowed
-        await Future.delayed(const Duration(milliseconds: 500));
-      }
-    } catch (e) {
-      AppLogger().log('Button "$buttonLabel" handler error: $e');
+    final command = buttonCommands[buttonLabel];
+    if (command == null) {
+      AppLogger().log('Button "$buttonLabel" not implemented yet');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error processing $buttonLabel button: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
+        _showInfoSnackBar('Button "$buttonLabel" not implemented yet');
       }
-    } finally {
-      _isProcessingEvent = false;
-      if (mounted) setState(() {});
+      return;
     }
+    await _processScpiEvent(command, errorContext: buttonLabel);
   }
 
   // =========================================================================
@@ -2674,9 +2450,9 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   Widget _buildHorizontalPanSlider() {
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xCC0D1117),
-        border: Border(top: BorderSide(color: Color(0xFF475569))),
+      decoration: BoxDecoration(
+        color: AppColors.scaffoldBackground.withValues(alpha: 0.8),
+        border: const Border(top: BorderSide(color: AppColors.border)),
       ),
       child: SliderTheme(
         data: const SliderThemeData(
@@ -2694,9 +2470,9 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   Widget _buildVerticalPanSlider() {
     return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xCC0D1117),
-        border: Border(left: BorderSide(color: Color(0xFF475569))),
+      decoration: BoxDecoration(
+        color: AppColors.scaffoldBackground.withValues(alpha: 0.8),
+        border: const Border(left: BorderSide(color: AppColors.border)),
       ),
       child: RotatedBox(
         quarterTurns: 1,
