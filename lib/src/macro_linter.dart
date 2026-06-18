@@ -207,6 +207,10 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
     }
   }
 
+  // ── Boolean expression walker ──────────────────────────────────────
+
+  late final void Function(BoolExpr, {required bool allowTruthy}) walkBoolExpr;
+
   // ── Statement walkers (mutually recursive) ──────────────────────────
 
   late final void Function(List<Statement>) walkStmts;
@@ -215,6 +219,63 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
   walkStmts = (List<Statement> stmts) {
     for (final stmt in stmts) {
       walkStmt(stmt);
+    }
+  };
+
+  walkBoolExpr = (BoolExpr expr, {required bool allowTruthy}) {
+    switch (expr) {
+      case ComparisonExpr(
+        :final operand,
+        :final op,
+        :final value,
+        :final valueIsVariable,
+      ):
+        walkExpr(operand);
+        if (valueIsVariable) checkRef(value);
+        // Type-check numeric comparisons.
+        if (isNumericOp(op)) {
+          checkNumericCompare(operand, op, value, valueIsVariable);
+        }
+
+      case BoolBinaryExpr(:final left, :final right):
+        walkBoolExpr(left, allowTruthy: allowTruthy);
+        walkBoolExpr(right, allowTruthy: allowTruthy);
+
+      case TruthyExpr(:final operand):
+        if (!allowTruthy) {
+          // Report error: truthiness checks only allowed in assert()
+          String? exprName;
+          String? posKey;
+          switch (operand) {
+            case VariableExpr(:final name):
+              exprName = name;
+              posKey = name;
+            case QueryExpr(:final command, :final variableName):
+              // For a literal query string, use 'query' as the position key
+              // since the command text (e.g. "*IDN?") may not be an identifier.
+              exprName = variableName ?? 'query("$command")';
+              posKey = variableName ?? 'query';
+            case ScpiExpr():
+              break; // unreachable — scpi in TruthyExpr is parse error
+          }
+          if (exprName != null && posKey != null) {
+            final pos = _nextPos(posMap, nextIdx, posKey);
+            if (pos != null) {
+              errors.add(
+                MacroLintError(
+                  message:
+                      'Bare expression "$exprName" cannot be used as a boolean '
+                      'condition in if/while — use a comparison like '
+                      '"$exprName == value"',
+                  start: pos.$1,
+                  end: pos.$2,
+                  line: pos.$3,
+                ),
+              );
+            }
+          }
+        }
+        walkExpr(operand);
     }
   };
 
@@ -300,56 +361,24 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
           }
         }
 
-      case AssertStmt(
-        :final operand,
-        :final op,
-        :final expectedValue,
-        :final expectedIsVariable,
-        :final concatText,
-      ):
-        walkExpr(operand);
-        if (expectedIsVariable && expectedValue != null) {
-          checkRef(expectedValue);
+      case AssertStmt(:final operand, :final concatText, :final condition):
+        if (condition != null) {
+          walkBoolExpr(condition, allowTruthy: true);
+        } else if (operand != null) {
+          walkExpr(operand);
         }
         if (concatText != null) walkConcat(concatText);
-        // Type-check numeric comparisons.
-        if (isNumericOp(op) && expectedValue != null) {
-          checkNumericCompare(operand, op!, expectedValue, expectedIsVariable);
-        }
 
       case LoadProfileStmt(:final concatString):
         if (concatString != null) walkConcat(concatString);
 
-      case IfStmt(
-        :final condition,
-        :final op,
-        :final value,
-        :final valueIsVariable,
-        :final thenBody,
-        :final elseBody,
-      ):
-        walkExpr(condition);
-        if (valueIsVariable) checkRef(value);
-        // Type-check numeric comparisons.
-        if (isNumericOp(op)) {
-          checkNumericCompare(condition, op, value, valueIsVariable);
-        }
+      case IfStmt(:final condition, :final thenBody, :final elseBody):
+        walkBoolExpr(condition, allowTruthy: false);
         walkStmts(thenBody);
         if (elseBody != null) walkStmts(elseBody);
 
-      case WhileStmt(
-        :final condition,
-        :final op,
-        :final value,
-        :final valueIsVariable,
-        :final body,
-      ):
-        walkExpr(condition);
-        if (valueIsVariable) checkRef(value);
-        // Type-check numeric comparisons.
-        if (isNumericOp(op)) {
-          checkNumericCompare(condition, op, value, valueIsVariable);
-        }
+      case WhileStmt(:final condition, :final body):
+        walkBoolExpr(condition, allowTruthy: false);
         walkStmts(body);
     }
   };

@@ -232,7 +232,8 @@ class PrintStmt extends Statement {
 }
 
 /// `assert("text", <expr>)` or `assert("text" + var + "suffix", <expr>)`
-/// or `assert("text", <expr> <op> <value>)`.
+/// or `assert("text", <expr> <op> <value>)`
+/// or `assert("text", <boolExpr>)`.
 class AssertStmt extends Statement {
   /// Human-readable description shown on failure.
   final String text;
@@ -241,27 +242,19 @@ class AssertStmt extends Statement {
   /// must be resolved at evaluation time. Overrides [text] for display.
   final ConcatString? concatText;
 
-  /// The expression to evaluate (variable or inline query/scpi).
-  final Expression operand;
+  /// The expression for scpi-success or bare truthiness mode.
+  /// When non-null, [condition] is null.
+  final Expression? operand;
 
-  /// Comparison operator (`==`, `!=`, `<`, `<=`, `>`, `>=`), or `null` for
-  /// truthiness / scpi-success mode.
-  final String? op;
-
-  /// Expected value for comparison, or `null` for truthiness / scpi-success.
-  final String? expectedValue;
-
-  /// True when [expectedValue] is a variable name that must be resolved at
-  /// evaluation time.
-  final bool expectedIsVariable;
+  /// The boolean expression for the comparison / combined mode.
+  /// When non-null, [operand] is null.
+  final BoolExpr? condition;
 
   const AssertStmt(
     this.text,
     this.operand, {
-    this.op,
-    this.expectedValue,
     this.concatText,
-    this.expectedIsVariable = false,
+    this.condition,
   });
 }
 
@@ -277,46 +270,21 @@ class LoadProfileStmt extends Statement {
   const LoadProfileStmt(this.path, {this.concatString});
 }
 
-/// `if (<expr> <op> <value>) { ... }` with optional `else { ... }`.
+/// `if (<boolExpr>) { ... }` with optional `else { ... }`.
 class IfStmt extends Statement {
-  final Expression condition;
-  final String op;
-  final String value;
+  final BoolExpr condition;
   final List<Statement> thenBody;
   final List<Statement>? elseBody;
 
-  /// True when [value] is a variable name that must be resolved at evaluation
-  /// time.
-  final bool valueIsVariable;
-
-  const IfStmt(
-    this.condition,
-    this.op,
-    this.value,
-    this.thenBody, {
-    this.elseBody,
-    this.valueIsVariable = false,
-  });
+  const IfStmt(this.condition, this.thenBody, {this.elseBody});
 }
 
-/// `while (<expr> <op> <value>) { ... }`
+/// `while (<boolExpr>) { ... }`
 class WhileStmt extends Statement {
-  final Expression condition;
-  final String op;
-  final String value;
+  final BoolExpr condition;
   final List<Statement> body;
 
-  /// True when [value] is a variable name that must be resolved at evaluation
-  /// time.
-  final bool valueIsVariable;
-
-  const WhileStmt(
-    this.condition,
-    this.op,
-    this.value,
-    this.body, {
-    this.valueIsVariable = false,
-  });
+  const WhileStmt(this.condition, this.body);
 }
 
 /// `break` — exit the innermost while loop.
@@ -327,6 +295,48 @@ class BreakStmt extends Statement {
 /// `continue` — skip to the next while iteration.
 class ContinueStmt extends Statement {
   const ContinueStmt();
+}
+
+// ── Boolean expressions ──────────────────────────────────────────────────
+
+/// A boolean expression that evaluates to `true`, `false`, or `null` (error).
+sealed class BoolExpr {
+  const BoolExpr();
+}
+
+/// A single comparison: `<operand> <op> <value>`.
+///
+/// [op] is one of `==`, `!=`, `<`, `<=`, `>`, `>=`.
+/// [value] is either a literal or a variable name (when [valueIsVariable]).
+class ComparisonExpr extends BoolExpr {
+  final Expression operand;
+  final String op;
+  final String value;
+  final bool valueIsVariable;
+
+  const ComparisonExpr(
+    this.operand,
+    this.op,
+    this.value, {
+    this.valueIsVariable = false,
+  });
+}
+
+/// Two boolean expressions joined by a boolean operator (`&`, `&&`, `|`, `||`).
+class BoolBinaryExpr extends BoolExpr {
+  final BoolExpr left;
+  final String boolOp;
+  final BoolExpr right;
+
+  const BoolBinaryExpr(this.left, this.boolOp, this.right);
+}
+
+/// A bare expression used as a truthiness check (no comparison operator).
+///
+/// Only valid inside `assert()`; the linter rejects it in `if` / `while`.
+class TruthyExpr extends BoolExpr {
+  final Expression operand;
+  const TruthyExpr(this.operand);
 }
 
 // ── Expressions ─────────────────────────────────────────────────────────

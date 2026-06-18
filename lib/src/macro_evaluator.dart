@@ -228,21 +228,17 @@ class MacroEvaluator {
       case AssertStmt(
         :final text,
         :final operand,
-        :final op,
-        :final expectedValue,
         :final concatText,
-        :final expectedIsVariable,
+        :final condition,
       ):
         final resolvedText = concatText != null
             ? _resolveConcatString(concatText)
             : text;
-        await _evalAssert(
-          resolvedText,
-          operand,
-          op,
-          expectedValue,
-          expectedIsVariable: expectedIsVariable,
-        );
+        if (condition != null) {
+          await _evalAssertBool(resolvedText, condition);
+        } else if (operand != null) {
+          await _evalAssertOperand(resolvedText, operand);
+        }
         await _doDelay();
       case LoadProfileStmt(:final path, :final concatString):
         await _ensureDevice();
@@ -251,37 +247,10 @@ class MacroEvaluator {
             : path;
         await _evalLoadProfile(resolved);
         await _doDelay();
-      case IfStmt(
-        :final condition,
-        :final op,
-        :final value,
-        :final thenBody,
-        :final elseBody,
-        :final valueIsVariable,
-      ):
-        await _evalIf(
-          condition,
-          op,
-          value,
-          thenBody,
-          elseBody,
-          inLoop,
-          valueIsVariable: valueIsVariable,
-        );
-      case WhileStmt(
-        :final condition,
-        :final op,
-        :final value,
-        :final body,
-        :final valueIsVariable,
-      ):
-        await _evalWhile(
-          condition,
-          op,
-          value,
-          body,
-          valueIsVariable: valueIsVariable,
-        );
+      case IfStmt(:final condition, :final thenBody, :final elseBody):
+        await _evalIf(condition, thenBody, elseBody, inLoop);
+      case WhileStmt(:final condition, :final body):
+        await _evalWhile(condition, body);
     }
   }
 
@@ -381,39 +350,26 @@ class MacroEvaluator {
     }
   }
 
-  Future<void> _evalAssert(
-    String text,
-    Expression operand,
-    String? op,
-    String? expectedValue, {
-    bool expectedIsVariable = false,
-  }) async {
-    // Resolve the expected value if it is a variable reference.
-    final resolvedExpected = expectedIsVariable && expectedValue != null
-        ? _resolveVar(expectedValue)
-        : expectedValue;
+  /// Evaluate an assert with a boolean expression condition.
+  Future<void> _evalAssertBool(String text, BoolExpr condition) async {
+    final result = await _evalBoolExpr(condition);
+    if (result == null) return; // error already reported
+    if (!result) {
+      _error('Assertion failed: $text');
+    }
+    onLog('Macro assert: $text → $result');
+  }
 
+  /// Evaluate an assert with a bare operand (scpi success or truthiness).
+  Future<void> _evalAssertOperand(String text, Expression operand) async {
     switch (operand) {
       case VariableExpr(:final name):
         final varValue = _vars[name];
         if (varValue == null) _error('Variable "$name" is undefined');
-        if (op == null || resolvedExpected == null) {
-          if (!_isTruthy(varValue)) {
-            _error('Assertion failed: $text (got "$varValue")');
-          }
-          onLog('Macro assert: $text: "$varValue" → True');
-        } else {
-          final result = _compareValues(varValue, op, resolvedExpected);
-          if (result == false) {
-            _error('Assertion failed: $text ($varValue $op $resolvedExpected)');
-          } else if (result == null) {
-            _error(
-              'Assertion failed: $text – cannot compare "$varValue" '
-              '$op "$resolvedExpected" (non-numeric values with "$op")',
-            );
-          }
-          onLog('Macro assert: $text: $varValue $op $resolvedExpected → True');
+        if (!_isTruthy(varValue)) {
+          _error('Assertion failed: $text (got "$varValue")');
         }
+        onLog('Macro assert: $text: "$varValue" → True');
 
       case QueryExpr(:final command, :final variableName, :final concatString):
         await _ensureDevice();
@@ -435,23 +391,10 @@ class MacroEvaluator {
         await instrument!.writeString(resolved);
         final raw = await instrument!.readString();
         final response = _cleanQueryResponse(raw, resolved);
-        if (op == null || resolvedExpected == null) {
-          if (!_isTruthy(response)) {
-            _error('Assertion failed: $text (got "$response")');
-          }
-          onLog('Macro assert: $text: "$response" → True');
-        } else {
-          final result = _compareValues(response, op, resolvedExpected);
-          if (result == false) {
-            _error('Assertion failed: $text ($response $op $resolvedExpected)');
-          } else if (result == null) {
-            _error(
-              'Assertion failed: $text – cannot compare "$response" '
-              '$op "$resolvedExpected" (non-numeric values with "$op")',
-            );
-          }
-          onLog('Macro assert: $text: $response $op $resolvedExpected → True');
+        if (!_isTruthy(response)) {
+          _error('Assertion failed: $text (got "$response")');
         }
+        onLog('Macro assert: $text: "$response" → True');
 
       case ScpiExpr(:final command, :final variableName):
         await _ensureDevice();
@@ -524,16 +467,12 @@ class MacroEvaluator {
   }
 
   Future<void> _evalIf(
-    Expression condition,
-    String op,
-    String value,
+    BoolExpr condition,
     List<Statement> thenBody,
     List<Statement>? elseBody,
-    bool inLoop, {
-    bool valueIsVariable = false,
-  }) async {
-    final resolvedValue = valueIsVariable ? _resolveVar(value) : value;
-    final result = await _evalCondition(condition, op, resolvedValue);
+    bool inLoop,
+  ) async {
+    final result = await _evalBoolExpr(condition);
     if (result == null) return;
 
     if (result) {
@@ -543,20 +482,13 @@ class MacroEvaluator {
     }
   }
 
-  Future<void> _evalWhile(
-    Expression condition,
-    String op,
-    String value,
-    List<Statement> body, {
-    bool valueIsVariable = false,
-  }) async {
+  Future<void> _evalWhile(BoolExpr condition, List<Statement> body) async {
     var iterations = 0;
 
     while (true) {
       if (isCancelled()) throw _MacroStopException();
 
-      final resolvedValue = valueIsVariable ? _resolveVar(value) : value;
-      final result = await _evalCondition(condition, op, resolvedValue);
+      final result = await _evalBoolExpr(condition);
       if (result == null) return;
       if (!result) break;
 
@@ -574,6 +506,77 @@ class MacroEvaluator {
     }
     _breakRequested = false;
     _continueRequested = false;
+  }
+
+  // ── Boolean expression evaluation ──────────────────────────────────
+
+  /// Evaluates a [BoolExpr] tree, returning `true`, `false`, or `null` on
+  /// error (error already reported via [onError]).
+  ///
+  /// Implements short-circuit evaluation: AND stops at first `false`,
+  /// OR stops at first `true`.
+  Future<bool?> _evalBoolExpr(BoolExpr expr) async {
+    switch (expr) {
+      case ComparisonExpr(
+        :final operand,
+        :final op,
+        :final value,
+        :final valueIsVariable
+      ):
+        final resolvedValue = valueIsVariable ? _resolveVar(value) : value;
+        return _evalCondition(operand, op, resolvedValue);
+
+      case BoolBinaryExpr(:final left, :final boolOp, :final right):
+        final l = await _evalBoolExpr(left);
+        if (l == null) return null;
+        // Short-circuit AND
+        if ((boolOp == '&' || boolOp == '&&') && !l) return false;
+        // Short-circuit OR
+        if ((boolOp == '|' || boolOp == '||') && l) return true;
+        final r = await _evalBoolExpr(right);
+        if (r == null) return null;
+        return (boolOp == '&' || boolOp == '&&') ? (l && r) : (l || r);
+
+      case TruthyExpr(:final operand):
+        return _evalTruthy(operand);
+    }
+  }
+
+  /// Evaluates a bare [Expression] for truthiness.
+  Future<bool?> _evalTruthy(Expression operand) async {
+    switch (operand) {
+      case VariableExpr(:final name):
+        final varValue = _vars[name];
+        if (varValue == null) {
+          _error('Variable "$name" is undefined');
+        }
+        return _isTruthy(varValue);
+
+      case QueryExpr(:final command, :final variableName, :final concatString):
+        await _ensureDevice();
+        await _drainEchoes();
+        final resolved = concatString != null
+            ? _resolveConcatString(concatString)
+            : variableName != null
+            ? _resolveVar(variableName)
+            : command;
+        if (concatString == null &&
+            variableName != null &&
+            double.tryParse(resolved) != null) {
+          _error(
+            'Variable "$variableName" has value "$resolved" which is a '
+            'number, not a valid SCPI query string',
+          );
+        }
+        await instrument!.writeString(resolved);
+        final raw = await instrument!.readString();
+        final response = _cleanQueryResponse(raw, resolved);
+        return _isTruthy(response);
+
+      case ScpiExpr():
+        _error('scpi() cannot be used as a boolean condition '
+            '(it returns no value)');
+    }
   }
 
   // ── Condition evaluation ───────────────────────────────────────────

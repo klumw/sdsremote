@@ -266,6 +266,70 @@ class MacroGrammarDefinition extends GrammarDefinition {
         return result;
       });
 
+  // ── Boolean expressions ─────────────────────────────────────────────
+  //   boolExpr       → boolOrExpr
+  //   boolOrExpr     → boolAndExpr (( '|' | '||' ) boolAndExpr)*
+  //   boolAndExpr    → boolPrimary (( '&' | '&&' ) boolPrimary)*
+  //   boolPrimary    → '(' boolExpr ')'
+  //                  | comparisonExpr
+  //                  | queryExpr          // truthiness check
+  //                  | variableExpr       // truthiness check
+  //   comparisonExpr → operand _comparisonOp _comparisonValue
+
+  Parser<BoolExpr> boolExpr() => ref0(boolOrExpr);
+
+  Parser<BoolExpr> boolOrExpr() =>
+      (ref0(boolAndExpr) & (ref0(_orOp) & ref0(boolAndExpr)).star()).map((r) {
+        BoolExpr result = r[0] as BoolExpr;
+        for (final item in r[1] as List) {
+          result = BoolBinaryExpr(
+            result,
+            item[0] as String,
+            item[1] as BoolExpr,
+          );
+        }
+        return result;
+      });
+
+  Parser<BoolExpr> boolAndExpr() =>
+      (ref0(boolPrimary) & (ref0(_andOp) & ref0(boolPrimary)).star()).map((r) {
+        BoolExpr result = r[0] as BoolExpr;
+        for (final item in r[1] as List) {
+          result = BoolBinaryExpr(
+            result,
+            item[0] as String,
+            item[1] as BoolExpr,
+          );
+        }
+        return result;
+      });
+
+  Parser<BoolExpr> boolPrimary() => [
+    (char('(').trim() & ref0(boolExpr) & char(')').trim()).map(
+      (r) => r[1] as BoolExpr,
+    ),
+    ref0(comparisonExpr),
+    ref0(queryExpr).map((e) => TruthyExpr(e)),
+    ref0(variableExpr).map((e) => TruthyExpr(e)),
+  ].toChoiceParser();
+
+  Parser<BoolExpr> comparisonExpr() =>
+      (ref0(operand) & ref0(_comparisonOp) & ref0(_comparisonValue)).map((r) {
+        final compVal = r[2] as (String, bool);
+        return ComparisonExpr(
+          r[0] as Expression,
+          r[1] as String,
+          compVal.$1,
+          valueIsVariable: compVal.$2,
+        );
+      });
+
+  Parser<String> _andOp() =>
+      (string('&&') | char('&')).trim().map((r) => r.toString());
+
+  Parser<String> _orOp() =>
+      (string('||') | char('|')).trim().map((r) => r.toString());
+
   // ── print(item + item + ...) ────────────────────────────────────────
 
   Parser<PrintStmt> printStmt() =>
@@ -306,43 +370,34 @@ class MacroGrammarDefinition extends GrammarDefinition {
       (char('+').trim() & ref0(printItem)).map((r) => r[1] as PrintItem);
 
   // ── assert("text", <expr>) ──────────────────────────────────────────
-  // ── assert("text", <expr> <op> <value>) ─────────────────────────────
   // ── assert("text", scpi("CMD")) ─────────────────────────────────────
+  // ── assert("text", <boolExpr>) ──────────────────────────────────────
 
   Parser<AssertStmt> assertStmt() =>
       (string('assert(').trim() &
               (ref0(concatExpr) | ref0(stringLiteral)) &
               char(',').trim() &
-              ref0(operand) &
-              ref0(_assertTail).optional() &
+              (ref0(scpiExpr).map((e) => (e as Expression, null)) |
+                  ref0(boolExpr).map((b) => (null, b))) &
               char(')').trim())
           .map((r) {
-            final exp = r[3] as Expression;
-            final tail = r[4] as (String, (String, bool))?;
             final textArg = r[1];
+            final (Expression? operand, BoolExpr? condition) =
+                r[3] as (Expression?, BoolExpr?);
             if (textArg is ConcatString) {
               return AssertStmt(
                 '',
-                exp,
-                op: tail?.$1,
-                expectedValue: tail?.$2.$1,
-                expectedIsVariable: tail?.$2.$2 ?? false,
+                operand,
                 concatText: textArg,
+                condition: condition,
               );
             }
             return AssertStmt(
               textArg as String,
-              exp,
-              op: tail?.$1,
-              expectedValue: tail?.$2.$1,
-              expectedIsVariable: tail?.$2.$2 ?? false,
+              operand,
+              condition: condition,
             );
           });
-
-  Parser<(String, (String, bool))> _assertTail() =>
-      (ref0(_comparisonOp) & ref0(_comparisonValue)).map(
-        (r) => (r[0] as String, r[1] as (String, bool)),
-      );
 
   // ── loadProfile("path") | loadProfile("str" + var + "str") ─────────
 
@@ -358,15 +413,13 @@ class MacroGrammarDefinition extends GrammarDefinition {
             return LoadProfileStmt(arg as String);
           });
 
-  // ── if (<expr> <op> <value>) { ... } ───────────────────────────────
-  // ── if (<expr> <op> <value>) then { ... } ──────────────────────────
+  // ── if (<boolExpr>) { ... } ────────────────────────────────────────
+  // ── if (<boolExpr>) then { ... } ───────────────────────────────────
 
   Parser<IfStmt> ifStmt() =>
       (string('if').trim() &
               char('(').trim() &
-              ref0(operand) &
-              ref0(_comparisonOp) &
-              ref0(_comparisonValue) &
+              ref0(boolExpr) &
               char(')').trim() &
               string('then').trim().optional() &
               char('{').trim() &
@@ -374,14 +427,10 @@ class MacroGrammarDefinition extends GrammarDefinition {
               char('}').trim() &
               ref0(_elseBlock).optional())
           .map((r) {
-            final compVal = r[4] as (String, bool);
             return IfStmt(
-              r[2] as Expression,
-              r[3] as String,
-              compVal.$1,
-              (r[8] as List).cast<Statement>(),
-              elseBody: (r[10] as List<Statement>?),
-              valueIsVariable: compVal.$2,
+              r[2] as BoolExpr,
+              (r[6] as List).cast<Statement>(),
+              elseBody: (r[8] as List<Statement>?),
             );
           });
 
@@ -392,26 +441,20 @@ class MacroGrammarDefinition extends GrammarDefinition {
               char('}'))
           .map((r) => (r[2] as List).cast<Statement>());
 
-  // ── while (<expr> <op> <value>) { ... } ────────────────────────────
+  // ── while (<boolExpr>) { ... } ─────────────────────────────────────
 
   Parser<WhileStmt> whileStmt() =>
       (string('while').trim() &
               char('(').trim() &
-              ref0(operand) &
-              ref0(_comparisonOp) &
-              ref0(_comparisonValue) &
+              ref0(boolExpr) &
               char(')').trim() &
               char('{').trim() &
               ref0(statement).star() &
               char('}'))
           .map((r) {
-            final compVal = r[4] as (String, bool);
             return WhileStmt(
-              r[2] as Expression,
-              r[3] as String,
-              compVal.$1,
-              (r[7] as List).cast<Statement>(),
-              valueIsVariable: compVal.$2,
+              r[2] as BoolExpr,
+              (r[5] as List).cast<Statement>(),
             );
           });
 
