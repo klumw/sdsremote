@@ -297,6 +297,19 @@ class ContinueStmt extends Statement {
   const ContinueStmt();
 }
 
+/// `fail("message")` or `fail("prefix" + var + "suffix")` —
+/// immediately abort the macro with an error message.
+class FailStmt extends Statement {
+  /// The error message, or empty when [concatMessage] is used.
+  final String message;
+
+  /// When non-null, the argument was a concatenated string expression that
+  /// must be resolved at evaluation time. Overrides [message].
+  final ConcatString? concatMessage;
+
+  const FailStmt(this.message, {this.concatMessage});
+}
+
 // ── Boolean expressions ──────────────────────────────────────────────────
 
 /// A boolean expression that evaluates to `true`, `false`, or `null` (error).

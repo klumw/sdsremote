@@ -118,6 +118,11 @@ class MacroEvaluator {
       case ContinueStmt():
         if (!inLoop) _error('continue outside of while loop');
         _continueRequested = true;
+      case FailStmt(:final message, :final concatMessage):
+        final resolved = concatMessage != null
+            ? _resolveConcatString(concatMessage)
+            : message;
+        _error(resolved);
       case ConnectStmt(:final ip, :final isVariable, :final concatString):
         if (concatString != null) {
           final resolved = _resolveConcatString(concatString);

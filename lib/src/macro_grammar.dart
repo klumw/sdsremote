@@ -31,6 +31,7 @@ class MacroGrammarDefinition extends GrammarDefinition {
     ref0(loadProfileStmt),
     ref0(ifStmt),
     ref0(whileStmt),
+    ref0(failStmt),
     ref0(breakStmt),
     ref0(continueStmt),
   ].toChoiceParser().trim();
@@ -464,6 +465,20 @@ class MacroGrammarDefinition extends GrammarDefinition {
       string('break').map((_) => const BreakStmt());
   Parser<ContinueStmt> continueStmt() =>
       string('continue').map((_) => const ContinueStmt());
+
+  // ── fail("message") | fail("str" + var + "str") ────────────────────
+
+  Parser<FailStmt> failStmt() =>
+      (string('fail(').trim() &
+              (ref0(concatExpr) | ref0(stringLiteral)) &
+              char(')'))
+          .map((r) {
+            final arg = r[1];
+            if (arg is ConcatString) {
+              return FailStmt('', concatMessage: arg);
+            }
+            return FailStmt(arg as String);
+          });
 
   // ── Expressions ─────────────────────────────────────────────────────
 

@@ -286,6 +286,9 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
       case ContinueStmt():
         break;
 
+      case FailStmt(:final concatMessage):
+        if (concatMessage != null) walkConcat(concatMessage);
+
       case ConnectStmt(:final isVariable, :final ip, :final concatString):
         if (concatString != null) {
           walkConcat(concatString);
