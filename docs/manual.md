@@ -733,7 +733,36 @@ if(myVar >= 2.5) {
 | `>` | Greater than | Numeric only |
 | `>=` | Greater than or equal | Numeric only |
 
-> **Note:** Comparison operators `<`, `<=`, `>`, `>=` require both operands to be valid numbers. An error is reported if either operand cannot be parsed as a number.
+**Boolean operators:**
+
+| Operator | Description | Example |
+|:---------|:------------|:--------|
+| `!` | Logical NOT — negates a condition | `!(v > 5)` |
+| `&&` | Logical AND — true if both sides are true | `v > 3 && v < 5` |
+| `\|\|` | Logical OR — true if either side is true | `v < 3 \|\| v > 5` |
+
+> **Operator Precedence:** `!` binds first, then comparisons (`>` `>=` `<` `<=`), then `==` / `!=`, then `&&`, then `||`. Use parentheses `()` to override the default order.
+
+**NOT operator examples:**
+
+```
+# Negate a comparison
+if(!(v > 5)) {
+    scpi("C1:TRA OFF")
+}
+
+# Negate a compound expression
+if(!(freq >= 990 && freq <= 1010)) {
+    fail("Frequency out of range")
+}
+
+# Negate a variable's truthiness ("ON"→false, "OFF"→true, "0"→true)
+if(!flag) {
+    scpi("C1:TRA OFF")
+}
+```
+
+> **Note:** Comparison operators `<`, `<=`, `>`, `>=` require both operands to be valid numbers. An error is reported if either operand cannot be parsed as a number. Boolean operators `&&` and `||` use short-circuit evaluation — the right side is not evaluated if the left side already determines the result.
 
 #### 7.5.7 Loops: while
 
@@ -750,7 +779,33 @@ In this example the while statement repeats the block as long as the condition i
 * `break` — Immediately exits the innermost `while` loop. Using `break` outside a loop is an error.
 * `continue` — Skips the remaining commands in the current iteration and re-evaluates the loop condition. Using `continue` outside a loop is an error.
 
-#### 7.5.8 Assertions
+#### 7.5.8 Exit with Error: fail
+
+```
+fail("Channel 1 voltage out of range")
+```
+
+Immediately stops macro playback with the specified error message. The message is displayed in the status area and logged. Use this to abort execution when an unrecoverable condition is detected.
+
+```
+fail("Vpp:" + vpp + " exceeds limit of " + maxVpp)
+```
+
+The message can be built from multiple pieces using string concatenation (`"text" + var + "text"`), just like `print()` and `scpi()`.
+
+**Example:**
+
+```
+vpp=query("C1:PAVA? PKPK")
+maxVpp = 3.5
+if(vpp > maxVpp) {
+    fail("C1 Vpp " + vpp + " exceeds maximum " + maxVpp)
+}
+```
+
+The `fail` statement is useful inside `if` blocks and `else` branches for early termination when validation fails.
+
+#### 7.5.9 Assertions
 
 ```
 assert("Channel 1 should be on", ch1State == ON)
@@ -765,32 +820,26 @@ ch1State=query("C1:TRA?")
 assert("Channel 1 must be enabled", ch1State == ON)
 ```
 
-#### 7.5.9 Macro Example
-
+#### 7.5.10 Macro Example
 ```
-# connect via network or usb 
+# connect via network or usb
 connect(usb)
-
 # set trigger mode to normal
 scpi("TRMD NORM")
-
 # wait for trigger
 while(query("SAST?")!="Trig'd"){
-  wait(4) # wait 4 seconds
+  wait(0.5) 
 }
-
 # Minimum Peak to Peak voltage
 minVpp = 3.0
-
-#Check Peak to Peak Voltage for Channel 1
+if (query("C1:PAVA? PKPK") < minVpp){
+  fail("actual vpp is < minVpp(" + minVpp + "V)")
+}
 assert("C1 Vpp must be >= " + minVpp, query("C1:PAVA? PKPK") >= minVpp)
-
-# Get channel 1 frequency in Hertz
-freq=query("C1:PAVA? FREQ")
-
-# Check that Channel 1 frequency is between 990-1010 Hz
-assert("C1 frequency must be >= 990 Hz", freq >= 990)
-assert("C1 frequency must be <= 1010 Hz", freq <= 1010)
+# Get the frequency for channel 1
+freq = query("C1:PAVA? FREQ")
+# Check that Channel 1 frequency is between 990-1010Hz
+assert("C1 frequency must be > 990 Hz and < 1010 but was " + freq, !(freq <= 990) && !(freq >= 1010))
 ```
 
 Detailed macro playback messages are available in your log file.  
