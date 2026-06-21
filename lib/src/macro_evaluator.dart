@@ -49,7 +49,6 @@ class MacroEvaluator {
     final result = parser.parse(source);
     if (result is Failure) {
       final pos = result.position;
-      // Extract a snippet of the source around the failure position for context.
       final start = pos > 30 ? pos - 30 : 0;
       final end = pos + 40 < source.length ? pos + 40 : source.length;
       final snippet = source
@@ -188,62 +187,24 @@ class MacroEvaluator {
         final response = _cleanQueryResponse(raw, resolved);
         onLog('Macro query response: $response');
         await _doDelay();
-      case AssignStmt(
-        :final varName,
-        :final queryOrValue,
-        :final isQuery,
-        :final isVariable,
-        :final arithExpr,
-        :final concatString,
-      ):
-        if (arithExpr != null) {
-          final result = await _evalArithExpr(arithExpr);
-          _vars[varName] = result.toStringAsFixed(4);
-          onLog('Macro variable: $varName=${_vars[varName]}');
-        } else if (isQuery) {
-          await _ensureDevice();
-          await _drainEchoes();
-          final command = concatString != null
-              ? _resolveConcatString(concatString)
-              : isVariable
-              ? _resolveVar(queryOrValue)
-              : queryOrValue;
-          if (concatString == null &&
-              isVariable &&
-              double.tryParse(command) != null) {
-            _error(
-              'Variable "$queryOrValue" has value "$command" which is a '
-              'number, not a valid SCPI command string',
-            );
-          }
-          onLog('Macro playback: query("$command") -> $varName');
-          await instrument!.writeString(command);
-          final raw = await instrument!.readString();
-          final response = _cleanQueryResponse(raw, command);
-          _vars[varName] = response;
-          onLog('Macro variable: $varName=$response');
-        } else {
-          _vars[varName] = queryOrValue;
-          onLog('Macro variable: $varName=$queryOrValue');
-        }
+      case AssignStmt(:final varName, :final value):
+        final result = await _evalExpr(value);
+        final stored = switch (result) {
+          double d => d.toStringAsFixed(4),
+          int i => i.toStringAsFixed(4),
+          _ => result.toString(),
+        };
+        _vars[varName] = stored;
+        onLog('Macro variable: $varName=$stored');
         await _doDelay();
       case PrintStmt(:final items):
         await _evalPrint(items);
         await _doDelay();
-      case AssertStmt(
-        :final text,
-        :final operand,
-        :final concatText,
-        :final condition,
-      ):
+      case AssertStmt(:final text, :final concatText, :final condition):
         final resolvedText = concatText != null
             ? _resolveConcatString(concatText)
             : text;
-        if (condition != null) {
-          await _evalAssertBool(resolvedText, condition);
-        } else if (operand != null) {
-          await _evalAssertOperand(resolvedText, operand);
-        }
+        await _evalAssert(resolvedText, condition);
         await _doDelay();
       case LoadProfileStmt(:final path, :final concatString):
         await _ensureDevice();
@@ -300,22 +261,41 @@ class MacroEvaluator {
     return buf.toString();
   }
 
-  /// Evaluates an arithmetic expression and returns the numeric result.
-  Future<double> _evalArithExpr(ArithExpr expr) async {
+  /// Evaluates a unified expression and returns the result.
+  ///
+  /// The result type depends on the expression:
+  /// - [NumberLiteral] → `double`
+  /// - [StringLiteral] → `String`
+  /// - [BoolLiteral] → `bool`
+  /// - [Variable] → resolved value (String, parsed double if arithmetic ctx)
+  /// - [QueryExpr] → query response string
+  /// - [BinaryExpr] with arithmetic op → `double`
+  /// - [BinaryExpr] with comparison/logical op → `bool`
+  /// - [NotExpr] → `bool`
+  /// - [UnaryMinusExpr] → `double`
+  ///
+  /// If the expression cannot be evaluated (e.g. string used with `>`),
+  /// an error is reported and [_MacroStopException] is thrown.
+  Future<Object> _evalExpr(Expr expr) async {
     switch (expr) {
-      case ArithNumber(:final value):
+      // ── Literals ──────────────────────────────────────────────────
+      case NumberLiteral(:final value):
         return value;
-      case ArithVariable(:final name):
+
+      case StringLiteral(:final value):
+        return value;
+
+      case BoolLiteral(:final value):
+        return value;
+
+      // ── Variable ──────────────────────────────────────────────────
+      case Variable(:final name):
         final varValue = _vars[name];
         if (varValue == null) _error('Variable "$name" is undefined');
-        final parsed = double.tryParse(varValue);
-        if (parsed == null) {
-          _error(
-            'Variable "$name" has value "$varValue" which is not a number',
-          );
-        }
-        return parsed;
-      case ArithQuery(:final command, :final variableName, :final concatString):
+        return varValue;
+
+      // ── Query ─────────────────────────────────────────────────────
+      case QueryExpr(:final command, :final variableName, :final concatString):
         await _ensureDevice();
         await _drainEchoes();
         final cmd = concatString != null
@@ -334,89 +314,182 @@ class MacroEvaluator {
         await instrument!.writeString(cmd);
         final raw = await instrument!.readString();
         final response = _cleanQueryResponse(raw, cmd);
-        final parsed = double.tryParse(response);
-        if (parsed == null) {
-          _error('Query response "$response" is not a valid number');
-        }
-        return parsed;
-      case ArithBinaryOp(:final left, :final op, :final right):
-        final l = await _evalArithExpr(left);
-        final r = await _evalArithExpr(right);
+        return response;
+
+      // ── Scpi ──────────────────────────────────────────────────────
+      case ScpiExpr():
+        _error('scpi() cannot be used as an expression value '
+            '(it returns no value)');
+
+      // ── Unary minus ───────────────────────────────────────────────
+      case UnaryMinusExpr(:final operand):
+        final val = await _evalExpr(operand);
+        final num = _asNumber(val, 'unary minus (-)');
+        return -num;
+
+      // ── Logical NOT ───────────────────────────────────────────────
+      case NotExpr(:final operand):
+        final val = await _evalExpr(operand);
+        final b = _asBool(val, "the '!' operator");
+        return !b;
+
+      // ── Binary expression ─────────────────────────────────────────
+      case BinaryExpr(:final left, :final op, :final right):
+        return await _evalBinaryExpr(left, op, right);
+    }
+  }
+
+  /// Evaluates a binary expression, dispatching on the operator type.
+  Future<Object> _evalBinaryExpr(Expr left, String op, Expr right) async {
+    return switch (op) {
+      // ── Logical operators (short-circuit) ─────────────────────────
+      '&&' || '&' => () async {
+        final l = _asBool(await _evalExpr(left), op);
+        if (!l) return false; // short-circuit
+        final r = _asBool(await _evalExpr(right), op);
+        return l && r;
+      }(),
+
+      '||' || '|' => () async {
+        final l = _asBool(await _evalExpr(left), op);
+        if (l) return true; // short-circuit
+        final r = _asBool(await _evalExpr(right), op);
+        return l || r;
+      }(),
+
+      // ── Equality ─────────────────────────────────────────────────
+      '==' || '!=' => () async {
+        final l = await _evalExpr(left);
+        final r = await _evalExpr(right);
+        return _compareEquality(l, r, op);
+      }(),
+
+      // ── Relational ───────────────────────────────────────────────
+      '>' || '>=' || '<' || '<=' => () async {
+        final l = _asNumber(await _evalExpr(left), op);
+        final r = _asNumber(await _evalExpr(right), op);
+        return switch (op) {
+          '>' => l > r,
+          '>=' => l >= r,
+          '<' => l < r,
+          '<=' => l <= r,
+          _ => _error('Unknown relational operator "$op"'),
+        };
+      }(),
+
+      // ── Arithmetic ───────────────────────────────────────────────
+      '+' || '-' || '*' || '/' => () async {
+        final l = _asNumber(await _evalExpr(left), op);
+        final r = _asNumber(await _evalExpr(right), op);
         return switch (op) {
           '+' => l + r,
           '-' => l - r,
           '*' => l * r,
-          '/' =>
-            r == 0
-                ? _error('Division by zero in arithmetic expression')
-                : l / r,
+          '/' => r == 0
+              ? _error('Division by zero in arithmetic expression')
+              : l / r,
           _ => _error('Unknown arithmetic operator "$op"'),
         };
-    }
+      }(),
+
+      _ => _error('Unknown operator "$op"'),
+    };
   }
 
-  /// Evaluate an assert with a boolean expression condition.
-  Future<void> _evalAssertBool(String text, BoolExpr condition) async {
-    final result = await _evalBoolExpr(condition);
-    if (result == null) return; // error already reported
-    if (!result) {
+  // ── Type coercion helpers ─────────────────────────────────────────
+
+  /// Coerces [value] to a [double].  Strings are parsed; bools and other
+  /// types cause an error referencing [context].
+  double _asNumber(Object value, String context) {
+    if (value is double) return value;
+    if (value is int) return value.toDouble();
+    if (value is String) {
+      final parsed = double.tryParse(value);
+      if (parsed != null) return parsed;
+    }
+    _error(
+      'Cannot use ${_describeValue(value)} with $context '
+      '(a number is required)',
+    );
+  }
+
+  /// Coerces [value] to a [bool].  Numbers and strings use truthiness
+  /// rules; bools pass through.
+  bool _asBool(Object value, String context) {
+    if (value is bool) return value;
+    if (value is String) return _isTruthy(value);
+    if (value is num) return value != 0;
+    _error(
+      'Cannot use ${_describeValue(value)} with $context '
+      '(a boolean is required)',
+    );
+  }
+
+  /// Human-readable description of a runtime value for error messages.
+  String _describeValue(Object value) {
+    if (value is String) return '"$value"';
+    if (value is bool) return '$value';
+    if (value is num) return '$value';
+    return '${value.runtimeType}';
+  }
+
+  // ── Equality comparison ───────────────────────────────────────────
+
+  /// Compares two values for equality / inequality.
+  ///
+  /// When both sides parse as numbers, numeric comparison is used.
+  /// Otherwise, string comparison is used.
+  bool _compareEquality(Object lhs, Object rhs, String op) {
+    final lhsStr = lhs.toString();
+    final rhsStr = rhs.toString();
+    final lhsNum = double.tryParse(lhsStr);
+    final rhsNum = double.tryParse(rhsStr);
+
+    final equal = (lhsNum != null && rhsNum != null)
+        ? lhsNum == rhsNum
+        : lhsStr == rhsStr;
+
+    return op == '==' ? equal : !equal;
+  }
+
+  // ── Assert evaluation ─────────────────────────────────────────────
+
+  /// Evaluate an assert statement with a unified expression condition.
+  Future<void> _evalAssert(String text, Expr condition) async {
+    // Special case: ScpiExpr in assert means "SCPI command success".
+    if (condition is ScpiExpr) {
+      await _evalAssertScpi(text, condition);
+      return;
+    }
+
+    final result = await _evalExpr(condition);
+    final passed = _asBool(result, 'assert() condition');
+
+    if (!passed) {
       _error('Assertion failed: $text');
     }
-    onLog('Macro assert: $text → $result');
+    onLog('Macro assert: $text → $passed');
   }
 
-  /// Evaluate an assert with a bare operand (scpi success or truthiness).
-  Future<void> _evalAssertOperand(String text, Expression operand) async {
-    switch (operand) {
-      case VariableExpr(:final name):
-        final varValue = _vars[name];
-        if (varValue == null) _error('Variable "$name" is undefined');
-        if (!_isTruthy(varValue)) {
-          _error('Assertion failed: $text (got "$varValue")');
-        }
-        onLog('Macro assert: $text: "$varValue" → True');
-
-      case QueryExpr(:final command, :final variableName, :final concatString):
-        await _ensureDevice();
-        await _drainEchoes();
-        final resolved = concatString != null
-            ? _resolveConcatString(concatString)
-            : variableName != null
-            ? _resolveVar(variableName)
-            : command;
-        if (concatString == null &&
-            variableName != null &&
-            double.tryParse(resolved) != null) {
-          _error(
-            'Variable "$variableName" has value "$resolved" which is a '
-            'number, not a valid SCPI query string',
-          );
-        }
-        onLog('Macro assert-query: "$text" query("$resolved")');
-        await instrument!.writeString(resolved);
-        final raw = await instrument!.readString();
-        final response = _cleanQueryResponse(raw, resolved);
-        if (!_isTruthy(response)) {
-          _error('Assertion failed: $text (got "$response")');
-        }
-        onLog('Macro assert: $text: "$response" → True');
-
-      case ScpiExpr(:final command, :final variableName):
-        await _ensureDevice();
-        final resolved = variableName != null
-            ? _resolveVar(variableName)
-            : command;
-        if (variableName != null && double.tryParse(resolved) != null) {
-          _error(
-            'Variable "$variableName" has value "$resolved" which is a '
-            'number, not a valid SCPI command string',
-          );
-        }
-        onLog('Macro assert-scpi: "$text" scpi("$resolved")');
-        await instrument!.writeString(resolved);
-        onLog('Macro assert: $text: scpi("$resolved") → OK');
+  /// Handle `assert("text", scpi("CMD"))` — success if the command
+  /// executes without error.
+  Future<void> _evalAssertScpi(String text, ScpiExpr scpi) async {
+    await _ensureDevice();
+    final resolved = scpi.variableName != null
+        ? _resolveVar(scpi.variableName!)
+        : scpi.command;
+    if (scpi.variableName != null && double.tryParse(resolved) != null) {
+      _error(
+        'Variable "${scpi.variableName}" has value "$resolved" which is a '
+        'number, not a valid SCPI command string',
+      );
     }
+    onLog('Macro assert-scpi: "$text" scpi("$resolved")');
+    await instrument!.writeString(resolved);
+    onLog('Macro assert: $text: scpi("$resolved") → OK');
   }
+
+  // ── Print evaluation ──────────────────────────────────────────────
 
   Future<void> _evalLoadProfile(String path) async {
     onLog('Macro playback: loadProfile("$path")');
@@ -472,30 +545,30 @@ class MacroEvaluator {
   }
 
   Future<void> _evalIf(
-    BoolExpr condition,
+    Expr condition,
     List<Statement> thenBody,
     List<Statement>? elseBody,
     bool inLoop,
   ) async {
-    final result = await _evalBoolExpr(condition);
-    if (result == null) return;
+    final result = await _evalExpr(condition);
+    final cond = _asBool(result, 'if() condition');
 
-    if (result) {
+    if (cond) {
       await _evalStatements(thenBody, inLoop: inLoop);
     } else if (elseBody != null) {
       await _evalStatements(elseBody, inLoop: inLoop);
     }
   }
 
-  Future<void> _evalWhile(BoolExpr condition, List<Statement> body) async {
+  Future<void> _evalWhile(Expr condition, List<Statement> body) async {
     var iterations = 0;
 
     while (true) {
       if (isCancelled()) throw _MacroStopException();
 
-      final result = await _evalBoolExpr(condition);
-      if (result == null) return;
-      if (!result) break;
+      final result = await _evalExpr(condition);
+      final cond = _asBool(result, 'while() condition');
+      if (!cond) break;
 
       if (iterations >= 100) {
         _error('while loop exceeded maximum of 100 iterations');
@@ -511,118 +584,6 @@ class MacroEvaluator {
     }
     _breakRequested = false;
     _continueRequested = false;
-  }
-
-  // ── Boolean expression evaluation ──────────────────────────────────
-
-  /// Evaluates a [BoolExpr] tree, returning `true`, `false`, or `null` on
-  /// error (error already reported via [onError]).
-  ///
-  /// Implements short-circuit evaluation: AND stops at first `false`,
-  /// OR stops at first `true`.
-  Future<bool?> _evalBoolExpr(BoolExpr expr) async {
-    switch (expr) {
-      case ComparisonExpr(
-        :final operand,
-        :final op,
-        :final value,
-        :final valueIsVariable
-      ):
-        final resolvedValue = valueIsVariable ? _resolveVar(value) : value;
-        return _evalCondition(operand, op, resolvedValue);
-
-      case BoolBinaryExpr(:final left, :final boolOp, :final right):
-        final l = await _evalBoolExpr(left);
-        if (l == null) return null;
-        // Short-circuit AND
-        if ((boolOp == '&' || boolOp == '&&') && !l) return false;
-        // Short-circuit OR
-        if ((boolOp == '|' || boolOp == '||') && l) return true;
-        final r = await _evalBoolExpr(right);
-        if (r == null) return null;
-        return (boolOp == '&' || boolOp == '&&') ? (l && r) : (l || r);
-
-      case TruthyExpr(:final operand):
-        return _evalTruthy(operand);
-    }
-  }
-
-  /// Evaluates a bare [Expression] for truthiness.
-  Future<bool?> _evalTruthy(Expression operand) async {
-    switch (operand) {
-      case VariableExpr(:final name):
-        final varValue = _vars[name];
-        if (varValue == null) {
-          _error('Variable "$name" is undefined');
-        }
-        return _isTruthy(varValue);
-
-      case QueryExpr(:final command, :final variableName, :final concatString):
-        await _ensureDevice();
-        await _drainEchoes();
-        final resolved = concatString != null
-            ? _resolveConcatString(concatString)
-            : variableName != null
-            ? _resolveVar(variableName)
-            : command;
-        if (concatString == null &&
-            variableName != null &&
-            double.tryParse(resolved) != null) {
-          _error(
-            'Variable "$variableName" has value "$resolved" which is a '
-            'number, not a valid SCPI query string',
-          );
-        }
-        await instrument!.writeString(resolved);
-        final raw = await instrument!.readString();
-        final response = _cleanQueryResponse(raw, resolved);
-        return _isTruthy(response);
-
-      case ScpiExpr():
-        _error('scpi() cannot be used as a boolean condition '
-            '(it returns no value)');
-    }
-  }
-
-  // ── Condition evaluation ───────────────────────────────────────────
-
-  Future<bool?> _evalCondition(
-    Expression condition,
-    String op,
-    String value,
-  ) async {
-    switch (condition) {
-      case VariableExpr(:final name):
-        final varValue = _vars[name];
-        if (varValue == null) {
-          _error('Variable "$name" is undefined');
-        }
-        return _compareValues(varValue, op, value);
-
-      case QueryExpr(:final command, :final variableName, :final concatString):
-        await _ensureDevice();
-        await _drainEchoes();
-        final resolved = concatString != null
-            ? _resolveConcatString(concatString)
-            : variableName != null
-            ? _resolveVar(variableName)
-            : command;
-        if (concatString == null &&
-            variableName != null &&
-            double.tryParse(resolved) != null) {
-          _error(
-            'Variable "$variableName" has value "$resolved" which is a '
-            'number, not a valid SCPI query string',
-          );
-        }
-        await instrument!.writeString(resolved);
-        final raw = await instrument!.readString();
-        final response = _cleanQueryResponse(raw, resolved);
-        return _compareValues(response, op, value);
-
-      case ScpiExpr():
-        _error('scpi() cannot be used in a condition (it returns no value)');
-    }
   }
 
   // ── Helpers ────────────────────────────────────────────────────────
@@ -678,33 +639,6 @@ class MacroEvaluator {
     if (trimmed == '0') return false;
     if (trimmed.toUpperCase() == 'OFF') return false;
     return true;
-  }
-
-  static bool? _compareValues(String lhs, String op, String rhs) {
-    final lhsNum = double.tryParse(lhs);
-    final rhsNum = double.tryParse(rhs);
-
-    switch (op) {
-      case '==':
-        if (lhsNum != null && rhsNum != null) return lhsNum == rhsNum;
-        return lhs == rhs;
-      case '!=':
-        if (lhsNum != null && rhsNum != null) return lhsNum != rhsNum;
-        return lhs != rhs;
-      case '<':
-      case '<=':
-      case '>':
-      case '>=':
-        if (lhsNum == null || rhsNum == null) return null;
-        return switch (op) {
-          '<' => lhsNum < rhsNum,
-          '<=' => lhsNum <= rhsNum,
-          '>' => lhsNum > rhsNum,
-          '>=' => lhsNum >= rhsNum,
-          _ => null,
-        };
-    }
-    return null;
   }
 
   static String _cleanQueryResponse(String raw, String cmd) {

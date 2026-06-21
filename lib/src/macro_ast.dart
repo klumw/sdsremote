@@ -1,7 +1,19 @@
 /// AST (Abstract Syntax Tree) node classes for the macro language.
 ///
-/// All statement and expression types use Dart's sealed class hierarchy
-/// for exhaustive pattern matching in the evaluator.
+/// Uses Dart's sealed class hierarchy for exhaustive pattern matching in the
+/// evaluator and linter.  The expression system follows standard operator
+/// precedence:
+///
+/// ```text
+/// 1. Parentheses                  ()
+/// 2. Unary operators              !  - (unary minus)
+/// 3. Multiplication / Division    *  /
+/// 4. Addition / Subtraction       +  -
+/// 5. Comparisons                  > >= < <=
+/// 6. Equality                     == !=
+/// 7. Logical AND                  &&
+/// 8. Logical OR                   ||
+/// ```
 library;
 
 // ── Top-level program ───────────────────────────────────────────────────
@@ -81,43 +93,18 @@ class QueryStmt extends Statement {
   const QueryStmt(this.command, {this.variableName, this.concatString});
 }
 
-/// `<var> = query("CMD")` — store query result in a variable, or
-/// `<var> = query(otherVar)` — store query result using a variable as command, or
-/// `<var> = query("prefix" + var + "suffix")` — use a concatenated query, or
-/// `<var> = "value"` — assign a literal string, or
-/// `<var> = otherVar` — copy another variable, or
-/// `<var> = <arithExpr>` — evaluate an arithmetic expression.
+/// `<var> = <expr>` — evaluate an expression and store the result.
+///
+/// The expression may be any [Expr] node: a literal, variable reference,
+/// query(), arithmetic, comparison, or logical operation.  All values are
+/// stored as strings in the variable table.
 class AssignStmt extends Statement {
   final String varName;
 
-  /// For [isQuery]: the SCPI query string (or variable name if [isVariable]).
-  /// For `!isQuery`: the literal value or other variable name.
-  final String queryOrValue;
+  /// The expression whose evaluated result is stored in [varName].
+  final Expr value;
 
-  /// True if this was `var = query("cmd")`; false for direct assignments.
-  final bool isQuery;
-
-  /// True when [queryOrValue] is a variable name that must be resolved at
-  /// evaluation time to obtain the actual SCPI command string.
-  final bool isVariable;
-
-  /// When non-null, the assignment evaluates an arithmetic expression and
-  /// stores the result as a string. Overrides all other fields.
-  final ArithExpr? arithExpr;
-
-  /// When non-null, the query argument was a concatenated string expression
-  /// that must be resolved at evaluation time. Only valid when [isQuery] is
-  /// true. Overrides [queryOrValue] / [isVariable].
-  final ConcatString? concatString;
-
-  const AssignStmt(
-    this.varName,
-    this.queryOrValue, {
-    this.isQuery = true,
-    this.isVariable = false,
-    this.arithExpr,
-    this.concatString,
-  });
+  const AssignStmt(this.varName, this.value);
 }
 
 // ── String concatenation ───────────────────────────────────────────────
@@ -148,48 +135,7 @@ class ConcatString {
   const ConcatString(this.pieces);
 }
 
-// ── Arithmetic expressions ─────────────────────────────────────────────
-
-/// An arithmetic expression that evaluates to a numeric value.
-sealed class ArithExpr {
-  const ArithExpr();
-}
-
-/// A numeric literal in an arithmetic expression (e.g. `1.0`).
-class ArithNumber extends ArithExpr {
-  final double value;
-  const ArithNumber(this.value);
-}
-
-/// A variable reference in an arithmetic expression (e.g. `v`).
-class ArithVariable extends ArithExpr {
-  final String name;
-  const ArithVariable(this.name);
-}
-
-/// An inline query in an arithmetic expression, e.g. `query("C1:VDIV?")`
-/// or `query(varName)` or `query("pre" + var + "suf")`.
-class ArithQuery extends ArithExpr {
-  final String command;
-
-  /// When non-null, [command] is a variable name whose value is the actual
-  /// SCPI query string, resolved at evaluation time.
-  final String? variableName;
-
-  /// When non-null, the argument was a concatenated string expression that
-  /// must be resolved at evaluation time. Overrides [command] / [variableName].
-  final ConcatString? concatString;
-
-  const ArithQuery(this.command, {this.variableName, this.concatString});
-}
-
-/// A binary arithmetic operation (`+`, `-`, `*`, `/`).
-class ArithBinaryOp extends ArithExpr {
-  final ArithExpr left;
-  final String op;
-  final ArithExpr right;
-  const ArithBinaryOp(this.left, this.op, this.right);
-}
+// ── Print statement ─────────────────────────────────────────────────────
 
 /// A single item in a `print()` argument list.
 sealed class PrintItem {
@@ -242,19 +188,17 @@ class AssertStmt extends Statement {
   /// must be resolved at evaluation time. Overrides [text] for display.
   final ConcatString? concatText;
 
-  /// The expression for scpi-success or bare truthiness mode.
-  /// When non-null, [condition] is null.
-  final Expression? operand;
-
-  /// The boolean expression for the comparison / combined mode.
-  /// When non-null, [operand] is null.
-  final BoolExpr? condition;
+  /// The expression to evaluate.
+  ///
+  /// When the expression produces a boolean, it is used as a pass/fail check.
+  /// When it is a [ScpiExpr], success is determined by whether the command
+  /// executes without error.  When it is anything else, truthiness is checked.
+  final Expr condition;
 
   const AssertStmt(
     this.text,
-    this.operand, {
+    this.condition, {
     this.concatText,
-    this.condition,
   });
 }
 
@@ -270,18 +214,22 @@ class LoadProfileStmt extends Statement {
   const LoadProfileStmt(this.path, {this.concatString});
 }
 
-/// `if (<boolExpr>) { ... }` with optional `else { ... }`.
+/// `if (<expr>) { ... }` with optional `else { ... }`.
+///
+/// The condition is any expression.  At evaluation time it is coerced to a
+/// boolean: comparison and logical operators naturally produce booleans;
+/// other expressions use truthiness rules.
 class IfStmt extends Statement {
-  final BoolExpr condition;
+  final Expr condition;
   final List<Statement> thenBody;
   final List<Statement>? elseBody;
 
   const IfStmt(this.condition, this.thenBody, {this.elseBody});
 }
 
-/// `while (<boolExpr>) { ... }`
+/// `while (<expr>) { ... }`
 class WhileStmt extends Statement {
-  final BoolExpr condition;
+  final Expr condition;
   final List<Statement> body;
 
   const WhileStmt(this.condition, this.body);
@@ -310,63 +258,72 @@ class FailStmt extends Statement {
   const FailStmt(this.message, {this.concatMessage});
 }
 
-// ── Boolean expressions ──────────────────────────────────────────────────
+// ── Unified expression hierarchy ────────────────────────────────────────
 
-/// A boolean expression that evaluates to `true`, `false`, or `null` (error).
-sealed class BoolExpr {
-  const BoolExpr();
+/// One node in the unified expression tree.
+///
+/// The grammar enforces operator precedence structurally, so the AST shape
+/// directly reflects the evaluation order.  For example:
+///
+/// ```text
+/// 2 + 3 * 4
+/// ```
+///
+/// produces:
+///
+/// ```text
+/// BinaryExpr
+///  ├─ NumberLiteral(2)
+///  ├─ op: "+"
+///  └─ BinaryExpr
+///      ├─ NumberLiteral(3)
+///      ├─ op: "*"
+///      └─ NumberLiteral(4)
+/// ```
+sealed class Expr {
+  const Expr();
 }
 
-/// A single comparison: `<operand> <op> <value>`.
-///
-/// [op] is one of `==`, `!=`, `<`, `<=`, `>`, `>=`.
-/// [value] is either a literal or a variable name (when [valueIsVariable]).
-class ComparisonExpr extends BoolExpr {
-  final Expression operand;
-  final String op;
+// ── Literals ────────────────────────────────────────────────────────────
+
+/// A numeric literal, e.g. `3.14`.
+class NumberLiteral extends Expr {
+  final double value;
+  const NumberLiteral(this.value);
+}
+
+/// A string literal, e.g. `"hello"`.
+class StringLiteral extends Expr {
   final String value;
-  final bool valueIsVariable;
-
-  const ComparisonExpr(
-    this.operand,
-    this.op,
-    this.value, {
-    this.valueIsVariable = false,
-  });
+  const StringLiteral(this.value);
 }
 
-/// Two boolean expressions joined by a boolean operator (`&`, `&&`, `|`, `||`).
-class BoolBinaryExpr extends BoolExpr {
-  final BoolExpr left;
-  final String boolOp;
-  final BoolExpr right;
-
-  const BoolBinaryExpr(this.left, this.boolOp, this.right);
+/// A boolean literal, either `true` or `false`.
+class BoolLiteral extends Expr {
+  final bool value;
+  const BoolLiteral(this.value);
 }
 
-/// A bare expression used as a truthiness check (no comparison operator).
-///
-/// Only valid inside `assert()`; the linter rejects it in `if` / `while`.
-class TruthyExpr extends BoolExpr {
-  final Expression operand;
-  const TruthyExpr(this.operand);
-}
-
-// ── Expressions ─────────────────────────────────────────────────────────
-
-sealed class Expression {
-  const Expression();
-}
+// ── Variable ────────────────────────────────────────────────────────────
 
 /// A reference to a previously assigned variable.
-class VariableExpr extends Expression {
+///
+/// In boolean context the variable's value is checked for truthiness
+/// (non-empty, not `"0"`, not `"OFF"`).  In arithmetic context it is
+/// parsed as a number.
+class Variable extends Expr {
   final String name;
-  const VariableExpr(this.name);
+  const Variable(this.name);
 }
 
-/// An inline SCPI query `query("CMD")` or `query(varName)` or
+// ── Inline SCPI operations ──────────────────────────────────────────────
+
+/// An inline SCPI query: `query("CMD")`, `query(varName)`, or
 /// `query("prefix" + var + "suffix")`.
-class QueryExpr extends Expression {
+///
+/// Evaluates to the instrument's response string.  In arithmetic context
+/// the response is parsed as a number.
+class QueryExpr extends Expr {
   final String command;
 
   /// When non-null, [command] is a variable name whose value is the actual
@@ -380,9 +337,10 @@ class QueryExpr extends Expression {
   const QueryExpr(this.command, {this.variableName, this.concatString});
 }
 
-/// An inline SCPI command `scpi("CMD")` or `scpi(varName)` used in `assert`
-/// success checks.
-class ScpiExpr extends Expression {
+/// An inline SCPI command: `scpi("CMD")` or `scpi(varName)`.
+///
+/// Produces no value; only valid in `assert()` as a success check.
+class ScpiExpr extends Expr {
   final String command;
 
   /// When non-null, [command] is a variable name whose value is the actual
@@ -390,4 +348,38 @@ class ScpiExpr extends Expression {
   final String? variableName;
 
   const ScpiExpr(this.command, {this.variableName});
+}
+
+// ── Unary operations ────────────────────────────────────────────────────
+
+/// Unary minus: `-<operand>`.
+class UnaryMinusExpr extends Expr {
+  final Expr operand;
+  const UnaryMinusExpr(this.operand);
+}
+
+/// Logical NOT: `!<operand>`.
+class NotExpr extends Expr {
+  final Expr operand;
+  const NotExpr(this.operand);
+}
+
+// ── Binary operations ───────────────────────────────────────────────────
+
+/// A binary operation joining two sub-expressions.
+///
+/// [op] is one of:
+/// - Arithmetic: `+`, `-`, `*`, `/`
+/// - Relational: `>`, `>=`, `<`, `<=`
+/// - Equality: `==`, `!=`
+/// - Logical: `&&`, `||`
+///
+/// Precedence is enforced by the grammar, not the AST.  The evaluator
+/// simply dispatches on [op].
+class BinaryExpr extends Expr {
+  final Expr left;
+  final String op;
+  final Expr right;
+
+  const BinaryExpr(this.left, this.op, this.right);
 }

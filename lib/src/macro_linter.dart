@@ -20,6 +20,12 @@ List<MacroLintError> lintMacro(String source) {
   final unclosed = _scanUnclosedStrings(source);
   if (unclosed != null) return [unclosed];
 
+  // Pre-scan for double negation (`!!`).  The grammar rejects nested NOT
+  // expressions, but we provide a specific diagnostic message instead of a
+  // generic petitparser failure.
+  final doubleNeg = _scanDoubleNegation(source);
+  if (doubleNeg != null) return [doubleNeg];
+
   final parser = MacroGrammarDefinition().build();
   final result = parser.parse(source);
 
@@ -45,6 +51,10 @@ enum _VarType { numeric, string, unknown }
 /// inferred types, and returns lint errors for:
 /// - References to undefined variables
 /// - Non-numeric comparisons using `>`, `>=`, `<`, `<=`
+/// - Suspicious mixed operator expressions
+/// - Redundant parentheses
+/// - Chained comparisons
+/// - Mixed equality and relational operators
 List<MacroLintError> _checkSemantics(String source, Program program) {
   final errors = <MacroLintError>[];
   final defined = <String>{};
@@ -61,6 +71,21 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
   /// True if [op] is a numeric-only comparison operator.
   bool isNumericOp(String? op) =>
       op == '>' || op == '>=' || op == '<' || op == '<=';
+
+  /// True if [op] is a relational operator (>, >=, <, <=).
+  bool isRelationalOp(String op) =>
+      op == '>' || op == '>=' || op == '<' || op == '<=';
+
+  /// True if [op] is an equality operator (==, !=).
+  bool isEqualityOp(String op) => op == '==' || op == '!=';
+
+  /// True if [op] is a logical operator (&&, ||, &, |).
+  bool isLogicalOp(String op) =>
+      op == '&&' || op == '||' || op == '&' || op == '|';
+
+  /// True if [op] is an arithmetic operator (+, -, *, /).
+  bool isArithmeticOp(String op) =>
+      op == '+' || op == '-' || op == '*' || op == '/';
 
   // ── Error reporters ─────────────────────────────────────────────────
 
@@ -82,8 +107,6 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
   }
 
   void reportStringLiteralInCompare(String op) {
-    // Use nextIdx to track which comparison operator occurrence we are on
-    // so we report the correct line when there are multiple comparisons.
     final opKey = '\$op:$op';
     final opIdx = nextIdx[opKey] ?? 0;
     final pattern = RegExp('\\s${RegExp.escape(op)}\\s');
@@ -105,14 +128,36 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
     nextIdx[opKey] = opIdx + 1;
   }
 
+  void reportErrorAt(String message, String posKey) {
+    final pos = _nextPos(posMap, nextIdx, posKey);
+    if (pos != null) {
+      errors.add(
+        MacroLintError(
+          message: message,
+          start: pos.$1,
+          end: pos.$2,
+          line: pos.$3,
+        ),
+      );
+    }
+  }
+
+  /// Reports a lint error at a binary operator position, using the
+  /// operator length as the end offset.
+  void reportAtOp(String message, int opStart, String op) {
+    errors.add(
+      MacroLintError(
+        message: message,
+        start: opStart,
+        end: opStart + op.length,
+        line: _lineAtOffset(source, opStart),
+      ),
+    );
+  }
+
   // ── Reference checker ───────────────────────────────────────────────
 
-  /// Checks whether [name] is defined and consumes its next source
-  /// position from [posMap] so that subsequent reports for the same
-  /// identifier use the correct later occurrence.
   void checkRef(String name) {
-    // Peek at the next position before consuming it, so we can report
-    // the error at the correct location.
     final idx = nextIdx[name] ?? 0;
     final list = posMap[name];
     final pos = (list != null && idx < list.length) ? list[idx] : null;
@@ -132,18 +177,7 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
     }
   }
 
-  // ── Expression walkers ──────────────────────────────────────────────
-
-  void walkExpr(Expression expr) {
-    switch (expr) {
-      case VariableExpr(:final name):
-        checkRef(name);
-      case QueryExpr(:final variableName):
-        if (variableName case final v?) checkRef(v);
-      case ScpiExpr(:final variableName):
-        if (variableName case final v?) checkRef(v);
-    }
-  }
+  // ── String concatenation walker ───────────────────────────────────
 
   void walkConcat(ConcatString cs) {
     for (final piece in cs.pieces) {
@@ -151,67 +185,261 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
     }
   }
 
-  void walkArith(ArithExpr expr) {
-    switch (expr) {
-      case ArithVariable(:final name):
-        checkRef(name);
-      case ArithQuery(:final variableName):
-        if (variableName case final v?) checkRef(v);
-      case ArithBinaryOp(:final left, :final right):
-        walkArith(left);
-        walkArith(right);
-      case ArithNumber():
+  // ── NOT operand check ─────────────────────────────────────────────
+
+  void checkNotOperand(Expr operand) {
+    switch (operand) {
+      case NumberLiteral():
+        final notIdx = (nextIdx['!'] ?? 0);
+        final pos = _findNotOperatorPos(source, notIdx);
+        if (pos != null) {
+          nextIdx['!'] = notIdx + 1;
+          errors.add(MacroLintError(
+            message:
+                "The '!' operator can only be applied to boolean expressions.",
+            start: pos.$1,
+            end: pos.$2,
+            line: pos.$3,
+          ));
+        }
+      case StringLiteral():
+        final notIdx = (nextIdx['!'] ?? 0);
+        final pos = _findNotOperatorPos(source, notIdx);
+        if (pos != null) {
+          nextIdx['!'] = notIdx + 1;
+          errors.add(MacroLintError(
+            message:
+                "The '!' operator can only be applied to boolean expressions.",
+            start: pos.$1,
+            end: pos.$2,
+            line: pos.$3,
+          ));
+        }
+      case Variable(:final name):
+        if (typeOf(name) == _VarType.numeric) {
+          final pos = _nextPos(posMap, nextIdx, name);
+          if (pos != null) {
+            errors.add(MacroLintError(
+              message:
+                  "The '!' operator can only be applied to boolean expressions.",
+              start: pos.$1,
+              end: pos.$2,
+              line: pos.$3,
+            ));
+          }
+        }
+      case BoolLiteral():
+        break;
+      case QueryExpr():
+      case ScpiExpr():
+      case UnaryMinusExpr():
+      case NotExpr():
+      case BinaryExpr():
         break;
     }
   }
 
-  /// Checks a comparison `lhs op rhs` where [op] is `>`, `>=`, `<`, or `<=`.
-  /// Reports an error if either side is known to be non-numeric.
-  void checkNumericCompare(
-    Expression operand,
-    String op,
-    String rhsValue,
-    bool rhsIsVariable,
-  ) {
-    // Check left-hand side (operand).
-    switch (operand) {
-      case VariableExpr(:final name):
-        switch (typeOf(name)) {
-          case _VarType.string:
-            reportTypeMismatch(name, op);
-          case _VarType.numeric:
-          case _VarType.unknown:
-            break; // OK or can't determine statically
+  // ── Numeric comparison check ─────────────────────────────────────
+
+  void checkNumericCompare(Expr lhs, String op, Expr rhs) {
+    switch (lhs) {
+      case Variable(:final name):
+        if (typeOf(name) == _VarType.string) {
+          reportTypeMismatch(name, op);
         }
+      case StringLiteral():
+        reportStringLiteralInCompare(op);
       case QueryExpr():
-        break; // query result is unknown — could be numeric
+      case NumberLiteral():
+      case BoolLiteral():
       case ScpiExpr():
-        break; // scpi has no return value, but this case is unlikely
+      case UnaryMinusExpr():
+      case NotExpr():
+      case BinaryExpr():
+        break;
     }
 
-    // Check right-hand side (comparison value).
-    if (rhsIsVariable) {
-      switch (typeOf(rhsValue)) {
-        case _VarType.string:
-          reportTypeMismatch(rhsValue, op);
-        case _VarType.numeric:
-        case _VarType.unknown:
-          break;
-      }
-    } else {
-      // RHS is a literal. If it can't be parsed as a number, it's a string
-      // literal being used in a numeric comparison.
-      if (double.tryParse(rhsValue) == null) {
+    switch (rhs) {
+      case Variable(:final name):
+        if (typeOf(name) == _VarType.string) {
+          reportTypeMismatch(name, op);
+        }
+      case StringLiteral():
         reportStringLiteralInCompare(op);
+      case NumberLiteral():
+      case BoolLiteral():
+      case QueryExpr():
+      case ScpiExpr():
+      case UnaryMinusExpr():
+      case NotExpr():
+      case BinaryExpr():
+        break;
+    }
+  }
+
+  // ── New lint rule: ComparisonChain ────────────────────────────────
+
+  void checkComparisonChain(BinaryExpr expr) {
+    if (!isRelationalOp(expr.op) && !isEqualityOp(expr.op)) return;
+
+    if (expr.left is BinaryExpr) {
+      final leftBin = expr.left as BinaryExpr;
+      if (isRelationalOp(leftBin.op) || isEqualityOp(leftBin.op)) {
+        final pos = _findBinaryOpPos(source, expr.op, nextIdx);
+        reportAtOp(
+          'Chained comparisons are not supported. '
+          'Use explicit logical operators instead '
+          '(e.g. "a ${leftBin.op} b && b ${expr.op} c").',
+          pos,
+          expr.op,
+        );
+        return;
+      }
+    }
+
+    if (expr.right is BinaryExpr) {
+      final rightBin = expr.right as BinaryExpr;
+      if (isRelationalOp(rightBin.op) || isEqualityOp(rightBin.op)) {
+        final pos = _findBinaryOpPos(source, expr.op, nextIdx);
+        reportAtOp(
+          'Chained comparisons are not supported. '
+          'Use explicit logical operators instead.',
+          pos,
+          expr.op,
+        );
       }
     }
   }
 
-  // ── Boolean expression walker ──────────────────────────────────────
+  // ── New lint rule: MixedEqualityAndRelational ────────────────────
 
-  late final void Function(BoolExpr, {required bool allowTruthy}) walkBoolExpr;
+  void checkMixedEqualityRelational(BinaryExpr expr) {
+    if (!isEqualityOp(expr.op)) return;
 
-  // ── Statement walkers (mutually recursive) ──────────────────────────
+    final hasRelationalChild =
+        (expr.left is BinaryExpr &&
+            isRelationalOp((expr.left as BinaryExpr).op)) ||
+        (expr.right is BinaryExpr &&
+            isRelationalOp((expr.right as BinaryExpr).op));
+
+    if (hasRelationalChild) {
+      final pos = _findBinaryOpPos(source, expr.op, nextIdx);
+      reportAtOp(
+        'Mixed equality and relational operators without parentheses '
+        'may be confusing.  The expression is evaluated as '
+        '"(left ${expr.op} right)" with relational operators binding '
+        'first.  Add parentheses to clarify intent.',
+        pos,
+        expr.op,
+      );
+    }
+  }
+
+  // ── New lint rule: SuspiciousMixedOperators ───────────────────────
+
+  bool hasMixedOps(Expr expr) {
+    if (expr is! BinaryExpr) return false;
+
+    final op = expr.op;
+    var hasArith = isArithmeticOp(op);
+    var hasRel = isRelationalOp(op);
+    var hasEq = isEqualityOp(op);
+
+    if (expr.left is BinaryExpr) {
+      final child = expr.left as BinaryExpr;
+      hasArith = hasArith || isArithmeticOp(child.op);
+      hasRel = hasRel || isRelationalOp(child.op);
+      hasEq = hasEq || isEqualityOp(child.op);
+    }
+    if (expr.right is BinaryExpr) {
+      final child = expr.right as BinaryExpr;
+      hasArith = hasArith || isArithmeticOp(child.op);
+      hasRel = hasRel || isRelationalOp(child.op);
+      hasEq = hasEq || isEqualityOp(child.op);
+    }
+
+    final categories =
+        (hasArith ? 1 : 0) + (hasRel ? 1 : 0) + (hasEq ? 1 : 0);
+    return categories >= 2;
+  }
+
+  void checkSuspiciousMixedOps(BinaryExpr expr) {
+    if (!isLogicalOp(expr.op)) return;
+
+    if (hasMixedOps(expr.left) || hasMixedOps(expr.right)) {
+      final pos = _findBinaryOpPos(source, expr.op, nextIdx);
+      reportAtOp(
+        'Suspicious mix of arithmetic, comparison, and logical operators '
+        'without clarifying parentheses.  Consider adding parentheses to '
+        'make the evaluation order explicit.',
+        pos,
+        expr.op,
+      );
+    }
+  }
+
+  // ── Expression walker (declared late — uses helpers above) ─────────
+
+  late final void Function(Expr, {required bool allowTruthy}) walkExpr;
+
+  walkExpr = (Expr expr, {required bool allowTruthy}) {
+    switch (expr) {
+      case NumberLiteral():
+      case StringLiteral():
+      case BoolLiteral():
+        break;
+
+      case Variable(:final name):
+        if (!allowTruthy) {
+          reportErrorAt(
+            'Bare expression "$name" cannot be used as a boolean '
+            'condition in if/while — use a comparison like '
+            '"$name == value"',
+            name,
+          );
+        }
+        checkRef(name);
+
+      case QueryExpr(:final variableName):
+        if (!allowTruthy) {
+          final displayName = variableName ?? 'query';
+          reportErrorAt(
+            'Bare expression "query(...)" cannot be used as a boolean '
+            'condition in if/while — use a comparison like '
+            '"query(...) > value"',
+            displayName,
+          );
+        }
+        if (variableName case final v?) checkRef(v);
+
+      case ScpiExpr(:final variableName):
+        if (variableName case final v?) checkRef(v);
+
+      case UnaryMinusExpr(:final operand):
+        walkExpr(operand, allowTruthy: allowTruthy);
+
+      case NotExpr(:final operand):
+        walkExpr(operand, allowTruthy: true);
+        checkNotOperand(operand);
+
+      case BinaryExpr(:final left, :final op, :final right):
+        // Children of any binary operator are in expression context —
+        // the operator itself determines whether the result is boolean.
+        walkExpr(left, allowTruthy: true);
+
+        if (isNumericOp(op)) {
+          checkNumericCompare(left, op, right);
+        }
+
+        walkExpr(right, allowTruthy: true);
+
+        checkComparisonChain(expr);
+        checkMixedEqualityRelational(expr);
+        checkSuspiciousMixedOps(expr);
+    }
+  };
+
+  // ── Statement walkers ──────────────────────────────────────────────
 
   late final void Function(List<Statement>) walkStmts;
   late final void Function(Statement) walkStmt;
@@ -219,63 +447,6 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
   walkStmts = (List<Statement> stmts) {
     for (final stmt in stmts) {
       walkStmt(stmt);
-    }
-  };
-
-  walkBoolExpr = (BoolExpr expr, {required bool allowTruthy}) {
-    switch (expr) {
-      case ComparisonExpr(
-        :final operand,
-        :final op,
-        :final value,
-        :final valueIsVariable,
-      ):
-        walkExpr(operand);
-        if (valueIsVariable) checkRef(value);
-        // Type-check numeric comparisons.
-        if (isNumericOp(op)) {
-          checkNumericCompare(operand, op, value, valueIsVariable);
-        }
-
-      case BoolBinaryExpr(:final left, :final right):
-        walkBoolExpr(left, allowTruthy: allowTruthy);
-        walkBoolExpr(right, allowTruthy: allowTruthy);
-
-      case TruthyExpr(:final operand):
-        if (!allowTruthy) {
-          // Report error: truthiness checks only allowed in assert()
-          String? exprName;
-          String? posKey;
-          switch (operand) {
-            case VariableExpr(:final name):
-              exprName = name;
-              posKey = name;
-            case QueryExpr(:final command, :final variableName):
-              // For a literal query string, use 'query' as the position key
-              // since the command text (e.g. "*IDN?") may not be an identifier.
-              exprName = variableName ?? 'query("$command")';
-              posKey = variableName ?? 'query';
-            case ScpiExpr():
-              break; // unreachable — scpi in TruthyExpr is parse error
-          }
-          if (exprName != null && posKey != null) {
-            final pos = _nextPos(posMap, nextIdx, posKey);
-            if (pos != null) {
-              errors.add(
-                MacroLintError(
-                  message:
-                      'Bare expression "$exprName" cannot be used as a boolean '
-                      'condition in if/while — use a comparison like '
-                      '"$exprName == value"',
-                  start: pos.$1,
-                  end: pos.$2,
-                  line: pos.$3,
-                ),
-              );
-            }
-          }
-        }
-        walkExpr(operand);
     }
   };
 
@@ -313,39 +484,39 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
           checkRef(v);
         }
 
-      case AssignStmt(
-        :final varName,
-        :final arithExpr,
-        :final isVariable,
-        :final isQuery,
-        :final queryOrValue,
-        :final concatString,
-      ):
-        // Check references on the RHS before adding varName to defined.
-        if (arithExpr != null) {
-          walkArith(arithExpr);
-          // Arithmetic results are always numeric.
+      case AssignStmt(:final varName, :final value):
+        // Walk the expression RHS for references before adding varName.
+        walkExpr(value, allowTruthy: true);
+
+        // Infer the type of the assigned variable.
+        if (value is NumberLiteral || value is UnaryMinusExpr) {
           varTypes[varName] = _VarType.numeric;
-        } else if (isQuery) {
-          if (concatString != null) walkConcat(concatString);
-          if (isVariable) checkRef(queryOrValue);
-          // Query results are unknown at lint time.
-          varTypes[varName] = _VarType.unknown;
-        } else {
-          // Non-query assignment: could be number, string literal, or
-          // variable copy. The AST doesn't distinguish these, so we use
-          // heuristics.
-          if (double.tryParse(queryOrValue) != null) {
+        } else if (value is StringLiteral) {
+          // Quoted number strings like "3.0" are treated as numeric.
+          if (double.tryParse(value.value) != null) {
             varTypes[varName] = _VarType.numeric;
-          } else if (defined.contains(queryOrValue)) {
-            // Variable copy — inherit the source variable's type.
-            varTypes[varName] = typeOf(queryOrValue);
           } else {
-            // Assume string literal.
             varTypes[varName] = _VarType.string;
           }
+        } else if (value is BoolLiteral) {
+          varTypes[varName] = _VarType.string; // bools stored as strings
+        } else if (value is Variable) {
+          // Variable copy — inherit the source variable's type.
+          varTypes[varName] = typeOf(value.name);
+        } else if (value is QueryExpr) {
+          // Query results are unknown at lint time.
+          varTypes[varName] = _VarType.unknown;
+        } else if (value is BinaryExpr) {
+          // Arithmetic ops produce numbers; comparison/logical produce
+          // boolean strings.
+          if (isArithmeticOp(value.op)) {
+            varTypes[varName] = _VarType.numeric;
+          } else {
+            varTypes[varName] = _VarType.string;
+          }
+        } else {
+          varTypes[varName] = _VarType.unknown;
         }
-        if (concatString != null) walkConcat(concatString);
         defined.add(varName);
 
       case PrintStmt(:final items):
@@ -364,30 +535,72 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
           }
         }
 
-      case AssertStmt(:final operand, :final concatText, :final condition):
-        if (condition != null) {
-          walkBoolExpr(condition, allowTruthy: true);
-        } else if (operand != null) {
-          walkExpr(operand);
-        }
+      case AssertStmt(:final concatText, :final condition):
+        walkExpr(condition, allowTruthy: true);
         if (concatText != null) walkConcat(concatText);
 
       case LoadProfileStmt(:final concatString):
         if (concatString != null) walkConcat(concatString);
 
       case IfStmt(:final condition, :final thenBody, :final elseBody):
-        walkBoolExpr(condition, allowTruthy: false);
+        walkExpr(condition, allowTruthy: false);
         walkStmts(thenBody);
         if (elseBody != null) walkStmts(elseBody);
 
       case WhileStmt(:final condition, :final body):
-        walkBoolExpr(condition, allowTruthy: false);
+        walkExpr(condition, allowTruthy: false);
         walkStmts(body);
     }
   };
 
   walkStmts(program.statements);
+
+  // ── RedundantParentheses scan (source-level, not AST) ──────────
+
+  _checkRedundantParentheses(source, errors);
+
   return errors;
+}
+
+// ── New lint rule: RedundantParentheses ──────────────────────────────────
+
+/// Scans [source] for redundant parentheses patterns and adds diagnostics
+/// to [errors].
+///
+/// Detects patterns like `((a))` where double-wrapping is unnecessary.
+/// Since the AST flattens parentheses, this check operates on the source
+/// text directly using a simple brace-matching scan.
+void _checkRedundantParentheses(
+    String source, List<MacroLintError> errors) {
+  // Find patterns of the form ((...)) where the inner content is a simple
+  // expression (single identifier, number, or already-wrapped expr).
+  final pattern = RegExp(r'\(\(\s*([a-zA-Z_]\w*|\d+(?:\.\d+)?)\s*\)\)');
+  for (final match in pattern.allMatches(source)) {
+    // Skip matches inside string literals.
+    if (_isInsideString(source, match.start)) continue;
+
+    final line = _lineAtOffset(source, match.start);
+    errors.add(
+      MacroLintError(
+        message:
+            'Redundant parentheses detected. Consider writing '
+            '"${match.group(1)}" instead of "${match.group(0)}".',
+        start: match.start,
+        end: match.end,
+        line: line,
+      ),
+    );
+  }
+}
+
+/// Returns `true` if [offset] falls inside a double-quoted string literal
+/// in [source].
+bool _isInsideString(String source, int offset) {
+  var inString = false;
+  for (var i = 0; i < offset && i < source.length; i++) {
+    if (source[i] == '"') inString = !inString;
+  }
+  return inString;
 }
 
 // ── Position tracking ────────────────────────────────────────────────────
@@ -437,6 +650,49 @@ _Pos? _nextPos(
   return list[idx];
 }
 
+/// Finds the position of a binary operator in [source] for error reporting.
+///
+/// Uses [nextIdx] to track which occurrence of the operator we are on.
+/// Handles multi-character operator ambiguity (e.g., `>` must not match
+/// inside `>=`, `<` must not match inside `<=`).
+int _findBinaryOpPos(
+    String source, String op, Map<String, int> nextIdx) {
+  final key = '\$binop:$op';
+  final idx = nextIdx[key] ?? 0;
+
+  // Build a regex that matches [op] as a standalone operator, not as
+  // a prefix of a longer operator.  For example, `>` matches `>` but
+  // not the `>` inside `>=`.  Also skip matches inside string literals.
+  final escaped = RegExp.escape(op);
+  final String regexStr = switch (op) {
+    '>' => '$escaped(?!=)',
+    '<' => '$escaped(?!=)',
+    '!' => '$escaped(?!=)',
+    '=' => '$escaped(?!=)',
+    '&' => '$escaped(?!&)',
+    '|' => r'$escaped(?!\|)', // will be interpolated below
+    _ => escaped,
+  };
+  // Manually handle the | case to avoid raw string interpolation issues.
+  final effectiveRegex = op == '|' ? '\\|(?!\\|)' : regexStr;
+
+  final pattern = RegExp(effectiveRegex);
+  final allMatches = pattern.allMatches(source).toList();
+
+  // Filter out matches inside string literals.
+  final validMatches = allMatches
+      .where((m) => !_isInsideString(source, m.start))
+      .toList();
+
+  if (idx < validMatches.length) {
+    final m = validMatches[idx];
+    nextIdx[key] = idx + 1;
+    return m.start;
+  }
+  nextIdx[key] = (nextIdx[key] ?? 0) + 1;
+  return 0;
+}
+
 /// Returns the 1-based line number for character [offset] in [source].
 int _lineAtOffset(String source, int offset) {
   var line = 1;
@@ -446,12 +702,9 @@ int _lineAtOffset(String source, int offset) {
   return line;
 }
 
+// ── Pre-scanners ─────────────────────────────────────────────────────────
+
 /// Scans [source] line-by-line for an unclosed double-quoted string literal.
-///
-/// Since macro statements are line-oriented, a line with an odd number of
-/// `"` characters has an unclosed string.  The function returns a
-/// [MacroLintError] pointing at the first `"` on the first such line, or
-/// `null` when every line has balanced quotes.
 MacroLintError? _scanUnclosedStrings(String source) {
   final lines = source.split('\n');
   var offset = 0;
@@ -478,4 +731,32 @@ MacroLintError? _scanUnclosedStrings(String source) {
     offset += line.length + 1; // +1 for the '\n' split delimiter
   }
   return null;
+}
+
+/// Scans [source] for `!!` (double negation) patterns and returns a
+/// [MacroLintError] with a specific diagnostic message. Returns `null`
+/// when no double negation is found.
+MacroLintError? _scanDoubleNegation(String source) {
+  final pattern = RegExp(r'!!+');
+  final match = pattern.firstMatch(source);
+  if (match == null) return null;
+  final line = _lineAtOffset(source, match.start);
+  return MacroLintError(
+    message: "Double negation is not supported. Remove the extra '!' operator.",
+    start: match.start,
+    end: match.end,
+    line: line,
+  );
+}
+
+/// Returns the position of the [occurrence]-th `!` character in [source]
+/// (0-based), or `null` if fewer than [occurrence] + 1 exist.
+_Pos? _findNotOperatorPos(String source, int occurrence) {
+  var idx = -1;
+  for (var i = 0; i <= occurrence; i++) {
+    idx = source.indexOf('!', idx + 1);
+    if (idx < 0) return null;
+  }
+  final line = _lineAtOffset(source, idx);
+  return (idx, idx + 1, line);
 }

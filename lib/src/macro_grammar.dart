@@ -6,6 +6,62 @@ import 'macro_ast.dart';
 ///
 /// Uses [GrammarDefinition] from petitparser for recursive descent parsing.
 /// Each production returns the corresponding AST node type.
+///
+/// ## Operator Precedence (highest to lowest)
+///
+/// 1. Parentheses                  `()`
+/// 2. Unary operators              `!`  `-` (unary minus)
+/// 3. Multiplication / Division    `*`  `/`
+/// 4. Addition / Subtraction       `+`  `-`
+/// 5. Comparisons                  `>`  `>=`  `<`  `<=`
+/// 6. Equality                     `==`  `!=`
+/// 7. Logical AND                  `&&`
+/// 8. Logical OR                   `||`
+///
+/// Operators on the same level are left-associative.
+///
+/// ## Expression Grammar
+///
+/// ```text
+/// Expression
+///     -> OrExpression
+///
+/// OrExpression
+///     -> AndExpression (('||' | '|') AndExpression)*
+///
+/// AndExpression
+///     -> EqualityExpression (('&&' | '&') EqualityExpression)*
+///
+/// EqualityExpression
+///     -> RelationalExpression (('==' | '!=') RelationalExpression)*
+///
+/// RelationalExpression
+///     -> AdditiveExpression (('>' | '>=' | '<' | '<=') AdditiveExpression)*
+///
+/// AdditiveExpression
+///     -> MultiplicativeExpression (('+' | '-') MultiplicativeExpression)*
+///
+/// MultiplicativeExpression
+///     -> UnaryExpression (('*' | '/') UnaryExpression)*
+///
+/// UnaryExpression
+///     -> '!' UnaryNotOperand
+///     -> '-' UnaryExpression
+///     -> PrimaryExpression
+///
+/// UnaryNotOperand
+///     -> '-' UnaryExpression
+///     -> PrimaryExpression
+///
+/// PrimaryExpression
+///     -> NumberLiteral
+///     -> StringLiteral
+///     -> BoolLiteral
+///     -> query '(' ... ')'
+///     -> scpi '(' ... ')'
+///     -> Variable
+///     -> '(' Expression ')'
+/// ```
 class MacroGrammarDefinition extends GrammarDefinition {
   const MacroGrammarDefinition();
 
@@ -24,8 +80,8 @@ class MacroGrammarDefinition extends GrammarDefinition {
     ref0(connectStmt),
     ref0(waitStmt),
     ref0(scpiStmt),
-    ref0(assignStmt),
     ref0(queryStmt),
+    ref0(assignStmt),
     ref0(printStmt),
     ref0(assertStmt),
     ref0(loadProfileStmt),
@@ -128,208 +184,14 @@ class MacroGrammarDefinition extends GrammarDefinition {
                 : QueryStmt(argStr);
           });
 
-  // ── <var> = query("CMD") | <var> = query(otherVar) ────────────────
-  // ── <var> = "value"      | <var> = otherVar     ────────────────────
-  // ── <var> = number       | <var> = <arithExpr>  ────────────────────
+  // ── <var> = <expr> ──────────────────────────────────────────────────
+  //
+  // With the unified expression grammar, any expression is valid on the
+  // RHS: literal, variable, query(), arithmetic, comparison, or logical.
 
-  Parser<AssignStmt> assignStmt() => [
-    // var = arithExpr (e.g. x=v+1, b=v*2+1, x=v+query("C1:VDIV?"))
-    // Must come first so that expressions with operators are matched
-    // before the simpler query/string/number alternatives.
-    (ref0(identifier) & char('=').trim() & ref0(arithExpr)).map(
-      (r) => AssignStmt(
-        r[0] as String,
-        '',
-        isQuery: false,
-        arithExpr: r[2] as ArithExpr,
-      ),
-    ),
-    // var = * or / only (e.g. x=3.0*2, x=query("C1:VDIV?")*2)
-    // Falls through when arithExpr fails (no + or - present).
-    (ref0(identifier) & char('=').trim() & ref0(_mulOnlyExpr)).map(
-      (r) => AssignStmt(
-        r[0] as String,
-        '',
-        isQuery: false,
-        arithExpr: r[2] as ArithExpr,
-      ),
-    ),
-    // var = query("literal cmd" | concatExpr)
-    (ref0(identifier) &
-            char('=').trim() &
-            string('query(').trim() &
-            (ref0(concatExpr) |
-                ref0(stringLiteral).map((s) => (s, false)) |
-                ref0(identifier).map((s) => (s, true))) &
-            char(')'))
-        .map((r) {
-          final arg = r[3];
-          if (arg is ConcatString) {
-            return AssignStmt(
-              r[0] as String,
-              '',
-              isQuery: true,
-              concatString: arg,
-            );
-          }
-          final (argStr, isVar) = arg as (String, bool);
-          return AssignStmt(
-            r[0] as String,
-            argStr,
-            isQuery: true,
-            isVariable: isVar,
-          );
-        }),
-    // var = "literal string"
-    (ref0(identifier) & char('=').trim() & ref0(stringLiteral)).map(
-      (r) => AssignStmt(r[0] as String, r[2] as String, isQuery: false),
-    ),
-    // var = otherVar (variable copy)
-    (ref0(identifier) & char('=').trim() & ref0(identifier)).map(
-      (r) => AssignStmt(r[0] as String, r[2] as String, isQuery: false),
-    ),
-    // var = number (e.g. time=2.0)
-    (ref0(identifier) & char('=').trim() & ref0(number)).map(
-      (r) => AssignStmt(r[0] as String, r[2].toString(), isQuery: false),
-    ),
-  ].toChoiceParser();
-
-  // ── Arithmetic expressions ──────────────────────────────────────────
-  //   arithExpr  → arithMul (('+' | '-') arithMul)+    (requires 1+ op)
-  //   arithMul   → arithAtom (('*' | '/') arithAtom)*  (left-associative)
-  //   arithAtom  → number | identifier | query("...") | query(var) | '(' expr ')'
-
-  Parser<ArithExpr> arithExpr() =>
-      (ref0(arithMul) & (ref0(_addOp) & ref0(arithMul)).plus()).map((r) {
-        ArithExpr result = r[0] as ArithExpr;
-        for (final item in r[1] as List) {
-          result = ArithBinaryOp(
-            result,
-            item[0] as String,
-            item[1] as ArithExpr,
-          );
-        }
-        return result;
-      });
-
-  Parser<ArithExpr> arithMul() =>
-      (ref0(arithAtom) & (ref0(_mulOp) & ref0(arithAtom)).star()).map((r) {
-        ArithExpr result = r[0] as ArithExpr;
-        for (final item in r[1] as List) {
-          result = ArithBinaryOp(
-            result,
-            item[0] as String,
-            item[1] as ArithExpr,
-          );
-        }
-        return result;
-      });
-
-  Parser<ArithExpr> arithAtom() => [
-    ref0(number).map((n) => ArithNumber(n)),
-    // query("...") must come before identifier so the 'query' keyword
-    // isn't consumed as a variable name.
-    (string('query(').trim() &
-            (ref0(concatExpr) |
-                ref0(stringLiteral).map((s) => (s, false)) |
-                ref0(identifier).map((s) => (s, true))) &
-            char(')'))
-        .map((r) {
-          final arg = r[1];
-          if (arg is ConcatString) return ArithQuery('', concatString: arg);
-          final (cmd, isVar) = arg as (String, bool);
-          return isVar ? ArithQuery(cmd, variableName: cmd) : ArithQuery(cmd);
-        }),
-    ref0(identifier).map((name) => ArithVariable(name)),
-    (char('(').trim() & ref0(arithExpr) & char(')')).map(
-      (r) => r[1] as ArithExpr,
-    ),
-  ].toChoiceParser();
-
-  Parser<String> _addOp() =>
-      (char('+') | char('-')).trim().map((r) => r.toString());
-  Parser<String> _mulOp() =>
-      (char('*') | char('/')).trim().map((r) => r.toString());
-
-  /// Matches arithmetic expressions with at least one `*` or `/` operator,
-  /// e.g. `3.0 * 2`, `v / 2`, `query("C1:VDIV?") * 3`.
-  /// Unlike [arithMul] which accepts zero operators, this requires 1+.
-  Parser<ArithExpr> _mulOnlyExpr() =>
-      (ref0(arithAtom) & (ref0(_mulOp) & ref0(arithAtom)).plus()).map((r) {
-        ArithExpr result = r[0] as ArithExpr;
-        for (final item in r[1] as List) {
-          result = ArithBinaryOp(
-            result,
-            item[0] as String,
-            item[1] as ArithExpr,
-          );
-        }
-        return result;
-      });
-
-  // ── Boolean expressions ─────────────────────────────────────────────
-  //   boolExpr       → boolOrExpr
-  //   boolOrExpr     → boolAndExpr (( '|' | '||' ) boolAndExpr)*
-  //   boolAndExpr    → boolPrimary (( '&' | '&&' ) boolPrimary)*
-  //   boolPrimary    → '(' boolExpr ')'
-  //                  | comparisonExpr
-  //                  | queryExpr          // truthiness check
-  //                  | variableExpr       // truthiness check
-  //   comparisonExpr → operand _comparisonOp _comparisonValue
-
-  Parser<BoolExpr> boolExpr() => ref0(boolOrExpr);
-
-  Parser<BoolExpr> boolOrExpr() =>
-      (ref0(boolAndExpr) & (ref0(_orOp) & ref0(boolAndExpr)).star()).map((r) {
-        BoolExpr result = r[0] as BoolExpr;
-        for (final item in r[1] as List) {
-          result = BoolBinaryExpr(
-            result,
-            item[0] as String,
-            item[1] as BoolExpr,
-          );
-        }
-        return result;
-      });
-
-  Parser<BoolExpr> boolAndExpr() =>
-      (ref0(boolPrimary) & (ref0(_andOp) & ref0(boolPrimary)).star()).map((r) {
-        BoolExpr result = r[0] as BoolExpr;
-        for (final item in r[1] as List) {
-          result = BoolBinaryExpr(
-            result,
-            item[0] as String,
-            item[1] as BoolExpr,
-          );
-        }
-        return result;
-      });
-
-  Parser<BoolExpr> boolPrimary() => [
-    (char('(').trim() & ref0(boolExpr) & char(')').trim()).map(
-      (r) => r[1] as BoolExpr,
-    ),
-    ref0(comparisonExpr),
-    ref0(queryExpr).map((e) => TruthyExpr(e)),
-    ref0(variableExpr).map((e) => TruthyExpr(e)),
-  ].toChoiceParser();
-
-  Parser<BoolExpr> comparisonExpr() =>
-      (ref0(operand) & ref0(_comparisonOp) & ref0(_comparisonValue)).map((r) {
-        final compVal = r[2] as (String, bool);
-        return ComparisonExpr(
-          r[0] as Expression,
-          r[1] as String,
-          compVal.$1,
-          valueIsVariable: compVal.$2,
-        );
-      });
-
-  Parser<String> _andOp() =>
-      (string('&&') | char('&')).trim().map((r) => r.toString());
-
-  Parser<String> _orOp() =>
-      (string('||') | char('|')).trim().map((r) => r.toString());
+  Parser<AssignStmt> assignStmt() =>
+      (ref0(identifier) & char('=').trim() & ref0(expression))
+          .map((r) => AssignStmt(r[0] as String, r[2] as Expr));
 
   // ── print(item + item + ...) ────────────────────────────────────────
 
@@ -371,33 +233,22 @@ class MacroGrammarDefinition extends GrammarDefinition {
       (char('+').trim() & ref0(printItem)).map((r) => r[1] as PrintItem);
 
   // ── assert("text", <expr>) ──────────────────────────────────────────
-  // ── assert("text", scpi("CMD")) ─────────────────────────────────────
-  // ── assert("text", <boolExpr>) ──────────────────────────────────────
+  //
+  // The second argument is any expression.  The evaluator treats [ScpiExpr]
+  // as a success check and everything else as a boolean/truthiness check.
 
   Parser<AssertStmt> assertStmt() =>
       (string('assert(').trim() &
               (ref0(concatExpr) | ref0(stringLiteral)) &
               char(',').trim() &
-              (ref0(scpiExpr).map((e) => (e as Expression, null)) |
-                  ref0(boolExpr).map((b) => (null, b))) &
+              ref0(expression) &
               char(')').trim())
           .map((r) {
             final textArg = r[1];
-            final (Expression? operand, BoolExpr? condition) =
-                r[3] as (Expression?, BoolExpr?);
             if (textArg is ConcatString) {
-              return AssertStmt(
-                '',
-                operand,
-                concatText: textArg,
-                condition: condition,
-              );
+              return AssertStmt('', r[3] as Expr, concatText: textArg);
             }
-            return AssertStmt(
-              textArg as String,
-              operand,
-              condition: condition,
-            );
+            return AssertStmt(textArg as String, r[3] as Expr);
           });
 
   // ── loadProfile("path") | loadProfile("str" + var + "str") ─────────
@@ -414,13 +265,13 @@ class MacroGrammarDefinition extends GrammarDefinition {
             return LoadProfileStmt(arg as String);
           });
 
-  // ── if (<boolExpr>) { ... } ────────────────────────────────────────
-  // ── if (<boolExpr>) then { ... } ───────────────────────────────────
+  // ── if (<expr>) { ... } ────────────────────────────────────────────
+  // ── if (<expr>) then { ... } ───────────────────────────────────────
 
   Parser<IfStmt> ifStmt() =>
       (string('if').trim() &
               char('(').trim() &
-              ref0(boolExpr) &
+              ref0(expression) &
               char(')').trim() &
               string('then').trim().optional() &
               char('{').trim() &
@@ -429,7 +280,7 @@ class MacroGrammarDefinition extends GrammarDefinition {
               ref0(_elseBlock).optional())
           .map((r) {
             return IfStmt(
-              r[2] as BoolExpr,
+              r[2] as Expr,
               (r[6] as List).cast<Statement>(),
               elseBody: (r[8] as List<Statement>?),
             );
@@ -442,19 +293,19 @@ class MacroGrammarDefinition extends GrammarDefinition {
               char('}'))
           .map((r) => (r[2] as List).cast<Statement>());
 
-  // ── while (<boolExpr>) { ... } ─────────────────────────────────────
+  // ── while (<expr>) { ... } ─────────────────────────────────────────
 
   Parser<WhileStmt> whileStmt() =>
       (string('while').trim() &
               char('(').trim() &
-              ref0(boolExpr) &
+              ref0(expression) &
               char(')').trim() &
               char('{').trim() &
               ref0(statement).star() &
               char('}'))
           .map((r) {
             return WhileStmt(
-              r[2] as BoolExpr,
+              r[2] as Expr,
               (r[5] as List).cast<Statement>(),
             );
           });
@@ -480,12 +331,90 @@ class MacroGrammarDefinition extends GrammarDefinition {
             return FailStmt(arg as String);
           });
 
-  // ── Expressions ─────────────────────────────────────────────────────
+  // ══════════════════════════════════════════════════════════════════════
+  // Unified expression grammar — precedence climbing
+  // ══════════════════════════════════════════════════════════════════════
 
-  Parser<Expression> operand() =>
-      [ref0(queryExpr), ref0(scpiExpr), ref0(variableExpr)].toChoiceParser();
+  /// Top-level entry point for expressions.
+  Parser<Expr> expression() => ref0(orExpression);
 
-  Parser<QueryExpr> queryExpr() =>
+  // ── Level 8: Logical OR (lowest precedence) ─────────────────────────
+
+  Parser<Expr> orExpression() =>
+      (ref0(andExpression) & (ref0(_orOp) & ref0(andExpression)).star())
+          .map((r) => _buildBinaryChain(r[0] as Expr, r[1] as List));
+
+  // ── Level 7: Logical AND ────────────────────────────────────────────
+
+  Parser<Expr> andExpression() =>
+      (ref0(equalityExpression) &
+              (ref0(_andOp) & ref0(equalityExpression)).star())
+          .map((r) => _buildBinaryChain(r[0] as Expr, r[1] as List));
+
+  // ── Level 6: Equality ───────────────────────────────────────────────
+
+  Parser<Expr> equalityExpression() =>
+      (ref0(relationalExpression) &
+              (ref0(_equalityOp) & ref0(relationalExpression)).star())
+          .map((r) => _buildBinaryChain(r[0] as Expr, r[1] as List));
+
+  // ── Level 5: Relational ─────────────────────────────────────────────
+
+  Parser<Expr> relationalExpression() =>
+      (ref0(additiveExpression) &
+              (ref0(_relationalOp) & ref0(additiveExpression)).star())
+          .map((r) => _buildBinaryChain(r[0] as Expr, r[1] as List));
+
+  // ── Level 4: Additive (+ -) ─────────────────────────────────────────
+
+  Parser<Expr> additiveExpression() =>
+      (ref0(multiplicativeExpression) &
+              (ref0(_addOp) & ref0(multiplicativeExpression)).star())
+          .map((r) => _buildBinaryChain(r[0] as Expr, r[1] as List));
+
+  // ── Level 3: Multiplicative (* /) ───────────────────────────────────
+
+  Parser<Expr> multiplicativeExpression() =>
+      (ref0(unaryExpression) &
+              (ref0(_mulOp) & ref0(unaryExpression)).star())
+          .map((r) => _buildBinaryChain(r[0] as Expr, r[1] as List));
+
+  // ── Level 2: Unary (! -) ────────────────────────────────────────────
+  //
+  // The NOT operand excludes another NOT to reject `!!` at parse time.
+  // Unary minus can be chained (`--5` is allowed).
+
+  Parser<Expr> unaryExpression() => [
+    (char('!').trim() & ref0(unaryNotOperand))
+        .map((r) => NotExpr(r[1] as Expr)),
+    (char('-').trim() & ref0(unaryExpression))
+        .map((r) => UnaryMinusExpr(r[1] as Expr)),
+    ref0(primaryExpression),
+  ].toChoiceParser();
+
+  /// Operand of `!` — excludes another `!` to prevent double negation.
+  Parser<Expr> unaryNotOperand() => [
+    (char('-').trim() & ref0(unaryExpression))
+        .map((r) => UnaryMinusExpr(r[1] as Expr)),
+    ref0(primaryExpression),
+  ].toChoiceParser();
+
+  // ── Level 1: Primary ────────────────────────────────────────────────
+
+  Parser<Expr> primaryExpression() => [
+    ref0(boolLiteral),
+    ref0(number).map((n) => NumberLiteral(n)),
+    ref0(stringLiteral).map((s) => StringLiteral(s)),
+    ref0(_queryExpr),
+    ref0(_scpiExpr),
+    ref0(identifier).map((name) => Variable(name)),
+    (char('(').trim() & ref0(expression) & char(')').trim())
+        .map((r) => r[1] as Expr),
+  ].toChoiceParser();
+
+  // ── Inline query() and scpi() in expression context ─────────────────
+
+  Parser<Expr> _queryExpr() =>
       (string('query(').trim() &
               (ref0(concatExpr) |
                   ref0(stringLiteral).map((s) => (s, false)) |
@@ -500,7 +429,7 @@ class MacroGrammarDefinition extends GrammarDefinition {
                 : QueryExpr(argStr);
           });
 
-  Parser<ScpiExpr> scpiExpr() =>
+  Parser<Expr> _scpiExpr() =>
       (string('scpi(').trim() &
               (ref0(stringLiteral).map((s) => (s, false)) |
                   ref0(identifier).map((s) => (s, true))) &
@@ -510,25 +439,38 @@ class MacroGrammarDefinition extends GrammarDefinition {
             return isVar ? ScpiExpr(arg, variableName: arg) : ScpiExpr(arg);
           });
 
-  Parser<VariableExpr> variableExpr() =>
-      ref0(identifier).map((name) => VariableExpr(name));
+  // ── Boolean literals ────────────────────────────────────────────────
 
-  // ── Common parsers ──────────────────────────────────────────────────
+  Parser<Expr> boolLiteral() => [
+    string('true').map((_) => const BoolLiteral(true)),
+    string('false').map((_) => const BoolLiteral(false)),
+  ].toChoiceParser();
 
-  Parser<String> _comparisonOp() => [
-    string('<='),
-    string('>='),
+  // ── Operator parsers ────────────────────────────────────────────────
+
+  Parser<String> _orOp() =>
+      (string('||') | char('|')).trim().map((r) => r.toString());
+
+  Parser<String> _andOp() =>
+      (string('&&') | char('&')).trim().map((r) => r.toString());
+
+  Parser<String> _equalityOp() => [
     string('=='),
     string('!='),
+  ].toChoiceParser().trim().map((r) => r.toString());
+
+  Parser<String> _relationalOp() => [
+    string('<='),
+    string('>='),
     char('<'),
     char('>'),
   ].toChoiceParser().trim().map((r) => r.toString());
 
-  Parser<(String, bool)> _comparisonValue() => [
-    ref0(number).map((n) => (n.toString(), false)),
-    ref0(stringLiteral).map((s) => (s, false)),
-    ref0(identifier).map((s) => (s, true)),
-  ].toChoiceParser();
+  Parser<String> _addOp() =>
+      (char('+') | char('-')).trim().map((r) => r.toString());
+
+  Parser<String> _mulOp() =>
+      (char('*') | char('/')).trim().map((r) => r.toString());
 
   // ── String concatenation ────────────────────────────────────────────
 
@@ -560,4 +502,16 @@ class MacroGrammarDefinition extends GrammarDefinition {
       );
 
   Parser<String> identifier() => (letter() & word().star()).flatten();
+}
+
+// ── Helper ───────────────────────────────────────────────────────────────
+
+/// Builds a left-associative binary expression chain from the initial
+/// left operand and a list of `(operator, rightOperand)` pairs.
+Expr _buildBinaryChain(Expr left, List pairs) {
+  Expr result = left;
+  for (final item in pairs) {
+    result = BinaryExpr(result, item[0] as String, item[1] as Expr);
+  }
+  return result;
 }
