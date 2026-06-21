@@ -128,9 +128,14 @@ class RpcClient {
   }
 
   /// Closes the underlying socket.
+  ///
+  /// Uses [Socket.destroy] (abortive close / RST) instead of [Socket.close]
+  /// (graceful close / FIN) to avoid blocking on Windows when the remote end
+  /// does not respond promptly. See also:
+  /// https://api.dart.dev/stable/dart-io/Socket-class.html
   Future<void> close() async {
     await _streamIter.cancel();
-    await _socket.close();
+    _socket.destroy();
   }
 
   /// Sends [payload] with a Record Marking header.
@@ -1019,17 +1024,22 @@ class Vxi11Instrument {
 
       try {
         // Call DESTROY_LINK (procedure 23) on program 0x0607af, version 1.
-        final reply = await _rpc!.call(
-          program: 0x0607af,
-          version: 1,
-          procedure: 23,
-          params: params.toBytes(),
-          xid: _xidCounter++,
-        );
+        // Use a short timeout because _receive() → _readExact() has no
+        // read timeout and can block indefinitely (e.g. when the instrument
+        // is unreachable during application shutdown).
+        final reply = await _rpc!
+            .call(
+              program: 0x0607af,
+              version: 1,
+              procedure: 23,
+              params: params.toBytes(),
+              xid: _xidCounter++,
+            )
+            .timeout(const Duration(milliseconds: 500));
         // Decode error (ignore it).
         reply.readInt32();
       } catch (_) {
-        // Ignore errors during close.
+        // Ignore errors during close (including timeout).
       }
 
       _linkId = null;

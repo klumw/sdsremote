@@ -278,7 +278,20 @@ class _OsciHomePageState extends State<OsciHomePage>
     // file buffer on process exit anyway.
     unawaited(AppLogger().log('SDS-Remote: application stopping'));
 
-    await windowManager.destroy();
+    // IMPORTANT: Do NOT call windowManager.destroy() — the window_manager
+    // plugin's Destroy() simply calls PostQuitMessage(0), which immediately
+    // exits the Win32 message loop WITHOUT triggering the proper
+    // WM_DESTROY → OnDestroy() → Flutter engine shutdown sequence.
+    // The engine then gets destroyed much later during C++ static/global
+    // cleanup (outside the message loop), which is very slow.
+    //
+    // Instead, first disable the close interceptor, then close normally.
+    // This sends WM_SYSCOMMAND SC_CLOSE → WM_CLOSE → DefWindowProc →
+    // DestroyWindow → WM_DESTROY → FlutterWindow::OnDestroy() →
+    // flutter_controller_ = nullptr (engine shutdown) → PostQuitMessage(0)
+    // — the proper, fast shutdown path.
+    await windowManager.setPreventClose(false);
+    await windowManager.close();
   }
 
   // =========================================================================
@@ -1996,7 +2009,10 @@ class _OsciHomePageState extends State<OsciHomePage>
       final instr = _instrument!;
       _instrument = null;
       try {
-        await instr.close();
+        // Use a tight timeout: instr.close() sends a DESTROY_LINK RPC
+        // and closes the TCP socket.  If the instrument is unresponsive
+        // this must not block application shutdown for more than 1 s.
+        await instr.close().timeout(const Duration(seconds: 1));
       } catch (e) {
         AppLogger().log('Error closing instrument: $e');
       }
