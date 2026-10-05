@@ -531,6 +531,12 @@ class _HelpWindowState extends State<HelpWindow> {
                                             ),
                                           ),
                                         ),
+                                    tablePadding: const EdgeInsets.fromLTRB(
+                                      8,
+                                      0,
+                                      8,
+                                      4,
+                                    ),
                                     tableColumnWidth:
                                         const IntrinsicColumnWidth(),
                                   ),

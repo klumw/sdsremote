@@ -200,6 +200,33 @@ flutter run -d linux
 flutter run -d windows
 ```
 
+### 3.5 Running the Test Suite
+
+Run the unit and widget tests from the project root:
+
+```bash
+flutter test
+```
+
+The AI search accuracy evaluation in `test/ai_search_accuracy_test.dart` performs
+real API calls — one search-agent call plus one grader call per test case. The
+LLM under test is configured in the test itself (currently
+`edenai:mistral-code-agent-latest`, which also drives its knowledgebase search
+sub-agent), while the grader LLM is currently `deepseek:deepseek-v4-flash`.
+Both provider keys must therefore be exported. Run the test from the project
+root so that the relative paths to `test/ai_test_data.json` and
+`docs/knowledgebase.md` resolve:
+
+```bash
+export EDENAI_API_KEY="..."
+export DEEPSEEK_API_KEY="sk-..."
+flutter test -r expanded test/ai_search_accuracy_test.dart
+```
+
+The `-r expanded` reporter shows the per-case score and reasoning. A full run
+evaluates 20 cases and can take several minutes; the averaged results are printed
+and written to `test/ai_search_accuracy_results.json`.
+
 ---
 
 ## 4. AI Configuration
@@ -220,7 +247,14 @@ The AI chat feature supports the following providers:
 
 The following LLMs are known to work with the application:
 
-**deepseek-v4-flash, gpt-4o, gpt-5.5, gemini-3.5-flash, claude-haiku, claude-4.7**
+### Known working models
+
+- deepseek-flash
+- gpt-6-luna
+- gemini-flash
+- claude-sonnet
+- qwen-3.x-max
+- mistral-code
 
 *For exact model names, refer to your provider's documentation.*
 

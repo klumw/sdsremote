@@ -218,7 +218,7 @@ After saving, the **AI** button in the top toolbar becomes enabled (colored icon
 | Provider | Notes |
 |:---------|:------|
 | DeepSeek | Recommended default. Good balance of speed and accuracy. |
-| OpenAI | Requires an OpenAI API key (`sk-...`). |
+| OpenAI | Requires an OpenAI API key. |
 | Anthropic | Claude models. Requires an Anthropic API key. |
 | Google | Gemini models. Requires a Google AI Studio API key. |
 | Mistral | Requires a Mistral API key. |
@@ -231,7 +231,12 @@ After saving, the **AI** button in the top toolbar becomes enabled (colored icon
 
 The following models are verified to work with the application:
 
-`deepseek-v4-flash`, `gpt-4o`, `gpt-5.4-mini`, `gemini-3.5-flash`, `claude-haiku`
+- deepseek-flash
+- gpt-6-luna
+- gemini-flash
+- claude-sonnet
+- qwen-3.x-max
+- mistral-code
 
 For the exact model name string required by your provider, consult your provider's API documentation or model listing page.
 
