@@ -20,7 +20,7 @@ dependencies:
   logging: ^1.3.0
   dartantic_ai:
     path: packages/dartantic_ai_patched
-  langchain: ^0.8.1
+  langchain: ^0.9.0
   pdf: ^3.11.2
   petitparser: ^7.0.2
   usbtmc_dart:
