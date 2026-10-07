@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dartantic_ai/dartantic_ai.dart';
 
 import 'max_tool_calls_handler.dart';
+import 'measurement_tool.dart';
 import 'vxi11_tool.dart';
 
 /// A reusable AI agent for instrument control via an AI model.
@@ -12,7 +13,10 @@ import 'vxi11_tool.dart';
 /// console applications and Flutter apps.
 ///
 /// By default, the agent is equipped with a VXI-11 tool that allows it
-/// to send SCPI commands and queries to a remote instrument.
+/// to send SCPI commands and queries to a remote instrument, plus a
+/// deterministic measurement parser tool ([createMeasurementTool]) that
+/// turns raw `PAVA` responses such as `C1:PAVA PKPK,3.000000E+00V` into
+/// structured values.
 ///
 /// The agent limits the number of tool calls per user input to
 /// [maxToolCalls] (default: 10). This prevents runaway tool loops.
@@ -64,6 +68,8 @@ class InstrumentAgent with MaxToolCallsHandler {
          tools: [
            if (vxi11Host != null)
              createVxi11Tool(host: vxi11Host, agentName: 'InstrumentAgent'),
+           // Deterministic measurement parser; needs no instrument connection.
+           createMeasurementTool(agentName: 'InstrumentAgent'),
            if (tools != null) ...tools,
          ],
          maxToolCalls: maxToolCalls,

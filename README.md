@@ -34,6 +34,14 @@ Acquire and display oscilloscope screenshots in real time. Control your oscillos
 
 Send commands and query oscilloscope functionality using natural-language prompts.
 
+The instrument sub-agent also exposes a deterministic measurement parser tool
+(`parse_measurement`). It converts raw `PAVA` response strings such as
+`C1:PAVA PKPK,3.000000E+00V` or `C1:PAVA FREQ,9.998900E+02Hz` into a structured
+result (`channel`, `measurement`, `value`, `unit`) plus a human-readable form
+(`3 V`, `1.5 kHz`, ...). Parsing and unit conversion are pure code — no LLM is
+involved — and invalid input is rejected with a structured error instead of
+producing a wrong value.
+
 ![AI Chat Interface](docs/sdsremote_ai.png)
 
 ### Device Profile Management
