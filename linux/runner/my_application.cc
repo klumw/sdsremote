@@ -19,6 +19,47 @@ static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
 }
 
+// Returns the absolute path of the application icon bundled with the Flutter
+// assets (assets/sds-remote.png). The caller owns the returned string.
+static gchar* get_app_icon_path(FlDartProject* project) {
+  const gchar* assets_path = fl_dart_project_get_assets_path(project);
+  if (assets_path == nullptr) {
+    return nullptr;
+  }
+  return g_build_filename(assets_path, "assets", "sds-remote.png", nullptr);
+}
+
+// Applies the sdsremote icon to the window so it shows up in the title bar,
+// the task bar and the window switcher on Linux.
+static void apply_window_icon(FlDartProject* project, GtkWindow* window,
+                              GtkHeaderBar* header_bar) {
+  g_autofree gchar* icon_path = get_app_icon_path(project);
+  if (icon_path == nullptr) {
+    return;
+  }
+
+  g_autoptr(GError) error = nullptr;
+  GdkPixbuf* icon = gdk_pixbuf_new_from_file(icon_path, &error);
+  if (icon == nullptr) {
+    g_warning("Failed to load window icon from '%s': %s", icon_path,
+              error->message);
+    return;
+  }
+
+  gtk_window_set_icon(window, icon);
+  gtk_window_set_default_icon(icon);
+
+  // A GTK header bar does not render the window icon on its own, so add it
+  // explicitly to the top bar as well.
+  if (header_bar != nullptr) {
+    GtkWidget* icon_image = gtk_image_new_from_pixbuf(icon);
+    gtk_widget_show(icon_image);
+    gtk_header_bar_pack_start(header_bar, icon_image);
+  }
+
+  g_object_unref(icon);
+}
+
 // Implements GApplication::activate.
 static void my_application_activate(GApplication* application) {
   MyApplication* self = MY_APPLICATION(application);
@@ -42,8 +83,9 @@ static void my_application_activate(GApplication* application) {
     }
   }
 #endif
+  GtkHeaderBar* header_bar = nullptr;
   if (use_header_bar) {
-    GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
+    header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
     gtk_header_bar_set_title(header_bar, "sdsremote");
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
@@ -63,6 +105,9 @@ static void my_application_activate(GApplication* application) {
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
       project, self->dart_entrypoint_arguments);
+
+  // Show the sdsremote icon in the window title bar and task bar.
+  apply_window_icon(project, window, header_bar);
 
   FlView* view = fl_view_new(project);
   GdkRGBA background_color;

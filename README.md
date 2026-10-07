@@ -202,6 +202,11 @@ You can run the built executable directly or start the application in debug/deve
 flutter run -d linux
 ```
 
+The Linux window title bar and task bar now show the bundled SDS-Remote icon
+(`assets/sds-remote.png`). The icon is loaded and applied by the GTK runner in
+[`linux/runner/my_application.cc`](linux/runner/my_application.cc:34), which also
+adds it to the GTK header bar.
+
 #### Windows
 
 ```bash
