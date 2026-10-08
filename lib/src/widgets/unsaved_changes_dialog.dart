@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../app_config.dart';
+import '../app/app_config.dart';
 
 /// A dialog shown when the user tries to close the app while a macro has
 /// unsaved changes, prompting them to save, discard, or cancel.

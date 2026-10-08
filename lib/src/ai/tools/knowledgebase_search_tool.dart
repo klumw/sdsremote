@@ -4,7 +4,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:langchain/langchain.dart'
     hide Agent, ChatMessage, ChatMessageRole, Tool;
 
-import '../../../logger.dart';
+import '../../core/logger.dart';
 
 /// Creates the knowledgebase search tool.
 ///

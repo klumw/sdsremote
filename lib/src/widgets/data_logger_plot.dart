@@ -9,7 +9,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import 'data_logger_models.dart';
+import '../data_logger/data_logger_models.dart';
 
 // =============================================================================
 // Colors (consistent with oscilloscope display conventions)

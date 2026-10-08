@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 
-import '../../../logger.dart';
+import '../../core/logger.dart';
 import '../tools/scpi_agent_tool.dart';
 import '../tools/search_agent_tool.dart';
 import 'instrument_agent.dart';

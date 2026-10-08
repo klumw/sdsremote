@@ -10,11 +10,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
-import 'data_logger_models.dart';
-import 'data_logger_service.dart';
+import '../data_logger/data_logger_models.dart';
+import '../data_logger/data_logger_service.dart';
 import 'data_logger_plot.dart';
 import 'data_logger_dialog.dart';
-import '../dart_vxi11.dart';
+import '../instrument/dart_vxi11.dart';
 
 /// The main Data Logger panel widget.
 ///

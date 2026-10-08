@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'macro_recorder_models.dart';
+import '../macro/macro_recorder_models.dart';
 import 'macro_editor_panel.dart';
 
 /// Sort options for the macro file list.

@@ -1,11 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'app_preferences.dart';
+import '../app/app_preferences.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 import 'package:url_launcher/url_launcher.dart';
-import '../logger.dart';
+import '../core/logger.dart';
 
 class SdsNotification {
   final int id;

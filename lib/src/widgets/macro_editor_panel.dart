@@ -3,8 +3,8 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'macro_lint_controller.dart';
-import 'macro_linter.dart';
+import '../macro/macro_lint_controller.dart';
+import '../macro/macro_linter.dart';
 
 /// A simple multi-line text editor for editing macro file content.
 ///

@@ -37,7 +37,7 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   assets:
-    - assets/
+    - assets/icons/
     - docs/manual.md
     - docs/knowledgebase.md
 

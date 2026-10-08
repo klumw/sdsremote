@@ -203,9 +203,9 @@ flutter run -d linux
 ```
 
 The Linux window title bar and task bar show the bundled SDS-Remote icon
-(`assets/sds-remote.png`). The GTK header bar (top bar) uses a small 24x24
-icon scaled from `assets/sds-remote-icon_128_128.png`. Both icons are loaded
-and applied by the GTK runner in
+(`assets/icons/sds-remote.png`). The GTK header bar (top bar) uses a small 24x24
+icon scaled from `assets/icons/sds-remote-icon_128_128.png`. Both icons are
+loaded and applied by the GTK runner in
 [`linux/runner/my_application.cc`](linux/runner/my_application.cc:65).
 
 #### Windows
@@ -290,6 +290,48 @@ The AI code is split into agents and tools:
   - `scpi_agent_tool.dart` — wraps the instrument agent as a `scpi_instrument_agent` tool.
   - `search_agent_tool.dart` — wraps the search agent as a `search_agent` tool.
   - `knowledgebase_search_tool.dart` — knowledgebase chunk search tool (`knowledgebase_search`).
+
+### Widget Code Layout
+
+All Flutter widget class files live under `lib/src/widgets/`:
+
+- Panels: `data_logger_panel.dart`, `macro_editor_panel.dart`,
+  `macro_recorder_panel.dart`, `osci_device_params_panel.dart`,
+  `osci_physical_panel.dart`, `osci_profiles_panel.dart`,
+  `osci_settings_panel.dart`.
+- Windows/screens: `home_page.dart`, `osci_chat_window.dart`,
+  `osci_help_window.dart`.
+- Widgets & dialogs: `data_logger_dialog.dart`, `data_logger_plot.dart`,
+  `osci_knob_widgets.dart`, `osci_news_notification.dart`,
+  `osci_toolbar_button.dart`, `filename_prefix_dialog.dart`,
+  `reference_file_picker_dialog.dart`, `unsaved_changes_dialog.dart`.
+
+Non-widget, domain-specific support code is grouped into subfolders under
+`lib/src/`.
+
+### Domain Code Layout
+
+- `lib/src/ai/` — AI agents (`agents/`), tools (`tools/`), and the chat service
+  (`ai_chat_service.dart`).
+- `lib/src/app/` — application configuration and environment:
+  `app_config.dart`, `app_paths.dart`, `app_preferences.dart`, `app_theme.dart`.
+- `lib/src/core/` — cross-cutting utilities: `logger.dart`.
+- `lib/src/data_logger/` — Data Logger logic: `data_logger_csv_writer.dart`,
+  `data_logger_models.dart`, `data_logger_report.dart`, `data_logger_service.dart`.
+- `lib/src/instrument/` — instrument I/O and protocol: `dart_vxi11.dart`
+  (VXI-11/USBTMC transport), `scpi_parser.dart` (SCPI response parsing),
+  `measurement.dart` (PAVA measurement parsing/formatting).
+- `lib/src/macro/` — Macro language and recorder logic: `macro_ast.dart`,
+  `macro_evaluator.dart`, `macro_grammar.dart`, `macro_lint_controller.dart`,
+  `macro_lint_error.dart`, `macro_linter.dart`, `macro_recorder_models.dart`.
+- `lib/src/waveform/` — Waveform models, conversion, acquisition, and rendering:
+  `waveform_models.dart`, `waveform_converter.dart`, `waveform_acquisition.dart`,
+  `waveform_painter.dart`, `cursor_geometry.dart`, plus the CSV/processing
+  helpers `waveform_csv_parser.dart`, `waveform_csv_writer.dart`,
+  `waveform_processing.dart`.
+- `lib/src/widgets/` — all Flutter widget classes (see Widget Code Layout).
+
+The application entry point `main.dart` stays at `lib/`.
 
 ---
 

@@ -1,4 +1,4 @@
-import '../waveform_models.dart';
+import 'waveform_models.dart';
 
 /// Builds the CSV content for saved waveform data.
 ///

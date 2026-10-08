@@ -1,6 +1,6 @@
 import 'dart:ui';
 
-import '../waveform_models.dart';
+import 'waveform_models.dart';
 
 /// Panel geometry constants for the cursor info overlay.
 const double cursorPanelWidth = 200.0;

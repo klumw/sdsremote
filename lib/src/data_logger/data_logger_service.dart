@@ -11,8 +11,8 @@ library;
 import 'dart:async';
 
 import 'data_logger_models.dart';
-import '../logger.dart';
-import '../dart_vxi11.dart';
+import '../core/logger.dart';
+import '../instrument/dart_vxi11.dart';
 
 /// Service that performs periodic SCPI measurements for the Data Logger.
 class DataLoggerService {

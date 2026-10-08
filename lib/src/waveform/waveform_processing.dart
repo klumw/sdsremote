@@ -2,8 +2,8 @@ import 'dart:typed_data';
 
 import 'package:image/image.dart' as img;
 
-import '../waveform_converter.dart';
-import '../waveform_models.dart';
+import 'waveform_converter.dart';
+import 'waveform_models.dart';
 
 /// Processes a raw screen dump (BMP) by decoding it, applying slight contrast
 /// reduction, and re-encoding as PNG.

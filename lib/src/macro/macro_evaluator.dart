@@ -2,8 +2,8 @@ import 'dart:io';
 
 import 'package:petitparser/petitparser.dart';
 
-import '../dart_vxi11.dart';
-import '../logger.dart';
+import '../core/logger.dart';
+import '../instrument/dart_vxi11.dart';
 import 'macro_ast.dart';
 import 'macro_grammar.dart';
 

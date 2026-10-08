@@ -1,9 +1,9 @@
 import 'dart:typed_data';
 
-import 'logger.dart';
-import 'package:sdsremote/scpi_parser.dart';
-import 'package:sdsremote/dart_vxi11.dart';
-import 'package:sdsremote/waveform_models.dart';
+import '../core/logger.dart';
+import '../instrument/dart_vxi11.dart';
+import '../instrument/scpi_parser.dart';
+import 'waveform_models.dart';
 
 /// Performs a complete waveform acquisition from a Siglent SDS oscilloscope
 /// over VXI-11.

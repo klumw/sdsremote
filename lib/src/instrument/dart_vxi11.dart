@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:usbtmc_dart/usbtmc_dart.dart';
-import 'logger.dart';
+import '../core/logger.dart';
 
 /// XDR encoding/decoding helper.
 /// All integers are big-endian 4-byte values.

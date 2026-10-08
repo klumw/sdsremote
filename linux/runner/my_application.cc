@@ -23,7 +23,7 @@ static void first_frame_cb(MyApplication* self, FlView* view) {
 static const int kHeaderBarIconSize = 24;
 
 // Returns the absolute path of an application icon bundled with the Flutter
-// assets (e.g. assets/sds-remote.png). The caller owns the returned string.
+// assets (e.g. "icons/sds-remote.png"). The caller owns the returned string.
 static gchar* get_app_icon_path(FlDartProject* project,
                                 const gchar* filename) {
   const gchar* assets_path = fl_dart_project_get_assets_path(project);
@@ -65,7 +65,7 @@ static GdkPixbuf* scale_icon(GdkPixbuf* icon, int size) {
 static void apply_window_icon(FlDartProject* project, GtkWindow* window,
                               GtkHeaderBar* header_bar) {
   // The full-size icon is used for the task bar and window switcher.
-  GdkPixbuf* icon = load_app_icon(project, "sds-remote.png");
+  GdkPixbuf* icon = load_app_icon(project, "icons/sds-remote.png");
   if (icon != nullptr) {
     gtk_window_set_icon(window, icon);
     gtk_window_set_default_icon(icon);
@@ -76,7 +76,7 @@ static void apply_window_icon(FlDartProject* project, GtkWindow* window,
   // small asset and scale it down so it does not dominate the header bar.
   if (header_bar != nullptr) {
     GdkPixbuf* small_icon =
-        load_app_icon(project, "sds-remote-icon_128_128.png");
+        load_app_icon(project, "icons/sds-remote-icon_128_128.png");
     if (small_icon == nullptr) {
       small_icon = icon;  // Fall back to the full-size icon.
       icon = nullptr;     // Ownership was transferred to small_icon.

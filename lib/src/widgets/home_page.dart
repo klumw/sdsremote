@@ -9,26 +9,26 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
 import 'package:image/image.dart' as img;
-import 'app_config.dart';
-import 'app_theme.dart';
-import 'app_preferences.dart';
-import 'cursor_geometry.dart';
-import 'widgets/osci_toolbar_button.dart';
-import 'widgets/reference_file_picker_dialog.dart';
-import 'widgets/filename_prefix_dialog.dart';
-import 'widgets/unsaved_changes_dialog.dart';
+import '../app/app_config.dart';
+import '../app/app_theme.dart';
+import '../app/app_preferences.dart';
+import '../waveform/cursor_geometry.dart';
+import 'osci_toolbar_button.dart';
+import 'reference_file_picker_dialog.dart';
+import 'filename_prefix_dialog.dart';
+import 'unsaved_changes_dialog.dart';
 import 'package:window_manager/window_manager.dart';
 
-import '../dart_vxi11.dart';
-import '../waveform_acquisition.dart';
-import 'waveform_processing.dart';
-import 'waveform_csv_parser.dart';
-import 'waveform_csv_writer.dart';
-import 'data_logger_csv_writer.dart';
-import '../waveform_models.dart';
-import '../waveform_painter.dart';
-import '../ai_chat_service.dart';
-import '../logger.dart';
+import '../instrument/dart_vxi11.dart';
+import '../waveform/waveform_acquisition.dart';
+import '../waveform/waveform_processing.dart';
+import '../waveform/waveform_csv_parser.dart';
+import '../waveform/waveform_csv_writer.dart';
+import '../data_logger/data_logger_csv_writer.dart';
+import '../waveform/waveform_models.dart';
+import '../waveform/waveform_painter.dart';
+import '../ai/ai_chat_service.dart';
+import '../core/logger.dart';
 import 'osci_physical_panel.dart';
 import 'osci_chat_window.dart';
 import 'osci_help_window.dart';
@@ -36,16 +36,16 @@ import 'osci_news_notification.dart';
 import 'osci_device_params_panel.dart';
 import 'osci_settings_panel.dart';
 import 'osci_profiles_panel.dart';
-import 'data_logger_models.dart';
+import '../data_logger/data_logger_models.dart';
 import 'data_logger_panel.dart';
-import 'data_logger_service.dart';
-import 'data_logger_report.dart';
-import 'app_paths.dart';
-import 'macro_recorder_models.dart';
+import '../data_logger/data_logger_service.dart';
+import '../data_logger/data_logger_report.dart';
+import '../app/app_paths.dart';
+import '../macro/macro_recorder_models.dart';
 import 'macro_recorder_panel.dart';
 import 'macro_editor_panel.dart';
-import 'macro_evaluator.dart';
-import 'ai/tools/vxi11_tool.dart' show onScpiCommandSent;
+import '../macro/macro_evaluator.dart';
+import '../ai/tools/vxi11_tool.dart' show onScpiCommandSent;
 
 
 class OsciHomePage extends StatefulWidget {
@@ -480,7 +480,7 @@ class _OsciHomePageState extends State<OsciHomePage>
           Opacity(
             opacity: 0.8,
             child: Image.asset(
-              'assets/sds-remote.png',
+              'assets/icons/sds-remote.png',
               width: 400,
               fit: BoxFit.contain,
             ),

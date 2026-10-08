@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 
-import '../../../logger.dart';
+import '../../core/logger.dart';
 import '../tools/knowledgebase_search_tool.dart';
 import 'max_tool_calls_handler.dart';
 

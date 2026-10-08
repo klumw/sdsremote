@@ -1,6 +1,6 @@
 import 'package:dartantic_ai/dartantic_ai.dart';
 
-import '../../../logger.dart';
+import '../../core/logger.dart';
 import '../agents/instrument_agent.dart';
 
 /// Creates the tool that wraps the VXI-11 instrument agent.

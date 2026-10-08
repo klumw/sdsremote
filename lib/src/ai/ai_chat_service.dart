@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 
-import 'src/ai/agents/frontend_agent.dart';
-import 'logger.dart';
+import '../core/logger.dart';
+import 'agents/frontend_agent.dart';
 
 /// Service that wraps a [FrontendAgent] instance and provides a streaming
 /// chat interface for the UI.

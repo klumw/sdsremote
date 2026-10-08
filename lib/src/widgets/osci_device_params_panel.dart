@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../waveform_models.dart';
+import '../waveform/waveform_models.dart';
 
 /// A panel that displays oscilloscope device parameters (timebase, V/div, etc.).
 class DeviceParametersPanel extends StatefulWidget {

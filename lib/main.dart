@@ -5,9 +5,9 @@ import 'package:logging/logging.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:window_manager/window_manager.dart';
 
-import 'logger.dart';
-import 'src/app_theme.dart';
-import 'src/home_page.dart';
+import 'src/app/app_theme.dart';
+import 'src/core/logger.dart';
+import 'src/widgets/home_page.dart';
 
 // ===========================================================================
 // Application Entry Point
