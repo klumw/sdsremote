@@ -19,45 +19,81 @@ static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
 }
 
-// Returns the absolute path of the application icon bundled with the Flutter
-// assets (assets/sds-remote.png). The caller owns the returned string.
-static gchar* get_app_icon_path(FlDartProject* project) {
+// The size (in logical pixels) of the small icon shown in the GTK header bar.
+static const int kHeaderBarIconSize = 24;
+
+// Returns the absolute path of an application icon bundled with the Flutter
+// assets (e.g. assets/sds-remote.png). The caller owns the returned string.
+static gchar* get_app_icon_path(FlDartProject* project,
+                                const gchar* filename) {
   const gchar* assets_path = fl_dart_project_get_assets_path(project);
   if (assets_path == nullptr) {
     return nullptr;
   }
-  return g_build_filename(assets_path, "assets", "sds-remote.png", nullptr);
+  return g_build_filename(assets_path, "assets", filename, nullptr);
+}
+
+// Loads a GdkPixbuf from a bundled asset file, or nullptr if the asset is
+// missing or cannot be decoded. The caller owns the returned pixbuf.
+static GdkPixbuf* load_app_icon(FlDartProject* project, const gchar* filename) {
+  g_autofree gchar* icon_path = get_app_icon_path(project, filename);
+  if (icon_path == nullptr) {
+    return nullptr;
+  }
+
+  g_autoptr(GError) error = nullptr;
+  GdkPixbuf* icon = gdk_pixbuf_new_from_file(icon_path, &error);
+  if (icon == nullptr) {
+    g_warning("Failed to load icon from '%s': %s", icon_path, error->message);
+  }
+  return icon;
+}
+
+// Returns a new reference to [icon] scaled down to a square of at most [size]
+// pixels, or nullptr if scaling failed. The caller owns the returned pixbuf.
+static GdkPixbuf* scale_icon(GdkPixbuf* icon, int size) {
+  const int width = gdk_pixbuf_get_width(icon);
+  const int height = gdk_pixbuf_get_height(icon);
+  if (width <= size && height <= size) {
+    return GDK_PIXBUF(g_object_ref(icon));
+  }
+  return gdk_pixbuf_scale_simple(icon, size, size, GDK_INTERP_BILINEAR);
 }
 
 // Applies the sdsremote icon to the window so it shows up in the title bar,
 // the task bar and the window switcher on Linux.
 static void apply_window_icon(FlDartProject* project, GtkWindow* window,
                               GtkHeaderBar* header_bar) {
-  g_autofree gchar* icon_path = get_app_icon_path(project);
-  if (icon_path == nullptr) {
-    return;
+  // The full-size icon is used for the task bar and window switcher.
+  GdkPixbuf* icon = load_app_icon(project, "sds-remote.png");
+  if (icon != nullptr) {
+    gtk_window_set_icon(window, icon);
+    gtk_window_set_default_icon(icon);
   }
 
-  g_autoptr(GError) error = nullptr;
-  GdkPixbuf* icon = gdk_pixbuf_new_from_file(icon_path, &error);
-  if (icon == nullptr) {
-    g_warning("Failed to load window icon from '%s': %s", icon_path,
-              error->message);
-    return;
-  }
-
-  gtk_window_set_icon(window, icon);
-  gtk_window_set_default_icon(icon);
-
-  // A GTK header bar does not render the window icon on its own, so add it
-  // explicitly to the top bar as well.
+  // A GTK header bar does not render the window icon on its own, so add a
+  // small version of the icon explicitly to the top bar. Prefer the dedicated
+  // small asset and scale it down so it does not dominate the header bar.
   if (header_bar != nullptr) {
-    GtkWidget* icon_image = gtk_image_new_from_pixbuf(icon);
-    gtk_widget_show(icon_image);
-    gtk_header_bar_pack_start(header_bar, icon_image);
+    GdkPixbuf* small_icon =
+        load_app_icon(project, "sds-remote-icon_128_128.png");
+    if (small_icon == nullptr) {
+      small_icon = icon;  // Fall back to the full-size icon.
+      icon = nullptr;     // Ownership was transferred to small_icon.
+    }
+    if (small_icon != nullptr) {
+      g_autoptr(GdkPixbuf) scaled = scale_icon(small_icon, kHeaderBarIconSize);
+      GtkWidget* icon_image =
+          gtk_image_new_from_pixbuf(scaled != nullptr ? scaled : small_icon);
+      gtk_widget_show(icon_image);
+      gtk_header_bar_pack_start(header_bar, icon_image);
+      g_object_unref(small_icon);
+    }
   }
 
-  g_object_unref(icon);
+  if (icon != nullptr) {
+    g_object_unref(icon);
+  }
 }
 
 // Implements GApplication::activate.

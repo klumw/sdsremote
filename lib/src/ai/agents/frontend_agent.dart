@@ -2,95 +2,12 @@ import 'dart:async';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 
-import '../logger.dart';
+import '../../../logger.dart';
+import '../tools/scpi_agent_tool.dart';
+import '../tools/search_agent_tool.dart';
 import 'instrument_agent.dart';
 import 'search_agent.dart';
 import 'systemprompts.dart';
-
-/// Creates the tool that wraps the VXI-11 instrument agent.
-///
-/// The [vxiAgent] is captured in the closure so the tool can delegate
-/// prompts to the instrument agent.
-Tool<Map<String, dynamic>> _createScpiAgentTool(
-  InstrumentAgent vxiAgent, {
-  String agentName = 'unknown',
-}) {
-  return Tool<Map<String, dynamic>>(
-    name: 'scpi_instrument_agent',
-    description:
-        'Send SCPI commands and queries to a VXI-11 instrument. '
-        'Use this tool when you need to interact with the connected '
-        'measurement instrument. Describe what you want to do with the '
-        'instrument in natural language, and the instrument agent will '
-        'handle the SCPI communication.',
-    inputSchema: Schema.fromMap({
-      'type': 'object',
-      'properties': {
-        'prompt': {
-          'type': 'string',
-          'description':
-              'Describe what you want to do with the instrument in natural '
-              'language, e.g. "Send the command C1:TRA OFF" or '
-              '"Query the device identification with *IDN?"',
-        },
-      },
-      'required': ['prompt'],
-    }),
-    onCall: (args) async {
-      final prompt = args['prompt'] as String;
-      final logger = AppLogger(
-        agentName: agentName,
-        toolName: 'scpi_instrument_agent',
-      );
-      final response = await vxiAgent.send(prompt);
-      logger.logToolCall(input: args, output: {'response': response});
-      return {'response': response};
-    },
-  );
-}
-
-/// Creates the tool that wraps the knowledgebase search agent.
-///
-/// The [searchAgent] is captured in the closure so the tool can delegate
-/// knowledgebase queries to the search agent.
-Tool<Map<String, dynamic>> _createSearchAgentTool(
-  SearchAgent searchAgent, {
-  String agentName = 'unknown',
-}) {
-  return Tool<Map<String, dynamic>>(
-    name: 'search_agent',
-    description:
-        'Search the oscilloscope knowledgebase for information about '
-        'commands, settings, troubleshooting, or device specifications. '
-        'Use this tool when you need to answer questions about how to use '
-        'the oscilloscope, what SCPI commands are available, how to '
-        'configure channels or triggers, or how to troubleshoot issues. '
-        'The knowledgebase contains documentation about the oscilloscope '
-        'device including channel setup, timebase, measurements, '
-        'troubleshooting, and specifications.',
-    inputSchema: Schema.fromMap({
-      'type': 'object',
-      'properties': {
-        'query': {
-          'type': 'string',
-          'description':
-              'The question about the oscilloscope device, e.g. '
-              '"How do I set the trigger level?" or '
-              '"What is the C1:TRA command?" or '
-              '"What are the specifications of the SDS1202X-E?"',
-        },
-      },
-      'required': ['query'],
-    }),
-    onCall: (args) async {
-      final query = args['query'] as String;
-      final logger = AppLogger(agentName: agentName, toolName: 'search_agent');
-      final response = await searchAgent.send(query);
-      logger.logToolCall(input: args, output: {'response': response});
-      return {'response': response};
-    },
-  );
-}
 
 /// A frontend AI agent that has the [InstrumentAgent] (with VXI-11 tool) and
 /// [SearchAgent] (with knowledgebase search) as tools.
@@ -185,7 +102,7 @@ class FrontendAgent {
          displayName: 'FrontendAgent',
          tools: [
            if (vxi11Host != null)
-             _createScpiAgentTool(
+             createScpiAgentTool(
                _createVxiAgent(
                  model: model,
                  vxi11Host: vxi11Host,
@@ -193,7 +110,7 @@ class FrontendAgent {
                ),
                agentName: 'FrontendAgent',
              ),
-           _createSearchAgentTool(
+           createSearchAgentTool(
              _createSearchSubAgent(
                model: model,
                knowledgebasePath: knowledgebasePath,

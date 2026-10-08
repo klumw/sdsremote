@@ -1,7 +1,7 @@
 import 'package:dartantic_ai/dartantic_ai.dart';
 
-import '../dart_vxi11.dart';
-import '../logger.dart';
+import '../../../dart_vxi11.dart';
+import '../../../logger.dart';
 
 /// Callback invoked whenever a SCPI command is sent to the device via the
 /// vxi11 tool. Receives the command string and the operation type

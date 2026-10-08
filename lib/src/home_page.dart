@@ -45,7 +45,7 @@ import 'macro_recorder_models.dart';
 import 'macro_recorder_panel.dart';
 import 'macro_editor_panel.dart';
 import 'macro_evaluator.dart';
-import 'vxi11_tool.dart' show onScpiCommandSent;
+import 'ai/tools/vxi11_tool.dart' show onScpiCommandSent;
 
 
 class OsciHomePage extends StatefulWidget {

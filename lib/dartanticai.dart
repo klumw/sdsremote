@@ -9,7 +9,7 @@
 /// This library can be used in both console applications and Flutter apps.
 library;
 
-export 'src/instrument_agent.dart';
-export 'src/frontend_agent.dart';
-export 'src/search_agent.dart';
-export 'src/vxi11_tool.dart';
+export 'src/ai/agents/instrument_agent.dart';
+export 'src/ai/agents/frontend_agent.dart';
+export 'src/ai/agents/search_agent.dart';
+export 'src/ai/tools/vxi11_tool.dart';

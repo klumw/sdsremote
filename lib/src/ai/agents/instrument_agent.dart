@@ -2,9 +2,9 @@ import 'dart:async';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 
+import '../tools/measurement_tool.dart';
+import '../tools/vxi11_tool.dart';
 import 'max_tool_calls_handler.dart';
-import 'measurement_tool.dart';
-import 'vxi11_tool.dart';
 
 /// A reusable AI agent for instrument control via an AI model.
 ///

@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 
-import 'src/frontend_agent.dart';
+import 'src/ai/agents/frontend_agent.dart';
 import 'logger.dart';
 
 /// Service that wraps a [FrontendAgent] instance and provides a streaming

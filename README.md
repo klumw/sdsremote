@@ -202,10 +202,11 @@ You can run the built executable directly or start the application in debug/deve
 flutter run -d linux
 ```
 
-The Linux window title bar and task bar now show the bundled SDS-Remote icon
-(`assets/sds-remote.png`). The icon is loaded and applied by the GTK runner in
-[`linux/runner/my_application.cc`](linux/runner/my_application.cc:34), which also
-adds it to the GTK header bar.
+The Linux window title bar and task bar show the bundled SDS-Remote icon
+(`assets/sds-remote.png`). The GTK header bar (top bar) uses a small 24x24
+icon scaled from `assets/sds-remote-icon_128_128.png`. Both icons are loaded
+and applied by the GTK runner in
+[`linux/runner/my_application.cc`](linux/runner/my_application.cc:65).
 
 #### Windows
 
@@ -272,6 +273,23 @@ The following LLMs are known to work with the application:
 *For exact model names, refer to your provider's documentation.*
 
 > The AI subsystem may generate inaccurate information or incorrect operating instructions. Use this functionality at your own risk.
+
+### AI Subsystem Code Layout
+
+The AI code is split into agents and tools:
+
+- `lib/src/ai/agents/` — agent classes and system prompts:
+  - `frontend_agent.dart` — user-facing agent that delegates to specialized sub-agents.
+  - `instrument_agent.dart` — SCPI/VXI-11 instrument control agent.
+  - `search_agent.dart` — knowledgebase search agent.
+  - `max_tool_calls_handler.dart` — shared max-tool-call mixin used by agents.
+  - `systemprompts.dart` — centralized system prompt strings for all agents.
+- `lib/src/ai/tools/` — all agent tools:
+  - `vxi11_tool.dart` — raw SCPI write/query tool for the instrument.
+  - `measurement_tool.dart` — deterministic PAVA measurement parser (`parse_measurement`).
+  - `scpi_agent_tool.dart` — wraps the instrument agent as a `scpi_instrument_agent` tool.
+  - `search_agent_tool.dart` — wraps the search agent as a `search_agent` tool.
+  - `knowledgebase_search_tool.dart` — knowledgebase chunk search tool (`knowledgebase_search`).
 
 ---
 

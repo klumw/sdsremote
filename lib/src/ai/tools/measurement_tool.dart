@@ -1,7 +1,7 @@
 import 'package:dartantic_ai/dartantic_ai.dart';
 
-import '../logger.dart';
-import 'measurement.dart';
+import '../../../logger.dart';
+import '../../measurement.dart';
 
 /// Creates a deterministic tool that parses an oscilloscope PAVA measurement
 /// response string into structured data.
