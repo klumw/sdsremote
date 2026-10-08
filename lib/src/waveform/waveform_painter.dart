@@ -94,11 +94,13 @@ class WaveformBasePainter extends CustomPainter {
     // Use the first enabled channel with data; prefer CH1 over CH2.
     late final double gridVMin;
     late final double gridVMax;
+    late final double gridVAnchor;
     if (ch1Enabled && ch1 != null && ch1!.points.isNotEmpty) {
+      gridVAnchor = params.voffsetCh1 ?? 0.0;
       final double vdiv = params.vdivCh1 ?? 1.0;
       final double voffset = params.voffsetCh1 ?? 0.0;
-      final double vMax = voffset + 4 * vdiv;
-      final double vMin = voffset - 4 * vdiv;
+      final double vMax = -voffset + 4 * vdiv;
+      final double vMin = -voffset - 4 * vdiv;
       final double vRange = vMax - vMin;
       final double centerVoltage = vMin + zoom.panY * vRange;
       final double visibleVRange = vRange / zoom.zoomFactor;
@@ -107,8 +109,8 @@ class WaveformBasePainter extends CustomPainter {
     } else {
       final double vdiv = params.vdivCh2 ?? 1.0;
       final double voffset = params.voffsetCh2 ?? 0.0;
-      final double vMax = voffset + 4 * vdiv;
-      final double vMin = voffset - 4 * vdiv;
+      final double vMax = -voffset + 4 * vdiv;
+      final double vMin = -voffset - 4 * vdiv;
       final double vRange = vMax - vMin;
       final double centerVoltage = vMin + zoom.panY * vRange;
       final double visibleVRange = vRange / zoom.zoomFactor;
@@ -122,8 +124,8 @@ class WaveformBasePainter extends CustomPainter {
     if (ch1Enabled && ch1 != null && ch1!.points.isNotEmpty) {
       final double vdiv = params.vdivCh1 ?? 1.0;
       final double voffset = params.voffsetCh1 ?? 0.0;
-      final double vMax = voffset + 4 * vdiv;
-      final double vMin = voffset - 4 * vdiv;
+      final double vMax = -voffset + 4 * vdiv;
+      final double vMin = -voffset - 4 * vdiv;
       final double vRange = vMax - vMin;
       final double centerVoltage = vMin + zoom.panY * vRange;
       final double visibleVRange = vRange / zoom.zoomFactor;
@@ -144,8 +146,8 @@ class WaveformBasePainter extends CustomPainter {
     if (ch2Enabled && ch2 != null && ch2!.points.isNotEmpty) {
       final double vdiv = params.vdivCh2 ?? 1.0;
       final double voffset = params.voffsetCh2 ?? 0.0;
-      final double vMax = voffset + 4 * vdiv;
-      final double vMin = voffset - 4 * vdiv;
+      final double vMax = -voffset + 4 * vdiv;
+      final double vMin = -voffset - 4 * vdiv;
       final double vRange = vMax - vMin;
       final double centerVoltage = vMin + zoom.panY * vRange;
       final double visibleVRange = vRange / zoom.zoomFactor;
@@ -173,8 +175,8 @@ class WaveformBasePainter extends CustomPainter {
       final double voffset = useCh1Range
           ? (params.voffsetCh1 ?? 0.0)
           : (params.voffsetCh2 ?? 0.0);
-      final double vMax = voffset + 4 * vdiv;
-      final double vMin = voffset - 4 * vdiv;
+      final double vMax = -voffset + 4 * vdiv;
+      final double vMin = -voffset - 4 * vdiv;
       final double vRange = vMax - vMin;
       final double centerVoltage = vMin + zoom.panY * vRange;
       final double visibleVRange = vRange / zoom.zoomFactor;
@@ -575,8 +577,8 @@ class CursorPainter extends CustomPainter {
     final double voffset = params.voffsetCh1 ?? 0.0;
 
     double voltageAtY(double relY) {
-      final vMax = voffset + 4 * vdiv;
-      final vMin = voffset - 4 * vdiv;
+      final vMax = -voffset + 4 * vdiv;
+      final vMin = -voffset - 4 * vdiv;
       final vRange = vMax - vMin;
       final centerVoltage = vMin + zoom.panY * vRange;
       final zoomedRange = vRange / zoom.zoomFactor;

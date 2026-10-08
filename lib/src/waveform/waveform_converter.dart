@@ -4,12 +4,14 @@ import 'dart:typed_data';
 /// All methods are pure functions with no side effects.
 class WaveformConverter {
   /// Converts a raw data byte to a signed code_wert.
-  /// code_wert = byte <= 127 ? byte : byte - 255
+  /// code_wert = byte <= 127 ? byte : byte - 255 (as per Siglent programming guide)
   static int toCodeWert(int byte) => byte <= 127 ? byte : byte - 255;
 
-  /// Calculates voltage: voltage = code_wert * (vdiv / 25) + voffset
+  /// Calculates voltage: voltage = code_wert * (vdiv / 25) - voffset
+  /// (Siglent convention: OFST is the offset of the zero level from the
+  /// screen center, so the displayed center corresponds to -OFST volts).
   static double toVoltage(int byte, double vdiv, double voffset) =>
-      toCodeWert(byte) * (vdiv / 25) + voffset;
+      toCodeWert(byte) * (vdiv / 25) - voffset;
 
   /// Converts an entire byte array to voltage values.
   static List<double> convertVoltages(

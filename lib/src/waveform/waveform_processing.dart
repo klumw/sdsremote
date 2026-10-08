@@ -40,7 +40,14 @@ WaveformData? convertChannel({
     sampleRate,
     triggerPosition: triggerPosition,
   );
-  final combined = WaveformConverter.combine(times, voltages);
+  var combined = WaveformConverter.combine(times, voltages);
+  // The first samples of the acquisition memory can contain a transient
+  // artifact (visible as a vertical spike/offset at the left plot edge).
+  // Drop them while keeping the time axis aligned.
+  const int leadingSamplesToSkip = 8;
+  if (combined.length > leadingSamplesToSkip * 4) {
+    combined = combined.sublist(leadingSamplesToSkip);
+  }
   // Downsample to 50% by taking every 2nd point
   final downsampled = <(double, double)>[
     for (var i = 0; i < combined.length; i += 2) combined[i],

@@ -328,7 +328,11 @@ Non-widget, domain-specific support code is grouped into subfolders under
   `waveform_models.dart`, `waveform_converter.dart`, `waveform_acquisition.dart`,
   `waveform_painter.dart`, `cursor_geometry.dart`, plus the CSV/processing
   helpers `waveform_csv_parser.dart`, `waveform_csv_writer.dart`,
-  `waveform_processing.dart`.
+  `waveform_processing.dart` (drops the first 8 acquisition samples, which
+  contain a transient artifact visible as a left-edge offset in the plot).
+  Voltage conversion uses `V = code * vdiv / 25 - OFST` (Siglent `OFST` is the
+  zero-level offset from screen center), and the painter centers the visible
+  range at `-OFST`.
 - `lib/src/widgets/` — all Flutter widget classes (see Widget Code Layout).
 
 The application entry point `main.dart` stays at `lib/`.
