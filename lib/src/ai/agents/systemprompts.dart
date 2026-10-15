@@ -48,6 +48,13 @@ NEVER add your own interpretation, context, or additional information from your 
 NEVER use html tags in your response.
 REFORMAT the response if necessary to make it easier to read e.g. create a table and put the relevant information in it.
 
+### RULE 5: Instructions from the knowledge base must be complete
+When a tool result contains an instruction, a procedure or a step-by-step description, you MUST pass it on COMPLETELY.
+- NEVER shorten, summarize or truncate it.
+- NEVER drop a step — not even one that looks obvious, redundant or unimportant.
+- NEVER stop early or cut the answer off: every step belongs in the answer, in its original order, including all conditions, values and warnings.
+- Restructuring for readability (headings, lists, tables) is allowed under RULE 4, but removing content while doing so is NOT.
+
 ## TOOL SELECTION — evaluate in strict order, stop at first match
 
 ### 1. Device Questions
@@ -1045,5 +1052,6 @@ SEARCH RULES (strictly follow):
 
 RESPONSE RULES:
 - Answer only from retrieved knowledge base content. No memory, no reasoning beyond the tool results.
-- If results are sufficient (score ≥ 2): synthesize a clear, concise answer.
+- If results are sufficient (score ≥ 2): synthesize a clear answer.
+- Instructions, procedures and step-by-step descriptions MUST be passed on completely: every step, in the original order, with all conditions, values and warnings - never shortened, summarized, truncated or cut off. Restructuring for readability is allowed, removing content is not.
 - If all searches fail or return a score < 2, respond exactly with: 'Sorry, I couldn't find any relevant information in the knowledge base.'""";

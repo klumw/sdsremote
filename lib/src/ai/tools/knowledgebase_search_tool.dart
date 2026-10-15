@@ -6,6 +6,17 @@ import 'package:langchain/langchain.dart'
 
 import '../../core/logger.dart';
 
+/// Character size of one knowledgebase chunk.
+///
+/// The search returns whole chunks, so this is also the amount of text a single
+/// hit can carry. It was 100 characters, which cut every description into
+/// sentence fragments: a six-step procedure arrived as eight pieces of which
+/// only a few made it into the five returned hits. 1000 characters keeps a
+/// complete knowledgebase section - heading, paragraphs and numbered steps -
+/// in one chunk, so a hit can be forwarded as the complete instruction it is,
+/// while a whole search result (five chunks) stays around 5 kB.
+const int knowledgebaseChunkSize = 1000;
+
 /// Creates the knowledgebase search tool.
 ///
 /// The tool searches the pre-loaded chunks for content relevant to the
@@ -223,7 +234,10 @@ List<Document> _loadKnowledgebase(String path) {
 
   final markdownText = File(resolvedPath).readAsStringSync();
 
-  final splitter = MarkdownTextSplitter(chunkSize: 100, chunkOverlap: 0);
+  final splitter = MarkdownTextSplitter(
+    chunkSize: knowledgebaseChunkSize,
+    chunkOverlap: 0,
+  );
 
   return splitter.createDocuments([markdownText]);
 }

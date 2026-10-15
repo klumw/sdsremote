@@ -1990,6 +1990,24 @@ The SDS1000X-E/SDS1000X-U support gate measurement and perform the selected meas
 3. Press the Gate B to move the position of gate B by the Universal Knob .
 4. Press the Gate A -B to move the positions of the gate A and B simultaneously by the Universal Knob .
 
+
+## Measuring Phase Shift Between 2 Signals
+
+1. Initial Oscilloscope Setup
+Enable both channels, CH1 and CH2.
+Select DC coupling unless AC coupling is specifically required.
+Set the trigger source to CH1.
+Select the rising edge as the trigger slope.
+Adjust the trigger level to obtain a stable display.
+For the most reliable phase measurement, both signals should have the same frequency and reasonably stable waveforms.
+Press the Measure button on the oscilloscope's front panel.
+Open the measurement selection menu.
+Locate the phase measurement function, typically listed under the delay-related measurements.
+Select Phase.
+Configure the measurement sources to compare CH1 and CH2. 
+Read the resulting phase value from the measurement display.
+
+
 ## Gain Measurement in dB (gain, gain measurement, decibel, dB, amplification, attenuation, voltage gain, DUT, Rms, CH1, CH2, channel ratio)
 
 How to measure the gain in dB: measure the RMS voltage on both channels and take the ratio.
@@ -3893,16 +3911,16 @@ Query Syntax: `MATH_VERT_DIV?`
 
 
 
-## MEAD, MEASURE_DELY, Measure Delay, Delay Measurement, Phase, FRR, FRF, FFR, FFF, SKEW
+## MEAD, Measure Delay, Delay Measurement, Phase, FRR, FRF, FFR, FFF, LRR, LRF, LFF, SKEW
 
-The MEASURE_DELY command selects the type of delay measure. The response to the MEASURE_DELY? query indicates the type of delay measure.
+The MEASURE_DELAY command selects the type of delay measure. The response to the MEASURE_DELY? query indicates the type of delay measure.
 
 
 Command Syntax: `MEASURE_DELAY <type>,<source> <source>:= {C1-C2, C1-C3, C1-C4, C2-C3, C2-C4, C3-C4} <type>:={PHA,FRR,FRF,FFR,FFF,LRR,LRF,LFR, LFF,SKEW} The PHA is phase, the others are the same as the specified type of the instrument‘s delay measure.`
 
 
-Query Syntax: `<source>:MEAsure_Delay? <type>`
-
+Query Syntax: `<source>:MEAD? <type>`
+Example: C1-C2:MEAD? PHA
 
 
 ## MENU, MENU, Menu Display, ON, OFF, Screen Menu
@@ -3925,7 +3943,7 @@ The MEMORY_SIZE command sets the maximum depth of memory. The response to the ME
 Command Syntax: `MEMORY_SIZE <size> <size>:= {7K, 14K, 1.4M,7M,14M}`
 
 
-Query Syntax: `MEMORY_SIZE?`
+Query Syntax: `MSIZ?`
 
 
 
@@ -3937,7 +3955,7 @@ The OFFSET command allows adjustment of the vertical offset of the specified inp
 Command Syntax: `<channel>: OFfSeT <offset> <channel> : = {C1, C2, C3,C4} <offset> : = See the oscilloscope‘s specifications. Digital Oscilloscopes Series`
 
 
-Query Syntax: `<channel>: OFfSeT?`
+Query Syntax: `<channel>: OFST?`
 
 
 
@@ -3967,7 +3985,7 @@ Query Syntax: `*OPT?`
 The PARAMETER_CLR command clears the P/F test counter and starts it again at 0.
 
 
-Command Syntax: `PArameter_CLr`
+Command Syntax: `PACL`
 
 
 
@@ -3997,7 +4015,7 @@ The PEAK_DETECT command switches ON or OFF the peak detector built into the acqu
 Command Syntax: `Peak_DETect <state> <state> : = {ON, OFF}`
 
 
-Query Syntax: `Peak_DETect?`
+Query Syntax: `PDET?`
 
 
 
@@ -4006,10 +4024,10 @@ Query Syntax: `Peak_DETect?`
 The PERSIST command enables or disables the persistence display mode.
 
 
-Command Syntax: `PERSist <mode> <mode> : = {ON, OFF}`
+Command Syntax: `PERS <mode> <mode> : = {ON, OFF}`
 
 
-Query Syntax: `PERSist?`
+Query Syntax: `PERS?`
 
 
 
@@ -4018,10 +4036,10 @@ Query Syntax: `PERSist?`
 The PERSIST_SETUP command selects the persistence duration of the display, in seconds,in persistence mode. The PERSIST_SETUP? query indicates the current status of the persistence. DISPLAY.
 
 
-Command Syntax: `PErsist_SetUp <time> <time>：= {1，5，10，30,Infinite} Note: The options of time are the same as your oscilloscope.`
+Command Syntax: `PESU <time> <time>：= {1，5，10，30,Infinite} Note: The options of time are the same as your oscilloscope.`
 
 
-Query Syntax: `PErsist_SetUp?`
+Query Syntax: `PESU?`
 
 
 
@@ -4030,10 +4048,10 @@ Query Syntax: `PErsist_SetUp?`
 The PANEL_SETUP command complements the *SAV or *RST commands. PANEL_SETUP allows you to archive panel setups in encoded form on external storage media. Only setup data read by the PNSU? query can be recalled.
 
 
-Command Syntax: `PaNel_SetUp <setup> <setup> : = A setup previously read by PNSU?`
+Command Syntax: `PNSU <setup> <setup> : = A setup previously read by PNSU?`
 
 
-Query Syntax: `PaNel_SetUp?`
+Query Syntax: `PNSU?`
 
 
 
