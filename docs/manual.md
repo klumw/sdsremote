@@ -275,7 +275,9 @@ The chat maintains a multi-turn conversation history within the session. The AI 
 
 Ask questions about oscilloscope features, specifications, measurements, or troubleshooting. The AI searches the built-in knowledge base and returns the relevant documentation.
 
-When an oscilloscope is connected, the model it reports in its `*IDN?` response (the same name shown in the window title) is passed to the AI, so it knows which instrument it is answering for and can favour model-specific documentation. If no oscilloscope is connected, the AI still answers knowledge base and software questions — it only reports that no instrument is connected when you ask it to measure something or to send a command.
+When an oscilloscope is connected, the AI is told its model designation (for example `SDS1202X-E`, taken from the `*IDN?` response). Questions that depend on the model — bandwidth, sample rate, available options — are then answered for **your** model instead of for the whole SDS1000X-E series. The number of channels is read directly from the device with `CHS?`, so "how many channels does my oscilloscope have?" is answered exactly, not as a range.
+
+If no oscilloscope is connected, the AI still answers knowledge base and software questions. For a model-specific question it asks which oscilloscope you are using, since the answer differs between models. It reports that no instrument is connected only when you ask it to measure something or to send a command.
 
 **Examples:**
 * *"What is the maximum sample rate of the SDS1204X-E?"*

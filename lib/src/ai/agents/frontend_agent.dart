@@ -66,7 +66,7 @@ class FrontendAgent {
   ///
   /// The [systemPrompt] parameter sets an optional system message for the
   /// frontend agent. If null, a prompt is generated from
-  /// [buildFrontendAgentSystemPrompt] so that [instrumentName] can be named in
+  /// [buildFrontendAgentSystemPrompt] so that [instrumentModel] can be named in
   /// it.
   ///
   /// The [vxi11Host] parameter sets the default VXI-11 instrument IP.
@@ -75,11 +75,12 @@ class FrontendAgent {
   /// The [knowledgebasePath] parameter sets the path to the knowledgebase
   /// Markdown file. Defaults to `docs/knowledgebase.md`.
   ///
-  /// The [instrumentName] parameter names the instrument the agent is working
-  /// with, as reported by the device in its `*IDN?` response (e.g.
-  /// `Siglent Technologies SDS1202X-E`). Pass null while no instrument is
-  /// connected — the agent works either way. Ignored when [systemPrompt] is
-  /// supplied, because that prompt replaces the generated one entirely.
+  /// The [instrumentModel] parameter is the model designation of the
+  /// instrument the agent is working with, taken from the second field of the
+  /// device's `*IDN?` response (e.g. `SDS1202X-E`) — not the vendor-prefixed
+  /// window title. Pass null while no instrument is connected — the agent
+  /// works either way. Ignored when [systemPrompt] is supplied, because that
+  /// prompt replaces the generated one entirely.
   ///
   /// The [tools] parameter allows adding additional custom tools to the
   /// frontend agent.
@@ -102,7 +103,7 @@ class FrontendAgent {
     String? systemPrompt,
     String? vxi11Host,
     String knowledgebasePath = 'docs/knowledgebase.md',
-    String? instrumentName,
+    String? instrumentModel,
     List<Tool>? tools,
     this.instrumentToolCalls = defaultInstrumentToolCalls,
     this.searchToolCalls = defaultSearchToolCalls,
@@ -131,7 +132,7 @@ class FrontendAgent {
            if (tools != null) ...tools,
          ],
        ) {
-    _instrumentName = _normalize(instrumentName);
+    _instrumentModel = _normalize(instrumentModel);
     _applySystemPrompt();
   }
 
@@ -140,9 +141,9 @@ class FrontendAgent {
   /// caller via [FrontendAgent.new]'s `systemPrompt`.
   final bool _ownsSystemPrompt;
 
-  /// Name of the instrument the agent is working with, or null when no
-  /// instrument is connected.
-  String? _instrumentName;
+  /// Model designation of the instrument the agent is working with (e.g.
+  /// `SDS1202X-E`), or null when no instrument is connected.
+  String? _instrumentModel;
 
   /// Builds the system prompt and puts it at the head of [_history].
   ///
@@ -150,7 +151,7 @@ class FrontendAgent {
   void _applySystemPrompt() {
     if (!_ownsSystemPrompt) return;
     final prompt = buildFrontendAgentSystemPrompt(
-      instrumentName: _instrumentName,
+      instrumentModel: _instrumentModel,
     );
     if (_history.isEmpty) {
       _history.add(ChatMessage.system(prompt));
@@ -169,18 +170,18 @@ class FrontendAgent {
   /// their own `systemPrompt`, that prompt is left untouched.
   ///
   /// Cheap to call repeatedly — the device is polled periodically, so this
-  /// returns immediately while the name is unchanged.
-  void updateInstrumentName(String? instrumentName) {
-    final name = _normalize(instrumentName);
-    if (name == _instrumentName) return;
-    _instrumentName = name;
+  /// returns immediately while the model is unchanged.
+  void updateInstrumentModel(String? instrumentModel) {
+    final name = _normalize(instrumentModel);
+    if (name == _instrumentModel) return;
+    _instrumentModel = name;
     _applySystemPrompt();
   }
 
   /// Treats null, an empty string and whitespace as "no instrument connected".
-  static String? _normalize(String? instrumentName) {
-    if (instrumentName == null) return null;
-    final trimmed = instrumentName.trim();
+  static String? _normalize(String? instrumentModel) {
+    if (instrumentModel == null) return null;
+    final trimmed = instrumentModel.trim();
     return trimmed.isEmpty ? null : trimmed;
   }
 

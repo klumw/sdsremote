@@ -66,6 +66,11 @@ class _OsciHomePageState extends State<OsciHomePage>
   bool _isUsb = false;
   bool _isOnline = false;
   String? _deviceName;
+
+  /// Model designation reported by the device (e.g. `SDS1202X-E`), without the
+  /// vendor prefix of [_deviceName]. This is what the AI searches for and what
+  /// the knowledge base uses.
+  String? _deviceModel;
   Vxi11Instrument? _instrument;
 
   // AI
@@ -1342,6 +1347,7 @@ class _OsciHomePageState extends State<OsciHomePage>
             _aiApiToken = newToken;
             _llmModel = newModel;
             _deviceName = null;
+            _deviceModel = null;
             _showSettings = false;
           });
           await _saveConfig();
@@ -1421,7 +1427,7 @@ class _OsciHomePageState extends State<OsciHomePage>
               // _setFallbackWindowTitle) and _updateWindowTitle() is only
               // called while _deviceName is still unknown, so the agent would
               // otherwise never learn it again.
-              _aiChatService.updateInstrumentName(_deviceName);
+              _aiChatService.updateInstrumentModel(_deviceModel);
             }
           } else {
             _setFallbackWindowTitle();
@@ -1441,7 +1447,7 @@ class _OsciHomePageState extends State<OsciHomePage>
           } else {
             windowManager.setTitle(_deviceName!);
             // Re-assert the name; see the note in the USB branch above.
-            _aiChatService.updateInstrumentName(_deviceName);
+            _aiChatService.updateInstrumentModel(_deviceModel);
           }
         }
       }
@@ -1465,7 +1471,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
     // No instrument is reachable, so the AI must stop naming a specific model.
     // It answers knowledge and software questions either way.
-    _aiChatService.updateInstrumentName(null);
+    _aiChatService.updateInstrumentModel(null);
   }
 
   Future<void> _updateWindowTitle() async {
@@ -1483,13 +1489,19 @@ class _OsciHomePageState extends State<OsciHomePage>
       final name = parts.length >= 2
           ? '${parts[0].trim()} ${parts[1].trim()}'
           : idn;
+      // The model designation alone ("SDS1202X-E") is what identifies the
+      // instrument in the knowledge base. The vendor prefix of the display
+      // name is not part of the model and does not appear in the knowledge
+      // base text, so it must not be used for searching.
+      final model = parts.length >= 2 ? parts[1].trim() : idn;
       if (mounted) {
         _deviceName = name;
+        _deviceModel = model;
         windowManager.setTitle(name);
         // Tell the AI which oscilloscope it is answering for. The agent is
-        // configured before the first device response, so it learns the name
+        // configured before the first device response, so it learns the model
         // here rather than at construction time.
-        _aiChatService.updateInstrumentName(name);
+        _aiChatService.updateInstrumentModel(model);
       }
     } catch (_) {
       if (mounted) {
@@ -1962,8 +1974,8 @@ class _OsciHomePageState extends State<OsciHomePage>
       model: fullModel,
       vxi11Host: _ipAddress,
       // Null until the device has answered its first *IDN? query; the ping
-      // timer reports the name via updateInstrumentName() once it is known.
-      instrumentName: _deviceName,
+      // timer reports the name via updateInstrumentModel() once it is known.
+      instrumentModel: _deviceModel,
     );
 
     logger.log(

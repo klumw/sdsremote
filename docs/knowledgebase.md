@@ -2,16 +2,16 @@ Knowledgebase for SDS1000X-E Oscilloscopes
 
 ## Introduction (models, bandwidth, sample rate)
 
-This user knowledge base includes important safety and installation information related to the SDS1000X -E and SDS1000X -U series oscilloscopes , and includes simple tutorials for basic operation of the oscilloscope.
+This user knowledge base includes important safety and installation information related to the SDS1000X-E and SDS1000X-U series oscilloscopes , and includes simple tutorials for basic operation of the oscilloscope.
 
 The series includes the following models:
 
 | Model        | Analog Bandwidth                                      |
 |--------------|-------------------------------------------------------|
-| SDS1204X - E | 200 MHz bandwidth ,  4 - channel, 1 GSa/s Sample rate |
-| SDS1104X - E | 100 MHz bandwidth ,  4 - channel, 1 GSa/s Sample rate |
-| SDS1202X - E | 200 MHz bandwidth ,  2 - channel, 1 GSa/s Sample rate |
-| SDS1104X - U | 100 MHz bandwidth ,  4 - channel, 1 GSa/s Sample rate |
+| SDS1204X-E | 200 MHz bandwidth ,  4 - channel, 1 GSa/s Sample rate |
+| SDS1104X-E | 100 MHz bandwidth ,  4 - channel, 1 GSa/s Sample rate |
+| SDS1202X-E | 200 MHz bandwidth ,  2 - channel, 1 GSa/s Sample rate |
+| SDS1104X-U | 100 MHz bandwidth ,  4 - channel, 1 GSa/s Sample rate |
 
 
 
@@ -430,7 +430,7 @@ After having entered the file system, turn the Universal Knob to select the desi
 | : Press the button to reset the oscilloscope to user default setup.                                                                                                                                                   |
 | : Press the button to enter the history mode. In history mode, it can  record most 80000 frames waveforms. If sequence function is enabled, it  only record the frames which you set, the most you can set is 80000 . |
 | : Press the button to enter the DECODE function menu. The oscilloscope  supports I2C, SPI, UART, CAN and LIN serial bus decode.                                                                                       |
-| : Press the button to turn off or turn on the navigate function. SDS1000X - E (4-channel scope) and SDS1000X-U support three navigate  types: time, search event, history frame.                                      |
+| : Press the button to turn off or turn on the navigate function. SDS1000X-E (4-channel scope) and SDS1000X-U support three navigate  types: time, search event, history frame.                                      |
 
 ## Help (online help, multi-language, button press)
 
@@ -448,7 +448,7 @@ Available trigger status includes Ready, Auto, Stop, Arm, Trig'd, FStop .
 ## 4. Horizontal Time Base (time per grid, HORIZONTAL SCALE Knob, ns to s)
 
 -  Represent the time per grid on the horizontal axis on the screen.
--  Use the HORIZONTAL SCALE Knob to adjust the parameter. The available range is from 1.0 ns to 100 s for SDS1000X-E; while from 2.0 ns to 100s for SDS1000X -U .
+-  Use the HORIZONTAL SCALE Knob to adjust the parameter. The available range is from 1.0 ns to 100 s for SDS1000X-E; while from 2.0 ns to 100s for SDS1000X-U .
 
 ## 5. Horizontal Position (Delay) (trigger delay, reset to zero)
 
@@ -539,11 +539,11 @@ During the adjustment, the vertical position information Volts Pos displays at t
 
 | Oscilloscope   | Volt Scale              | Range of Vertical Position   |
 |----------------|-------------------------|------------------------------|
-| SDS1000X - E   | 500 μV/div ~ 100 mV/div | ±2V                          |
-| SDS1000X - E   | 102 mV/div ~ 1 V/div    | ±20 V                        |
-| SDS1000X - E   | 1.02 V/div ~ 10 V/div   | ±200 V                       |
-| SDS1000X - U   | 1mV/div ~ 200 mV/div    | ±2 V                         |
-| SDS1000X - U   | 206 mV/div ~ 10 V/div   | ±100 V                       |
+| SDS1000X-E   | 500 μV/div ~ 100 mV/div | ±2V                          |
+| SDS1000X-E   | 102 mV/div ~ 1 V/div    | ±20 V                        |
+| SDS1000X-E   | 1.02 V/div ~ 10 V/div   | ±200 V                       |
+| SDS1000X-U   | 1mV/div ~ 200 mV/div    | ±2 V                         |
+| SDS1000X-U   | 206 mV/div ~ 10 V/div   | ±100 V                       |
 
 ## Coupling (DC, AC, GND, filter, coupling mode)
 
@@ -721,11 +721,11 @@ Memory depth refers to the number of waveform points that the oscilloscope can s
 
 Press the Acquire button on the front panel; press the Mem Depth softkey and then turn the Universal Knob to select the desired value and push down the knob to confirm. Press the Mem Depth softkey continually can also select the desired value.
 
-The actual memory depth is displayed in the information area at the upperright corner of the screen. Since the oscilloscope of SDS1000X-E has two acquisition memories, when only one channel is on, the maximal memory depth is up to 14 Mpts. SDS1000X -U only has one acquisition memory, when only one channel is on, the maximal memory depth is up to 14 Mpts.
+The actual memory depth is displayed in the information area at the upperright corner of the screen. Since the oscilloscope of SDS1000X-E has two acquisition memories, when only one channel is on, the maximal memory depth is up to 14 Mpts. SDS1000X-U only has one acquisition memory, when only one channel is on, the maximal memory depth is up to 14 Mpts.
 
 The maximum storage depth in single channel mode is twice that in dual channel mode, as shown in the following table:
 
-| SDS1000X - E         | SDS1000X - E       | SDS1000X - U         | SDS1000X - U       | SDS1000X - U                |
+| SDS1000X-E         | SDS1000X-E       | SDS1000X-U         | SDS1000X-U       | SDS1000X-U                |
 |----------------------|--------------------|----------------------|--------------------|-----------------------------|
 | Single  Channel Mode | Dual Channel  Mode | Single  Channel Mode | Dual Channel  Mode | Three or Four  Channel Mode |
 | 14k                  | 7k                 | 14k                  | 7k                 | 3.5k                        |
@@ -1731,9 +1731,9 @@ Use the channel function menu to set the unit of each channel to "V" or "A". The
 |--------------------------------|------------------------------------------------------------------------------------------------------------------|
 | Addition (+)or subtraction (-) | V, A                                                                                                             |
 | multiplication (*)             | V ∧ 2, A ∧ 2 or W                                                                                                |
-| division (/)                   | SDS1000X-E：None, Ω (Resistance unit Ohms) or S (conductance unit Siemens) SDS1000X - U： None, V*A^-1 or V^-1*A |
+| division (/)                   | SDS1000X-E：None, Ω (Resistance unit Ohms) or S (conductance unit Siemens) SDS1000X-U： None, V*A^-1 or V^-1*A |
 | FFT                            | dBVrms, Vrms ,  dBm, dBArms, Arms                                                                                |
-| differential (d/dt)            | SDS1000X-E：V/S or A/S (V/second or A/second) SDS1000X - U： V*S^ - 1 or A*S^ - 1                                |
+| differential (d/dt)            | SDS1000X-E：V/S or A/S (V/second or A/second) SDS1000X-U： V*S^ - 1 or A*S^ - 1                                |
 | integral (∫dt)                 | Wb, C                                                                                                            |
 | square root (  )               | V ∧ 1/2 or A∧1/2                                                                                                 |
 
@@ -1969,7 +1969,7 @@ Note: if the parameter does not match the measure condition, it will display as 
 
 ## Clear Measurement (selective clearing, clear all, recover)
 
-SDS1000X -E (4-channel) supports selective clearing of measurement parameters that are displaying on the screen . SDS1000X -E (2 channel) and SDS1000X-U only support one key to clear all measurement items .
+SDS1000X-E (4-channel) supports selective clearing of measurement parameters that are displaying on the screen . SDS1000X-E (2 channel) and SDS1000X-U only support one key to clear all measurement items .
 
 Press the Clear softkey to call up the clear measurement box. Rotate and press the Universal Knob to clear a measurement or all measurement. Press Recover to recover the selected measurement .
 
@@ -1984,7 +1984,7 @@ Do the following steps to make all parameters measurement.
 
 ## Gate Measurement (Gate A, Gate B, upper limits, lower limits)
 
-The SDS1000X -E/SDS1000X -U support gate measurement and perform the selected measurement within the upper and lower limits of the gate. Setting the gate will affect the measurement of all voltage, time, and delay parameters.
+The SDS1000X-E/SDS1000X-U support gate measurement and perform the selected measurement within the upper and lower limits of the gate. Setting the gate will affect the measurement of all voltage, time, and delay parameters.
 1. Press Measure → Gate → On to open the gate measurement.
 2. Press the Gate A to move the position of gate A by the Universal Knob .
 3. Press the Gate B to move the position of gate B by the Universal Knob .
@@ -2610,7 +2610,7 @@ Do the following steps to set the oscilloscope to communicate with PC via LAN:
 
 ## WLAN(4-channel only) (wireless network adapter, SSID, PSK, WiFi)
 
-SDS1000X -E (4-channel) supports this function. Do the following steps to set the oscilloscope to communicate with PC via WLAN:
+SDS1000X-E (4-channel) supports this function. Do the following steps to set the oscilloscope to communicate with PC via WLAN:
 
 1. Connect the oscilloscope USB Host to your wireless network adapter, and make sure your local wireless network is normal .
 2. Press the Utility button on the front panel to enter the UTILITY function menu.
@@ -2631,7 +2631,7 @@ On: you can set the SSID and PSK manually.
 
 ## Web Server (4-Channel only) (web browser, IP address, web interface)
 
-SDS1000X -E (4-channel) provide the web server function; you can access and control the oscilloscope using a web browser. Connect the oscilloscope to your LAN (or WLAN), then type the oscilloscope's IP address in the web browser. The oscilloscope's web interface is displayed.
+SDS1000X-E (4-channel) provide the web server function; you can access and control the oscilloscope using a web browser. Connect the oscilloscope to your LAN (or WLAN), then type the oscilloscope's IP address in the web browser. The oscilloscope's web interface is displayed.
 
 ## Set Password (4-Channel only) (Password, Reset, Save)
 
@@ -2885,7 +2885,7 @@ Do the following steps to set the screen saver time:
 
 ## Date/Time (date, time, Display, NTP, time zone)
 
-SDS1000X -E (4-channel) supports setting date and time. After restarting the oscilloscope, you need to reset the system time.
+SDS1000X-E (4-channel) supports setting date and time. After restarting the oscilloscope, you need to reset the system time.
 
 - 1 Press Utility → NextPage3/4 → Date/Time to enter the DATA/TIME function menu.
 - 2 Press the Display softkey to select On to display the date and time .
@@ -2990,7 +2990,7 @@ their default setting. Then return to the Configure menu.
 
 ## Search (search events, white triangle, YT mode, Roll mode, zoom)
 
-SDS1000X -E (4-channel）and SDS1000X-U provide search function. This function can search for the events that users specify in the acquired data, the results are displayed with white triangle symbol. In the YT mode or the Roll mode with the acquisition in stop, the maximum search events number is 700.In the Roll mode with acquisition in run, the maximum search events number is unlimited. The waveform can be zoomed when search function is enabled.
+SDS1000X-E (4-channel）and SDS1000X-U provide search function. This function can search for the events that users specify in the acquired data, the results are displayed with white triangle symbol. In the YT mode or the Roll mode with the acquisition in stop, the maximum search events number is 700.In the Roll mode with acquisition in run, the maximum search events number is unlimited. The waveform can be zoomed when search function is enabled.
 
 ## Setting (Edge, Slope, Pulse, Interval, Runt, Copy Setting, Thresholds)
 
@@ -3020,7 +3020,7 @@ When the acquisition is stop, "EVENT NUM: 4/7" means current event number/total 
 
 ## Navigate (Search Event, Time, History Frame)
 
-SDS1000X -E(4-channel） and SDS1000X-U provide three navigate type: Search Event, Time, History Frame.
+SDS1000X-E(4-channel） and SDS1000X-U provide three navigate type: Search Event, Time, History Frame.
 
 ## Time Navigate (Time, navigation keys, play backward, stop, play forward)
 
@@ -3140,7 +3140,7 @@ SPO oscilloscopes models are in the table below.
 
 | SPO models                   |
 |------------------------------|
-| SDS1000X/1000X+/SDS1000X - E |
+| SDS1000X/1000X+/SDS1000X-E |
 | SDS2000/2000X                |
 
 ## What is an SPO model? (Super Phosphor Oscilloscope, high capture rate, intensity grading, color temperature, deep memory)

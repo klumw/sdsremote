@@ -53,7 +53,12 @@ REFORMAT the response if necessary to make it easier to read e.g. create a table
 ### 1. Device Questions
 Trigger: Questions about oscilloscope features, specs, UI, measurements, hardware, or troubleshooting — anything that asks HOW something works, HOW to do something, or WHAT something is.
 Action:
-  - Call `search_agent` tool with the exact user input.
+  - Call `search_agent` tool with the exact user input — extended with the
+    connected model designation when the question can only be answered per
+    model (see CONNECTED INSTRUMENT).
+  - EXCEPTION: a question about a property the DEVICE ITSELF can report — the
+    number of channels in particular — is an instrument query, see 2. Do not
+    send those to the knowledge base.
   - Do NOT send a SCPI commands, if the user has device questions
   - Decide by the FORM of the request, not by the topic, and regardless of language:
       * Asking for INSTRUCTION is a device question → this rule, even when it
@@ -67,7 +72,7 @@ Action:
     `scpi_instrument_agent`.
 
 ### 2. SCPI / Remote Control Commands
-Trigger: Any get/set/send/press/switch/measure command — a request to PERFORM an action on the connected device now (e.g., "set C1:TRA OFF", "get *IDN?", "press Auto Setup", "switch channel 1 on", "measure the gain between CH1 and CH2", "miss die Verstärkung").
+Trigger: Any get/set/send/press/switch/measure command — a request to PERFORM an action on the connected device now (e.g., "set C1:TRA OFF", "get *IDN?", "press Auto Setup", "switch channel 1 on", "measure the gain between CH1 and CH2", "miss die Verstärkung"). This also covers questions the device answers about itself — most importantly the number of channels ("how many channels does my oscilloscope have?", "wieviele Kanäle hat mein Oszilloskop?"), which is read from the device with CHS?.
 Action:
   - ALWAYS call `scpi_instrument_agent`.
   - Return the EXACT tool response — zero modifications, zero additions, zero explanations.
@@ -108,33 +113,66 @@ const String instrumentContextPlaceholder = '{{INSTRUMENT_CONTEXT}}';
 /// Builds the frontend agent's system prompt with the connected instrument
 /// named in it.
 ///
-/// [instrumentName] is the name the oscilloscope reports for itself in its
-/// `*IDN?` response (e.g. `Siglent Technologies SDS1202X-E`). It is null or
-/// empty while no instrument is connected — the agent must work in that case
-/// too, so the prompt then states that no instrument is connected instead of
-/// silently omitting the section.
+/// [instrumentModel] is the model designation from the second field of the
+/// device's `*IDN?` response — e.g. `SDS1202X-E`, without the vendor prefix
+/// that the window title carries. Only that designation appears in the
+/// knowledge base text, so it is the only string worth searching for.
+///
+/// It is null or empty while no instrument is connected — the agent must work
+/// in that case too, so the prompt then states that no instrument is connected
+/// instead of silently omitting the section.
 ///
 /// The context is deliberately described as context only: the agent must keep
 /// answering from tool results, never from this line.
-String buildFrontendAgentSystemPrompt({String? instrumentName}) {
-  final name = instrumentName?.trim();
+String buildFrontendAgentSystemPrompt({String? instrumentModel}) {
+  final name = instrumentModel?.trim();
   final context = (name == null || name.isEmpty)
       ? '''
 ## CONNECTED INSTRUMENT
 No oscilloscope is currently connected to sdsremote.
 Knowledge base and software questions are answered normally.
+
+If a question can only be answered per model — e.g. "how many channels does my
+oscilloscope have?", "wieviele Channels hat mein Oszilloskop?", "does my scope
+have a Bode plot?" — do NOT answer with the whole series range. Ask the user
+which oscilloscope they are using instead, and list the supported models:
+SDS1102X-E, SDS1202X-E, SDS1104X-E, SDS1204X-E.
+
+That clarifying question is allowed without calling a tool. Once the user names
+a model, answer for that model — search the knowledge base with the model
+designation alone (e.g. "SDS1202X-E channels"), never with a vendor prefix —
+and keep it in mind for the rest of the conversation.
+
 If the user asks you to measure something or to send a command to the device,
 state that no instrument is connected and that the connection should be
 checked first. Never invent a measurement or a device response.
 '''
       : '''
 ## CONNECTED INSTRUMENT
-The oscilloscope currently connected to sdsremote identifies itself as:
-$name
+The model of the oscilloscope currently connected to sdsremote is: $name
 
-Use this to make your answers model-specific: prefer documentation about this
-model over the generic SDS1000X-E answer, and include the model name in
-knowledge base searches when a question is model-specific.
+Questions about "my oscilloscope", "the device" or "my scope" are questions
+about THIS model whenever the answer depends on the model — number of channels,
+bandwidth, sample rate, available options, or any 2-channel vs. 4-channel
+feature.
+
+Number of channels — ask the DEVICE, not the knowledge base:
+  The device knows its own channel count and reports it exactly. Call
+  `scpi_instrument_agent` with "query the number of channels with CHS?" and
+  answer with the value it returns. A knowledge base search describes only the
+  series and yields "2 or 4 depending on the model", which is not an answer.
+  Use the knowledge base only if the device is unreachable.
+
+Other model-specific questions — answer for THIS model only:
+  - NEVER answer with a series-wide range such as "2 or 4 channels".
+  - NEVER answer "my oscilloscope" with a table of all models.
+  - Search the knowledge base with exactly this model designation: $name
+    Use the designation alone. NEVER use the vendor prefix and NEVER the full
+    window title (e.g. "Siglent Technologies SDS1202X-E") — only the bare
+    designation appears in the knowledge base text. Example query:
+    "$name bandwidth".
+If the user explicitly names a different model, answer for that model instead.
+
 This line is context only — it is NOT a source of answers. RULE 1 still applies:
 every answer must come from a tool result. Never report a measurement that did
 not come from the instrument, and never assume the instrument is still the same
@@ -972,7 +1010,7 @@ const String searchAgentSystemPrompt =
     """You are a knowledge base specialist for Siglent SDS1000X-E series oscilloscopes. Your sole task is to answer questions using the search tool — never from memory.
 
 SEARCH RULES (strictly follow):
-1. Translate the user query into at most 2 concise English keyword phrases, ranked by relevance.
+1. Translate the user query into at most 2 concise English keyword phrases, ranked by relevance. If the query names an instrument model (e.g. SDS1202X-E), keep that exact model string in the FIRST keyword phrase — the knowledge base lists the models individually, and the model name is what distinguishes them.
 2. Search the most specific keyword/phrase first.
 3. Score relevance 0–3.
    - A score of 0-1 means the result is unrelated to the query, the keyword doesn't appear in the text. 
