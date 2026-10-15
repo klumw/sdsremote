@@ -293,6 +293,24 @@ Describe what you want to do in natural language, and the Instrument Agent trans
 * *"Switch channel 1 on"* → sends `C1:TRA ON`
 * *"What is the device identification?"* → sends `*IDN?` and returns the response
 
+#### Gain Measurement (dB)
+
+Ask the Instrument Agent to measure the gain, and it measures both channels and returns the voltage gain in decibels:
+
+`gain = 20 × log10( V_CH1 / V_CH2 )`
+
+* **CH1 (signal)** is measured as RMS voltage (`C1:PAVA? RMS`).
+* **CH2 (reference)** is measured as RMS voltage (`C2:PAVA? RMS`).
+* The two measured values are passed to a deterministic math tool — the AI never computes the logarithm itself, so the number is exact rather than estimated.
+
+**Examples:**
+* *"Measure the gain"* → returns e.g. `Gain: 20.01 dB` together with how it was measured
+* *"What is the amplification from CH2 to CH1?"*
+
+Every gain answer states how it was measured: the channels used, the measurement type (RMS), the raw voltages, and the formula. A positive result means CH1 carries the higher voltage. The value is a **voltage** gain — not a power gain, which would require a known, equal impedance at both measurement points.
+
+The same calculation backs the Data Logger's Gain (dB) measurement (section 6), so both report identical values for identical measurements.
+
 #### Native SCPI Commands
 
 For precise control, use the **send command** syntax to bypass natural-language interpretation:

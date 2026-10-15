@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 
+import '../tools/math_tool.dart';
 import '../tools/measurement_tool.dart';
 import '../tools/vxi11_tool.dart';
 import 'max_tool_calls_handler.dart';
@@ -13,10 +14,12 @@ import 'max_tool_calls_handler.dart';
 /// console applications and Flutter apps.
 ///
 /// By default, the agent is equipped with a VXI-11 tool that allows it
-/// to send SCPI commands and queries to a remote instrument, plus a
-/// deterministic measurement parser tool ([createMeasurementTool]) that
-/// turns raw `PAVA` responses such as `C1:PAVA PKPK,3.000000E+00V` into
-/// structured values.
+/// to send SCPI commands and queries to a remote instrument, plus two
+/// deterministic tools that need no instrument connection:
+/// [createMeasurementTool], which turns raw `PAVA` responses such as
+/// `C1:PAVA PKPK,3.000000E+00V` into structured values, and
+/// [createMathTool], which calculates derived quantities such as the
+/// voltage gain in dB between two channels.
 ///
 /// The agent limits the number of tool calls per user input to
 /// [maxToolCalls] (default: 10). This prevents runaway tool loops.
@@ -70,6 +73,9 @@ class InstrumentAgent with MaxToolCallsHandler {
              createVxi11Tool(host: vxi11Host, agentName: 'InstrumentAgent'),
            // Deterministic measurement parser; needs no instrument connection.
            createMeasurementTool(agentName: 'InstrumentAgent'),
+           // Deterministic math on measured numbers (gain in dB, and any
+           // operation added later); needs no instrument connection.
+           createMathTool(agentName: 'InstrumentAgent'),
            if (tools != null) ...tools,
          ],
          maxToolCalls: maxToolCalls,

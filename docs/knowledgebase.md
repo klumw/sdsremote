@@ -1990,6 +1990,41 @@ The SDS1000X -E/SDS1000X -U support gate measurement and perform the selected me
 3. Press the Gate B to move the position of gate B by the Universal Knob .
 4. Press the Gate A -B to move the positions of the gate A and B simultaneously by the Universal Knob .
 
+## Gain Measurement in dB (gain, gain measurement, decibel, dB, amplification, attenuation, voltage gain, DUT, Rms, CH1, CH2, channel ratio)
+
+How to measure the gain in dB: measure the RMS voltage on both channels and take the ratio.
+
+Gain is the ratio between the signal level at the output of a device under test (DUT) and the signal level at its input, expressed in decibels. For a voltage ratio:
+
+gain (dB) = 20 × log10( V_signal / V_reference )
+
+A positive result means the signal channel carries the higher voltage (amplification), a negative result means it carries the lower one (attenuation). The ratio is independent of the absolute level.
+
+Note that this is a VOLTAGE gain, not a power gain. A power gain in dB would additionally require the impedance at both measurement points to be known and equal.
+
+The SDS1000X-E has no dedicated single-value gain parameter in its measurement menu. To read a gain in dB, measure both channels with the same parameter type and calculate the ratio:
+
+1. Connect the DUT input to CH2 (reference channel) and the DUT output to CH1 (signal channel).
+2. Use the same probe attenuation on both channels, or account for the difference. The oscilloscope displays the voltage present at its input; a 10X probe has already divided the signal by 10.
+3. Press Measure → Add Measurement and add the Rms parameter for CH1 and for CH2. The Source softkey selects the channel. Use the same parameter on both channels so that the ratio is meaningful, e.g. Rms on CH1 and Rms on CH2.
+4. Read both values and calculate gain (dB) = 20 × log10( CH1 Rms / CH2 Rms ).
+   Example: CH1 Rms = 2 V, CH2 Rms = 1 V → 20 × log10(2) = +6.02 dB.
+   Example: CH1 Rms = 500 mV, CH2 Rms = 100 mV → 20 × log10(5) = +13.98 dB.
+   Example: CH1 Rms = 10 mV, CH2 Rms = 100 mV → 20 × log10(0.1) = -20.00 dB.
+5. If a measurement displays "****", the parameter does not match the measure condition. Adjust the channel vertical scale and the trigger, then read the value again.
+
+Related functions of the oscilloscope:
+
+- Bode Plot II (4-channel models only) sweeps a sine wave over a frequency range and displays gain and phase versus frequency for a DUT. Use it when you need the gain over a frequency range instead of a single value.
+- FFT displays the spectrum with a vertical unit of dBVrms (or dBm). This is useful to compare spectral amplitudes in dB, but it is not a Vout/Vin gain measurement.
+- The Y cursors measure amplitude in dB and the difference between two amplitudes (ΔY) on FFT traces.
+
+For exact help, use the Help function in sdsremote:
+
+- The Data Logger of sdsremote records a Gain (dB) measurement, so the ratio does not have to be calculated by hand. It queries the RMS voltage on CH1 (signal) and on CH2 (reference) at the configured interval and logs 20 × log10(CH1 / CH2), scaled by the probe attenuation of each channel. See the Data Logger section of the sdsremote help.
+- In the AI chat you can simply ask to "measure the gain". The instrument agent measures both channels and returns the gain in dB together with the way it was measured.
+- Press the Help button in sdsremote and search for "Gain (dB)".
+
 ## Display (display type, color, persistence, grid, intensity, brightness, transparence)
 
 You can set the display type, color, persistence, grid type, waveform intensity, grid brightness and transparence.
