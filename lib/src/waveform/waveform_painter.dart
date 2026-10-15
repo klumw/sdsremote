@@ -1,6 +1,8 @@
 import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'waveform_interpolation.dart';
 import 'waveform_models.dart';
 
 class WaveformBasePainter extends CustomPainter {
@@ -140,6 +142,7 @@ class WaveformBasePainter extends CustomPainter {
         visibleTMax,
         visibleVMin,
         visibleVMax,
+        vdiv: vdiv,
       );
     }
 
@@ -162,6 +165,7 @@ class WaveformBasePainter extends CustomPainter {
         visibleTMax,
         visibleVMin,
         visibleVMax,
+        vdiv: vdiv,
       );
     }
 
@@ -192,6 +196,7 @@ class WaveformBasePainter extends CustomPainter {
         visibleVMinRef,
         visibleVMaxRef,
         strokeWidth: 1.0,
+        vdiv: vdiv,
       );
     }
   }
@@ -345,6 +350,7 @@ class WaveformBasePainter extends CustomPainter {
     double visibleVMin,
     double visibleVMax, {
     double strokeWidth = 1.5,
+    double vdiv = 1.0,
   }) {
     if (data.points.length < 2) return;
 
@@ -374,42 +380,69 @@ class WaveformBasePainter extends CustomPainter {
     final bool expandToDisplay =
         dataTRange <= 0 || dataTRange < visibleTRange * 0.25;
 
+    // Draw the trace on the pixel raster with linear interpolation: one vertex
+    // per pixel column, taken from the straight line between the surrounding
+    // samples. Connecting every acquired sample directly instead would make
+    // the anti-aliased polyline break up into a blocky, dotted band - dozens
+    // of vertices per column that mostly draw over each other.
+    //
+    // The interpolated vertices are then smoothed over a few pixels: the 8 bit
+    // quantisation of the oscilloscope turns a slowly changing signal into
+    // stair steps several pixels wide, and a straight line through those steps
+    // looks jittery. The moving average reconstructs the smooth signal behind
+    // them, but only while the trace stays continuous: the window is filled
+    // outwards from each vertex and stops at any single jump larger than a few
+    // ADC steps. Stair steps (one step each) are averaged away, a square wave
+    // flank - a single jump of several divisions - is never crossed, so it
+    // keeps its position and stays vertical.
+    const double smoothingWidthPx = 14.0;
+    const double smoothingMaxSteps = 6.0;
+    final int columns = math.max(2, size.width.round());
+    final Float64List trace;
+    if (expandToDisplay) {
+      // Evenly spread points across the visible span.
+      final int n = data.points.length;
+      trace = WaveformInterpolation.resample(
+        count: n,
+        columns: columns,
+        xAt: (i) => i / (n - 1) * size.width,
+        yAt: (i) =>
+            (visibleVMax - data.points[i].$2) / visibleVRange * size.height,
+      );
+    } else {
+      // Samples outside the visible window are still used as the ends of the
+      // interpolation segments at the plot edges; only columns inside the
+      // graticule produce vertices.
+      trace = WaveformInterpolation.resample(
+        count: data.points.length,
+        columns: columns,
+        xAt: (i) =>
+            (data.points[i].$1 - visibleTMin) / visibleTRange * size.width,
+        yAt: (i) =>
+            (visibleVMax - data.points[i].$2) / visibleVRange * size.height,
+      );
+    }
+
+    // One step of the instrument's 8 bit ADC, expressed in pixels.
+    final double adcStepPx = (vdiv / 25.0) / visibleVRange * size.height;
+    final smoothed = WaveformInterpolation.smooth(
+      trace,
+      smoothingWidth: smoothingWidthPx,
+      maxStep: adcStepPx * smoothingMaxSteps,
+    );
+
+    // A single point cannot be stroked as a line.
+    if (smoothed.length < 4) return;
+
+    final path = Path()..moveTo(smoothed[0], smoothed[1]);
+    for (int i = 2; i < smoothed.length; i += 2) {
+      path.lineTo(smoothed[i], smoothed[i + 1]);
+    }
+
     // Restrict waveform drawing to the grid area to prevent
     // overflow beyond the grid when zoom factor > 1.
     canvas.save();
     canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
-
-    final path = Path();
-    bool first = true;
-    if (expandToDisplay) {
-      // Evenly spread points across the visible span.
-      final int n = data.points.length;
-      for (int i = 0; i < n; i++) {
-        final point = data.points[i];
-        final double rel = n == 1 ? 0.0 : i / (n - 1);
-        final double px = rel * size.width;
-        final double py =
-            (visibleVMax - point.$2) / visibleVRange * size.height;
-        if (first) {
-          path.moveTo(px, py);
-          first = false;
-        } else {
-          path.lineTo(px, py);
-        }
-      }
-    } else {
-      for (final point in data.points) {
-        if (point.$1 < visibleTMin || point.$1 > visibleTMax) continue;
-        final px = (point.$1 - visibleTMin) / visibleTRange * size.width;
-        final py = (visibleVMax - point.$2) / visibleVRange * size.height;
-        if (first) {
-          path.moveTo(px, py);
-          first = false;
-        } else {
-          path.lineTo(px, py);
-        }
-      }
-    }
     canvas.drawPath(path, paint);
     canvas.restore();
   }
