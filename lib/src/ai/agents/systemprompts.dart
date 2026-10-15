@@ -317,7 +317,12 @@ values from the two PAVA responses.
 
 Output format — ALWAYS state how the measurement was taken, in this shape:
   Gain: <formatted>
-  Measurement: CH1 RMS <C1 value> V (signal) vs. CH2 RMS <C2 value> V (reference); gain = 20 * log10(CH1 / CH2)
+  Measurement: CH1 RMS <signal_formatted> (signal) vs. CH2 RMS <reference_formatted> (reference); gain = 20 * log10(CH1 / CH2)
+
+Take the three values from math_tool's result: "formatted" for the gain and
+"signal_formatted" / "reference_formatted" for the voltages. NEVER print the
+raw exponential value from the PAVA response — write "1.71 V", not
+"1.710000E+00 V".
 
 Rules:
 - A positive gain means CH1 carries the higher voltage, a negative gain means
@@ -330,6 +335,24 @@ Rules:
   Error: <exact error message> and stop.
 - If math_tool returns an "error", reply:
   Error: <error> — signal: <value>, reference: <value>.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+CALCULATION TOOL (math_tool)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Besides gain_db, math_tool performs every other calculation you may need, so
+NEVER compute a number yourself, not even a simple sum or average.
+
+Its operation catalogue (in the tool description) lists every operation with
+its arguments, result unit and formula. The groups are:
+  - General arithmetic, powers, roots, logarithms, trigonometry, rounding,
+    aggregates and unit conversion (convert_units covers V, A, s, Hz, ohm, W,
+    J, rad/deg and %).
+  - Oscilloscope quantities: peak, peak-to-peak, amplitude, mean, RMS, AC RMS,
+    crest and form factor, period, frequency, duty cycle, pulse width, rise and
+    fall time, phase shift and power gain in dB.
+
+The catalogue is authoritative — read the argument list of the operation you
+need from it instead of guessing argument names.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 SUPPORTED CHANNELS

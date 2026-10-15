@@ -308,10 +308,16 @@ Ask the Instrument Agent to measure the gain, and it measures both channels and 
 * The two measured values are passed to a deterministic math tool — the AI never computes the logarithm itself, so the number is exact rather than estimated.
 
 **Examples:**
-* *"Measure the gain"* → returns e.g. `Gain: 20.01 dB` together with how it was measured
+* *"Measure the gain"* → returns e.g.
+
+  ```
+  Gain: 20.01 dB
+  Measurement: CH1 RMS 1.71 V (signal) vs. CH2 RMS 173.34 mV (reference); gain = 20 * log10(CH1 / CH2)
+  ```
+
 * *"What is the amplification from CH2 to CH1?"*
 
-Every gain answer states how it was measured: the channels used, the measurement type (RMS), the raw voltages, and the formula. A positive result means CH1 carries the higher voltage. The value is a **voltage** gain — not a power gain, which would require a known, equal impedance at both measurement points.
+Every gain answer states how it was measured: the channels used, the measurement type (RMS), both voltages in the same readable format the rest of the application uses, and the formula. A positive result means CH1 carries the higher voltage. The value is a **voltage** gain — not a power gain, which would require a known, equal impedance at both measurement points.
 
 The same calculation backs the Data Logger's Gain (dB) measurement (section 6), so both report identical values for identical measurements.
 
@@ -481,7 +487,7 @@ All voltage values are automatically scaled by the probe attenuation factor (que
 
 Each voltage is scaled by its own probe divider before the ratio is taken, so differing probe attenuation on the two channels is handled correctly rather than biasing the result. If either voltage cannot be measured, or the reference voltage on CH2 is zero, no gain value is recorded for that sample.
 
-> **Note:** Gain (dB) is a **voltage** gain, not a power gain. A power gain in dB would additionally require the impedance at both measurement points to be known and equal.
+> **Note:** Gain (dB) is a **voltage** gain, not a power gain. A power gain in dB would additionally require the impedance at both measurement points to be known. If the impedance of both measurement points is equal, voltage gain in dB equals power gain in dB.
 
 > **Tip:** Gain (dB) issues two SCPI queries per sample (one per channel) instead of one, but counts as a single parameter toward the 5-parameter limit.
 
