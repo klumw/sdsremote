@@ -275,6 +275,8 @@ The chat maintains a multi-turn conversation history within the session. The AI 
 
 Ask questions about oscilloscope features, specifications, measurements, or troubleshooting. The AI searches the built-in knowledge base and returns the relevant documentation.
 
+When an oscilloscope is connected, the model it reports in its `*IDN?` response (the same name shown in the window title) is passed to the AI, so it knows which instrument it is answering for and can favour model-specific documentation. If no oscilloscope is connected, the AI still answers knowledge base and software questions — it only reports that no instrument is connected when you ask it to measure something or to send a command.
+
 **Examples:**
 * *"What is the maximum sample rate of the SDS1204X-E?"*
 * *"How do I configure the trigger delay?"*

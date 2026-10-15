@@ -28,11 +28,17 @@ class AiChatService {
   ///
   /// The frontend agent's own tool call limit was removed in favor of
   /// sub-agent limits ([instrumentToolCalls], [searchToolCalls]).
+  /// The [instrumentName] is the name the connected oscilloscope reports for
+  /// itself in its `*IDN?` response (e.g. `Siglent Technologies SDS1202X-E`).
+  /// Pass null when no instrument is connected — the agent works either way.
+  /// Use [updateInstrumentName] to refresh it when the instrument is
+  /// (dis)connected later.
   void configure({
     required String apiKey,
     required String apiToken,
     String model = 'deepseek:deepseek-v4-flash',
     String? vxi11Host,
+    String? instrumentName,
     int? instrumentToolCalls,
     int? searchToolCalls,
   }) {
@@ -58,6 +64,7 @@ class AiChatService {
       _agent = FrontendAgent(
         model: model,
         vxi11Host: vxi11Host,
+        instrumentName: instrumentName,
         instrumentToolCalls:
             instrumentToolCalls ?? FrontendAgent.defaultInstrumentToolCalls,
         searchToolCalls:
@@ -100,6 +107,15 @@ class AiChatService {
       ).debug('Error during AI streaming: $e');
       yield 'Error: AI request failed ($e)';
     }
+  }
+
+  /// Tells the current agent which instrument is connected, or clears it when
+  /// [instrumentName] is null.
+  ///
+  /// Safe to call at any time: it does nothing when the service is not
+  /// configured (no instrument is connected yet, or the AI is turned off).
+  void updateInstrumentName(String? instrumentName) {
+    _agent?.updateInstrumentName(instrumentName);
   }
 
   /// Deactivates the service by clearing the agent without permanently

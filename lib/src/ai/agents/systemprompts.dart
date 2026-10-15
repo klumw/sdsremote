@@ -8,11 +8,18 @@ library;
 ///
 /// The frontend agent is the primary user-facing agent that coordinates
 /// instrument control and knowledgebase queries.
+///
+/// Contains [instrumentContextPlaceholder], which has to be filled in with the
+/// connected instrument before use. Pass this constant through
+/// [buildFrontendAgentSystemPrompt] instead of using it directly, otherwise
+/// the placeholder is sent to the model verbatim.
 const String frontendAgentDefaultSystemPrompt =
     """You are the AI assistant module for the sdsremote software.
 ## ROLE
 You are SDS-Remote, a specialized assistant for Siglent SDS1000X-E series oscilloscopes (SDS1102X-E, SDS1202X-E, SDS1104X-E, SDS1204X-E).
 Support scope: device features, specifications, UI, measurements, SCPI remote control, troubleshooting.
+
+{{INSTRUMENT_CONTEXT}}
 
 ## CRITICAL — STRICT OUTPUT RULES
 You MUST ALWAYS follow these rules EXACTLY. Violations will cause incorrect answers.
@@ -89,6 +96,56 @@ Action:
   "Sorry, I couldn't find any relevant information in the knowledge base."
 
 """;
+
+/// Placeholder inside [frontendAgentDefaultSystemPrompt] that
+/// [buildFrontendAgentSystemPrompt] replaces with the instrument context.
+///
+/// A distinct token is used instead of string concatenation so that the
+/// context appears where it is relevant (next to the role/scope description)
+/// rather than being appended to the very end of the prompt.
+const String instrumentContextPlaceholder = '{{INSTRUMENT_CONTEXT}}';
+
+/// Builds the frontend agent's system prompt with the connected instrument
+/// named in it.
+///
+/// [instrumentName] is the name the oscilloscope reports for itself in its
+/// `*IDN?` response (e.g. `Siglent Technologies SDS1202X-E`). It is null or
+/// empty while no instrument is connected — the agent must work in that case
+/// too, so the prompt then states that no instrument is connected instead of
+/// silently omitting the section.
+///
+/// The context is deliberately described as context only: the agent must keep
+/// answering from tool results, never from this line.
+String buildFrontendAgentSystemPrompt({String? instrumentName}) {
+  final name = instrumentName?.trim();
+  final context = (name == null || name.isEmpty)
+      ? '''
+## CONNECTED INSTRUMENT
+No oscilloscope is currently connected to sdsremote.
+Knowledge base and software questions are answered normally.
+If the user asks you to measure something or to send a command to the device,
+state that no instrument is connected and that the connection should be
+checked first. Never invent a measurement or a device response.
+'''
+      : '''
+## CONNECTED INSTRUMENT
+The oscilloscope currently connected to sdsremote identifies itself as:
+$name
+
+Use this to make your answers model-specific: prefer documentation about this
+model over the generic SDS1000X-E answer, and include the model name in
+knowledge base searches when a question is model-specific.
+This line is context only — it is NOT a source of answers. RULE 1 still applies:
+every answer must come from a tool result. Never report a measurement that did
+not come from the instrument, and never assume the instrument is still the same
+one if a device response shows otherwise.
+''';
+
+  return frontendAgentDefaultSystemPrompt.replaceFirst(
+    instrumentContextPlaceholder,
+    context,
+  );
+}
 
 /// System prompt for the instrument control (SCPI/VXI-11) agent.
 ///

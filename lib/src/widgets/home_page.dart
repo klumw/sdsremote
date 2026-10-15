@@ -1417,6 +1417,11 @@ class _OsciHomePageState extends State<OsciHomePage>
               await _updateWindowTitle();
             } else {
               windowManager.setTitle(_deviceName!);
+              // Re-assert the name: a transient ping failure clears it (see
+              // _setFallbackWindowTitle) and _updateWindowTitle() is only
+              // called while _deviceName is still unknown, so the agent would
+              // otherwise never learn it again.
+              _aiChatService.updateInstrumentName(_deviceName);
             }
           } else {
             _setFallbackWindowTitle();
@@ -1435,6 +1440,8 @@ class _OsciHomePageState extends State<OsciHomePage>
             await _updateWindowTitle();
           } else {
             windowManager.setTitle(_deviceName!);
+            // Re-assert the name; see the note in the USB branch above.
+            _aiChatService.updateInstrumentName(_deviceName);
           }
         }
       }
@@ -1456,6 +1463,9 @@ class _OsciHomePageState extends State<OsciHomePage>
     } else {
       windowManager.setTitle('SDS-Remote — $_ipAddress');
     }
+    // No instrument is reachable, so the AI must stop naming a specific model.
+    // It answers knowledge and software questions either way.
+    _aiChatService.updateInstrumentName(null);
   }
 
   Future<void> _updateWindowTitle() async {
@@ -1476,6 +1486,10 @@ class _OsciHomePageState extends State<OsciHomePage>
       if (mounted) {
         _deviceName = name;
         windowManager.setTitle(name);
+        // Tell the AI which oscilloscope it is answering for. The agent is
+        // configured before the first device response, so it learns the name
+        // here rather than at construction time.
+        _aiChatService.updateInstrumentName(name);
       }
     } catch (_) {
       if (mounted) {
@@ -1947,6 +1961,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       apiToken: _aiApiToken,
       model: fullModel,
       vxi11Host: _ipAddress,
+      // Null until the device has answered its first *IDN? query; the ping
+      // timer reports the name via updateInstrumentName() once it is known.
+      instrumentName: _deviceName,
     );
 
     logger.log(
