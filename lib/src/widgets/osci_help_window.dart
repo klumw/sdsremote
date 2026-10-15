@@ -5,6 +5,8 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:markdown/markdown.dart' as md;
 
+import '../core/logger.dart';
+
 /// Result of parsing code spans from the manual content.
 typedef _CodeSpansResult = (List<(int, int)>, List<(int, int)>);
 
@@ -100,11 +102,17 @@ class _HelpWindowState extends State<HelpWindow> {
   }
 
   Future<void> _loadManual() async {
+    final log = AppLogger(agentName: 'HelpWindow', toolName: '_loadManual');
     // Ensure the loading indicator stays visible for at least 400ms
     // so the user always sees visual feedback when opening Help.
     final minLoadTime = Future.delayed(const Duration(milliseconds: 400));
+    final sw = Stopwatch()..start();
     try {
       _manualContent = await rootBundle.loadString('docs/manual.md');
+      log.log(
+        'Manual asset loaded: ${_manualContent.length} chars in '
+        '${sw.elapsedMilliseconds} ms',
+      );
       // Run the regex-based span parsing in a background isolate so the
       // CircularProgressIndicator animation keeps spinning while loading.
       // compute() passes the top-level function and argument directly to
@@ -114,11 +122,17 @@ class _HelpWindowState extends State<HelpWindow> {
       _fencedCodeBlockSpans.addAll(spans.$1);
       _inlineCodeSpans.clear();
       _inlineCodeSpans.addAll(spans.$2);
+      log.log(
+        'Code spans parsed: ${spans.$1.length} fenced, '
+        '${spans.$2.length} inline in ${sw.elapsedMilliseconds} ms',
+      );
       await minLoadTime;
     } catch (e) {
+      log.log('Manual load FAILED after ${sw.elapsedMilliseconds} ms: $e');
       _manualContent = 'Error loading manual: $e';
     }
     if (mounted) setState(() => _isLoading = false);
+    log.log('Loading flag cleared after ${sw.elapsedMilliseconds} ms');
   }
 
   /// Returns `true` if [offset] falls inside any fenced code block span
@@ -451,7 +465,17 @@ class _HelpWindowState extends State<HelpWindow> {
                             controller: _scrollController,
                             child: MarkdownBody(
                               data: displayContent,
-                              selectable: true,
+                              // Selection is OFF for the manual as a whole.
+                              // `selectable: true` wraps every text node of
+                              // the ~58 KB manual in its own SelectableText
+                              // plus selection bookkeeping, which measured
+                              // 4767 ms to lay out versus 577 ms without —
+                              // an 8x cost that blocked the UI thread for
+                              // seconds and made the app look frozen when
+                              // Help was opened. Code blocks stay selectable
+                              // and copyable on their own (see
+                              // CodeBlockElementBuilder).
+                              selectable: false,
                               onTapLink: (text, href, title) {
                                 if (href != null) {
                                   _launchUrl(href);

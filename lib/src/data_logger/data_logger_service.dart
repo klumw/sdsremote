@@ -1,8 +1,9 @@
 /// Background service for the Data Logger feature.
 ///
-/// Manages a periodic timer that queries the oscilloscope for peak-to-peak
-/// voltage and frequency measurements on the selected channels via SCPI
-/// commands, and emits [DataLoggerPoint] objects on a broadcast stream.
+/// Manages a periodic timer that queries the oscilloscope for voltage, duty
+/// cycle and frequency measurements on the selected channels via SCPI
+/// commands, plus the voltage gain in dB between CH1 and CH2, and emits
+/// [DataLoggerPoint] objects on a broadcast stream.
 ///
 /// SCPI queries use async I/O which yields to the Dart event loop during
 /// network waits, keeping UI animations responsive.
@@ -88,7 +89,8 @@ class DataLoggerService {
       'Data Logger started: interval=${cfg.intervalSeconds}s, '
       'duration=${cfg.durationMinutes}min, '
       'ch1Vpp=${cfg.ch1VppEnabled}, ch1Mean=${cfg.ch1MeanEnabled}, ch1Rms=${cfg.ch1RmsEnabled}, ch1Duty=${cfg.ch1DutyEnabled}, ch1Freq=${cfg.ch1FreqEnabled}, '
-      'ch2Vpp=${cfg.ch2VppEnabled}, ch2Mean=${cfg.ch2MeanEnabled}, ch2Rms=${cfg.ch2RmsEnabled}, ch2Duty=${cfg.ch2DutyEnabled}, ch2Freq=${cfg.ch2FreqEnabled}',
+      'ch2Vpp=${cfg.ch2VppEnabled}, ch2Mean=${cfg.ch2MeanEnabled}, ch2Rms=${cfg.ch2RmsEnabled}, ch2Duty=${cfg.ch2DutyEnabled}, ch2Freq=${cfg.ch2FreqEnabled}, '
+      'gainDb=${cfg.gainDbEnabled}',
     );
   }
 
@@ -203,6 +205,7 @@ class DataLoggerService {
       double? ch2Rms;
       double? ch2Duty;
       double? ch2Freq;
+      double? gainDb;
 
       // Check _hasStopped between each query — if stop() was called
       // (e.g. user switched panels), abandon this sample immediately.
@@ -248,6 +251,27 @@ class DataLoggerService {
         if (_hasStopped) return;
       }
 
+      // Gain (dB): voltage gain between CH1 (signal) and CH2 (reference).
+      // Both channels are measured with the same parameter (RMS) so the ratio
+      // reflects the true voltage gain of the device under test. Each voltage
+      // is scaled by its own probe divider, so differing probe attenuations on
+      // the two channels cancel out correctly instead of biasing the result.
+      if (cfg.gainDbEnabled) {
+        double? signalVoltage = await _queryPava(instr, 'C1:PAVA? RMS');
+        if (_hasStopped) return;
+        double? referenceVoltage = await _queryPava(instr, 'C2:PAVA? RMS');
+        if (_hasStopped) return;
+
+        if (signalVoltage != null) signalVoltage *= _probeDividerCh1;
+        if (referenceVoltage != null) referenceVoltage *= _probeDividerCh2;
+
+        gainDb = computeGainDb(signalVoltage, referenceVoltage);
+        AppLogger(agentName: 'DataLogger', toolName: '_doSample').log(
+          'Gain (dB): C1 RMS=$signalVoltage, C2 RMS=$referenceVoltage '
+          '=> $gainDb dB',
+        );
+      }
+
       if (ch1Vpp != null) ch1Vpp = ch1Vpp * _probeDividerCh1;
       if (ch1Mean != null) ch1Mean = ch1Mean * _probeDividerCh1;
       if (ch1Rms != null) ch1Rms = ch1Rms * _probeDividerCh1;
@@ -268,6 +292,7 @@ class DataLoggerService {
         ch2Rms: ch2Rms,
         ch2Duty: ch2Duty,
         ch2Freq: ch2Freq,
+        gainDb: gainDb,
       );
 
       _pointController.add(point);

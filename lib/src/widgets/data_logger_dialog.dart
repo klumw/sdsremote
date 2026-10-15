@@ -1,7 +1,8 @@
 /// Configuration dialog for the Data Logger.
 ///
-/// Allows the user to select measurements (Vpp / Freq per channel),
-/// sampling interval (10s–60s), and recording duration (1min–24h).
+/// Allows the user to select measurements (Vpp / Mean / Rms / Duty / Freq per
+/// channel, plus the cross-channel Gain (dB)), sampling interval (10s–60s),
+/// and recording duration (1min–24h).
 /// Provides Start and Cancel buttons. Once the logger is running,
 /// shows Stop / New / Restart controls instead.
 library;
@@ -77,6 +78,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
   bool _ch2RmsEnabled = false;
   bool _ch2DutyEnabled = false;
   bool _ch2FreqEnabled = false;
+  bool _gainDbEnabled = false;
   double _intervalSeconds = 10; // Slider: 10–60
   int _durationIndex = 0; // Index into _durationPresetsMinutes
   final _descriptionController = TextEditingController();
@@ -96,6 +98,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
       _ch2RmsEnabled = widget.currentConfig!.ch2RmsEnabled;
       _ch2DutyEnabled = widget.currentConfig!.ch2DutyEnabled;
       _ch2FreqEnabled = widget.currentConfig!.ch2FreqEnabled;
+      _gainDbEnabled = widget.currentConfig!.gainDbEnabled;
       _intervalSeconds = widget.currentConfig!.intervalSeconds.toDouble();
       final saved = widget.currentConfig!.durationMinutes;
       _durationIndex = _durationPresetsMinutes
@@ -122,7 +125,8 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
       (_ch2MeanEnabled ? 1 : 0) +
       (_ch2RmsEnabled ? 1 : 0) +
       (_ch2DutyEnabled ? 1 : 0) +
-      (_ch2FreqEnabled ? 1 : 0);
+      (_ch2FreqEnabled ? 1 : 0) +
+      (_gainDbEnabled ? 1 : 0);
 
   /// Maximum number of measurement parameters that can be selected.
   static const int _maxSelected = 5;
@@ -144,6 +148,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
         ch2RmsEnabled: _ch2RmsEnabled,
         ch2DutyEnabled: _ch2DutyEnabled,
         ch2FreqEnabled: _ch2FreqEnabled,
+        gainDbEnabled: _gainDbEnabled,
         intervalSeconds: _intervalSeconds.round(),
         durationMinutes: _durationMinutes,
         description: _descriptionController.text.trim(),
@@ -284,7 +289,11 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                   SizedBox(
                     height: 30,
                     child:
-                        (_ch1VppEnabled || _ch1MeanEnabled || _ch1RmsEnabled) &&
+                        (_ch1VppEnabled ||
+                                _ch1MeanEnabled ||
+                                _ch1RmsEnabled ||
+                                // Gain (dB) reads the CH1 RMS voltage too.
+                                _gainDbEnabled) &&
                             widget.currentConfig != null
                         ? Padding(
                             padding: const EdgeInsets.only(left: 4, top: 4),
@@ -352,7 +361,11 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                   SizedBox(
                     height: 30,
                     child:
-                        (_ch2VppEnabled || _ch2MeanEnabled || _ch2RmsEnabled) &&
+                        (_ch2VppEnabled ||
+                                _ch2MeanEnabled ||
+                                _ch2RmsEnabled ||
+                                // Gain (dB) reads the CH2 RMS voltage too.
+                                _gainDbEnabled) &&
                             widget.currentConfig != null
                         ? Padding(
                             padding: const EdgeInsets.only(left: 4, top: 4),
@@ -398,6 +411,18 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                 activeColor: const Color(0xFFFF20FF),
                 onChanged: (v) => setState(() {
                   _ch2FreqEnabled = v;
+                  _emitConfig();
+                }),
+              ),
+              // Gain (dB) is a cross-channel measurement: the RMS voltage on
+              // CH1 (signal) divided by the RMS voltage on CH2 (reference).
+              // It therefore has no per-channel toggle of its own.
+              _buildMeasurementToggle(
+                label: 'Gain (dB)',
+                value: _gainDbEnabled,
+                activeColor: _gainColor,
+                onChanged: (v) => setState(() {
+                  _gainDbEnabled = v;
                   _emitConfig();
                 }),
               ),
@@ -723,7 +748,10 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
   /// Labels are stacked vertically so both fit without wrapping issues.
   Widget _buildProbeLabelRow(DataLoggerConfig config) {
     final items = <Widget>[];
-    if (config.ch1VppEnabled || config.ch1MeanEnabled || config.ch1RmsEnabled) {
+    if (config.ch1VppEnabled ||
+        config.ch1MeanEnabled ||
+        config.ch1RmsEnabled ||
+        config.gainDbEnabled) {
       items.add(
         Text(
           'CH1-Probe: ${_fmtProbe(config.probeDividerCh1)}',
@@ -731,7 +759,10 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
         ),
       );
     }
-    if (config.ch2VppEnabled || config.ch2MeanEnabled || config.ch2RmsEnabled) {
+    if (config.ch2VppEnabled ||
+        config.ch2MeanEnabled ||
+        config.ch2RmsEnabled ||
+        config.gainDbEnabled) {
       if (items.isNotEmpty) items.add(const SizedBox(height: 2));
       items.add(
         Text(
@@ -848,3 +879,6 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
 }
 
 const Color _axisColor = Color(0xFF475569);
+
+/// Accent color for the Gain (dB) measurement, matching the plot line color.
+const Color _gainColor = Color(0xFF00E5FF);

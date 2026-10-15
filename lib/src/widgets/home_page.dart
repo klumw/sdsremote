@@ -1252,8 +1252,6 @@ class _OsciHomePageState extends State<OsciHomePage>
       AppLogger().log('Save profile error: $e');
       AppLogger().log('Popup: Save profile failed: $e');
       _showErrorSnackBar('Save profile failed: $e');
-    } finally {
-      await _closeInstrumentIfUsb();
     }
   }
 
@@ -1294,8 +1292,6 @@ class _OsciHomePageState extends State<OsciHomePage>
       AppLogger().log('Load profile error: $e');
       AppLogger().log('Popup: Load profile failed: $e');
       _showErrorSnackBar('Load profile failed: $e');
-    } finally {
-      await _closeInstrumentIfUsb();
     }
   }
 
@@ -1415,7 +1411,10 @@ class _OsciHomePageState extends State<OsciHomePage>
           setState(() => _isOnline = address != null);
           if (address != null) {
             if (_deviceName == null) {
-              _updateWindowTitle();
+              // Awaited so _isPinging stays set until the IDN query finishes;
+              // otherwise the next tick starts a second device query while
+              // this one is still in flight.
+              await _updateWindowTitle();
             } else {
               windowManager.setTitle(_deviceName!);
             }
@@ -1433,7 +1432,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         if (mounted) {
           setState(() => _isOnline = true);
           if (_deviceName == null) {
-            _updateWindowTitle();
+            await _updateWindowTitle();
           } else {
             windowManager.setTitle(_deviceName!);
           }
@@ -1530,7 +1529,6 @@ class _OsciHomePageState extends State<OsciHomePage>
         _isOnline = false;
       });
     } finally {
-      await _closeInstrumentIfUsb();
       if (mounted) {
         setState(() {
           _isAcquiring = false;
@@ -1579,7 +1577,6 @@ class _OsciHomePageState extends State<OsciHomePage>
       AppLogger().log('Popup: Waveform error: $reason');
       _showErrorSnackBar('Waveform error: $reason');
     } finally {
-      await _closeInstrumentIfUsb();
       if (mounted) {
         setState(() {
           _isAcquiringWaveform = false;
@@ -1990,15 +1987,42 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
   }
 
+  /// Open attempt currently in progress, if any.
+  ///
+  /// Without this, two callers racing on a cold cache (e.g. the 5 s ping timer
+  /// and a user action) would both see [_instrument] == null and both try to
+  /// claim the USB interface. One wins, the other fails with
+  /// "claim interface 0 ... BUSY" — and its error path then tears down the
+  /// shared USB connection the winner is still using.
+  Future<Vxi11Instrument?>? _instrumentOpenInFlight;
+
   Future<Vxi11Instrument?> _getInstrument() async {
     if (_instrument != null) return _instrument;
+    // Join an open that is already running instead of starting a second one.
+    final inFlight = _instrumentOpenInFlight;
+    if (inFlight != null) return inFlight;
+
+    final future = _openInstrument();
+    _instrumentOpenInFlight = future;
+    try {
+      return await future;
+    } finally {
+      _instrumentOpenInFlight = null;
+    }
+  }
+
+  Future<Vxi11Instrument?> _openInstrument() async {
     try {
       final instr = Vxi11Instrument(_ipAddress, sourceLabel: 'getInstrument');
       await instr.open(timeoutSeconds: 5.0);
       _instrument = instr;
       return _instrument;
     } catch (e) {
-      AppLogger().log('Failed to open VXI-11 connection: $e');
+      // open() drives either transport; naming the wrong one here sends the
+      // reader hunting in the wrong layer (a USB claim failure used to be
+      // reported as a VXI-11 failure).
+      final transport = Vxi11Instrument.isUsbMode ? 'USB (USBTMC)' : 'VXI-11';
+      AppLogger().log('Failed to open $transport connection: $e');
       setState(() => _isOnline = false);
       return null;
     }
@@ -2019,12 +2043,16 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
   }
 
-  /// Closes the instrument connection if running in USB mode.
-  /// In USB mode the connection must be released after each SCPI
-  /// transaction so the kernel driver can re-attach.
-  Future<void> _closeInstrumentIfUsb() async {
-    if (_isUsb) await _closeInstrument();
-  }
+  /// NOTE: In USB mode the connection is deliberately NOT released after each
+  /// SCPI transaction any more.
+  ///
+  /// Releasing it made the kernel driver re-attach (and re-probe the device)
+  /// after every transaction, then detach again on the next claim. That
+  /// detach/attach churn — 40 open cycles in a single session — de-stabilised
+  /// the USB link: the instrument re-enumerated underneath the app and opens
+  /// started failing with "Failed to claim interface 0: error code -6 (BUSY)".
+  /// The interface is now claimed once and held for the lifetime of the app,
+  /// and released in [dispose].
 
   void _scheduleRefresh() {
     if (_refreshPending) return;
@@ -2066,8 +2094,6 @@ class _OsciHomePageState extends State<OsciHomePage>
       AppLogger().log('Popup: Failed to send command: $e');
       _showErrorSnackBar('Failed to send command: $e');
       return false;
-    } finally {
-      await _closeInstrumentIfUsb();
     }
   }
 

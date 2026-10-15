@@ -213,6 +213,15 @@ class DataLoggerReport {
         _fmtFreq(_maxValue(points.map((p) => p.ch2Freq))),
       ]);
     }
+    if (config.gainDbEnabled) {
+      rows.add([
+        'Gain (dB)',
+        _fmtValue(first.gainDb, 'dB'),
+        _fmtValue(last.gainDb, 'dB'),
+        _fmtValue(_minValue(points.map((p) => p.gainDb)), 'dB'),
+        _fmtValue(_maxValue(points.map((p) => p.gainDb)), 'dB'),
+      ]);
+    }
 
     return rows;
   }
@@ -235,7 +244,8 @@ class DataLoggerReport {
     return max;
   }
 
-  /// Format a voltage value, returning "N/A" if null.
+  /// Format a numeric value with its [unit] (volts or decibels),
+  /// returning "N/A" if null.
   static String _fmtValue(double? value, String unit) {
     if (value == null) return 'N/A';
     return '${value.toStringAsFixed(3)} $unit';

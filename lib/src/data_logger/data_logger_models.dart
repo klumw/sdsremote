@@ -4,6 +4,32 @@
 /// used by the Data Logger service, plot, and dialog widgets.
 library;
 
+import 'dart:math' as math;
+
+// =============================================================================
+// Gain Calculation
+// =============================================================================
+
+/// Voltage gain in decibels between two voltage measurements.
+///
+/// Computes `20 * log10(signalVoltage / referenceVoltage)`, where
+/// [signalVoltage] is the voltage on the signal channel (C1) and
+/// [referenceVoltage] is the voltage on the reference channel (C2).
+/// A positive result means the signal channel carries the larger voltage.
+///
+/// Both voltages must be the same measurement type and already scaled by
+/// their respective probe attenuation factors, so that the ratio reflects
+/// the actual voltages at the probe tips.
+///
+/// Returns null when either voltage is unavailable, or when either value is
+/// zero or negative: the ratio is then undefined (`log10(0)` is negative
+/// infinity) or meaningless, since an RMS voltage is never negative.
+double? computeGainDb(double? signalVoltage, double? referenceVoltage) {
+  if (signalVoltage == null || referenceVoltage == null) return null;
+  if (signalVoltage <= 0 || referenceVoltage <= 0) return null;
+  return 20.0 * (math.log(signalVoltage / referenceVoltage) / math.ln10);
+}
+
 // =============================================================================
 // Configuration
 // =============================================================================
@@ -11,8 +37,9 @@ library;
 /// Configuration for a Data Logger session.
 ///
 /// Stores the per-measurement selection (Vpp, Mean, Rms, Duty, and/or Freq
-/// per channel), sampling interval, total recording duration, and the probe
-/// attenuation factors queried from the instrument.
+/// per channel), whether the cross-channel voltage gain in dB is measured,
+/// sampling interval, total recording duration, and the probe attenuation
+/// factors queried from the instrument.
 class DataLoggerConfig {
   /// Whether CH1 peak-to-peak voltage is measured.
   final bool ch1VppEnabled;
@@ -44,6 +71,12 @@ class DataLoggerConfig {
   /// Whether CH2 frequency is measured.
   final bool ch2FreqEnabled;
 
+  /// Whether the voltage gain between CH1 (signal) and CH2 (reference) is
+  /// measured in decibels. Unlike the per-channel measurements above, this is
+  /// a derived cross-channel measurement: it queries the RMS voltage on both
+  /// channels and records `20 * log10(C1 / C2)`.
+  final bool gainDbEnabled;
+
   final int intervalSeconds;
   final int durationMinutes;
 
@@ -60,20 +93,30 @@ class DataLoggerConfig {
   final double probeDividerCh2;
 
   /// True if any measurement is enabled for CH1.
+  ///
+  /// Gain (dB) is included because it queries the RMS voltage on both
+  /// channels, so CH1 must be considered active whenever gain is selected
+  /// (this also ensures the CH1 probe attenuation is queried).
   bool get ch1Enabled =>
       ch1VppEnabled ||
       ch1MeanEnabled ||
       ch1RmsEnabled ||
       ch1DutyEnabled ||
-      ch1FreqEnabled;
+      ch1FreqEnabled ||
+      gainDbEnabled;
 
   /// True if any measurement is enabled for CH2.
+  ///
+  /// Gain (dB) is included because it queries the RMS voltage on both
+  /// channels, so CH2 must be considered active whenever gain is selected
+  /// (this also ensures the CH2 probe attenuation is queried).
   bool get ch2Enabled =>
       ch2VppEnabled ||
       ch2MeanEnabled ||
       ch2RmsEnabled ||
       ch2DutyEnabled ||
-      ch2FreqEnabled;
+      ch2FreqEnabled ||
+      gainDbEnabled;
 
   const DataLoggerConfig({
     this.ch1VppEnabled = false,
@@ -86,6 +129,7 @@ class DataLoggerConfig {
     this.ch2RmsEnabled = false,
     this.ch2DutyEnabled = false,
     this.ch2FreqEnabled = false,
+    this.gainDbEnabled = false,
     this.intervalSeconds = 10,
     this.durationMinutes = 1,
     this.description = '',
@@ -109,6 +153,7 @@ class DataLoggerConfig {
     bool? ch2RmsEnabled,
     bool? ch2DutyEnabled,
     bool? ch2FreqEnabled,
+    bool? gainDbEnabled,
     int? intervalSeconds,
     int? durationMinutes,
     String? description,
@@ -126,6 +171,7 @@ class DataLoggerConfig {
       ch2RmsEnabled: ch2RmsEnabled ?? this.ch2RmsEnabled,
       ch2DutyEnabled: ch2DutyEnabled ?? this.ch2DutyEnabled,
       ch2FreqEnabled: ch2FreqEnabled ?? this.ch2FreqEnabled,
+      gainDbEnabled: gainDbEnabled ?? this.gainDbEnabled,
       intervalSeconds: intervalSeconds ?? this.intervalSeconds,
       durationMinutes: durationMinutes ?? this.durationMinutes,
       description: description ?? this.description,
@@ -148,6 +194,7 @@ class DataLoggerConfig {
           ch2RmsEnabled == other.ch2RmsEnabled &&
           ch2DutyEnabled == other.ch2DutyEnabled &&
           ch2FreqEnabled == other.ch2FreqEnabled &&
+          gainDbEnabled == other.gainDbEnabled &&
           intervalSeconds == other.intervalSeconds &&
           durationMinutes == other.durationMinutes &&
           description == other.description &&
@@ -166,6 +213,7 @@ class DataLoggerConfig {
     ch2RmsEnabled,
     ch2DutyEnabled,
     ch2FreqEnabled,
+    gainDbEnabled,
     intervalSeconds,
     durationMinutes,
     description,
@@ -178,6 +226,7 @@ class DataLoggerConfig {
       'DataLoggerConfig('
       'ch1Vpp=$ch1VppEnabled, ch1Mean=$ch1MeanEnabled, ch1Rms=$ch1RmsEnabled, ch1Duty=$ch1DutyEnabled, ch1Freq=$ch1FreqEnabled, '
       'ch2Vpp=$ch2VppEnabled, ch2Mean=$ch2MeanEnabled, ch2Rms=$ch2RmsEnabled, ch2Duty=$ch2DutyEnabled, ch2Freq=$ch2FreqEnabled, '
+      'gainDb=$gainDbEnabled, '
       'interval=${intervalSeconds}s, duration=${durationMinutes}min'
       '${description.isEmpty ? '' : ', description=$description'}'
       ', probeDividerCh1=${probeDividerCh1}x, probeDividerCh2=${probeDividerCh2}x'
@@ -194,6 +243,9 @@ class DataLoggerConfig {
 /// measurement was disabled in the config, or if the SCPI query failed.
 /// [ch2Vpp], [ch2Mean], [ch2Rms], and [ch2Freq] are null if the respective
 /// measurement was disabled in the config, or if the SCPI query failed.
+/// [gainDb] is null if gain measurement was disabled, if either channel's
+/// RMS query failed, or if the reference voltage was unusable (see
+/// [computeGainDb]).
 /// All voltage values are already scaled by the probe divider factor.
 class DataLoggerPoint {
   final DateTime timestamp;
@@ -208,6 +260,7 @@ class DataLoggerPoint {
   final double? ch2Rms;
   final double? ch2Duty;
   final double? ch2Freq;
+  final double? gainDb;
 
   const DataLoggerPoint({
     required this.timestamp,
@@ -222,6 +275,7 @@ class DataLoggerPoint {
     this.ch2Rms,
     this.ch2Duty,
     this.ch2Freq,
+    this.gainDb,
   });
 
   @override
@@ -236,7 +290,8 @@ class DataLoggerPoint {
       'ch2Mean=${ch2Mean?.toStringAsFixed(4)}, '
       'ch2Rms=${ch2Rms?.toStringAsFixed(4)}, '
       'ch2Duty=${ch2Duty?.toStringAsFixed(1)}, '
-      'ch2Freq=${ch2Freq?.toStringAsFixed(1)})';
+      'ch2Freq=${ch2Freq?.toStringAsFixed(1)}, '
+      'gainDb=${gainDb?.toStringAsFixed(2)})';
 }
 
 // =============================================================================

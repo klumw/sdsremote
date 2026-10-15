@@ -46,6 +46,8 @@ String buildDataLoggerCsv({
   addCol('CH2 Rms (V)', (p) => p.ch2Rms, config.ch2RmsEnabled, 'ch2_rms');
   addCol('CH2 Duty (%)', (p) => p.ch2Duty, config.ch2DutyEnabled, 'ch2_duty');
   addCol('CH2 Freq (Hz)', (p) => p.ch2Freq, config.ch2FreqEnabled, 'ch2_freq');
+  // Cross-channel voltage gain (CH1 signal vs. CH2 reference), in decibels.
+  addCol('Gain (dB)', (p) => p.gainDb, config.gainDbEnabled, 'gain_db');
 
   // CSV header row
   csvBuffer.writeln(columns.join(','));

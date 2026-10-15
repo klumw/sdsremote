@@ -16,6 +16,9 @@ import 'data_logger_plot.dart';
 import 'data_logger_dialog.dart';
 import '../instrument/dart_vxi11.dart';
 
+/// Accent color for the Gain (dB) measurement, matching the plot line color.
+const Color _gainColor = Color(0xFF00E5FF);
+
 /// The main Data Logger panel widget.
 ///
 /// Manages the logger lifecycle: idle → configuring → running → stopped.
@@ -394,6 +397,8 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
                                             _config?.ch2DutyEnabled ?? false,
                                         ch2FreqEnabled:
                                             _config?.ch2FreqEnabled ?? false,
+                                        gainDbEnabled:
+                                            _config?.gainDbEnabled ?? false,
                                         status: _status,
                                         totalDurationSeconds:
                                             (_config?.durationMinutes ?? 1) *
@@ -587,6 +592,16 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
         );
       }
     }
+    if (_config?.gainDbEnabled == true) {
+      if (!_hiddenLines.contains('gain_db') && nearest.gainDb != null) {
+        rows.add(
+          Text(
+            'Gain: ${nearest.gainDb!.toStringAsFixed(2)} dB',
+            style: const TextStyle(color: _gainColor, fontSize: 11),
+          ),
+        );
+      }
+    }
     // Position tooltip near the cursor, clamped within the actual available area.
     // When cursor is past 50% of chart width, show tooltip to the left of cursor
     // to avoid overflowing off-screen.
@@ -677,6 +692,10 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     if (_config?.ch2FreqEnabled == true) {
       if (items.isNotEmpty) items.add(const SizedBox(width: 4));
       items.add(_legendChip('CH2 Freq', 'ch2_freq', const Color(0xFFFF20FF)));
+    }
+    if (_config?.gainDbEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 8));
+      items.add(_legendChip('Gain (dB)', 'gain_db', _gainColor));
     }
     if (items.isEmpty) return const SizedBox.shrink();
     return SingleChildScrollView(

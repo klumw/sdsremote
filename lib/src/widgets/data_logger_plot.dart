@@ -1,8 +1,9 @@
 /// XY plot widget for the Data Logger.
 ///
-/// Displays Peak-to-Peak voltage (left Y-axis) and Frequency (right Y-axis)
-/// over time (X-axis) for channels 1 and/or 2. Features auto-scaling for
-/// both Y-axes and a legend in the top-right corner.
+/// Displays voltage (left Y-axis), Frequency (right Y-axis), duty cycle and
+/// voltage gain in dB (inner-left axes) over time (X-axis) for channels 1
+/// and/or 2. Features auto-scaling for all Y-axes and a legend in the
+/// top-right corner.
 library;
 
 import 'dart:math' as math;
@@ -19,6 +20,7 @@ const Color _ch1Color = Color(0xFFFFFF00); // Yellow
 const Color _ch1MeanColor = Color(0xFF00E676); // Green
 const Color _ch2Color = Color(0xFFFF20FF); // Magenta
 const Color _ch2MeanColor = Color(0xFFFF5252); // Red
+const Color _gainColor = Color(0xFF00E5FF); // Cyan
 const Color _gridColor = Color(0xFF1E3A5F);
 const Color _axisColor = Color(0xFF475569);
 const Color _labelColor = Color(0xFF94A3B8);
@@ -30,8 +32,9 @@ const Color _bgColor = Color(0xFF0A192F);
 
 /// XY plot widget for Data Logger measurements.
 ///
-/// Renders Peak-to-Peak voltage (left Y-axis) and Frequency (right Y-axis)
-/// as functions of elapsed time (X-axis). Both axes auto-scale to fit data.
+/// Renders voltage (left Y-axis), Frequency (right Y-axis), duty cycle and
+/// voltage gain in dB (inner-left axes) as functions of elapsed time
+/// (X-axis). All axes auto-scale to fit the data.
 class DataLoggerPlot extends StatelessWidget {
   final List<DataLoggerPoint> points;
   final bool ch1VppEnabled;
@@ -44,6 +47,7 @@ class DataLoggerPlot extends StatelessWidget {
   final bool ch2RmsEnabled;
   final bool ch2DutyEnabled;
   final bool ch2FreqEnabled;
+  final bool gainDbEnabled;
   final DataLoggerStatus status;
 
   /// Total configured recording duration in seconds.
@@ -72,6 +76,7 @@ class DataLoggerPlot extends StatelessWidget {
     this.ch2RmsEnabled = false,
     this.ch2DutyEnabled = false,
     this.ch2FreqEnabled = false,
+    this.gainDbEnabled = false,
     required this.status,
     this.totalDurationSeconds = 60,
     this.hiddenLines = const {},
@@ -124,6 +129,7 @@ class DataLoggerPlot extends StatelessWidget {
               ch2RmsEnabled: ch2RmsEnabled,
               ch2DutyEnabled: ch2DutyEnabled,
               ch2FreqEnabled: ch2FreqEnabled,
+              gainDbEnabled: gainDbEnabled,
               status: status,
               totalDurationSeconds: totalDurationSeconds,
               hiddenLines: hiddenLines,
@@ -149,6 +155,8 @@ class _AxisRanges {
   final double maxFreq;
   final double minDuty;
   final double maxDuty;
+  final double minGain;
+  final double maxGain;
 
   const _AxisRanges({
     required this.maxTime,
@@ -158,6 +166,8 @@ class _AxisRanges {
     required this.maxFreq,
     required this.minDuty,
     required this.maxDuty,
+    required this.minGain,
+    required this.maxGain,
   });
 
   // Use the exact configured maxTime (recording duration) without nice-rounding,
@@ -190,6 +200,13 @@ class _AxisRanges {
     double peakFreq = 0.0;
     double minDuty = 100.0;
     double maxDuty = 0.0;
+    // Gain in dB can be positive (amplification) or negative (attenuation),
+    // so track both ends. Seeding both with 0.0 keeps the 0 dB unity-gain
+    // line inside the axis range, which is the natural reference for a gain
+    // plot, and also guarantees a usable range when every recorded point
+    // sits on one side of 0 dB.
+    double minGain = 0.0;
+    double maxGain = 0.0;
 
     for (final p in points) {
       // Voltage: track min and max across Vpp, Mean, and Rms
@@ -229,6 +246,11 @@ class _AxisRanges {
         if (p.ch2Duty! > maxDuty) maxDuty = p.ch2Duty!;
         if (p.ch2Duty! < minDuty) minDuty = p.ch2Duty!;
       }
+      // Gain (dB): can be either sign, so track min and max.
+      if (p.gainDb != null) {
+        if (p.gainDb! > maxGain) maxGain = p.gainDb!;
+        if (p.gainDb! < minGain) minGain = p.gainDb!;
+      }
     }
 
     // Y-axes dynamic scaling: 20% margin above and below the data range.
@@ -259,6 +281,23 @@ class _AxisRanges {
     const double finalMinDuty = 0.0;
     const double finalMaxDuty = 100.0;
 
+    // Gain (dB) axis: 20% padding around the observed range. A flat trace
+    // (all points at the same gain) would produce a zero-height range, so
+    // fall back to a symmetric window around the value instead.
+    double finalMinGain;
+    double finalMaxGain;
+    final gainSpan = maxGain - minGain;
+    if (gainSpan < 0.1) {
+      final center = (minGain + maxGain) / 2;
+      final halfSpan = math.max(center.abs() * 0.1, 1.0);
+      finalMinGain = center - halfSpan;
+      finalMaxGain = center + halfSpan;
+    } else {
+      final gainPadding = gainSpan * 0.2;
+      finalMinGain = minGain - gainPadding;
+      finalMaxGain = maxGain + gainPadding;
+    }
+
     return _AxisRanges(
       maxTime: maxTime,
       minVpp: minVpp,
@@ -267,6 +306,8 @@ class _AxisRanges {
       maxFreq: maxFreq,
       minDuty: finalMinDuty,
       maxDuty: finalMaxDuty,
+      minGain: finalMinGain,
+      maxGain: finalMaxGain,
     );
   }
 }
@@ -287,6 +328,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
   final bool ch2RmsEnabled;
   final bool ch2DutyEnabled;
   final bool ch2FreqEnabled;
+  final bool gainDbEnabled;
   final DataLoggerStatus status;
   final double totalDurationSeconds;
   final Set<String> hiddenLines;
@@ -303,6 +345,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
     required this.ch2RmsEnabled,
     required this.ch2DutyEnabled,
     required this.ch2FreqEnabled,
+    required this.gainDbEnabled,
     required this.status,
     this.totalDurationSeconds = 60,
     this.hiddenLines = const {},
@@ -313,6 +356,9 @@ class _DataLoggerPlotPainter extends CustomPainter {
   static const double _marginRight = 75.0; // Right Y-axis labels + ticks
   static const double _marginTop = 16.0;
   static const double _marginBottom = 40.0; // X-axis labels
+  /// Width reserved inside the plot for the Gain (dB) tick column, so the
+  /// duty-cycle ticks can be shifted clear of it when both are shown.
+  static const double _gainLabelColumnWidth = 46.0;
   static const double _legendWidth = 140.0;
   static const double _legendPadding = 8.0;
   static const double _legendItemHeight = 16.0;
@@ -365,6 +411,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
       ranges,
       vppEnabled: vppEnabled,
       freqEnabled: freqEnabled,
+      gainEnabled: gainDbEnabled,
     );
 
     // Draw data lines
@@ -379,6 +426,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
       vppEnabled: vppEnabled,
       freqEnabled: freqEnabled,
       dutyEnabled: dutyEnabled,
+      gainEnabled: gainDbEnabled,
     );
 
     // Draw legend
@@ -467,6 +515,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
     _AxisRanges ranges, {
     required bool vppEnabled,
     required bool freqEnabled,
+    required bool gainEnabled,
   }) {
     final gridPaint = Paint()
       ..color = _gridColor
@@ -507,6 +556,18 @@ class _DataLoggerPlotPainter extends CustomPainter {
           gridPaint,
         );
         f += freqStep;
+      }
+    } else if (gainEnabled) {
+      final gainStep = _tickStep(ranges.minGain, ranges.maxGain);
+      double g = ranges.minGain;
+      while (g <= ranges.maxGain + 0.001) {
+        final y = _mapValueToY(g, ranges.minGain, ranges.maxGain, plotRect);
+        canvas.drawLine(
+          Offset(plotRect.left, y),
+          Offset(plotRect.right, y),
+          gridPaint,
+        );
+        g += gainStep;
       }
     }
 
@@ -553,6 +614,9 @@ class _DataLoggerPlotPainter extends CustomPainter {
     final dutyRange = ranges.maxDuty - ranges.minDuty;
     double mapDuty(double d) =>
         plotRect.bottom - ((d - ranges.minDuty) / dutyRange) * plotRect.height;
+    final gainRange = ranges.maxGain - ranges.minGain;
+    double mapGain(double g) =>
+        plotRect.bottom - ((g - ranges.minGain) / gainRange) * plotRect.height;
 
     void drawLine(
       List<Offset> pts,
@@ -712,6 +776,22 @@ class _DataLoggerPlotPainter extends CustomPainter {
         drawLine(ch2FreqPts, _ch2Color, 'CH2 Freq', dashed: true);
       }
     }
+
+    // Cross-channel voltage gain in dB — drawn solid so it stands out as the
+    // primary RF figure of merit, and in its own color.
+    if (gainDbEnabled) {
+      if (!hiddenLines.contains('gain_db')) {
+        final gainPts = <Offset>[];
+        for (final p in points) {
+          if (p.gainDb != null) {
+            gainPts.add(
+              Offset(mapTime(p.elapsedSeconds), mapGain(p.gainDb!)),
+            );
+          }
+        }
+        drawLine(gainPts, _gainColor, 'Gain (dB)', dashed: false);
+      }
+    }
   }
 
   Path _dashPath(Path source, double dashLength, double gapLength) {
@@ -754,6 +834,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
     required bool vppEnabled,
     required bool freqEnabled,
     bool dutyEnabled = false,
+    bool gainEnabled = false,
   }) {
     final textStyle = TextStyle(color: _labelColor, fontSize: 10);
     final textPainter = TextPainter(textDirection: TextDirection.ltr);
@@ -868,10 +949,52 @@ class _DataLoggerPlotPainter extends CustomPainter {
       }
     }
 
+    // Y-axis tick labels (left inner: Gain in dB) — drawn in the innermost
+    // column inside the plot area, next to the left Y-axis. The "dB" suffix
+    // distinguishes these ticks from the duty-cycle ticks ("%") that share
+    // the same inner-left area.
+    if (gainEnabled) {
+      final gainStep = _tickStep(ranges.minGain, ranges.maxGain);
+      double g = ranges.minGain;
+      while (g <= ranges.maxGain + 0.001) {
+        final y = _mapValueToY(g, ranges.minGain, ranges.maxGain, plotRect);
+        textPainter.text = TextSpan(
+          text: '${_formatDbValue(g)}dB',
+          style: textStyle,
+        );
+        textPainter.layout();
+        textPainter.paint(
+          canvas,
+          Offset(plotRect.left + 4, y - textPainter.height / 2),
+        );
+        g += gainStep;
+      }
+      // Always mark 0 dB (unity gain), the reference point of a gain plot.
+      // The tick loop only lands on it when the step happens to divide it.
+      final zeroOnTick =
+          ((0 - ranges.minGain) / gainStep) % 1.0 < 0.001 ||
+          ((0 - ranges.minGain) / gainStep) % 1.0 > 0.999;
+      if (!zeroOnTick) {
+        final zeroY = _mapValueToY(0, ranges.minGain, ranges.maxGain, plotRect);
+        textPainter.text = TextSpan(
+          text: '${_formatDbValue(0)}dB',
+          style: textStyle,
+        );
+        textPainter.layout();
+        textPainter.paint(
+          canvas,
+          Offset(plotRect.left + 4, zeroY - textPainter.height / 2),
+        );
+      }
+    }
+
     // Y-axis tick labels (left inner: Duty cycle in %) — placed between
-    // the voltage labels and the plot area on the left side.
+    // the voltage labels and the plot area on the left side. Shifted right
+    // of the gain column when both inner axes are active.
     if (dutyEnabled) {
       final dutyStep = _tickStep(ranges.minDuty, ranges.maxDuty);
+      final dutyLabelLeft =
+          plotRect.left + 4 + (gainEnabled ? _gainLabelColumnWidth : 0.0);
       double d = ranges.minDuty;
       while (d <= ranges.maxDuty + 0.001) {
         final y = _mapValueToY(d, ranges.minDuty, ranges.maxDuty, plotRect);
@@ -883,7 +1006,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
         // Place duty labels inside the plot area, to the right of the left Y-axis.
         textPainter.paint(
           canvas,
-          Offset(plotRect.left + 4, y - textPainter.height / 2),
+          Offset(dutyLabelLeft, y - textPainter.height / 2),
         );
         d += dutyStep;
       }
@@ -951,6 +1074,9 @@ class _DataLoggerPlotPainter extends CustomPainter {
     }
     if (ch2FreqEnabled) {
       items.add(_LegendItem('CH2 Freq', _ch2Color, true));
+    }
+    if (gainDbEnabled) {
+      items.add(_LegendItem('Gain (dB)', _gainColor, false));
     }
     if (items.isEmpty) return;
 
@@ -1036,6 +1162,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
         oldDelegate.ch2RmsEnabled != ch2RmsEnabled ||
         oldDelegate.ch2DutyEnabled != ch2DutyEnabled ||
         oldDelegate.ch2FreqEnabled != ch2FreqEnabled ||
+        oldDelegate.gainDbEnabled != gainDbEnabled ||
         oldDelegate.status != status ||
         oldDelegate.totalDurationSeconds != totalDurationSeconds ||
         oldDelegate.hiddenLines != hiddenLines;
@@ -1058,6 +1185,20 @@ class _LegendItem {
 // =============================================================================
 // Formatting Helpers
 // =============================================================================
+
+/// Format a gain value for a dB axis tick label.
+///
+/// Unlike [_formatAxisValue], no SI prefix is applied — a decibel is already
+/// a logarithmic unit, so a value below 1 must not be rendered as "milli".
+/// Precision increases as the values get smaller so that neighbouring ticks
+/// stay distinguishable.
+String _formatDbValue(double value) {
+  if (value == 0) return '0';
+  final abs = value.abs();
+  if (abs >= 100) return value.toStringAsFixed(0);
+  if (abs >= 1) return value.toStringAsFixed(1);
+  return value.toStringAsFixed(2);
+}
 
 String _formatAxisValue(double value) {
   if (value == 0) return '0';

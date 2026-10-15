@@ -347,6 +347,7 @@ class Vxi11Instrument {
         return 0;
       }
 
+      UsbtmcContext? context;
       try {
         final visaAddress = await detectLiveVisaAddress();
         if (visaAddress == null) {
@@ -356,7 +357,7 @@ class Vxi11Instrument {
         }
         AppLogger().log('USB: Auto-detected device: $visaAddress');
 
-        final context = UsbtmcContext();
+        context = UsbtmcContext();
         await context.init();
         _sharedUsbContext = context;
 
@@ -367,14 +368,19 @@ class Vxi11Instrument {
         return 0;
       } catch (e) {
         AppLogger().log('USB: Failed to connect via USBTMC: $e');
-        _sharedUsbDevice = null;
-        if (_sharedUsbContext != null) {
+        // Tear down only what THIS attempt built up.
+        //
+        // The previous version closed whatever context happened to be in
+        // _sharedUsbContext — which, when two opens raced, was the *other*
+        // caller's live connection. Closing it called libusb_exit() on a
+        // context that still had a claimed device handle, leaving the app
+        // waiting on a connection that would never produce a result.
+        if (context != null) {
+          if (identical(_sharedUsbContext, context)) _sharedUsbContext = null;
           try {
-            await _sharedUsbContext!.close();
+            await context.close();
           } catch (_) {}
-          _sharedUsbContext = null;
         }
-        _usbRefCount = 0;
         rethrow;
       }
     }

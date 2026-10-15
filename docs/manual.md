@@ -425,17 +425,43 @@ Click the **Data Logger** button in the top toolbar to open the Data Logger pane
 
 ### 6.2 Measurable Parameters
 
-The following parameters can be logged per channel. Up to **5 parameters** total (across both channels) can be selected simultaneously:
+The following parameters can be logged. Vpp, Mean, Rms, Duty and Freq are available per channel; Gain (dB) is a single cross-channel measurement. Up to **5 parameters** total can be selected simultaneously:
 
-| Parameter | Description |
-|:----------|:------------|
-| **Vpp** | Peak-to-peak voltage |
-| **Mean** | Average (mean) voltage |
-| **Rms** | Root mean square voltage |
-| **Duty** | Duty cycle (percentage) |
-| **Freq** | Signal frequency |
+| Parameter | Channels | Description |
+|:----------|:---------|:------------|
+| **Vpp** | CH1, CH2 | Peak-to-peak voltage |
+| **Mean** | CH1, CH2 | Average (mean) voltage |
+| **Rms** | CH1, CH2 | Root mean square voltage |
+| **Duty** | CH1, CH2 | Duty cycle (percentage) |
+| **Freq** | CH1, CH2 | Signal frequency |
+| **Gain (dB)** | CH1 vs. CH2 | Voltage gain from the reference channel to the signal channel |
 
 All voltage values are automatically scaled by the probe attenuation factor (queried from the oscilloscope via `C1:ATTN?` / `C2:ATTN?`).
+
+#### Gain (dB)
+
+**Gain (dB)** measures the voltage gain between two channels and records it as a decibel value:
+
+`gain = 20 × log10( V_CH1 / V_CH2 )`
+
+* **CH1 (signal)** — the signal under test, typically the RF amplifier output.
+* **CH2 (reference)** — the reference signal, typically the RF amplifier input.
+* Both channels are measured as **RMS** voltage (`C1:PAVA? RMS` / `C2:PAVA? RMS`) — the same parameter on both channels, which is the standard quantity for voltage gain.
+* A positive result means CH1 carries the larger measured voltage; a negative result means it carries the smaller one.
+
+| CH1 (signal) | CH2 (reference) | Gain |
+|---:|---:|---:|
+| 1.0 V | 1.0 V | 0.00 dB |
+| 2.0 V | 1.0 V | +6.02 dB |
+| 0.5 V | 1.0 V | -6.02 dB |
+| 500 mV | 100 mV | +13.98 dB |
+| 10 mV | 100 mV | -20.00 dB |
+
+Each voltage is scaled by its own probe divider before the ratio is taken, so differing probe attenuation on the two channels is handled correctly rather than biasing the result. If either voltage cannot be measured, or the reference voltage on CH2 is zero, no gain value is recorded for that sample.
+
+> **Note:** Gain (dB) is a **voltage** gain, not a power gain. A power gain in dB would additionally require the impedance at both measurement points to be known and equal.
+
+> **Tip:** Gain (dB) issues two SCPI queries per sample (one per channel) instead of one, but counts as a single parameter toward the 5-parameter limit.
 
 ### 6.3 Configuration
 
@@ -446,6 +472,7 @@ When the Data Logger panel opens in the **configuring** state, a setup dialog is
 * Toggle checkboxes for each parameter on CH1 and CH2 independently.
 * A counter shows the number of selected parameters (maximum 5).
 * At least one parameter must be selected before starting.
+* **Gain (dB)** has a single toggle rather than one per channel, because it is derived from both channels at once. It counts as one parameter.
 
 #### Measurement Interval
 
@@ -470,6 +497,7 @@ Once recording starts, the Data Logger panel expands to show a real-time XY plot
 
 * Time axis (X) with automatic unit scaling: seconds (`s`), minutes (`min`), or hours (`h`) depending on total duration.
 * Each selected parameter is plotted as a separate colored line.
+* Voltage measurements (Vpp, Mean, Rms) share the left Y-axis; frequency uses the right Y-axis; duty cycle and Gain (dB) use their own auto-scaled inner axes on the left, labelled with a `%` and a `dB` suffix respectively. The gain axis always includes the 0 dB (unity gain) reference line.
 * The elapsed time counter updates with each new data point.
 
 **Hover Tooltip**
@@ -505,7 +533,7 @@ After recording is stopped (and at least 2 data points exist), save a PDF report
 * **Headline** — "Data Logger Report" title.
 * **Report Name** — The description entered during configuration.
 * **Chart Image** — A PNG capture of the real-time plot.
-* **Measurement Values Table** — For each enabled parameter:
+* **Measurement Values Table** — For each enabled parameter, including Gain (dB):
   * Start value (first data point)
   * End value (last data point)
   * Minimum value
@@ -516,11 +544,11 @@ Reports are saved to the `logger/reports/` subdirectory of the application worki
 
 ### 6.7 CSV Export
 
-If the **Save CSV Data** option is enabled in Settings, a CSV file with all raw data points is exported alongside the PDF report to the `logger/csv/` subdirectory. The CSV contains a timestamp column and one column per measured parameter, with the report name included as a metadata comment.
+If the **Save CSV Data** option is enabled in Settings, a CSV file with all raw data points is exported alongside the PDF report to the `logger/csv/` subdirectory. The CSV contains a timestamp column and one column per measured parameter — `Gain (dB)` among them when gain logging is enabled — with the report name included as a metadata comment.
 
 ### 6.8 Probe Attenuation
 
-The Data Logger automatically queries the oscilloscope's probe attenuation settings before recording begins. Voltage measurements (Vpp, Mean, Rms) are scaled by the probe divider factor so that reported values match the actual signal levels at the probe tip. Probe dividers are displayed in the configuration dialog after the initial query completes.
+The Data Logger automatically queries the oscilloscope's probe attenuation settings before recording begins. Voltage measurements (Vpp, Mean, Rms), as well as the RMS voltages that Gain (dB) is derived from, are scaled by the probe divider factor so that reported values match the actual signal levels at the probe tip. Probe dividers are displayed in the configuration dialog after the initial query completes; when Gain (dB) is selected, both the CH1 and CH2 probe dividers are queried and shown.
 
 ## 7. Macro Recorder
 
