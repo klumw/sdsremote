@@ -7,12 +7,23 @@ import 'package:markdown/markdown.dart' as md;
 
 import '../core/logger.dart';
 
-/// Result of parsing code spans from the manual content.
-typedef _CodeSpansResult = (List<(int, int)>, List<(int, int)>);
+/// One entry of the table of contents: the title of a main chapter and the
+/// anchor slug that scrolls to its heading.
+typedef HelpChapter = ({String title, String slug});
 
-/// Parses fenced code block spans and inline code spans from [content]
-/// in a background isolate so the UI thread stays responsive during loading.
-_CodeSpansResult _parseCodeSpansInIsolate(String content) {
+/// Everything the help window derives from the raw manual: the code spans that
+/// keep search matches out of code, and the main chapters for the table of
+/// contents.
+typedef _ManualIndex = ({
+  List<(int, int)> fencedCodeBlockSpans,
+  List<(int, int)> inlineCodeSpans,
+  List<HelpChapter> chapters,
+});
+
+/// Parses fenced code block spans, inline code spans and the table of contents
+/// from [content] in a background isolate so the UI thread stays responsive
+/// during loading.
+_ManualIndex _indexManualInIsolate(String content) {
   // Parse fenced code block spans
   final fencedCodeBlockSpans = <(int, int)>[];
   final fenceRe = RegExp(r'^(`{3,}|~{3,})[^`~\n]*$', multiLine: true);
@@ -31,11 +42,19 @@ _CodeSpansResult _parseCodeSpansInIsolate(String content) {
     inlineCodeSpans.add((m.start, m.end));
   }
 
-  return (fencedCodeBlockSpans, inlineCodeSpans);
+  return (
+    fencedCodeBlockSpans: fencedCodeBlockSpans,
+    inlineCodeSpans: inlineCodeSpans,
+    chapters: extractMainChapters(content),
+  );
 }
 
 /// A help window that displays the user manual in markdown format
 /// with a search bar to find and navigate between matching terms.
+///
+/// In-document links in the manual — e.g.
+/// `[section 4.1](#41-ai-model-configuration)` — scroll to the heading they
+/// point at instead of being handed to the browser.
 class HelpWindow extends StatefulWidget {
   const HelpWindow({super.key});
 
@@ -59,6 +78,15 @@ class _HelpWindowState extends State<HelpWindow> {
   /// GlobalKeys attached to each highlighted <mark> element so we can use
   /// [Scrollable.ensureVisible] to reliably scroll matches into view.
   final List<GlobalKey> _matchKeys = [];
+
+  /// GlobalKeys of the invisible heading anchors, keyed by heading slug.
+  /// In-document links (`#41-ai-model-configuration`) are scrolled into view
+  /// through these.  The map lives in the state so the keys survive the
+  /// rebuilds that every search triggers.
+  final Map<String, GlobalKey> _headingAnchorKeys = {};
+
+  /// The manual's main chapters, shown as the table of contents above it.
+  final List<HelpChapter> _chapters = [];
 
   /// Custom inline syntax that parses `@@term@@` into a `<mark>` AST element.
   /// This is used for search-highlighting instead of HTML tags (which the
@@ -113,18 +141,24 @@ class _HelpWindowState extends State<HelpWindow> {
         'Manual asset loaded: ${_manualContent.length} chars in '
         '${sw.elapsedMilliseconds} ms',
       );
-      // Run the regex-based span parsing in a background isolate so the
+      // Derive code spans and chapters in a background isolate so the
       // CircularProgressIndicator animation keeps spinning while loading.
       // compute() passes the top-level function and argument directly to
       // Isolate.spawn — no closure, no captured `this`.
-      final spans = await compute(_parseCodeSpansInIsolate, _manualContent);
+      final index = await compute(_indexManualInIsolate, _manualContent);
       _fencedCodeBlockSpans.clear();
-      _fencedCodeBlockSpans.addAll(spans.$1);
+      _fencedCodeBlockSpans.addAll(index.fencedCodeBlockSpans);
       _inlineCodeSpans.clear();
-      _inlineCodeSpans.addAll(spans.$2);
+      _inlineCodeSpans.addAll(index.inlineCodeSpans);
+      _chapters.clear();
+      _chapters.addAll(index.chapters);
+      // Anchors of a previously loaded manual are stale: the new content may
+      // have a different set of headings.
+      _headingAnchorKeys.clear();
       log.log(
-        'Code spans parsed: ${spans.$1.length} fenced, '
-        '${spans.$2.length} inline in ${sw.elapsedMilliseconds} ms',
+        'Manual indexed: ${index.fencedCodeBlockSpans.length} fenced code '
+        'blocks, ${index.inlineCodeSpans.length} inline code spans, '
+        '${index.chapters.length} chapters in ${sw.elapsedMilliseconds} ms',
       );
       await minLoadTime;
     } catch (e) {
@@ -337,6 +371,43 @@ class _HelpWindowState extends State<HelpWindow> {
     }
   }
 
+  /// Dispatches a tap on a link inside the manual.
+  ///
+  /// The manual cross-references its own sections with fragments such as
+  /// `[section 4.1](#41-ai-model-configuration)`; those scroll to the heading
+  /// they point at.  Everything else is a real URL and goes to the browser.
+  void _handleLinkTap(String? href) {
+    if (href == null || href.isEmpty) return;
+    if (href.startsWith('#')) {
+      _scrollToHeading(href.substring(1));
+    } else {
+      _launchUrl(href);
+    }
+  }
+
+  /// Scrolls the manual to the heading that the link fragment [fragment]
+  /// points at, e.g. `41-ai-model-configuration` for
+  /// "4.1 AI Model Configuration".
+  void _scrollToHeading(String fragment) {
+    final log = AppLogger(
+      agentName: 'HelpWindow',
+      toolName: '_scrollToHeading',
+    );
+    final slug = resolveHeadingAnchor(fragment, _headingAnchorKeys.keys);
+    final ctx = slug == null ? null : _headingAnchorKeys[slug]?.currentContext;
+    if (ctx == null) {
+      log.log('No heading found for link target "#$fragment"');
+      return;
+    }
+    log.log('Scrolling to heading "#$slug"');
+    Scrollable.ensureVisible(
+      ctx,
+      alignment: 0.05,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // Build
   // ---------------------------------------------------------------------------
@@ -463,107 +534,128 @@ class _HelpWindowState extends State<HelpWindow> {
                           controller: _scrollController,
                           child: SingleChildScrollView(
                             controller: _scrollController,
-                            child: MarkdownBody(
-                              data: displayContent,
-                              // Selection is OFF for the manual as a whole.
-                              // `selectable: true` wraps every text node of
-                              // the ~58 KB manual in its own SelectableText
-                              // plus selection bookkeeping, which measured
-                              // 4767 ms to lay out versus 577 ms without —
-                              // an 8x cost that blocked the UI thread for
-                              // seconds and made the app look frozen when
-                              // Help was opened. Code blocks stay selectable
-                              // and copyable on their own (see
-                              // CodeBlockElementBuilder).
-                              selectable: false,
-                              onTapLink: (text, href, title) {
-                                if (href != null) {
-                                  _launchUrl(href);
-                                }
-                              },
-                              inlineSyntaxes: [_highlightSyntax],
-                              builders: {
-                                'code': InlineCodeElementBuilder(),
-                                'pre': CodeBlockElementBuilder(),
-                                'mark': MarkHighlightBuilder(_matchKeys),
-                              },
-                              styleSheet:
-                                  MarkdownStyleSheet.fromTheme(
-                                    Theme.of(context),
-                                  ).copyWith(
-                                    p: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 16,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Table of contents first, so a chapter can be
+                                // picked right away; it scrolls away with the
+                                // manual like any other content.
+                                if (_chapters.isNotEmpty) ...[
+                                  _buildContents(),
+                                  const SizedBox(height: 24),
+                                ],
+                                MarkdownBody(
+                                  data: displayContent,
+                                  // Selection is OFF for the manual as a whole.
+                                  // `selectable: true` wraps every text node of
+                                  // the ~58 KB manual in its own SelectableText
+                                  // plus selection bookkeeping, which measured
+                                  // 4767 ms to lay out versus 577 ms without —
+                                  // an 8x cost that blocked the UI thread for
+                                  // seconds and made the app look frozen when
+                                  // Help was opened. Code blocks stay selectable
+                                  // and copyable on their own (see
+                                  // CodeBlockElementBuilder).
+                                  selectable: false,
+                                  onTapLink: (text, href, title) {
+                                    _handleLinkTap(href);
+                                  },
+                                  // Custom block syntaxes are consulted before the
+                                  // GitHub-flavored extension set, so the stock
+                                  // heading syntax is shadowed by this one — which
+                                  // only adds the invisible anchors and renders
+                                  // headings exactly as before.
+                                  blockSyntaxes: const [AnchorHeadingSyntax()],
+                                  inlineSyntaxes: [_highlightSyntax],
+                                  builders: {
+                                    'code': InlineCodeElementBuilder(),
+                                    'pre': CodeBlockElementBuilder(),
+                                    'mark': MarkHighlightBuilder(_matchKeys),
+                                    _kAnchorTag: HeadingAnchorBuilder(
+                                      _headingAnchorKeys,
                                     ),
-                                    h1: const TextStyle(
-                                      color: Colors.cyanAccent,
-                                      fontSize: 28,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    h2: const TextStyle(
-                                      color: Colors.cyanAccent,
-                                      fontSize: 22,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    h3: const TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    code: TextStyle(
-                                      backgroundColor: Colors.black54,
-                                      color: Colors.greenAccent[100],
-                                      fontFamily: 'Roboto Mono',
-                                      fontFamilyFallback: const [
-                                        'Consolas',
-                                        'Courier New',
-                                        'monospace',
-                                      ],
-                                    ),
-                                    codeblockDecoration: const BoxDecoration(
-                                      color: Colors.transparent,
-                                    ),
-                                    blockquote: const TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 15,
-                                      fontStyle: FontStyle.italic,
-                                    ),
-                                    blockquoteDecoration: BoxDecoration(
-                                      color: Colors.white.withValues(
-                                        alpha: 0.05,
-                                      ),
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border(
-                                        left: BorderSide(
-                                          color: Colors.cyanAccent.withValues(
-                                            alpha: 0.6,
-                                          ),
-                                          width: 3,
+                                  },
+                                  styleSheet:
+                                      MarkdownStyleSheet.fromTheme(
+                                        Theme.of(context),
+                                      ).copyWith(
+                                        p: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 16,
                                         ),
-                                      ),
-                                    ),
-                                    horizontalRuleDecoration:
-                                        const BoxDecoration(
+                                        h1: const TextStyle(
+                                          color: Colors.cyanAccent,
+                                          fontSize: 28,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        h2: const TextStyle(
+                                          color: Colors.cyanAccent,
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        h3: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 18,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        code: TextStyle(
+                                          backgroundColor: Colors.black54,
+                                          color: Colors.greenAccent[100],
+                                          fontFamily: 'Roboto Mono',
+                                          fontFamilyFallback: const [
+                                            'Consolas',
+                                            'Courier New',
+                                            'monospace',
+                                          ],
+                                        ),
+                                        codeblockDecoration:
+                                            const BoxDecoration(
+                                              color: Colors.transparent,
+                                            ),
+                                        blockquote: const TextStyle(
+                                          color: Colors.white70,
+                                          fontSize: 15,
+                                          fontStyle: FontStyle.italic,
+                                        ),
+                                        blockquoteDecoration: BoxDecoration(
+                                          color: Colors.white.withValues(
+                                            alpha: 0.05,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
                                           border: Border(
-                                            top: BorderSide(
-                                              color: Colors.white38,
-                                              width: 1.3,
-                                            ),
-                                            bottom: BorderSide(
-                                              color: Colors.black38,
-                                              width: 1.3,
+                                            left: BorderSide(
+                                              color: Colors.cyanAccent
+                                                  .withValues(alpha: 0.6),
+                                              width: 3,
                                             ),
                                           ),
                                         ),
-                                    tablePadding: const EdgeInsets.fromLTRB(
-                                      8,
-                                      0,
-                                      8,
-                                      4,
-                                    ),
-                                    tableColumnWidth:
-                                        const IntrinsicColumnWidth(),
-                                  ),
+                                        horizontalRuleDecoration:
+                                            const BoxDecoration(
+                                              border: Border(
+                                                top: BorderSide(
+                                                  color: Colors.white38,
+                                                  width: 1.3,
+                                                ),
+                                                bottom: BorderSide(
+                                                  color: Colors.black38,
+                                                  width: 1.3,
+                                                ),
+                                              ),
+                                            ),
+                                        tablePadding: const EdgeInsets.fromLTRB(
+                                          8,
+                                          0,
+                                          8,
+                                          4,
+                                        ),
+                                        tableColumnWidth:
+                                            const IntrinsicColumnWidth(),
+                                      ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -571,6 +663,81 @@ class _HelpWindowState extends State<HelpWindow> {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Table of contents
+  // ---------------------------------------------------------------------------
+
+  /// Builds the table of contents shown above the manual: one entry per main
+  /// chapter, laid out in as many columns as the window has room for.
+  Widget _buildContents() {
+    return Container(
+      key: const ValueKey('help-contents'),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.04),
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'Contents',
+            style: TextStyle(
+              color: Colors.cyanAccent,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 6),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              // Spread the chapters over up to three columns, so a wide window
+              // shows the whole list in a few rows instead of pushing the
+              // manual off the screen.
+              const spacing = 24.0;
+              final columns = (constraints.maxWidth / 300)
+                  .floor()
+                  .clamp(1, 3)
+                  .toInt();
+              final entryWidth =
+                  (constraints.maxWidth - spacing * (columns - 1)) / columns;
+              return Wrap(
+                spacing: spacing,
+                runSpacing: 2,
+                children: [
+                  for (final chapter in _chapters)
+                    SizedBox(
+                      width: entryWidth,
+                      child: _buildContentsEntry(chapter),
+                    ),
+                ],
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Builds a single tappable entry of the table of contents.
+  Widget _buildContentsEntry(HelpChapter chapter) {
+    return InkWell(
+      // An InkWell shows the plain arrow on desktop by default, whereas the
+      // manual's links — text spans carrying a tap recognizer — show the
+      // pointing hand.  An entry has to look like the links it stands for.
+      mouseCursor: SystemMouseCursors.click,
+      onTap: () => _scrollToHeading(chapter.slug),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+        child: Text(
+          chapter.title,
+          style: const TextStyle(color: Colors.cyanAccent, fontSize: 14),
         ),
       ),
     );
@@ -890,5 +1057,141 @@ class CodeBlockElementBuilder extends MarkdownElementBuilder {
         );
       },
     );
+  }
+}
+
+// -----------------------------------------------------------------------------
+// Heading anchors — the targets of in-document links
+// -----------------------------------------------------------------------------
+
+/// Tag of the invisible element that [AnchorHeadingSyntax] adds to every
+/// heading.  It is not an HTML tag — it only exists so that
+/// [HeadingAnchorBuilder] has a node to attach a [GlobalKey] to.
+const String _kAnchorTag = 'anchor';
+
+/// Attribute of an [_kAnchorTag] element holding its heading slug.
+const String _kAnchorSlugAttribute = 'data-slug';
+
+/// GitHub-style anchor slug of a heading: lower-cased, punctuation removed
+/// and every space turned into a dash, so "4.1 AI Model Configuration"
+/// becomes `41-ai-model-configuration`.
+///
+/// Fragments of in-document links are written by hand and resolved against
+/// these slugs — see [resolveHeadingAnchor].
+String markdownHeadingSlug(String headingText) {
+  return headingText
+      .trim()
+      .toLowerCase()
+      // Punctuation is dropped while `-` and `_` survive, mirroring the slugs
+      // GitHub generates — which is what a cross-reference is copied from.
+      .replaceAll(RegExp(r'''[!"#$%&'()*+,./:;<=>?@\[\\\]^`{|}~]'''), '')
+      .replaceAll(' ', '-');
+}
+
+/// Returns the slug from [slugs] that the link fragment [fragment] points at,
+/// or `null` when no heading matches.
+///
+/// The exact slug wins.  As a fallback the collapsed fragment is tried, since
+/// dropping a punctuation character leaves two dashes behind: the heading
+/// "1. Introduction & Overview" generates `1-introduction--overview`, while a
+/// hand-written link is likely to spell it `1-introduction-overview`.
+String? resolveHeadingAnchor(String fragment, Iterable<String> slugs) {
+  final collapsed = fragment.replaceAll(RegExp(r'-+'), '-');
+  String? fallback;
+  for (final slug in slugs) {
+    if (slug == fragment) return slug;
+    if (fallback == null && slug.replaceAll(RegExp(r'-+'), '-') == collapsed) {
+      fallback = slug;
+    }
+  }
+  return fallback;
+}
+
+/// Parses ATX headings (`### 4.1 AI Model Configuration`) exactly like the
+/// stock markdown heading syntax and additionally injects an invisible
+/// [_kAnchorTag] element as the first child of every heading.
+///
+/// The heading itself is left untouched — level, padding, styles and any
+/// inline markup inside it are still rendered by flutter_markdown_plus; the
+/// anchor is one extra zero-sized child marking where the heading starts.
+class AnchorHeadingSyntax extends md.HeaderSyntax {
+  const AnchorHeadingSyntax();
+
+  @override
+  md.Node parse(md.BlockParser parser) {
+    final element = super.parse(parser) as md.Element;
+    final children = element.children;
+    final slug = markdownHeadingSlug(element.textContent);
+    if (children != null && slug.isNotEmpty) {
+      children.insert(
+        0,
+        md.Element.empty(_kAnchorTag)..attributes[_kAnchorSlugAttribute] = slug,
+      );
+    }
+    return element;
+  }
+}
+
+/// Extracts the main chapters of [content] — every `## …` heading, with the
+/// anchor slug of its heading — in document order.
+///
+/// Runs the very same heading syntax as the rendering pipeline, and reads the
+/// slug off the anchor that syntax created, so a table-of-contents entry always
+/// points at the heading it was built from.
+List<HelpChapter> extractMainChapters(String content) {
+  final nodes = md.Document(
+    blockSyntaxes: const [AnchorHeadingSyntax()],
+    extensionSet: md.ExtensionSet.gitHubFlavored,
+    encodeHtml: false,
+  ).parse(content);
+
+  final chapters = <HelpChapter>[];
+  for (final node in nodes) {
+    if (node is! md.Element || node.tag != 'h2') continue;
+    final children = node.children;
+    if (children == null || children.isEmpty) continue;
+    // AnchorHeadingSyntax put the anchor in front of the heading text.
+    final anchor = children.first;
+    final slug = anchor is md.Element
+        ? anchor.attributes[_kAnchorSlugAttribute]
+        : null;
+    final title = node.textContent.trim();
+    if (slug != null && title.isNotEmpty) {
+      chapters.add((title: title, slug: slug));
+    }
+  }
+  return chapters;
+}
+
+/// Renders the anchors injected by [AnchorHeadingSyntax] as zero-sized widgets
+/// carrying a [GlobalKey], which gives [Scrollable.ensureVisible] the scroll
+/// target for an in-document link.
+///
+/// The keys are owned by the help window state and only handed out here: they
+/// have to survive the rebuilds that every search triggers, and no two live
+/// widgets may ever share one.
+class HeadingAnchorBuilder extends MarkdownElementBuilder {
+  HeadingAnchorBuilder(this.keys);
+
+  /// Slug → [GlobalKey] of the heading claiming it.
+  final Map<String, GlobalKey> keys;
+
+  /// Slugs already handed out during the current parse.  Should the manual
+  /// ever contain the same heading twice, only its first occurrence keeps the
+  /// shared key; the duplicate is rendered without one.
+  final Set<String> _claimed = <String>{};
+
+  @override
+  Widget visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    final slug = element.attributes[_kAnchorSlugAttribute];
+    if (slug == null || !_claimed.add(slug)) {
+      return const SizedBox.shrink();
+    }
+    return SizedBox.shrink(key: keys.putIfAbsent(slug, () => GlobalKey()));
   }
 }

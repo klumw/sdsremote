@@ -54,7 +54,6 @@ See section 10 (Application Directory) for a complete breakdown of subdirectorie
 ### 1.3 Known Limitations
 
 * **AI Accuracy** — The AI chat subsystem uses large language models that may generate incorrect SCPI commands or inaccurate technical advice. Always verify critical commands before execution. SDS-Remote is not liable for any damage resulting from AI-generated instructions.
-* **USB Mode** — USB direct connection is experimental. Device detection, kernel driver handling, and bulk transfer reliability vary across platforms and firmware versions. Profile loading via USB may encounter compatibility issues on Linux depending on the device's USB firmware version.
 * **Single Device** — The application connects to one oscilloscope at a time. Simultaneous control of multiple instruments is not supported.
 * **No Data Streaming** — The application uses request-response SCPI communication. Continuous high-speed data streaming (e.g., at the full sample rate) is not supported. The Data Logger operates at minimum 10-second intervals.
 * **Macro Playback** — Macros run on a dedicated VXI-11 connection. During playback, most UI functions are disabled. The Control Panel, Acquire Waveform, Data Logger, and AI Chat cannot be used concurrently with macro playback.
@@ -128,7 +127,7 @@ See section 10 (Application Directory) for a complete breakdown of subdirectorie
 
 ## 3. Settings
 
-The **Settings** panel is a draggable dialog opened by clicking the gear icon in the top toolbar. All settings are persisted to the application preferences file and restored on the next launch.
+The **Settings** panel is opened by clicking the gear icon in the top toolbar. All settings are persisted to the application preferences file and restored on the next launch.
 
 ### 3.1 Opening Settings
 
@@ -252,7 +251,7 @@ Click the **AI** button in the top toolbar to open or close the chat interface. 
 The chat window consists of:
 
 * **Message Area** — A scrollable conversation history. User messages appear right-aligned in cyan bubbles. AI responses appear left-aligned with grey backgrounds. The area auto-scrolls as new content arrives.
-* **Streaming Indicator** — While the AI is generating a response, a pulsing cyan cursor (`▊`) appears at the end of the message, indicating more content is coming.
+* **Streaming Indicator** — While the AI is generating a response, a pulsing cyan cursor (`▊`) might appear at the end of the message, indicating more content is coming.
 * **Input Field** — A text field at the bottom for typing messages. Press **Enter** to send (Shift+Enter for newline is not supported — text wraps automatically).
 * **Send Button** — A paper-plane icon to the right of the input field. Disabled while the AI is generating a response.
 
@@ -442,13 +441,13 @@ On startup all voltage values are automatically scaled by the probe attenuation 
 
 #### Gain (dB)
 
-**Gain (dB)** measures the voltage gain between two channels and records it as a decibel value:
+Measures the voltage gain between two channels and records it as a decibel value:
 
 `gain = 20 × log10( V_CH1 / V_CH2 )`
 
 * **CH1 (signal)** — the signal under test, typically the RF amplifier output.
 * **CH2 (reference)** — the reference signal, typically the RF amplifier input.
-* Both channels are measured as **RMS** voltage (`C1:PAVA? RMS` / `C2:PAVA? RMS`) — the same parameter on both channels, which is the standard quantity for voltage gain.
+* Both channels are measured as **RMS** voltage.
 * A positive result means CH1 carries the larger measured voltage; a negative result means it carries the smaller one.
 
 | CH1 (signal) | CH2 (reference) | Gain |
@@ -657,9 +656,6 @@ Establishes a VXI-11 connection to the oscilloscope at the given IP address. Thi
 ```
 connect(usb)
 ```
-
-> ⚠️ **Experimental** — USB direct connection support for macros is experimental and may not work reliably on all systems. Requires a USBTMC-compatible oscilloscope connected via USB.
-
 Connects to the oscilloscope via USBTMC (USB) instead of network. The device is auto-detected — no IP address is needed. When recording a macro while the application is in USB connection mode, `connect(usb)` is automatically inserted instead of `connect("IP")`.
 
 #### 7.5.2 SCPI Commands
