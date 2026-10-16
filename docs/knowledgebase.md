@@ -3277,6 +3277,7 @@ Always use the command short form, e.g. for a query ‚ C1:WFV,DAT2 ' instead of
 |------|--------------|-------------|-------------------------------------------------|
 | *RCL | *RCL         | SAVE/RECALL | Recalls one of five  nonvolatile panel setups.  |
 | RCPN | RECALL_PANEL | SAVE/RECALL | Recalls a front-panel setup  from mass storage. |
+| REC  | RECALL       | SAVE/RECALL | Recalls a waveform file  from mass storage.     |
 | *RST | *RST         | SAVE/RECALL | The *RST command  initiates a device reset.     |
 | REFS   | REF_SET       | FUNCTION           | Sets the reference  waveform and its options.                                                   |
 |--------|---------------|--------------------|-------------------------------------------------------------------------------------------------|
@@ -3343,7 +3344,7 @@ Query Syntax: `ACQUIRE_WAY?`
 The ALL_STATUS? Query reads and clears the contents of all status registers: STB, ESR, INR, DDR, CMR, EXR and URR except for the MAV bit (bit 6) of the STB register. For an interpretation of the contents of each register, refer to the appropriate status register. The ALL_STATUS? Query is useful in a complete overview of the state of the instrument.
 
 
-Query Syntax: `ALl_STatus?`
+Query Syntax: `ALST?`
 
 
 
@@ -3361,10 +3362,10 @@ Command Syntax: `ARM acquisition`
 The ATTENUATION command selects the vertical attenuation factor of the probe. Values of 1, 5, 10, 50, 100, 500, and 1000 may be specified. The ATTENUATION? Query returns the attenuation factor of the specified channel.
 
 
-Command Syntax: `<channel>: ATTeNuation <attenuation> <channel> : = {C1, C2, C3, C4} <attenuation>：= {0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000}`
+Command Syntax: `<channel>: ATTN <attenuation> <channel> : = {C1, C2, C3, C4} <attenuation>：= {0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000}`
 
 
-Query Syntax: `<channel>: ATTeNuation?`
+Query Syntax: `<channel>: ATTN?`
 
 
 
@@ -3373,10 +3374,10 @@ Query Syntax: `<channel>: ATTeNuation?`
 The AUTO_CALIBRATE command is used to enable or disable the quick calibration of the instrument. The quick calibration may be disabled by issuing the command ACAL OFF. Whenever it is convenient, a *CAL? Query may be issued to fully calibrate the oscilloscope. The response to the AUTO_CALIBRATE? Query indicates whether quick-calibration is enabled. This command is only used in the CFL series of instruments.
 
 
-Command Syntax: `Auto_CALibrate <state> <state> : = {ON, OFF}`
+Command Syntax: `ACAL <state> <state> : = {ON, OFF}`
 
 
-Query Syntax: `Auto_CALibrate?`
+Query Syntax: `ACAL?`
 
 
 
@@ -3412,10 +3413,10 @@ The AVERAGE_ACQUIRE command. Please refer to the SIGLENT programming guide for d
 BANDWIDTH_LIMIT enables or disables the bandwidth-limiting low-pass filter. If the bandwidth filters are on, it will limit the bandwidth to reduce display noise. When you turn Bandwidth Limit ON, the Bandwidth Limit value is set to 20 MHz. It also filters the signal to reduce noise and other unwanted high frequency components. The response to the BANDWIDTH_LIMIT? Query indicates whether the bandwidth filters are on or off.
 
 
-Command Syntax: `BandWidth_Limit <channel>, <mode> [, <channel>, <mode> [, <channel>, <mode> [, <channel>, <mode>]]] <channel> : = {C1, C2, C3, C4} <mode>：= {ON, OFF}`
+Command Syntax: `BWL <channel>, <mode> [, <channel>, <mode> [, <channel>, <mode> [, <channel>, <mode>]]] <channel> : = {C1, C2, C3, C4} <mode>：= {ON, OFF}`
 
 
-Query Syntax: `BandWidth_Limit?`
+Query Syntax: `BWL?`
 
 
 
@@ -3424,7 +3425,7 @@ Query Syntax: `BandWidth_Limit?`
 The BUZZER command enables or disables sounds for keypresses and other functionss. The response to the BUZZER? query indicates whether the sound switch is enabled or not.
 
 
-Command Syntax: `BUZZer <state> <state>：= {ON, OFF}`
+Command Syntax: `BUZZ <state> <state>：= {ON, OFF}`
 
 
 Query Syntax: `BUZZER?`
@@ -3445,10 +3446,10 @@ Query Syntax: `*CAL? Digital Oscilloscopes Series`
 The COMM_HEADER command controls the way the oscilloscope formats responses to queries. There are three response formats: LONG, in which responses start with the long form of the header word; SHORT, where responses start with the short form of the header word; and OFF, for which headers are omitted from the response and units in numbers are suppressed. Unless you request otherwise, the SHORT response format is used. This command does not affect the interpretation of messages sent to the oscilloscope. Headers can be sent in their long or short form regardless of the COMM_HEADER setting. Querying the vertical sensitivity of Channel 1 may result in one of the following responses: COMM_HEADER RESPONSE LONG C1:VOLT_DIV 200E-3 V SHORT C1:VDIV 200E-3 V OFF 200E-3.
 
 
-Command Syntax: `Comm_HeaDeR <mode> <mode> : = {SHORT, LONG, OFF}`
+Command Syntax: `CHDR <mode> <mode> : = {SHORT, LONG, OFF}`
 
 
-Query Syntax: `Comm_HeaDeR?`
+Query Syntax: `CHDR?`
 
 
 
@@ -3514,7 +3515,7 @@ CURSOR_MEASURE, CRMS.
 Notation VREF The voltage-value of curA under VREF manual cursor mode The lue of curA under manual cursorThe voltVDIF - voltage-value of curB under mode va manual cursor mode VDIFTREF The time value of curA under The volt -v alue of curB under manual cursormanual cursor mode mode TDIF The time value of curB under manual TREF cursor mode The time lue of curA under manual cursorThe vaHREF time value of curA under Track mode cursor mode TDIFHDIF The time value of curB under Track The time va lue of cursor modecurB under manual cursor mode.
 
 
-Command Syntax: `HREF<trace>:CuRsor_SeT<cursor>,<position>[,<cursor >,<position>,<cursor> ,<position>] < trace > : = {C1, C2, C3, C4} <cursor> : = { VREF,VDIF,TREF,TDIF,HRDF,HDIF} <position>(horizontal)：= {0.02 to 13.98 DIV } <position>(vertical)：= {0.02 to 7.98 DIV} Note: 1. The horizontal position‘s value is related to the size of screen. For SPO models, the position‘s Digital Oscilloscopes Series CURSOR`
+Command Syntax: `HREF<trace>:CRST<cursor>,<position>[,<cursor >,<position>,<cursor> ,<position>] < trace > : = {C1, C2, C3, C4} <cursor> : = { VREF,VDIF,TREF,TDIF,HRDF,HDIF} <position>(horizontal)：= {0.02 to 13.98 DIV } <position>(vertical)：= {0.02 to 7.98 DIV} Note: 1. The horizontal position‘s value is related to the size of screen. For SPO models, the position‘s Digital Oscilloscopes Series CURSOR`
 
 
 
@@ -3523,7 +3524,7 @@ Command Syntax: `HREF<trace>:CuRsor_SeT<cursor>,<position>[,<cursor >,<position>
 value is in the range of 0.02 to 13.98. And in nonSPO models it's in the range of -8 to 8. If the value is in the range of 0.02 to 13.98, you need add the unit (DIV) to the value. 2. The vertical position's value is related to the size of screen. For SPO models, the position's value is in the range of 0.02 to 7.98. And in non-SPO models it's in the range of -4 to 4. If the value is in the range of 0.02 to 7.98, you need add the unit (DIV) to the value.
 
 
-Query Syntax: `<trace>: CuRsor_SeT? [<cursor>, …<cursor>] <cursor> := { VREF,VDIF,TREF,TDIF,HRDF,HDIF}`
+Query Syntax: `<trace>: CRST? [<cursor>, …<cursor>] <cursor> := { VREF,VDIF,TREF,TDIF,HRDF,HDIF}`
 
 
 
@@ -3574,10 +3575,10 @@ Query Syntax: `DDR?`
 The DEFINE command specifies the mathematical expression to be evaluated by a function.
 
 
-Command Syntax: `DEFine EQN,‘<equation>‘ Note: <equation> is the mathematical expression Function Equations <source1> + <source2> Addition <source1> - <source2> Subtraction <source1>*<source2> Multiplication <source1>/<source2> Ratio FFT(source x) FFT INTG(source x) Integral DIFF(source x) Differentiator SQRT(source x) Square Root`
+Command Syntax: `DEF EQN,‘<equation>‘ Note: <equation> is the mathematical expression Function Equations <source1> + <source2> Addition <source1> - <source2> Subtraction <source1>*<source2> Multiplication <source1>/<source2> Ratio FFT(source x) FFT INTG(source x) Integral DIFF(source x) Differentiator SQRT(source x) Square Root`
 
 
-Query Syntax: `DEFine?`
+Query Syntax: `DEF?`
 
 
 
@@ -3586,7 +3587,7 @@ Query Syntax: `DEFine?`
 The DELETE_FILE command deletes files from the currently selected directory on mass storage.
 
 
-Command Syntax: `DELete_File DISK, <device>, FILE, ‗<filename>‘ <device>：={UDSK} <filename>：= a file of specified directory and the specified file should up to eight characters.`
+Command Syntax: `DELF DISK, <device>, FILE, ‗<filename>‘ <device>：={UDSK} <filename>：= a file of specified directory and the specified file should up to eight characters.`
 
 
 
@@ -3595,10 +3596,10 @@ Command Syntax: `DELete_File DISK, <device>, FILE, ‗<filename>‘ <device>：=
 The DIRECTORY command is used to manage the creation and deletion of file directories on mass storage devices. It also allows selection of the current working directory and listing of files in the directory. The query response consists of a double-quoted string containing a DOS-like listing of the directory.
 
 
-Command Syntax: `Directory DISK, <device>, ACTION, <action>, ‗<directory>‘`
+Command Syntax: `DIR DISK, <device>, ACTION, <action>, ‗<directory>‘`
 
 
-Query Syntax: `Directory? DISK, <device> [, ‗<directory>‘] <device>：={UDSK} <action>：={CREATE, DELETE} < directory >：= A legal DOS path or filename. (This can include the ‗/‘ character to define the directory.) root`
+Query Syntax: `DIR? DISK, <device> [, ‗<directory>‘] <device>：={UDSK} <action>：={CREATE, DELETE} < directory >：= A legal DOS path or filename. (This can include the ‗/‘ character to define the directory.) root`
 
 
 
@@ -3607,10 +3608,10 @@ Query Syntax: `Directory? DISK, <device> [, ‗<directory>‘] <device>：={UDSK
 The DOT_JOIN command controls the interpolation lines between data points.
 
 
-Command Syntax: `DoT_JoiN <state> <state> : = {ON, OFF}`
+Command Syntax: `DTJN <state> <state> : = {ON, OFF}`
 
 
-Query Syntax: `DoT_JoiN?`
+Query Syntax: `DTJN?`
 
 
 
@@ -3649,10 +3650,10 @@ Query Syntax: `EXR?`
 The FILENAME command is used to change the default filename given to any traces, setups and hard copies when they are being stored to a mass storage device.
 
 
-Command Syntax: `FiLeNaMe TYPE, <type>, FILE, ‗<filename>‘ <type>:={ C1,C2,C3, C4, SETUP,TA, TB, TC, TD, HCOPY} <filename> : = an alphanumeric string of up to 8 characters forming a legal DOS filename. Note: The file‘s extension can be specified automatically by the oscilloscope. Digital Oscilloscopes Series`
+Command Syntax: `FLNM TYPE, <type>, FILE, ‗<filename>‘ <type>:={ C1,C2,C3, C4, SETUP,TA, TB, TC, TD, HCOPY} <filename> : = an alphanumeric string of up to 8 characters forming a legal DOS filename. Note: The file‘s extension can be specified automatically by the oscilloscope. Digital Oscilloscopes Series`
 
 
-Query Syntax: `FiLeNaMe? TYPE, <type> <type> :={ ALL, C1, C2, C3, C4, SETUP, TA, TB, TC, TD, HCOPY}`
+Query Syntax: `FLNM? TYPE, <type> <type> :={ ALL, C1, C2, C3, C4, SETUP, TA, TB, TC, TD, HCOPY}`
 
 
 
@@ -3679,7 +3680,7 @@ Command Syntax: `FRAM <frame_num> Frame_num = 0 to the max frame number Note: Th
 Causes the instrument to make one acquisition.
 
 
-Command Syntax: `FoRce_TRigger`
+Command Syntax: `FRTR`
 
 
 
@@ -3697,7 +3698,7 @@ Query Syntax: `FTIM? Note: This command is used in history function opening.`
 The FORMAT_VDISK? query reads the capability of the USB memory device.
 
 
-Query Syntax: `Format_VDISK?`
+Query Syntax: `FVDISK?`
 
 
 
@@ -3790,10 +3791,10 @@ Query Syntax: `Format1: GET_CSV? SAVE,<state> The option SAVE sets the CSV save 
 The HOR_MAGNIFY command horizontally expands the selected expansion trace by a specified factor. Magnification factors not within the range of permissible values will be rounded off to the closest legal value. If the specified factor is too large for any of the expanded traces (depending on their current source), it is reduced to an acceptable value and only then applied to the traces. The VAB bit (bit 2) in the STB register is set when a factor outside the legal range is specified. The HOR_MAGNIFY query returns the current magnification factor for the specified expansion function.
 
 
-Command Syntax: `<exp_trace>: Hor_MAGnify <factor> <exp_trace>: = {TA, TB, TC, TD} <factor> : = 1 to 2,000,000 The range of <factor> is related to the current timebase and the range of the timebase.`
+Command Syntax: `<exp_trace>: HMAG <factor> <exp_trace>: = {TA, TB, TC, TD} <factor> : = 1 to 2,000,000 The range of <factor> is related to the current timebase and the range of the timebase.`
 
 
-Query Syntax: `<exp_trace> : Hor_MAGnify?`
+Query Syntax: `<exp_trace> : HMAG?`
 
 
 
@@ -3802,10 +3803,10 @@ Query Syntax: `<exp_trace> : Hor_MAGnify?`
 The HOR_POSITION command horizontally positions the geometric center of the intensified zone on the source trace. Allowed positions range from division -7 to 7. If this would cause the horizontal position of any expanded trace to go outside the left or right screen boundaries, the difference of positions is adapted and then applied to the traces. The VAB bit (bit 2) in the STB register is set if a value outside the legal range is specified. The HOR_POSITION query returns the position of the geometric center of the intensified zone on the source trace.
 
 
-Command Syntax: `<exp_trace>: Hor_POSition <hor_position> <exp_trace>: = {TA, TB, TC, TD} <hor_position>: = -7 to 7 DIV The range of the value is related to the size of the screen. The range of the <hor_position> is related to the magnification factors of command HMAG. While the range after magnifying beyond the screen could display, it will be adjusted to the proper value.`
+Command Syntax: `<exp_trace>: HPOS <hor_position> <exp_trace>: = {TA, TB, TC, TD} <hor_position>: = -7 to 7 DIV The range of the value is related to the size of the screen. The range of the <hor_position> is related to the magnification factors of command HMAG. While the range after magnifying beyond the screen could display, it will be adjusted to the proper value.`
 
 
-Query Syntax: `<exp_trace>: Hor_POSition?`
+Query Syntax: `<exp_trace>: HPOS?`
 
 
 
@@ -3835,10 +3836,10 @@ Query Syntax: `*IDN?`
 The INTERLEAVED command enables or disables random interleaved sampling (RIS) for timebase settings where both single shot and RIS mode are available. The response to the INTERLEAVED? Query indicates whether the oscilloscope is in RIS mode.
 
 
-Command Syntax: `InterLeaVeD <mode> <mode> : = {ON, OFF}`
+Command Syntax: `ILVD <mode> <mode> : = {ON, OFF}`
 
 
-Query Syntax: `InterLeaVeD?`
+Query Syntax: `ILVD?`
 
 
 
@@ -3847,10 +3848,10 @@ Query Syntax: `InterLeaVeD?`
 The INTENSITY command sets the intensity level of the grid or the trace. The intensity level is expressed as a percentage (PCT). A level of 100 PCT corresponds to the maximum intensity whilst a level of 0 PCT sets the intensity to its minimum value.(The minimum value of the trace is 30 PCT) The response to the INTENSITY? Query indicates the grid and trace intensity levels.
 
 
-Command Syntax: `INTenSity GRID, <value>, TRACE, <value> <value> : = 0(or 30) to 100 [PCT] Note: 1. Parameters are grouped in pairs. The first of the pair names the variable to be modified, whilst the second gives the new value to be assigned. Pairs may be given in any order and be restricted to those variables to be changed. 2. The suffix PCT is optional.`
+Command Syntax: `INTS GRID, <value>, TRACE, <value> <value> : = 0(or 30) to 100 [PCT] Note: 1. Parameters are grouped in pairs. The first of the pair names the variable to be modified, whilst the second gives the new value to be assigned. Pairs may be given in any order and be restricted to those variables to be changed. 2. The suffix PCT is optional.`
 
 
-Query Syntax: `INTenSity?`
+Query Syntax: `INTS?`
 
 
 
@@ -3952,7 +3953,7 @@ Query Syntax: `MSIZ?`
 The OFFSET command allows adjustment of the vertical offset of the specified input channel. The maximum ranges depend on the fixed sensitivity setting. If an out-of-range value is entered, the oscilloscope is set to the closest possible value and the VAB bit (bit 2) in the STB register is set. The OFFSET? query returns the offset value of the specified channel.
 
 
-Command Syntax: `<channel>: OFfSeT <offset> <channel> : = {C1, C2, C3,C4} <offset> : = See the oscilloscope‘s specifications. Digital Oscilloscopes Series`
+Command Syntax: `<channel>: OFST <offset> <channel> : = {C1, C2, C3,C4} <offset> : = See the oscilloscope‘s specifications. Digital Oscilloscopes Series`
 
 
 Query Syntax: `<channel>: OFST?`
@@ -3994,7 +3995,7 @@ Command Syntax: `PACL`
 The PARAMETER_CUSTOM command controls the parameters that have customizable qualifiers. Note: The measured value of a parameter setup with PACU can be read by using PAVA?.
 
 
-Command Syntax: `PArameter_CUstom <parameter>,<qualifier> <parameter> : ={PKPK, MAX, MIN, AMPL, TOP, BASE, CMEAN, MEAN, RMS, CRMS, OVSN, FPRE, OVSP, RPRE, PER, FREQ, PWID, NWID, RISE,FALL,WID,DUTY,NDUTY, ALL} <qualifier> : = { C1,C2,C3,C4 } Measurement qualifier specific to each(source option)`
+Command Syntax: `PACU <parameter>,<qualifier> <parameter> : ={PKPK, MAX, MIN, AMPL, TOP, BASE, CMEAN, MEAN, RMS, CRMS, OVSN, FPRE, OVSP, RPRE, PER, FREQ, PWID, NWID, RISE,FALL,WID,DUTY,NDUTY, ALL} <qualifier> : = { C1,C2,C3,C4 } Measurement qualifier specific to each(source option)`
 
 
 
@@ -4003,7 +4004,7 @@ Command Syntax: `PArameter_CUstom <parameter>,<qualifier> <parameter> : ={PKPK, 
 The PARAMETER_VALUE query returns the measurement values.
 
 
-Query Syntax: `<trace>:PArameter_VAlue? [<parameter>, ... , <parameter>] <trace>: = { C1, C2, C3, C4} <parameter> : = See table of parameter names on previous table.`
+Query Syntax: `<trace>:PAVA? [<parameter>, ... , <parameter>] <trace>: = { C1, C2, C3, C4} <parameter> : = See table of parameter names on previous table.`
 
 
 
@@ -4012,7 +4013,7 @@ Query Syntax: `<trace>:PArameter_VAlue? [<parameter>, ... , <parameter>] <trace>
 The PEAK_DETECT command switches ON or OFF the peak detector built into the acquisition system. The PEAK_DETECT? query returns the current status of the peak detector.
 
 
-Command Syntax: `Peak_DETect <state> <state> : = {ON, OFF}`
+Command Syntax: `PDET <state> <state> : = {ON, OFF}`
 
 
 Query Syntax: `PDET?`
@@ -4120,7 +4121,7 @@ Command Syntax: `*RCL <panel_setup> <panel_setup>:= 0 to 20 Digital Oscilloscope
 The RECALL command recalls a waveform file from the current directory on mass storage into any or all of the internal memories M1 to M10(or M20 in the CFL series).
 
 
-Command Syntax: `<memory>: RECall DISK, <device>, FILE, ‗<filename>‘ <memory> : = {M1~M10}(or M1~M20 in the CFL series) <device> : = {UDSK} <filename>：= A waveform file under a legal DOS path . A filename-string of up to eight characters, with the extension “ .DAV ” . (This can include the ‘/’ character to define the root directory.)`
+Command Syntax: `<memory>: REC DISK, <device>, FILE, ‗<filename>‘ <memory> : = {M1~M10}(or M1~M20 in the CFL series) <device> : = {UDSK} <filename>：= A waveform file under a legal DOS path . A filename-string of up to eight characters, with the extension “ .DAV ” . (This can include the ‘/’ character to define the root directory.)`
 
 
 
@@ -4129,7 +4130,7 @@ Command Syntax: `<memory>: RECall DISK, <device>, FILE, ‗<filename>‘ <memory
 The RECALL_PANEL command recalls a front-panel setup from the current directory on mass storage.
 
 
-Command Syntax: `ReCall_PaNel DISK, ‗<filename>‘ <device> : = {UDSK} <device>, FILE, <filename>：= A waveform file under a legal DOS path . A filename-string of up to eight characters, with the extension “.SET”. (This can include the ‗/‘ character to define the root directory.)`
+Command Syntax: `RCPN DISK, ‗<filename>‘ <device> : = {UDSK} <device>, FILE, <filename>：= A waveform file under a legal DOS path . A filename-string of up to eight characters, with the extension “.SET”. (This can include the ‗/‘ character to define the root directory.)`
 
 
 
@@ -4168,7 +4169,7 @@ Command Syntax: `*SAV <panel_setup> <panel_setup>: = 1 to 20`
 The SCREEN_DUMP command is used to obtain the screen information of image format .
 
 
-Command Syntax: `SCreen_DumP`
+Command Syntax: `SCDP`
 
 
 
@@ -4177,10 +4178,10 @@ Command Syntax: `SCreen_DumP`
 The SCREEN_SAVE command controls the automatic Screen Saver, which automatically shuts down the internal color monitor after a preset time. The response to the SCREEN_SAVE? query indicates whether the automatic screen saver feature is on or off. Note: 1. When the screen save is in effect, the oscilloscope is still fully functional.
 
 
-Command Syntax: `SCreen_SaVe <enabled> <enabled> : = {YES, NO}`
+Command Syntax: `SCSV <enabled> <enabled> : = {YES, NO}`
 
 
-Query Syntax: `SCreen_SaVe?`
+Query Syntax: `SCSV?`
 
 
 
@@ -4218,7 +4219,7 @@ Query Syntax: `STOP`
 The STORE command stores the contents of the specified trace into the current directory in a USB memory device.
 
 
-Command Syntax: `STOre <trace> <trace>: = {TA, TB, TC, TD, C1, C2, C3, C4,ALL_DISPLAYED} <dest>: = { UDSK} Note: 1. If the STORE command is sent without any argument, and the current trace isn‘t enabled, the current trace will be enabled and stored in the Store Setup. This setup can be modified using the STORE_SETUP command. 2. The <dest> parameter is vary with oscilloscope‘s models. If your oscilloscope is non-SPO models , this parameter‘s options are {M1~M10(or M20 in the CFL series)}, UDSK}. If your oscilloscope is SPO model, this parameter‘s option is {UDSK}.`
+Command Syntax: `STO <trace> <trace>: = {TA, TB, TC, TD, C1, C2, C3, C4,ALL_DISPLAYED} <dest>: = { UDSK} Note: 1. If the STORE command is sent without any argument, and the current trace isn‘t enabled, the current trace will be enabled and stored in the Store Setup. This setup can be modified using the STORE_SETUP command. 2. The <dest> parameter is vary with oscilloscope‘s models. If your oscilloscope is non-SPO models , this parameter‘s options are {M1~M10(or M20 in the CFL series)}, UDSK}. If your oscilloscope is SPO model, this parameter‘s option is {UDSK}.`
 
 
 
@@ -4227,7 +4228,7 @@ Command Syntax: `STOre <trace> <trace>: = {TA, TB, TC, TD, C1, C2, C3, C4,ALL_DI
 The STORE_PANEL command stores the complete front-panel setup of the instrument, at the time the command is issued, into a file on the specified-DOS path directory in a USB memory device.
 
 
-Command Syntax: `STore_PaNel DISK, <device>, FILE, ‗<filename>‘ <device>：={UDSK} < directory >：=A legal DOS path or filename. A filename -string of up to 8 characters, with the extension “.SET”. (This can include the ‗/‘ character to define the root directory.)`
+Command Syntax: `STPN DISK, <device>, FILE, ‗<filename>‘ <device>：={UDSK} < directory >：=A legal DOS path or filename. A filename -string of up to 8 characters, with the extension “.SET”. (This can include the ‗/‘ character to define the root directory.)`
 
 
 
@@ -4236,10 +4237,10 @@ Command Syntax: `STore_PaNel DISK, <device>, FILE, ‗<filename>‘ <device>：=
 The STORE_SETUP command controls the way in which traces will be stored. A single trace or all displayed traces may be enabled for storage.
 
 
-Command Syntax: `STore_SeTup [<trace>, <dest>] <trace>:= {C1,C2,C3,C4,ALL_DISPLAYED } <dest>: ={UDSK} Note: The <dest> parameter is vary with oscilloscope‘s models. If your oscilloscope is not an SPO model, it‘s options are {M1~M10(or M20 in the CFL series)}, UDSK}. If your oscilloscope is an SPO model, its option is {UDSK}.`
+Command Syntax: `STST [<trace>, <dest>] <trace>:= {C1,C2,C3,C4,ALL_DISPLAYED } <dest>: ={UDSK} Note: The <dest> parameter is vary with oscilloscope‘s models. If your oscilloscope is not an SPO model, it‘s options are {M1~M10(or M20 in the CFL series)}, UDSK}. If your oscilloscope is an SPO model, its option is {UDSK}.`
 
 
-Query Syntax: `STore_SeTup?`
+Query Syntax: `STST?`
 
 
 
@@ -4296,10 +4297,10 @@ Query Syntax: `SINXX_SAMPLE?`
 The TIME_DIV command modifies the timebase setting. The new timebase setting may be specified with suffixes: NS for nanoseconds, US for microseconds, MS for milliseconds, S for seconds, or KS for kiloseconds. An out-ofrange value causes the VAB bit (bit 2) in the STB register to be set. The TIME_DIV? query returns the current timebase setting.
 
 
-Command Syntax: `Time_DIV <value> <value>:={1NS,2NS,5NS,10NS,20NS,50NS,1 00NS,200NS,500NS,1US,2US,5US,10US,20U S,50US,100US,200US,500US,1MS,2MS,5MS, 10MS,20MS,50MS,100MS,200MS,500MS,1S, 2S,5S,10S,20S,50S}`
+Command Syntax: `TDIV <value> <value>:={1NS,2NS,5NS,10NS,20NS,50NS,1 00NS,200NS,500NS,1US,2US,5US,10US,20U S,50US,100US,200US,500US,1MS,2MS,5MS, 10MS,20MS,50MS,100MS,200MS,500MS,1S, 2S,5S,10S,20S,50S}`
 
 
-Query Syntax: `Time_DIV?`
+Query Syntax: `TDIV?`
 
 
 
@@ -4308,7 +4309,7 @@ Query Syntax: `Time_DIV?`
 The TEMPLATE? query produces a copy of the template that describes the various logical entities making up a complete waveform. In particular, the template describes in full detail the variables contained in the descriptor part of a waveform.
 
 
-Query Syntax: `TeMPLate?`
+Query Syntax: `TMPL?`
 
 
 
@@ -4317,7 +4318,7 @@ Query Syntax: `TeMPLate?`
 The CURSOR_VALUE? Query returns the values measured by the specified cursors for a given trace. (The PARAMETER_VALUE? query is used to obtain measured waveform parameter values.) Notation HREL the cursor value under track cursor mode VREL the dalta volt-value, curA volt_value and curb volt_value under manual cursor mode Note: For non-SPO models , VREL is the dalta volt-value under manual cursor mode.
 
 
-Query Syntax: `<trace>: CuRsor_Value? [<mode>,…<mode>] <trace> : = { C1, C2, C3, C4} <mode> : = { HREL, VREL }`
+Query Syntax: `<trace>: CRVA? [<mode>,…<mode>] <trace> : = { C1, C2, C3, C4} <mode> : = { HREL, VREL }`
 
 
 
@@ -4332,10 +4333,10 @@ Query Syntax: `<trace>: CuRsor_Value? [<mode>,…<mode>] <trace> : = { C1, C2, C
 value and will cause the VAB bit (bit 2) in the STB register to be set. The TRIG_LEVEL? query returns the current trigger level.
 
 
-Command Syntax: `<trig_source>: TRig_LeVel <trig_level> <trig_source>: = {C1, C2, C3, C4, EX, EX5} <trig_level>: = -4.5DIV* volt/div to 4.5DIV * volt/div Note: The suffix V is optional and assumed.`
+Command Syntax: `<trig_source>: TRLV <trig_level> <trig_source>: = {C1, C2, C3, C4, EX, EX5} <trig_level>: = -4.5DIV* volt/div to 4.5DIV * volt/div Note: The suffix V is optional and assumed.`
 
 
-Query Syntax: `<trig_source>: TRig_LeVel?`
+Query Syntax: `<trig_source>: TRLV?`
 
 
 
@@ -4350,10 +4351,10 @@ The TRIG_SELECT command selects the condition that will trigger the acquisition 
 The TRIG_SLOPE command sets the trigger slope of the specified trigger source. The TRIG_SLOPE? query returns the trigger slope of the selected source.
 
 
-Command Syntax: `<trig_source>: TRig_SLope <trig_slope> <trig_source>: = {C1, C2, C3, C4, EX,EX5 } <trig_slope>: = {NEG,POS,WINDOW}`
+Command Syntax: `<trig_source>: TRSL <trig_slope> <trig_source>: = {C1, C2, C3, C4, EX,EX5 } <trig_slope>: = {NEG,POS,WINDOW}`
 
 
-Query Syntax: `<trig_source>: TRig_Slope?`
+Query Syntax: `<trig_source>: TRSL?`
 
 
 
@@ -4362,10 +4363,10 @@ Query Syntax: `<trig_source>: TRig_Slope?`
 The TRIG_PATTERN command sets the condition of the pattern trigger. The TRIG_ PATTERN? query returns the condition of the pattern trigger. ACQUISITION.
 
 
-Command Syntax: `TRig_Pattern <source>,<status>[,<source>,<status>][,<source >,<status>][,<source>,<status>],STATE,<conditi on> < source >: ={C1, C2, C3, C4} <status>:={X,L,H} < condition >:= {AND, OR, NAND, OR}`
+Command Syntax: `TRPA <source>,<status>[,<source>,<status>][,<source >,<status>][,<source>,<status>],STATE,<conditi on> < source >: ={C1, C2, C3, C4} <status>:={X,L,H} < condition >:= {AND, OR, NAND, OR}`
 
 
-Query Syntax: `TRig_PAttern?`
+Query Syntax: `TRPA?`
 
 
 
@@ -4437,10 +4438,10 @@ The VOLT_DIV command. Please refer to the SIGLENT programming guide for detailed
 The VERT_POSITION command adjusts the vertical position of the specified FFT trace on the screen. It does not affect the original offset value obtained at acquisition time. The VERT_POSITION? query returns the current vertical position of the specified FFT trace.
 
 
-Command Syntax: `<trace>: Vert_POSITION <display_offset> <trace>: = {TA, TB, TC, TD} <display_offset>：=-40 DIV to 40 DIV Note: The suffix DIV is optional.`
+Command Syntax: `<trace>: VPOS <display_offset> <trace>: = {TA, TB, TC, TD} <display_offset>：=-40 DIV to 40 DIV Note: The suffix DIV is optional.`
 
 
-Query Syntax: `<trace>: Vert_POSition?`
+Query Syntax: `<trace>: VPOS?`
 
 
 
@@ -4449,10 +4450,10 @@ Query Syntax: `<trace>: Vert_POSition?`
 The TRACE command enables or disables the display of a trace. An environment error is set if an attempt is made to display more than four waveforms. The TRACE? query indicates whether the specified trace is displayed or not.
 
 
-Command Syntax: `<trace>: TRAce <mode> <trace> : = {C1, C2, C3, C4, TA, TB, TC, TD} <mode> : = {ON, OFF}`
+Command Syntax: `<trace>: TRA <mode> <trace> : = {C1, C2, C3, C4, TA, TB, TC, TD} <mode> : = {ON, OFF}`
 
 
-Query Syntax: `<trace>: TRAce?`
+Query Syntax: `<trace>: TRA?`
 
 
 

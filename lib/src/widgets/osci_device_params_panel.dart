@@ -19,6 +19,10 @@ class DeviceParametersPanel extends StatefulWidget {
   final String? refLabel; // "REF" when a reference is loaded
   final VoidCallback? onLoadReference;
   final ValueChanged<bool>? onRefToggled;
+  final bool refMoving; // "Move Reference" mode armed
+  final ValueChanged<bool>? onRefMovingToggled;
+  final ReferenceOffset refOffset; // manual alignment offset of the reference
+  final VoidCallback? onRefReset;
 
   const DeviceParametersPanel({
     super.key,
@@ -37,6 +41,10 @@ class DeviceParametersPanel extends StatefulWidget {
     this.refLabel,
     this.onLoadReference,
     this.onRefToggled,
+    this.refMoving = false,
+    this.onRefMovingToggled,
+    this.refOffset = const ReferenceOffset(),
+    this.onRefReset,
   });
 
   @override
@@ -182,14 +190,14 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  _buildCursorToggleRow(
+                  _buildToggleRow(
                     "Cursors X",
                     cursorsXEnabled,
                     Colors.cyanAccent,
                     onCursorXToggled,
                   ),
                   const SizedBox(height: 8),
-                  _buildCursorToggleRow(
+                  _buildToggleRow(
                     "Cursors Y",
                     cursorsYEnabled,
                     Colors.orangeAccent,
@@ -197,8 +205,9 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
                   ),
                   const SizedBox(height: 12),
                   _buildZoomSliderSection(),
-                  const SizedBox(height: 12),
-                  _buildLoadReferenceButton(),
+                  const SizedBox(height: 16),
+                  const Divider(color: Color(0xFF475569), height: 24),
+                  _buildReferenceSection(),
                 ],
               ),
             ),
@@ -208,7 +217,8 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
     );
   }
 
-  Widget _buildCursorToggleRow(
+  /// A labelled switch row, used for the cursor and reference toggles.
+  Widget _buildToggleRow(
     String label,
     bool value,
     Color activeColor,
@@ -304,7 +314,71 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
     );
   }
 
-  Widget _buildLoadReferenceButton() {
+  /// The reference waveform section: loading a CSV, and — once one is loaded
+  /// — manually aligning it against the live trace.
+  ///
+  /// The alignment offset is shown in divisions of the graticule, the unit
+  /// the user counts on the screen.
+  Widget _buildReferenceSection() {
+    final refLoaded = widget.refLabel != null;
+    final refVisible = widget.refVisible;
+    final refOffset = widget.refOffset;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text(
+          'Reference',
+          style: TextStyle(
+            color: Colors.white70,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        if (refLoaded) ...[
+          // Aligning only makes sense while the reference is displayed, so the
+          // switch stays disabled while the REF chip is switched off.
+          _buildToggleRow(
+            'Move Reference',
+            widget.refMoving,
+            Colors.lightBlueAccent,
+            refVisible ? widget.onRefMovingToggled : null,
+          ),
+          const SizedBox(height: 4),
+          if (widget.refMoving) ...[
+            const SizedBox(height: 4),
+            const Text(
+              'Drag the reference in the plot. Hold Shift to snap to the '
+              'grid.',
+              style: TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+          ],
+          const SizedBox(height: 8),
+          _buildActionRow(
+            icon: Icons.restart_alt,
+            label: 'Reset Offset',
+            onTap: refOffset.isZero ? null : widget.onRefReset,
+          ),
+          const SizedBox(height: 8),
+        ],
+        _buildActionRow(
+          icon: Icons.file_open,
+          label: 'Load Reference',
+          onTap: widget.onLoadReference,
+        ),
+      ],
+    );
+  }
+
+  /// A full-width row that acts as a button, used for the panel's actions.
+  /// A null [onTap] greys the row out instead of hiding it.
+  Widget _buildActionRow({
+    required IconData icon,
+    required String label,
+    VoidCallback? onTap,
+  }) {
+    final enabled = onTap != null;
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -313,7 +387,7 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
         borderRadius: BorderRadius.circular(8),
       ),
       child: InkWell(
-        onTap: widget.onLoadReference,
+        onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 10),
@@ -321,15 +395,15 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                Icons.file_open,
+                icon,
                 size: 16,
-                color: Colors.white.withAlpha(180),
+                color: Colors.white.withAlpha(enabled ? 180 : 60),
               ),
               const SizedBox(width: 8),
-              const Text(
-                'Load Reference',
+              Text(
+                label,
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: enabled ? Colors.white70 : Colors.white38,
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
                 ),

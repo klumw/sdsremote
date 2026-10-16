@@ -59,6 +59,7 @@ See section 10 (Application Directory) for a complete breakdown of subdirectorie
 * **No Data Streaming** — The application uses request-response SCPI communication. Continuous high-speed data streaming (e.g., at the full sample rate) is not supported. The Data Logger operates at minimum 10-second intervals.
 * **Macro Playback** — Macros run on a dedicated VXI-11 connection. During playback, most UI functions are disabled. The Control Panel, Acquire Waveform, Data Logger, and AI Chat cannot be used concurrently with macro playback.
 * **Waveform Downsampling** — Acquired waveforms are downsampled for display to maintain rendering performance. The full dataset is preserved in CSV exports.
+* **Gain (dB) with Very Small Signals** — Below an RMS voltage of 10 mV on either channel the gain calculation reflects the oscilloscope's noise floor and its 8 bit quantisation instead of the device under test, and the result can vary by tens of decibels between samples. The Data Logger records no gain value for such samples (see the note in section 6.2).
 
 ---
 
@@ -275,12 +276,8 @@ The chat maintains a multi-turn conversation history within the session. The AI 
 
 Ask questions about oscilloscope features, specifications, measurements, or troubleshooting. The AI searches the built-in knowledge base and returns the relevant documentation.
 
-When an oscilloscope is connected, the AI is told its model designation (for example `SDS1202X-E`, taken from the `*IDN?` response). Questions that depend on the model — bandwidth, sample rate, available options — are then answered for **your** model instead of for the whole SDS1000X-E series. The number of channels is read directly from the device with `CHS?`, so "how many channels does my oscilloscope have?" is answered exactly, not as a range.
-
-If no oscilloscope is connected, the AI still answers knowledge base and software questions. For a model-specific question it asks which oscilloscope you are using, since the answer differs between models. It reports that no instrument is connected only when you ask it to measure something or to send a command.
-
 **Examples:**
-* *"What is the maximum sample rate of the SDS1204X-E?"*
+* *"What is the maximum sample rate of the oscilloscope"*
 * *"How do I configure the trigger delay?"*
 * *"Explain the difference between Auto and Normal trigger mode."*
 * *"What SCPI command sets the timebase?"*
@@ -296,30 +293,7 @@ Describe what you want to do in natural language, and the Instrument Agent trans
 * *"Get the current timebase setting"* → sends `TDIV?` and returns the value
 * *"Switch channel 1 on"* → sends `C1:TRA ON`
 * *"What is the device identification?"* → sends `*IDN?` and returns the response
-
-#### Gain Measurement (dB)
-
-Ask the Instrument Agent to measure the gain, and it measures both channels and returns the voltage gain in decibels:
-
-`gain = 20 × log10( V_CH1 / V_CH2 )`
-
-* **CH1 (signal)** is measured as RMS voltage (`C1:PAVA? RMS`).
-* **CH2 (reference)** is measured as RMS voltage (`C2:PAVA? RMS`).
-* The two measured values are passed to a deterministic math tool — the AI never computes the logarithm itself, so the number is exact rather than estimated.
-
-**Examples:**
-* *"Measure the gain"* → returns e.g.
-
-  ```
-  Gain: 20.01 dB
-  Measurement: CH1 RMS 1.71 V (signal) vs. CH2 RMS 173.34 mV (reference); gain = 20 * log10(CH1 / CH2)
-  ```
-
 * *"What is the amplification from CH2 to CH1?"*
-
-Every gain answer states how it was measured: the channels used, the measurement type (RMS), both voltages in the same readable format the rest of the application uses, and the formula. A positive result means CH1 carries the higher voltage. The value is a **voltage** gain — not a power gain, which would require a known, equal impedance at both measurement points.
-
-The same calculation backs the Data Logger's Gain (dB) measurement (section 6), so both report identical values for identical measurements.
 
 #### Native SCPI Commands
 
@@ -464,7 +438,7 @@ The following parameters can be logged. Vpp, Mean, Rms, Duty and Freq are availa
 | **Freq** | CH1, CH2 | Signal frequency |
 | **Gain (dB)** | CH1 vs. CH2 | Voltage gain from the reference channel to the signal channel |
 
-All voltage values are automatically scaled by the probe attenuation factor (queried from the oscilloscope via `C1:ATTN?` / `C2:ATTN?`).
+On startup all voltage values are automatically scaled by the probe attenuation factor.
 
 #### Gain (dB)
 
@@ -484,12 +458,13 @@ All voltage values are automatically scaled by the probe attenuation factor (que
 | 0.5 V | 1.0 V | -6.02 dB |
 | 500 mV | 100 mV | +13.98 dB |
 | 10 mV | 100 mV | -20.00 dB |
+| 5 mV | 100 mV | no value (below the noise floor) |
 
-Each voltage is scaled by its own probe divider before the ratio is taken, so differing probe attenuation on the two channels is handled correctly rather than biasing the result. If either voltage cannot be measured, or the reference voltage on CH2 is zero, no gain value is recorded for that sample.
+Each voltage is scaled by its own probe divider before the ratio is taken, so differing probe attenuation on the two channels is handled correctly rather than biasing the result. If either voltage cannot be measured, or it falls below the noise floor described below, no gain value is recorded for that sample.
+
+> **Note — very small signals:** Gain (dB) is only meaningful while both RMS voltages are well above the oscilloscope's own noise floor and its 8 bit quantisation. Below an RMS voltage of **10 mV** a single ADC step is a large fraction of the signal, so the calculated gain no longer describes the device under test: it can jump by tens of decibels from one sample to the next although nothing changed in the circuit. For that reason **no gain value is recorded when either channel's RMS voltage is below 10 mV** — the sample simply carries no Gain (dB) entry, which appears as an empty cell in the CSV export and as `Gain: invalid` in the cursor popup, and the chart draws its line straight across such samples. A reading of exactly 10 mV is still measured. If the signal under test is genuinely smaller than that, the gain has to be determined where the levels are higher, for example after an amplifier stage.
 
 > **Note:** Gain (dB) is a **voltage** gain, not a power gain. A power gain in dB would additionally require the impedance at both measurement points to be known. If the impedance of both measurement points is equal, voltage gain in dB equals power gain in dB.
-
-> **Tip:** Gain (dB) issues two SCPI queries per sample (one per channel) instead of one, but counts as a single parameter toward the 5-parameter limit.
 
 ### 6.3 Configuration
 

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:image/image.dart' as img;
 import '../app/app_config.dart';
 import '../app/app_theme.dart';
@@ -27,6 +28,7 @@ import '../waveform/waveform_csv_writer.dart';
 import '../data_logger/data_logger_csv_writer.dart';
 import '../waveform/waveform_models.dart';
 import '../waveform/waveform_painter.dart';
+import '../waveform/waveform_view_transform.dart';
 import '../ai/ai_chat_service.dart';
 import '../core/logger.dart';
 import 'osci_physical_panel.dart';
@@ -98,6 +100,33 @@ class _OsciHomePageState extends State<OsciHomePage>
   bool _refVisible = false;
   String? _refFileName;
   String? _refChannelOrigin; // 'ch1' or 'ch2'
+
+  /// Manual alignment of the reference against the live trace. Kept next to
+  /// [_refWaveform] instead of being added to its points, so it can be reset
+  /// and read out, and so dragging never rewrites the loaded data.
+  ReferenceOffset _refOffset = const ReferenceOffset();
+
+  /// Whether "Move Reference" is armed: while it is, a drag in the plot moves
+  /// the reference instead of a cursor.
+  bool _refMoving = false;
+  bool _draggingRef = false;
+
+  /// Offset and pointer position at the start of the current drag. Each
+  /// update recomputes the offset from these rather than accumulating pointer
+  /// deltas, so snapping and clamping cannot make the trace drift away from
+  /// the pointer.
+  ReferenceOffset _refDragAnchor = const ReferenceOffset();
+  Offset _refDragOriginPx = Offset.zero;
+
+  /// The reference may be moved by at most half of the visible graticule —
+  /// seven divisions horizontally, four vertically — so it can never be
+  /// dragged completely out of view.
+  static const double _refMaxDivX = 7.0;
+  static const double _refMaxDivY = 4.0;
+
+  /// Snap step with Shift held: one minor grid division (a fifth of a major
+  /// one), as the visible grid shows it at the current zoom.
+  static const double _refMinorDiv = 0.2;
 
   // Zoom
   ZoomState _zoomState = const ZoomState();
@@ -347,6 +376,10 @@ class _OsciHomePageState extends State<OsciHomePage>
                         refLabel: _refFileName != null ? 'REF' : null,
                         onLoadReference: _loadReferenceWaveform,
                         onRefToggled: _onRefToggled,
+                        refMoving: _refMoving,
+                        onRefMovingToggled: _onRefMovingToggled,
+                        refOffset: _refOffset,
+                        onRefReset: _onRefReset,
                       ),
                   ],
                 ),
@@ -382,7 +415,11 @@ class _OsciHomePageState extends State<OsciHomePage>
       child: RepaintBoundary(
         key: _waveformKey,
         child: MouseRegion(
-          cursor: _hoveredCursorType == 'x'
+          cursor: _refMoving
+              ? (_draggingRef
+                    ? SystemMouseCursors.grabbing
+                    : SystemMouseCursors.move)
+              : _hoveredCursorType == 'x'
               ? SystemMouseCursors.resizeColumn
               : _hoveredCursorType == 'y'
               ? SystemMouseCursors.resizeRow
@@ -391,9 +428,11 @@ class _OsciHomePageState extends State<OsciHomePage>
               : SystemMouseCursors.basic,
           onHover: _onCursorHover,
           child: GestureDetector(
-            onPanStart: _onCursorDragStart,
-            onPanUpdate: _onCursorDragUpdate,
-            onPanEnd: _onCursorDragEnd,
+            // Both modes share the same pan gesture; the dispatcher decides
+            // between aligning the reference and dragging a cursor.
+            onPanStart: _onWaveformPanStart,
+            onPanUpdate: _onWaveformPanUpdate,
+            onPanEnd: _onWaveformPanEnd,
             child: Stack(
               children: [
                 RepaintBoundary(
@@ -404,6 +443,8 @@ class _OsciHomePageState extends State<OsciHomePage>
                       ref: _refWaveform,
                       refVisible: _refVisible,
                       refChannelOrigin: _refChannelOrigin,
+                      refOffset: _refOffset,
+                      refHighlighted: _refMoving,
                       params: _deviceParams!,
                       ch1Enabled: _ch1Enabled,
                       ch2Enabled: _ch2Enabled,
@@ -434,6 +475,8 @@ class _OsciHomePageState extends State<OsciHomePage>
                   ),
                   child: const SizedBox.expand(),
                 ),
+                if (_refMoving && _refVisible && _refWaveform != null)
+                  Positioned(left: 12, top: 12, child: _buildRefMoveHint()),
                 if (_zoomState.zoomFactor > 1.0)
                   Positioned(
                     left: 0,
@@ -2365,7 +2408,25 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   void _onRefToggled(bool visible) {
-    setState(() => _refVisible = visible);
+    setState(() {
+      _refVisible = visible;
+      // Aligning a hidden reference would move something the user cannot see.
+      if (!visible) _refMoving = false;
+    });
+  }
+
+  void _onRefMovingToggled(bool moving) {
+    setState(() {
+      _refMoving = moving;
+      _draggingRef = false;
+      // The hover highlight belongs to the cursor drag, which is suspended
+      // while the reference is being moved.
+      _hoveredCursorType = null;
+    });
+  }
+
+  void _onRefReset() {
+    setState(() => _refOffset = const ReferenceOffset());
   }
 
   // =========================================================================
@@ -2478,6 +2539,9 @@ class _OsciHomePageState extends State<OsciHomePage>
         _refVisible = true;
         _refFileName = file.uri.pathSegments.last;
         _refChannelOrigin = channel;
+        // The load aligns the reference itself, so an offset from a previous
+        // reference would be meaningless for this one.
+        _refOffset = const ReferenceOffset();
       });
     } catch (e) {
       _showErrorSnackBar('Error loading reference: $e');
@@ -2507,6 +2571,15 @@ class _OsciHomePageState extends State<OsciHomePage>
       getCursorInfoPanelRect(size, _cursorState);
 
   void _onCursorHover(PointerHoverEvent event) {
+    // While the reference is being moved the cursor drag is suspended, so no
+    // cursor highlight is computed either.
+    if (_refMoving) {
+      if (_hoveredCursorType != null) {
+        setState(() => _hoveredCursorType = null);
+      }
+      return;
+    }
+
     final size = _getWaveformSize();
     if (size == null || size.width == 0 || size.height == 0) return;
 
@@ -2615,5 +2688,126 @@ class _OsciHomePageState extends State<OsciHomePage>
   void _onCursorDragEnd(DragEndDetails details) {
     _draggingCursorIndex = null;
     _draggingCursorInfo = false;
+  }
+
+  // =========================================================================
+  // Reference Waveform Alignment ("Move Reference" mode)
+  // =========================================================================
+
+  /// Overlay hint shown while the reference can be moved: what the gesture
+  /// does and how far the reference currently sits from its loaded position.
+  Widget _buildRefMoveHint() {
+    return IgnorePointer(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xCC0D1117),
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.open_with,
+              size: 14,
+              color: Colors.lightBlueAccent,
+            ),
+            const SizedBox(width: 8),
+            Text(
+              'Move reference  ·  ΔX ${formatOffsetDivisions(_refOffset.dxDiv)}'
+              '  ·  ΔY ${formatOffsetDivisions(_refOffset.dyDiv)}'
+              '  ·  Shift = snap',
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Pan dispatcher: with "Move Reference" armed the drag aligns the
+  /// reference, otherwise it drags a cursor.
+  void _onWaveformPanStart(DragStartDetails details) {
+    if (_refMoving && _refVisible && _startRefDrag(details)) return;
+    _onCursorDragStart(details);
+  }
+
+  void _onWaveformPanUpdate(DragUpdateDetails details) {
+    if (_draggingRef) {
+      _updateRefDrag(details);
+      return;
+    }
+    _onCursorDragUpdate(details);
+  }
+
+  void _onWaveformPanEnd(DragEndDetails details) {
+    if (_draggingRef) {
+      _draggingRef = false;
+      return;
+    }
+    _onCursorDragEnd(details);
+  }
+
+  /// Starts a reference drag. Returns false when the gesture belongs to the
+  /// cursor info panel, which stays draggable in every mode.
+  bool _startRefDrag(DragStartDetails details) {
+    final size = _getWaveformSize();
+    if (size == null || size.width == 0 || size.height == 0) return false;
+
+    final panelRect = _getCursorInfoPanelRect(size);
+    if (panelRect != null && panelRect.contains(details.localPosition)) {
+      _draggingCursorInfo = true;
+      return false;
+    }
+
+    // setState so the pointer switches to the "grabbing" cursor right away.
+    setState(() {
+      _draggingRef = true;
+      _refDragAnchor = _refOffset;
+      _refDragOriginPx = details.localPosition;
+    });
+    return true;
+  }
+
+  /// Moves the reference by the pointer movement since the drag started,
+  /// converted through the same mapping the painter draws the reference with
+  /// — so the trace stays under the pointer at any zoom and pan position.
+  void _updateRefDrag(DragUpdateDetails details) {
+    final size = _getWaveformSize();
+    final params = _deviceParams;
+    if (size == null ||
+        size.width == 0 ||
+        size.height == 0 ||
+        params == null) {
+      return;
+    }
+
+    final transform = WaveformViewTransform.forReference(
+      params: params,
+      zoom: _zoomState,
+      size: size,
+      origin: _refChannelOrigin,
+    );
+
+    final double dxPx = details.localPosition.dx - _refDragOriginPx.dx;
+    final double dyPx = details.localPosition.dy - _refDragOriginPx.dy;
+
+    var offset = ReferenceOffset(
+      dxDiv: _refDragAnchor.dxDiv + dxPx * transform.dxDivPerPixel,
+      // Screen y grows downwards, voltage upwards.
+      dyDiv: _refDragAnchor.dyDiv - dyPx * transform.dyDivPerPixel,
+    );
+
+    if (HardwareKeyboard.instance.isShiftPressed) {
+      offset = offset.snappedTo(_refMinorDiv / _zoomState.zoomFactor);
+    }
+
+    setState(() {
+      _refOffset = offset.clampedTo(
+        maxDivX: _refMaxDivX / _zoomState.zoomFactor,
+        maxDivY: _refMaxDivY / _zoomState.zoomFactor,
+      );
+    });
   }
 }

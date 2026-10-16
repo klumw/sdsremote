@@ -256,6 +256,8 @@ class DataLoggerService {
       // reflects the true voltage gain of the device under test. Each voltage
       // is scaled by its own probe divider, so differing probe attenuations on
       // the two channels cancel out correctly instead of biasing the result.
+      // The noise floor is applied to the scaled voltages, i.e. to what is
+      // actually present at the probe tips.
       if (cfg.gainDbEnabled) {
         double? signalVoltage = await _queryPava(instr, 'C1:PAVA? RMS');
         if (_hasStopped) return;
@@ -265,10 +267,10 @@ class DataLoggerService {
         if (signalVoltage != null) signalVoltage *= _probeDividerCh1;
         if (referenceVoltage != null) referenceVoltage *= _probeDividerCh2;
 
-        gainDb = computeGainDb(signalVoltage, referenceVoltage);
+        gainDb = computeMeasuredGainDb(signalVoltage, referenceVoltage);
         AppLogger(agentName: 'DataLogger', toolName: '_doSample').log(
           'Gain (dB): C1 RMS=$signalVoltage, C2 RMS=$referenceVoltage '
-          '=> $gainDb dB',
+          '=> ${gainDb == null ? 'invalid (RMS below $gainMinRmsVolts V)' : '$gainDb dB'}',
         );
       }
 

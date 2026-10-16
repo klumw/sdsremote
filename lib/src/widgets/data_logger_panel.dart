@@ -593,10 +593,12 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       }
     }
     if (_config?.gainDbEnabled == true) {
-      if (!_hiddenLines.contains('gain_db') && nearest.gainDb != null) {
+      if (!_hiddenLines.contains('gain_db')) {
+        // A silently missing row would hide that gain stopped being
+        // measurable, so the popup says so where the value would be.
         rows.add(
           Text(
-            'Gain: ${nearest.gainDb!.toStringAsFixed(2)} dB',
+            'Gain: ${formatGainValue(nearest.gainDb)}',
             style: const TextStyle(color: _gainColor, fontSize: 11),
           ),
         );

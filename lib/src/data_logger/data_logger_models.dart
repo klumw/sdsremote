@@ -30,6 +30,38 @@ double? computeGainDb(double? signalVoltage, double? referenceVoltage) {
   return 20.0 * (math.log(signalVoltage / referenceVoltage) / math.ln10);
 }
 
+/// Smallest RMS voltage, at the probe tip, that a Data Logger gain measurement
+/// is computed from.
+///
+/// Below it the ratio between the two channels is dominated by the
+/// instrument's noise floor and its 8 bit quantisation instead of the device
+/// under test: the result would swing over tens of decibels from sample to
+/// sample.
+const double gainMinRmsVolts = 0.01;
+
+/// Gain in dB for a Data Logger sample, or null when it cannot be measured.
+///
+/// Applies the measurement's noise floor on top of [computeGainDb]: as soon as
+/// one of the two RMS voltages is below [gainMinRmsVolts], the sample carries
+/// no gain value at all. Unlike [computeGainDb] - which is shared with the
+/// `gain_db` calculation of the AI tools and therefore stays the plain ratio -
+/// this is the Data Logger's own validity rule for what it records.
+double? computeMeasuredGainDb(
+  double? signalVoltage,
+  double? referenceVoltage,
+) {
+  if (signalVoltage == null || referenceVoltage == null) return null;
+  if (signalVoltage < gainMinRmsVolts || referenceVoltage < gainMinRmsVolts) {
+    return null;
+  }
+  return computeGainDb(signalVoltage, referenceVoltage);
+}
+
+/// Formats a logged gain for display in the cursor popup: the value with its
+/// unit, or `invalid` when the sample carries no gain.
+String formatGainValue(double? gainDb) =>
+    gainDb == null ? 'invalid' : '${gainDb.toStringAsFixed(2)} dB';
+
 // =============================================================================
 // Configuration
 // =============================================================================
@@ -244,8 +276,8 @@ class DataLoggerConfig {
 /// [ch2Vpp], [ch2Mean], [ch2Rms], and [ch2Freq] are null if the respective
 /// measurement was disabled in the config, or if the SCPI query failed.
 /// [gainDb] is null if gain measurement was disabled, if either channel's
-/// RMS query failed, or if the reference voltage was unusable (see
-/// [computeGainDb]).
+/// RMS query failed, or if one of the two RMS voltages is below
+/// [gainMinRmsVolts] (see [computeMeasuredGainDb]).
 /// All voltage values are already scaled by the probe divider factor.
 class DataLoggerPoint {
   final DateTime timestamp;

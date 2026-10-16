@@ -2,8 +2,8 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'waveform_interpolation.dart';
 import 'waveform_models.dart';
+import 'waveform_trace.dart';
 
 class WaveformBasePainter extends CustomPainter {
   final WaveformData? ch1;
@@ -12,6 +12,8 @@ class WaveformBasePainter extends CustomPainter {
   final bool refVisible; // whether the reference is visible
   final String?
   refChannelOrigin; // 'ch1' or 'ch2' — which channel's V/div to use
+  final ReferenceOffset refOffset; // manual alignment offset of the reference
+  final bool refHighlighted; // draw the reference in the alignment colour
   final DeviceParams params;
   final bool ch1Enabled;
   final bool ch2Enabled;
@@ -26,6 +28,8 @@ class WaveformBasePainter extends CustomPainter {
     this.ref,
     this.refVisible = false,
     this.refChannelOrigin,
+    this.refOffset = const ReferenceOffset(),
+    this.refHighlighted = false,
     required this.params,
     this.ch1Enabled = true,
     this.ch2Enabled = true,
@@ -186,17 +190,33 @@ class WaveformBasePainter extends CustomPainter {
       final double visibleVRange = vRange / zoom.zoomFactor;
       final double visibleVMinRef = centerVoltage - visibleVRange / 2;
       final double visibleVMaxRef = centerVoltage + visibleVRange / 2;
+
+      // The manual alignment offset moves the drawn trace, not the points: the
+      // reference is drawn exactly as loaded and only its position on the
+      // graticule changes. The offset is converted from divisions to pixels
+      // here, so it stays independent of the zoom factor and the V/div.
+      final double shiftT = refOffset.timeShiftSeconds(params.timebase);
+      final double shiftV = refOffset.voltageShiftVolts(vdiv);
+
       _drawWaveform(
         canvas,
         size,
         ref!,
-        Colors.white.withAlpha(80),
+        // Light blue while the reference can be moved, the white ghost
+        // otherwise. Both states are drawn with the same stroke, so the
+        // colour alone tells them apart.
+        refHighlighted
+            ? Colors.lightBlueAccent.withAlpha(200)
+            : Colors.white.withAlpha(160),
         visibleTMin,
         visibleTMax,
         visibleVMinRef,
         visibleVMaxRef,
-        strokeWidth: 1.0,
+        strokeWidth: 1.4,
         vdiv: vdiv,
+        xShiftPx: shiftT / (visibleTMax - visibleTMin) * size.width,
+        // Screen y grows downwards, voltage upwards.
+        yShiftPx: -shiftV / (visibleVMaxRef - visibleVMinRef) * size.height,
       );
     }
   }
@@ -351,6 +371,8 @@ class WaveformBasePainter extends CustomPainter {
     double visibleVMax, {
     double strokeWidth = 1.5,
     double vdiv = 1.0,
+    double xShiftPx = 0.0,
+    double yShiftPx = 0.0,
   }) {
     if (data.points.length < 2) return;
 
@@ -362,73 +384,21 @@ class WaveformBasePainter extends CustomPainter {
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
-    final visibleTRange = visibleTMax - visibleTMin;
-    final visibleVRange = visibleVMax - visibleVMin;
-    if (visibleTRange <= 0 || visibleVRange <= 0) return;
-
-    // Check the time span of the data itself. If the acquired/loaded data
-    // covers a much smaller time window than the visible range (for
-    // example due to missing trigger/sample metadata or a mismatch between
-    // sample timing and display timebase), the waveform can appear bunched
-    // into one small area of the graticule. As a robust fallback, when the
-    // data time range is significantly smaller than the visible range,
-    // distribute points evenly across the visible time range so the
-    // waveform fills the full 14 divisions (preserving relative order).
-    final dataTFirst = data.points.first.$1;
-    final dataTLast = data.points.last.$1;
-    final dataTRange = dataTLast - dataTFirst;
-    final bool expandToDisplay =
-        dataTRange <= 0 || dataTRange < visibleTRange * 0.25;
-
-    // Draw the trace on the pixel raster with linear interpolation: one vertex
-    // per pixel column, taken from the straight line between the surrounding
-    // samples. Connecting every acquired sample directly instead would make
-    // the anti-aliased polyline break up into a blocky, dotted band - dozens
-    // of vertices per column that mostly draw over each other.
-    //
-    // The interpolated vertices are then smoothed over a few pixels: the 8 bit
-    // quantisation of the oscilloscope turns a slowly changing signal into
-    // stair steps several pixels wide, and a straight line through those steps
-    // looks jittery. The moving average reconstructs the smooth signal behind
-    // them, but only while the trace stays continuous: the window is filled
-    // outwards from each vertex and stops at any single jump larger than a few
-    // ADC steps. Stair steps (one step each) are averaged away, a square wave
-    // flank - a single jump of several divisions - is never crossed, so it
-    // keeps its position and stays vertical.
-    const double smoothingWidthPx = 14.0;
-    const double smoothingMaxSteps = 6.0;
-    final int columns = math.max(2, size.width.round());
-    final Float64List trace;
-    if (expandToDisplay) {
-      // Evenly spread points across the visible span.
-      final int n = data.points.length;
-      trace = WaveformInterpolation.resample(
-        count: n,
-        columns: columns,
-        xAt: (i) => i / (n - 1) * size.width,
-        yAt: (i) =>
-            (visibleVMax - data.points[i].$2) / visibleVRange * size.height,
-      );
-    } else {
-      // Samples outside the visible window are still used as the ends of the
-      // interpolation segments at the plot edges; only columns inside the
-      // graticule produce vertices.
-      trace = WaveformInterpolation.resample(
-        count: data.points.length,
-        columns: columns,
-        xAt: (i) =>
-            (data.points[i].$1 - visibleTMin) / visibleTRange * size.width,
-        yAt: (i) =>
-            (visibleVMax - data.points[i].$2) / visibleVRange * size.height,
-      );
-    }
-
-    // One step of the instrument's 8 bit ADC, expressed in pixels.
-    final double adcStepPx = (vdiv / 25.0) / visibleVRange * size.height;
-    final smoothed = WaveformInterpolation.smooth(
-      trace,
-      smoothingWidth: smoothingWidthPx,
-      maxStep: adcStepPx * smoothingMaxSteps,
+    // The data is mapped onto the raster by [WaveformTrace], which also
+    // applies [xShiftPx]/[yShiftPx] - the manual reference alignment. Those
+    // have to be pixel shifts: a trace whose record is far shorter than the
+    // visible span is drawn spread over the display width (see
+    // [WaveformTrace.build]), where its time values are unused.
+    final Float64List smoothed = WaveformTrace.build(
+      data: data,
+      size: size,
+      visibleTMin: visibleTMin,
+      visibleTMax: visibleTMax,
+      visibleVMin: visibleVMin,
+      visibleVMax: visibleVMax,
+      vdiv: vdiv,
+      xShiftPx: xShiftPx,
+      yShiftPx: yShiftPx,
     );
 
     // A single point cannot be stroked as a line.
@@ -470,6 +440,8 @@ class WaveformBasePainter extends CustomPainter {
         oldDelegate.ch2 != ch2 ||
         oldDelegate.ref != ref ||
         oldDelegate.refVisible != refVisible ||
+        oldDelegate.refOffset != refOffset ||
+        oldDelegate.refHighlighted != refHighlighted ||
         oldDelegate.params != params ||
         oldDelegate.ch1Enabled != ch1Enabled ||
         oldDelegate.ch2Enabled != ch2Enabled ||

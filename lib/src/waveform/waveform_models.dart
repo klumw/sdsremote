@@ -100,6 +100,87 @@ class CursorState {
   }
 }
 
+/// Manual alignment offset of the loaded reference waveform, expressed in
+/// oscilloscope divisions.
+///
+/// One division is [DeviceParams.timebase] seconds horizontally and the V/div
+/// of the channel the reference was loaded from vertically — the same
+/// division the graticule shows at zoom 1.0. Because the offset is stored in
+/// divisions rather than in seconds/volts it reads the way the user counts on
+/// the grid, and because it is kept next to the reference instead of being
+/// added to its points, it can be reset and read out, and repeated dragging
+/// cannot accumulate rounding errors in the data.
+class ReferenceOffset {
+  /// Horizontal shift in divisions; positive moves the reference to the
+  /// right, i.e. to a later time.
+  final double dxDiv;
+
+  /// Vertical shift in divisions; positive moves the reference up, i.e. to a
+  /// higher voltage.
+  final double dyDiv;
+
+  const ReferenceOffset({this.dxDiv = 0.0, this.dyDiv = 0.0});
+
+  bool get isZero => dxDiv == 0.0 && dyDiv == 0.0;
+
+  /// Horizontal shift in seconds at the given horizontal scale (s/div).
+  double timeShiftSeconds(double timebase) => dxDiv * timebase;
+
+  /// Vertical shift in volts at the given vertical scale (V/div).
+  double voltageShiftVolts(double vdiv) => dyDiv * vdiv;
+
+  ReferenceOffset copyWith({double? dxDiv, double? dyDiv}) {
+    return ReferenceOffset(
+      dxDiv: dxDiv ?? this.dxDiv,
+      dyDiv: dyDiv ?? this.dyDiv,
+    );
+  }
+
+  /// Both components rounded to the nearest multiple of [stepDiv] — the
+  /// "snap to grid" used while dragging with Shift held. The step is passed
+  /// in because the grid the user sees shrinks with the zoom factor.
+  ReferenceOffset snappedTo(double stepDiv) {
+    if (stepDiv <= 0) return this;
+    return ReferenceOffset(
+      dxDiv: (dxDiv / stepDiv).roundToDouble() * stepDiv,
+      dyDiv: (dyDiv / stepDiv).roundToDouble() * stepDiv,
+    );
+  }
+
+  /// Both components limited to ±[maxDivX] and ±[maxDivY], so that the
+  /// reference cannot be dragged out of reach.
+  ReferenceOffset clampedTo({
+    required double maxDivX,
+    required double maxDivY,
+  }) {
+    return ReferenceOffset(
+      dxDiv: dxDiv.clamp(-maxDivX, maxDivX),
+      dyDiv: dyDiv.clamp(-maxDivY, maxDivY),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is ReferenceOffset &&
+      other.dxDiv == dxDiv &&
+      other.dyDiv == dyDiv;
+
+  @override
+  int get hashCode => Object.hash(dxDiv, dyDiv);
+
+  @override
+  String toString() =>
+      'ReferenceOffset(${dxDiv.toStringAsFixed(2)} div, '
+      '${dyDiv.toStringAsFixed(2)} div)';
+}
+
+/// Formats one component of a [ReferenceOffset] for display, e.g. `+0.20 div`.
+String formatOffsetDivisions(double div) {
+  // Keep a component that rounds away to zero from showing up as "-0.00".
+  final value = div.abs() < 0.005 ? 0.0 : div;
+  return '${value > 0 ? '+' : ''}${value.toStringAsFixed(2)} div';
+}
+
 /// State for waveform zoom and pan.
 ///
 /// [zoomFactor] ranges from 1.0 (no zoom) to 4.0 (maximum magnification).

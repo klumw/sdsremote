@@ -483,9 +483,9 @@ Sets CSV storage options.
 Exact command pattern: `CSVS SAVE,<state>` or `CSVS DD,<DD>,SAVE,<state>`  
 Query: `CSVS?`
 
-**CYMIT?** (CYMOMETER?)  
+**CYMT?** (CYMOMETER?)  
 Returns cymometer frequency reading.  
-Exact command pattern: `CYMIT?`  
+Exact command pattern: `CYMT?`  
 Query only.
 
 **DATE**  
@@ -553,7 +553,12 @@ Forces one acquisition.
 Exact command pattern: `FRTR`  
 No query.
 
-**FVDISK?** (FORMAT_VDISK?)  
+**FTIM?** (FRAME_TIME)  
+Reads the acquisition time of the current history frame (history function must be on).  
+Exact command pattern: `FTIM?`  
+Query only.
+
+**FVDISK?** (FORMAT_VDISK?)
 Returns USB memory capacity.  
 Exact command pattern: `FVDISK?`  
 Query only.
@@ -573,10 +578,10 @@ Sets FFT vertical scale.
 Exact command pattern: `FFTS <scale>`  
 Query: `FFTS?`
 
-**FFT** (FFT_FULLSCREEN)  
+**FFTF** (FFT_FULLSCREEN)  
 Toggles FFT full‑screen mode.  
-Exact command pattern: `FFT <state>`  
-Query: `FFT?`
+Exact command pattern: `FFTF <state>`  
+Query: `FFTF?`
 
 **FILT** (FILTER)  
 Enables/disables filter (non‑SPO).  
@@ -648,10 +653,10 @@ Shows/hides menu (non‑SPO).
 Exact command pattern: `MENU <state>`  
 Query: `MENU?`
 
-**MTPV** (MATH_VERT_POS)  
+**MTVP** (MATH_VERT_POS)  
 Sets math waveform vertical position.  
-Exact command pattern: `MTPV <position>`  
-Query: `MTPV?`
+Exact command pattern: `MTVP <position>`  
+Query: `MTVP?`
 
 **MTVD** (MATH_VERT_DIV)  
 Sets math waveform vertical scale.  
@@ -773,7 +778,12 @@ Saves a trace as reference waveform.
 Exact command pattern: `REFS TRACE,<trace>,REF,<ref>,STATE,<state>,SAVE,DO`  
 Query: `REFS? REF,<ref>`
 
-**SCDP** (SCREEN_DUMP)  
+***SAV**  
+Stores the current instrument state in a nonvolatile panel setup.  
+Exact command pattern: `*SAV <panel_setup>` (1‑20)  
+No query.
+
+**SCDP** (SCREEN_DUMP)
 Captures screen image to controller.  
 Exact command pattern: `SCDP`  
 No query.
