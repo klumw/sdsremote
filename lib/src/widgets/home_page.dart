@@ -316,6 +316,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     final sigGen = _sigGenService;
     _sigGenService = null;
     if (sigGen != null) {
+      sigGen.removeListener(_onSigGenServiceChanged);
       unawaited(sigGen.disconnect());
       sigGen.dispose();
     }
@@ -487,15 +488,20 @@ class _OsciHomePageState extends State<OsciHomePage>
       final service = _sigGenService;
       _sigGenService = null;
       if (service != null) {
+        service.removeListener(_onSigGenServiceChanged);
         unawaited(service.disconnect());
         service.dispose();
       }
       return;
     }
 
-    _sigGenService ??= SignalGeneratorService(
-      transportFactory: (port) => LibSerialPortJds6600Transport(port),
-    );
+    if (_sigGenService == null) {
+      final service = SignalGeneratorService(
+        transportFactory: (port) => LibSerialPortJds6600Transport(port),
+      );
+      service.addListener(_onSigGenServiceChanged);
+      _sigGenService = service;
+    }
     _ensureSigGenWindowSupport();
     if (_sigGenDetector == null) {
       _sigGenDetector = SignalGeneratorDetector(
@@ -522,6 +528,17 @@ class _OsciHomePageState extends State<OsciHomePage>
       _sigGenDetected = detector.isDetected;
       _sigGenPort = detector.port ?? _sigGenPort;
     });
+  }
+
+  /// Reacts to the driver dropping the connection (generator switched off or
+  /// unplugged) and resumes discovery so the UI can recover.
+  void _onSigGenServiceChanged() {
+    final service = _sigGenService;
+    if (service == null || !mounted) return;
+    if (service.isConnected) return;
+    if (!_sigGenDetected || _bodeIsRunning) return;
+    setState(() => _sigGenDetected = false);
+    _sigGenDetector?.start();
   }
 
   // =========================================================================
@@ -626,6 +643,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       _bodeIsRunning = false;
     }
     _sigGenDetector?.setPaused(false);
+    if (!_sigGenDetected) _sigGenDetector?.start();
     _sigGenService?.setPanelActive(_sigGenWindowOpen);
   }
 

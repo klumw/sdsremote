@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
@@ -102,19 +103,41 @@ Future<void> _runSignalGeneratorWindow() async {
     center: true,
   );
   try {
-    await windowManager.waitUntilReadyToShow(windowOptions, () async {
-      await windowManager.show();
-      await windowManager.focus();
-    });
+    // Apply size/title/position, but keep the native window hidden until the
+    // first complete Flutter frame has been painted. Showing it earlier
+    // produces an empty black window.
+    await windowManager.waitUntilReadyToShow(windowOptions, () {});
   } catch (error) {
-    // The launcher also calls show() on the controller; keep the window
-    // usable even if window_manager cannot configure it.
-    AppLogger(agentName: 'SigGen', toolName: 'window')
-        .log('window_manager setup failed: $error');
+    AppLogger(
+      agentName: 'SigGen',
+      toolName: 'window',
+    ).log('window_manager setup failed: $error');
   }
 
   final client = await DesktopSigGenWindowClient.create();
-  runApp(SignalGeneratorWindowApp(client: client));
+  var shown = false;
+  Future<void> showWindow() async {
+    if (shown) return;
+    shown = true;
+    final log = AppLogger(agentName: 'SigGen', toolName: 'window');
+    log.log('Showing signal generator window');
+    try {
+      await windowManager.show();
+      await windowManager.focus();
+      log.log('Signal generator window shown');
+    } catch (error) {
+      log.log('Could not show signal generator window: $error');
+    }
+  }
+
+  runApp(
+    SignalGeneratorWindowApp(
+      client: client,
+      onReady: () => unawaited(showWindow()),
+    ),
+  );
+  // Failsafe: show even if the child never reports readiness.
+  Timer(const Duration(seconds: 3), () => unawaited(showWindow()));
 }
 
 // ===========================================================================

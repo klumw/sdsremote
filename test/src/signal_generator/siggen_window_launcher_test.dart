@@ -46,13 +46,16 @@ class _FakeBackend implements MultiWindowBackend {
   final StreamController<void> _changes = StreamController<void>.broadcast();
   String? createdArguments;
   int createCount = 0;
+  bool failList = false;
 
   @override
   Stream<void> get windowChanges => _changes.stream;
 
   @override
-  Future<List<MultiWindowHandle>> listWindows() async =>
-      List<MultiWindowHandle>.of(windows);
+  Future<List<MultiWindowHandle>> listWindows() async {
+    if (failList) throw StateError('transient window-list error');
+    return List<MultiWindowHandle>.of(windows);
+  }
 
   @override
   Future<MultiWindowHandle> createWindow(String arguments) async {
@@ -104,8 +107,9 @@ void main() {
       isTrue,
     );
     final handle = backend.windows.single;
-    expect(handle.shown, isTrue);
-    expect(handle.focused, isTrue);
+    // The child engine shows itself after its first painted frame.
+    expect(handle.shown, isFalse);
+    expect(handle.focused, isFalse);
     expect(launcher.isOpen, isTrue);
     expect(openStates, equals([true]));
   });
@@ -165,6 +169,18 @@ void main() {
 
     expect(launcher.isOpen, isFalse);
     expect(openStates, equals([true, false]));
+  });
+
+  test('keeps the open state on a transient window-list error', () async {
+    await launcher.openOrFocus();
+    expect(launcher.isOpen, isTrue);
+    final handle = backend.windows.single;
+
+    backend.failList = true;
+    backend.removeWindow(handle);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(launcher.isOpen, isTrue);
   });
 
   test('close() closes signal-generator windows only', () async {

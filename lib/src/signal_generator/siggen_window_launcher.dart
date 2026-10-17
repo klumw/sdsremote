@@ -147,11 +147,10 @@ class SigGenWindowLauncher {
       // configured and detected). An already open window is always focused.
       if (canOpen != null && !canOpen!()) return false;
 
-      final created = await backend.createWindow(
-        SigGenWindowArguments.toArguments(),
-      );
-      await created.show();
-      await created.focus();
+      await backend.createWindow(SigGenWindowArguments.toArguments());
+      // Do not show the window here: the child engine shows itself after its
+      // first fully painted frame. Showing it now would display an empty
+      // black window until Flutter renders the UI.
       _setOpen(true);
       return true;
     } catch (_) {
@@ -190,7 +189,10 @@ class SigGenWindowLauncher {
       final windows = await backend.listWindows();
       _setOpen(_findWindow(windows) != null);
     } catch (_) {
-      _setOpen(false);
+      // Keep the last known state on a transient backend error. Treating a
+      // failed list call as "closed" would deactivate the host and stop the
+      // generator polling, leaving the child window with stale CONNECTED
+      // state.
     }
   }
 

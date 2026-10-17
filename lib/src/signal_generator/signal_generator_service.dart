@@ -620,7 +620,10 @@ class SignalGeneratorService extends ChangeNotifier
           agentName: 'SigGen',
           toolName: 'poll',
         ).log('Poll failed ($_pollFailures): $e');
-        if (_pollFailures >= 3) {
+        // A closed/unusable transport means the device is gone; do not wait
+        // for further timeouts before reporting the disconnection.
+        final transportGone = e is Jds6600DisconnectedException;
+        if (_pollFailures >= 3 || transportGone) {
           await _guard(() async {
             await _enqueue(_disconnectInternal);
           });

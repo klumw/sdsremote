@@ -139,11 +139,23 @@ bool dutyAppliesTo(Jds6600Waveform waveform) =>
 
 /// Panel controller shared by the child window UI and its tests.
 class SignalGeneratorPanelController extends ChangeNotifier {
-  SignalGeneratorPanelController({required this.client});
+  SignalGeneratorPanelController({
+    required this.client,
+    this.refreshInterval = const Duration(seconds: 2),
+  });
 
   final SigGenWindowClient client;
 
+  /// How often the child pulls a fresh snapshot from the main window.
+  ///
+  /// State pushes cover normal operation; the pull is a safety net so a lost
+  /// push (for example when the generator is switched off) cannot leave the
+  /// window showing a stale CONNECTED state. `Duration.zero` disables it.
+  final Duration refreshInterval;
+
   StreamSubscription<SigGenWindowState>? _subscription;
+  Timer? _refreshTimer;
+  bool _snapshotInFlight = false;
   SigGenWindowState _state = const SigGenWindowState();
   SigGenDeviceSelection _selection = SigGenDeviceSelection.ch1;
   final Map<int, SigGenChannelDraft> _drafts = {
@@ -190,7 +202,34 @@ class SignalGeneratorPanelController extends ChangeNotifier {
     final result = await client.getSnapshot();
     _applyResult(result, syncDrafts: false);
     if (result.ok) _syncDraftsFromConfirmed(force: true);
+    _startRefreshTimer();
     notifyListeners();
+  }
+
+  void _startRefreshTimer() {
+    _refreshTimer?.cancel();
+    if (refreshInterval <= Duration.zero) return;
+    _refreshTimer = Timer.periodic(
+      refreshInterval,
+      (_) => unawaited(_pullSnapshot()),
+    );
+  }
+
+  /// Pulls a fresh snapshot, so a missed push cannot leave stale UI state.
+  Future<void> _pullSnapshot() async {
+    if (_disposed || _busy || _snapshotInFlight) return;
+    _snapshotInFlight = true;
+    try {
+      final result = await client.getSnapshot();
+      if (_disposed || !result.ok) return;
+      _state = result.state;
+      _syncDraftsFromConfirmed(force: false);
+      notifyListeners();
+    } catch (_) {
+      // Keep the last known state; the next tick retries.
+    } finally {
+      _snapshotInFlight = false;
+    }
   }
 
   void selectDevice(SigGenDeviceSelection selection) {
@@ -475,6 +514,8 @@ class SignalGeneratorPanelController extends ChangeNotifier {
   @override
   void dispose() {
     _disposed = true;
+    _refreshTimer?.cancel();
+    _refreshTimer = null;
     _subscription?.cancel();
     _subscription = null;
     super.dispose();

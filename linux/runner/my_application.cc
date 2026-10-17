@@ -169,6 +169,15 @@ static void my_application_activate(GApplication* application) {
   desktop_multi_window_plugin_set_window_created_callback(
       [](FlPluginRegistry* registry) { fl_register_plugins(registry); });
 
+  // Quit the application explicitly when the main window is destroyed. The
+  // signal generator window is only hidden on close, so it would otherwise
+  // keep the GtkApplication alive after the main window is gone.
+  g_signal_connect(window, "destroy",
+                   G_CALLBACK(+[](GtkWidget*, gpointer user_data) {
+                     g_application_quit(G_APPLICATION(user_data));
+                   }),
+                   application);
+
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
 

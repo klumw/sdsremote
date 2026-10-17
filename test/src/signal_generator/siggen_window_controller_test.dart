@@ -11,7 +11,10 @@ void main() {
 
   setUp(() async {
     client = FakeSigGenWindowClient();
-    controller = SignalGeneratorPanelController(client: client);
+    controller = SignalGeneratorPanelController(
+      client: client,
+      refreshInterval: const Duration(hours: 1),
+    );
     await controller.init();
   });
 
@@ -172,6 +175,23 @@ void main() {
 
     expect(client.calls, contains('refreshGenerator'));
     expect(controller.message, equals('Device state refreshed'));
+  });
+
+  test('periodically pulls fresh snapshots', () async {
+    controller.dispose();
+    client = FakeSigGenWindowClient();
+    controller = SignalGeneratorPanelController(
+      client: client,
+      refreshInterval: const Duration(milliseconds: 20),
+    );
+    await controller.init();
+    expect(controller.generator.connected, isTrue);
+
+    // Change the main-window state without emitting a push.
+    client.state = fakeWindowState(connected: false);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+
+    expect(controller.generator.connected, isFalse);
   });
 
   test('a pushed state updates a non-edited draft', () async {

@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sdsremote/src/signal_generator/models.dart';
 import 'package:sdsremote/src/signal_generator/siggen_window_controller.dart';
 import 'package:sdsremote/src/widgets/signal_generator_panel.dart';
+import 'package:sdsremote/src/widgets/signal_generator_window.dart';
 
 import 'fake_siggen_window_client.dart';
 
@@ -11,7 +12,10 @@ Future<SignalGeneratorPanelController> _pumpPanel(
   FakeSigGenWindowClient? client,
 }) async {
   final fake = client ?? FakeSigGenWindowClient();
-  final controller = SignalGeneratorPanelController(client: fake);
+  final controller = SignalGeneratorPanelController(
+    client: fake,
+    refreshInterval: Duration.zero,
+  );
   await controller.init();
   await tester.pumpWidget(
     MaterialApp(home: SignalGeneratorPanel(controller: controller)),
@@ -33,17 +37,34 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('window reports ready after the initial painted frame', (
+    tester,
+  ) async {
+    final client = FakeSigGenWindowClient();
+    var ready = false;
+
+    await tester.pumpWidget(
+      SignalGeneratorWindowApp(client: client, onReady: () => ready = true),
+    );
+    expect(ready, isFalse);
+
+    await tester.pumpAndSettle();
+
+    expect(ready, isTrue);
+    expect(find.text('CH1'), findsWidgets);
+  });
+
   testWidgets('pending hint and success message share the bottom bar', (
     tester,
   ) async {
     final controller = await _pumpPanel(tester);
 
-    expect(find.text('Press apply changes when finished'), findsNothing);
+    expect(find.text('Press APPLY CHANGES when finished'), findsNothing);
 
     controller.updateFrequencyText('2');
     await tester.pumpAndSettle();
 
-    final hint = find.text('Press apply changes when finished');
+    final hint = find.text('Press APPLY CHANGES when finished');
     expect(hint, findsOneWidget);
     final pendingBottom = tester.getBottomLeft(hint).dy;
     expect(pendingBottom, greaterThan(560));
@@ -52,7 +73,7 @@ void main() {
     await tester.tap(find.text('APPLY CHANGES'));
     await tester.pumpAndSettle();
 
-    expect(find.text('Press apply changes when finished'), findsNothing);
+    expect(find.text('Press APPLY CHANGES when finished'), findsNothing);
     final success = find.text('Settings applied');
     expect(success, findsOneWidget);
     expect(tester.getBottomLeft(success).dy, equals(pendingBottom));

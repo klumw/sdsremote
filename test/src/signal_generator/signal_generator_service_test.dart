@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sdsremote/src/signal_generator/models.dart';
 import 'package:sdsremote/src/signal_generator/signal_generator_service.dart';
@@ -103,6 +105,34 @@ void main() {
     await service.executeScpi('SOUR2:PHAS 90');
     expect(transport.registers[31], equals([900]));
     expect(await service.executeScpi('SOUR1:PHAS?'), '90.0');
+  });
+
+  test('polling disconnects after repeated failures', () async {
+    final offlineTransport = FakeJds6600Transport();
+    final polled = SignalGeneratorService(
+      transportFactory: (_) => offlineTransport,
+      pollInterval: const Duration(milliseconds: 20),
+    );
+    await polled.connect('/dev/fake');
+    offlineTransport.errorOnTransact = const Jds6600TimeoutException(
+      'device off',
+    );
+
+    final disconnected = Completer<void>();
+    polled.addListener(() {
+      if (!polled.isConnected &&
+          (polled.lastError?.contains('disconnected') ?? false) &&
+          !disconnected.isCompleted) {
+        disconnected.complete();
+      }
+    });
+
+    polled.setPanelActive(true);
+    await disconnected.future.timeout(const Duration(seconds: 2));
+
+    expect(polled.isConnected, isFalse);
+    expect(polled.lastError, contains('disconnected'));
+    await polled.shutdown();
   });
 
   test('unknown SCPI command queues an error', () async {
