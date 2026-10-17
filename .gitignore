@@ -13,6 +13,8 @@ tests/
 /test/src/*
 !/test/src/signal_generator/
 !/test/src/signal_generator/**
+!/test/src/bode/
+!/test/src/bode/**
 !/test/jds6600_check.dart
 
 # Miscellaneous

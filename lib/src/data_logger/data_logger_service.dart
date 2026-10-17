@@ -322,8 +322,7 @@ class DataLoggerService {
   /// string, which is always the measured value.
   Future<double?> _queryDouble(Vxi11Instrument instr, String cmd) async {
     try {
-      await instr.writeString(cmd);
-      final rawResponse = (await instr.readString()).trim();
+      final rawResponse = (await instr.queryString(cmd)).trim();
       // Find the last number in the response (value is always at the end).
       // Matches: sign, digits, optional decimal, optional exponent.
       final numberRegex = RegExp(
@@ -352,8 +351,7 @@ class DataLoggerService {
   Future<double?> _queryPava(Vxi11Instrument instr, String cmd) async {
     try {
       // --- First attempt ---
-      await instr.writeString(cmd);
-      String rawResponse = (await instr.readString()).trim();
+      String rawResponse = (await instr.queryString(cmd)).trim();
 
       // If the signal is out of range, auto-setup and retry once.
       if (rawResponse.contains('***')) {
@@ -377,8 +375,7 @@ class DataLoggerService {
             'for out-of-range response: $cmd.',
           );
         }
-        await instr.writeString(cmd);
-        rawResponse = (await instr.readString()).trim();
+        rawResponse = (await instr.queryString(cmd)).trim();
         AppLogger(
           agentName: 'DataLogger',
           toolName: '_queryPava',

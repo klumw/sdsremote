@@ -45,8 +45,7 @@ class WaveformAcquisition {
       // The instrument may echo the command, e.g. "TRMD AUTO" or "TRMD STOP".
       // We extract only the mode value (the part after the last space).
       try {
-        await activeInstr.writeString('TRMD?');
-        final rawResponse = (await activeInstr.readString()).trim();
+        final rawResponse = (await activeInstr.queryString('TRMD?')).trim();
         // Strip command echo: take everything after the last space
         final lastSpace = rawResponse.lastIndexOf(' ');
         originalTriggerMode = lastSpace >= 0
@@ -91,8 +90,7 @@ class WaveformAcquisition {
       // offset for each sample: T(n) = (n - triggerPosition) / sampleRate + trdl
       int triggerPosition = 0;
       try {
-        await activeInstr.writeString('SANU? C1');
-        final sanuRaw = (await activeInstr.readString()).trim();
+        final sanuRaw = (await activeInstr.queryString('SANU? C1')).trim();
         triggerPosition = ScpiParser.parseSanu(sanuRaw).$2;
       } catch (_) {
         // Fall back to display-centric formula if SANU? fails
@@ -160,17 +158,11 @@ class WaveformAcquisition {
 
   /// Sends [cmd], reads a status response, and parses it via [ScpiParser.parseStatus].
   Future<bool> _queryStatus(Vxi11Instrument instr, String cmd) async {
-    try {
-      await instr.writeString(cmd);
-    } catch (e) {
-      throw AcquisitionException(cmd, 'write failed: $e');
-    }
-
     String response;
     try {
-      response = await instr.readString();
+      response = await instr.queryString(cmd);
     } catch (e) {
-      throw AcquisitionException(cmd, 'read failed: $e');
+      throw AcquisitionException(cmd, 'query failed: $e');
     }
 
     return ScpiParser.parseStatus(response);
@@ -179,17 +171,11 @@ class WaveformAcquisition {
   /// Sends [cmd], reads a string response, and parses it via [ScpiParser.parseValue].
   /// Wraps any error in [AcquisitionException].
   Future<double> _queryValue(Vxi11Instrument instr, String cmd) async {
-    try {
-      await instr.writeString(cmd);
-    } catch (e) {
-      throw AcquisitionException(cmd, 'write failed: $e');
-    }
-
     String response;
     try {
-      response = await instr.readString();
+      response = await instr.queryString(cmd);
     } catch (e) {
-      throw AcquisitionException(cmd, 'read failed: $e');
+      throw AcquisitionException(cmd, 'query failed: $e');
     }
 
     try {
@@ -204,13 +190,7 @@ class WaveformAcquisition {
   /// Wraps any error in [AcquisitionException].
   Future<Uint8List> _queryDataBlock(Vxi11Instrument instr, String cmd) async {
     try {
-      await instr.writeString(cmd);
-    } catch (e) {
-      throw AcquisitionException(cmd, 'write failed: $e');
-    }
-
-    try {
-      return await instr.readDataBlock();
+      return await instr.queryDataBlock(cmd);
     } catch (e) {
       throw AcquisitionException(cmd, 'read data block failed: $e');
     }

@@ -61,6 +61,10 @@ class AppPaths {
   static Directory get loggerCsvDirectory =>
       Directory('${defaultSaveDirectory.path}${_sep}logger${_sep}csv');
 
+  /// `  <app working dir>/bode/csv  `
+  static Directory get bodeCsvDirectory =>
+      Directory('${defaultSaveDirectory.path}${_sep}bode${_sep}csv');
+
   /// `  <app working dir>/automation/macros  `
   static Directory get macrosDirectory =>
       Directory('${defaultSaveDirectory.path}${_sep}automation${_sep}macros');
@@ -106,6 +110,9 @@ class AppPaths {
 
   static Future<Directory> getOrCreateLoggerCsvDir() =>
       ensureDirectoryExists(loggerCsvDirectory);
+
+  static Future<Directory> getOrCreateBodeCsvDir() =>
+      ensureDirectoryExists(bodeCsvDirectory);
 
   static Future<Directory> getOrCreateMacrosDir() =>
       ensureDirectoryExists(macrosDirectory);

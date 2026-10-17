@@ -77,7 +77,15 @@ const List<ProviderConfig> providerConfigs = [
 // Application Enums
 // ===========================================================================
 
-enum ActivePanel { none, help, chat, profiles, dataLogger, macroRecorder }
+enum ActivePanel {
+  none,
+  help,
+  chat,
+  profiles,
+  dataLogger,
+  macroRecorder,
+  bode,
+}
 
 /// Actions the user can take when closing with unsaved macro changes.
 enum UnsavedMacroAction { save, discard }

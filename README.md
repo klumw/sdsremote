@@ -16,7 +16,7 @@ SDS-Remote enables remote control and AI-enhanced operation of Siglent SDS1202X-
 - **Waveform Acquisition & Data Export**: Capture and display waveform data from enabled channels. Save screen captures as images and export waveform data as CSV files.
 - **Device Parameter Monitoring**: View real-time parameters such as timebase, sample rate, and voltage settings. Cursor-based measurements are supported.
 - **Data Logging**: Log key data points over a period of time. Generate PDF measurement reports containing charts and key metrics, or export all recorded measurement points as CSV files.
-- **Signal Generator Selection**: Choose the signal-generator type in the settings (**No Signal Generator** or **JDS6600**). The JDS6600 backend is prepared for a later control UI.
+- **Signal Generator & Bode Plot**: Choose **No Signal Generator** or **JDS6600** in the settings. With JDS6600 selected, a **Bode** toolbar button appears once both the oscilloscope and the generator are detected; it runs a frequency sweep and plots gain and phase.
 - **Macro Recorder**: Record, edit and play back SCPI command sequences. Supports variables, conditionals, loops, and both network and USB connections for automated test procedures.
 
 ### Waveform Data Acquisition
@@ -64,10 +64,32 @@ Log key measurement data over configurable durations ranging from 1 minute to 24
 - **No Signal Generator** (default)
 - **JDS6600** (JOY-IT/Juntek JDS6600 and JDS6600-Lite)
 
-The selection is persisted as `siggen_device`. The JDS6600 backend — USB-serial
-transport, register codec, SCPI subset and service — lives in
-`lib/src/signal_generator/`, but no control panel is wired yet. A hardware
-check for the backend is still available:
+The selection is persisted as `siggen_device`. When **JDS6600** is selected,
+the app scans the serial ports, identifies the generator via the SCPI identity
+(`*IDN?`) and shows a **Bode** button once the oscilloscope is online and the
+generator is detected.
+
+The **Bode Plot** panel follows the Data Logger layout and supports start/stop
+frequency, point count, logarithmic/linear spacing, amplitude, offset,
+waveform, settling time, optional phase measurement and selectable input/output
+channels (default CH1 = Vin, CH2 = Vout). It sweeps the JDS6600, measures RMS
+voltages and phase with the Siglent, computes gain in dB and phase in degrees,
+and shows two aligned plots with a shared logarithmic frequency axis. Results
+are exported as CSV through the top-bar Save action.
+
+Signal wiring: generator CH1 → DUT input → scope CH1; DUT output → scope CH2.
+The generator outputs are switched off when a sweep finishes, fails or is
+cancelled. Phase uses the Siglent `MEAD PHA` measurement with the documented
+`C1-C2:MEAD? PHA` query, plus a waveform-crossing fallback and a ±180°
+plausibility check. The scope returns the input relative to the output, so the
+sign is inverted; an RC low-pass was used to verify that a lagging output is
+shown as a negative phase. Transient scope acquisitions in which Vin collapses
+to the noise floor are retried; if the reading stays implausible, the point is
+marked invalid and left out of the plot instead of appearing as a spike.
+
+The JDS6600 backend — USB-serial transport, register codec, SCPI subset and
+service — lives in `lib/src/signal_generator/`; the Bode logic lives in
+`lib/src/bode/`. A hardware check for the generator is still available:
 
 ```bash
 flutter build linux --debug
@@ -323,7 +345,7 @@ All Flutter widget class files live under `lib/src/widgets/`:
 - Panels: `data_logger_panel.dart`, `macro_editor_panel.dart`,
   `macro_recorder_panel.dart`, `osci_device_params_panel.dart`,
   `osci_physical_panel.dart`, `osci_profiles_panel.dart`,
-  `osci_settings_panel.dart`.
+  `osci_settings_panel.dart`, `bode_plot_panel.dart`.
 - Windows/screens: `home_page.dart`, `osci_chat_window.dart`,
   `osci_help_window.dart`.
 - Widgets & dialogs: `data_logger_dialog.dart`, `data_logger_plot.dart`,
@@ -351,6 +373,9 @@ Non-widget, domain-specific support code is grouped into subfolders under
   (transport seam), `jds6600_serial_transport.dart` (libserialport backend),
   `serial_port_info.dart` (port discovery), `siggen_scpi.dart` (SCPI subset)
   and `signal_generator_service.dart` (connection, cache, queue, polling).
+- `lib/src/bode/` — Bode Plot domain and sweep: `bode_models.dart`,
+  `bode_math.dart`, `bode_scope.dart`, `vxi11_bode_scope.dart`,
+  `waveform_phase.dart`, `bode_plot_service.dart`, `bode_csv_writer.dart`.
 - `lib/src/macro/` — Macro language and recorder logic: `macro_ast.dart`,
   `macro_evaluator.dart`, `macro_grammar.dart`, `macro_lint_controller.dart`,
   `macro_lint_error.dart`, `macro_linter.dart`, `macro_recorder_models.dart`.

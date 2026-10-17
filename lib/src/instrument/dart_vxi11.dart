@@ -108,6 +108,24 @@ class XdrBuffer {
   }
 }
 
+/// Serialises asynchronous operations. Used to keep all RPC traffic on one
+/// socket ordered: `Socket.flush()` binds the IOSink, so overlapping writes
+/// throw `Bad state: StreamSink is bound to a stream`.
+class _AsyncMutex {
+  Future<void> _last = Future<void>.value();
+
+  Future<T> protect<T>(Future<T> Function() criticalSection) {
+    final completer = Completer<void>();
+    final next = _last
+        .then((_) => criticalSection())
+        .whenComplete(() {
+          if (!completer.isCompleted) completer.complete();
+        });
+    _last = completer.future;
+    return next;
+  }
+}
+
 /// ONC-RPC client over TCP with Record Marking framing (RFC 1057).
 ///
 /// Record Marking send: prepend a 4-byte big-endian header where
@@ -118,6 +136,7 @@ class XdrBuffer {
 /// Concatenate all fragments.
 class RpcClient {
   final Socket _socket;
+  final _AsyncMutex _callLock = _AsyncMutex();
 
   // Buffer for incoming bytes from the socket stream.
   final List<int> _buffer = [];
@@ -196,6 +215,24 @@ class RpcClient {
   ///
   /// Throws a [StateError] on xid mismatch, MSG_DENIED, or non-SUCCESS reply.
   Future<XdrBuffer> call({
+    required int program,
+    required int version,
+    required int procedure,
+    required Uint8List params,
+    required int xid,
+  }) {
+    return _callLock.protect(
+      () => _call(
+        program: program,
+        version: version,
+        procedure: procedure,
+        params: params,
+        xid: xid,
+      ),
+    );
+  }
+
+  Future<XdrBuffer> _call({
     required int program,
     required int version,
     required int procedure,
@@ -312,6 +349,7 @@ class Vxi11Instrument {
   int? _linkId;
   String _lastError = '';
   int _xidCounter = 1;
+  final _AsyncMutex _opLock = _AsyncMutex();
 
   Vxi11Instrument(String host, {String name = 'inst0', String sourceLabel = ''})
     : _host = host,
@@ -497,7 +535,10 @@ class Vxi11Instrument {
   String _vxi11ErrorMessage(int code) => Vxi11ErrorMessages.forCode(code);
 
   /// Sends a SCPI/VXI-11 command string to the instrument.
-  Future<void> writeString(String cmd, {Duration? timeout}) async {
+  Future<void> writeString(String cmd, {Duration? timeout}) =>
+      _opLock.protect(() => _writeString(cmd, timeout: timeout));
+
+  Future<void> _writeString(String cmd, {Duration? timeout}) async {
     if (isUsbMode) {
       if (_sharedUsbDevice == null) {
         _lastError = 'USB connection not open';
@@ -560,7 +601,10 @@ class Vxi11Instrument {
   ///
   /// For VXI-11 (TCP) mode, this delegates to [writeString] which sends the
   /// data via the standard DEVICE_WRITE RPC.
-  Future<void> writeProfileData(String data, {Duration? timeout}) async {
+  Future<void> writeProfileData(String data, {Duration? timeout}) =>
+      _opLock.protect(() => _writeProfileData(data, timeout: timeout));
+
+  Future<void> _writeProfileData(String data, {Duration? timeout}) async {
     if (isUsbMode) {
       if (_sharedUsbDevice == null) {
         _lastError = 'USB connection not open';
@@ -577,11 +621,30 @@ class Vxi11Instrument {
     }
 
     // VXI-11 fallback: standard writeString
-    await writeString(data, timeout: timeout);
+    await _writeString(data, timeout: timeout);
   }
 
   /// Reads a string response from the instrument.
-  Future<String> readString({int maxLen = 256}) async {
+  Future<String> readString({int maxLen = 256}) =>
+      _opLock.protect(() => _readString(maxLen: maxLen));
+
+  /// Writes [cmd] and reads its response as one atomic transaction.
+  ///
+  /// Use this for query commands so that no other operation on the shared
+  /// instrument can interleave between the write and the read.
+  Future<String> queryString(
+    String cmd, {
+    int maxLen = 256,
+    Duration? timeout,
+    Duration? readTimeout,
+  }) =>
+      _opLock.protect(() async {
+        await _writeString(cmd, timeout: timeout);
+        return _readString(maxLen: maxLen, readTimeout: readTimeout);
+      });
+
+  Future<String> _readString({int maxLen = 256, Duration? readTimeout}) async {
+    final readTimeoutMs = readTimeout?.inMilliseconds ?? _timeoutMs;
     if (isUsbMode) {
       if (_sharedUsbDevice == null) {
         _lastError = 'USB connection not open';
@@ -590,7 +653,7 @@ class Vxi11Instrument {
       final bytes = await _sharedUsbDevice!.doRead(
         maxLen,
         useTermChar: true,
-        timeout: Duration(milliseconds: _timeoutMs),
+        timeout: Duration(milliseconds: readTimeoutMs),
       );
       return utf8.decode(bytes).trim();
     }
@@ -605,7 +668,7 @@ class Vxi11Instrument {
     final params = XdrBuffer();
     params.writeInt32(_linkId!); // link_id
     params.writeUint32(maxLen); // request_size
-    params.writeUint32(_timeoutMs); // timeout_ms
+    params.writeUint32(readTimeoutMs); // timeout_ms
     params.writeUint32(0); // lock_timeout_ms = 0
     params.writeInt32(0); // flags = 0
     params.writeInt32(0); // term_char = 0
@@ -633,7 +696,16 @@ class Vxi11Instrument {
   }
 
   /// Reads an IEEE 488.2 definite-length binary data block.
-  Future<Uint8List> readDataBlock() async {
+  Future<Uint8List> readDataBlock() => _opLock.protect(_readDataBlock);
+
+  /// Writes [cmd] and reads the following binary data block atomically.
+  Future<Uint8List> queryDataBlock(String cmd, {Duration? timeout}) =>
+      _opLock.protect(() async {
+        await _writeString(cmd, timeout: timeout);
+        return _readDataBlock();
+      });
+
+  Future<Uint8List> _readDataBlock() async {
     if (isUsbMode) {
       if (_sharedUsbDevice == null) {
         _lastError = 'USB connection not open';
@@ -655,9 +727,11 @@ class Vxi11Instrument {
   }
 
   /// Sends SCDP and reads the raw BMP image bytes.
-  Future<Uint8List> getScreenDump() async {
+  Future<Uint8List> getScreenDump() => _opLock.protect(_getScreenDump);
+
+  Future<Uint8List> _getScreenDump() async {
     if (isUsbMode) {
-      await writeString('SCDP');
+      await _writeString('SCDP');
       if (_sharedUsbDevice == null) {
         _lastError = 'USB connection not open';
         throw StateError(_lastError);
@@ -668,15 +742,18 @@ class Vxi11Instrument {
         timeout: Duration(milliseconds: _timeoutMs),
       );
     }
-    await writeString('SCDP');
+    await _writeString('SCDP');
     return _readRaw();
   }
 
   /// Sends a command and reads the entire response until END is signalled.
   /// Useful for large responses like XML settings.
-  Future<Uint8List> readRawResponse(String cmd, {Duration? timeout}) async {
+  Future<Uint8List> readRawResponse(String cmd, {Duration? timeout}) =>
+      _opLock.protect(() => _readRawResponse(cmd, timeout: timeout));
+
+  Future<Uint8List> _readRawResponse(String cmd, {Duration? timeout}) async {
     if (isUsbMode) {
-      await writeString(cmd, timeout: timeout);
+      await _writeString(cmd, timeout: timeout);
       if (_sharedUsbDevice == null) {
         _lastError = 'USB connection not open';
         throw StateError(_lastError);
@@ -687,7 +764,7 @@ class Vxi11Instrument {
         timeout: timeout ?? Duration(milliseconds: _timeoutMs),
       );
     }
-    await writeString(cmd, timeout: timeout);
+    await _writeString(cmd, timeout: timeout);
     return _readRaw();
   }
 

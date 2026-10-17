@@ -190,16 +190,14 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       if (instr == null) return;
       double? p1, p2;
       if (ch1) {
-        await instr.writeString('C1:ATTN?');
-        final resp = (await instr.readString()).trim();
+        final resp = (await instr.queryString('C1:ATTN?')).trim();
         final m = RegExp(
           r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?',
         ).allMatches(resp).toList();
         if (m.isNotEmpty) p1 = double.tryParse(m.last.group(0)!);
       }
       if (ch2) {
-        await instr.writeString('C2:ATTN?');
-        final resp = (await instr.readString()).trim();
+        final resp = (await instr.queryString('C2:ATTN?')).trim();
         final m = RegExp(
           r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?',
         ).allMatches(resp).toList();

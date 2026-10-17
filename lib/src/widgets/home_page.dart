@@ -42,6 +42,13 @@ import '../data_logger/data_logger_models.dart';
 import 'data_logger_panel.dart';
 import '../data_logger/data_logger_service.dart';
 import '../data_logger/data_logger_report.dart';
+import '../bode/bode_csv_writer.dart';
+import '../bode/bode_models.dart';
+import '../bode/bode_plot_service.dart';
+import '../signal_generator/jds6600_serial_transport.dart';
+import '../signal_generator/signal_generator_detector.dart';
+import '../signal_generator/signal_generator_service.dart';
+import 'bode_plot_panel.dart';
 import '../app/app_paths.dart';
 import '../macro/macro_recorder_models.dart';
 import 'macro_recorder_panel.dart';
@@ -74,6 +81,17 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// the knowledge base uses.
   String? _deviceModel;
   Vxi11Instrument? _instrument;
+
+  // Bode Plot / JDS6600
+  SignalGeneratorService? _sigGenService;
+  SignalGeneratorDetector? _sigGenDetector;
+  bool _sigGenDetected = false;
+  String? _sigGenPort;
+  bool _bodeIsRunning = false;
+  BodePlotService? _bodeService;
+  List<BodePoint>? _savedBodePoints;
+  BodeConfig? _savedBodeConfig;
+  BodeStatus? _savedBodeStatus;
 
   // Signal generator selection (Settings → Signal Generator).
   String _signalGenerator = 'none';
@@ -278,6 +296,15 @@ class _OsciHomePageState extends State<OsciHomePage>
     _pingTimer?.cancel();
     _refreshTimer?.cancel();
     _closeInstrument();
+    _sigGenDetector?.dispose();
+    _sigGenDetector = null;
+    final sigGen = _sigGenService;
+    _sigGenService = null;
+    if (sigGen != null) {
+      unawaited(sigGen.disconnect());
+      sigGen.dispose();
+    }
+    unawaited(_bodeService?.stop());
     _aiChatService.dispose();
     _dlAnimationController.dispose();
     super.dispose();
@@ -327,6 +354,16 @@ class _OsciHomePageState extends State<OsciHomePage>
     // DestroyWindow → WM_DESTROY → FlutterWindow::OnDestroy() →
     // flutter_controller_ = nullptr (engine shutdown) → PostQuitMessage(0)
     // — the proper, fast shutdown path.
+    _stopBodeIfRunning();
+    final sigGen = _sigGenService;
+    if (sigGen != null) {
+      try {
+        await sigGen.setOutput(1, false);
+      } catch (_) {}
+      try {
+        await sigGen.setOutput(2, false);
+      } catch (_) {}
+    }
     await windowManager.setPreventClose(false);
     await windowManager.close();
   }
@@ -404,12 +441,105 @@ class _OsciHomePageState extends State<OsciHomePage>
         ActivePanel.profiles => _buildProfilesWindow(),
         ActivePanel.dataLogger => _buildDataLoggerWindow(),
         ActivePanel.macroRecorder => _buildMacroRecorderWindow(),
+        ActivePanel.bode => _buildBodePlotWindow(),
         _ => const SizedBox.shrink(),
       };
     }
     if (_waveformAcquired) return _buildWaveformView();
     if (_screenDump != null) return _buildPhysicalPanel();
     return _buildWelcomeScreen();
+  }
+
+  // =========================================================================
+  // Bode Plot / Signal Generator detection
+  // =========================================================================
+
+  void _configureSigGenDetection() {
+    if (_signalGenerator != 'jds6600') {
+      _sigGenDetector?.dispose();
+      _sigGenDetector = null;
+      _sigGenDetected = false;
+      _sigGenPort = null;
+      final service = _sigGenService;
+      _sigGenService = null;
+      if (service != null) {
+        unawaited(service.disconnect());
+        service.dispose();
+      }
+      return;
+    }
+
+    _sigGenService ??= SignalGeneratorService(
+      transportFactory: (port) => LibSerialPortJds6600Transport(port),
+    );
+    if (_sigGenDetector == null) {
+      _sigGenDetector = SignalGeneratorDetector(
+        service: _sigGenService!,
+        initialPort: _sigGenPort,
+        onPortDetected: (port) {
+          _sigGenPort = port;
+          unawaited(AppPreferences.setString('siggen_port', port));
+        },
+      );
+      _sigGenDetector!.addListener(_onSigGenDetectionChanged);
+    }
+    _sigGenDetector!.start();
+  }
+
+  void _onSigGenDetectionChanged() {
+    final detector = _sigGenDetector;
+    if (detector == null || !mounted) return;
+    if (detector.isDetected == _sigGenDetected &&
+        detector.port == _sigGenPort) {
+      return;
+    }
+    setState(() {
+      _sigGenDetected = detector.isDetected;
+      _sigGenPort = detector.port ?? _sigGenPort;
+    });
+  }
+
+  void _stopBodeIfRunning() {
+    if (_bodeIsRunning) {
+      unawaited(_bodeService?.stop());
+      _bodeIsRunning = false;
+    }
+    _sigGenDetector?.setPaused(false);
+  }
+
+  Widget _buildBodePlotWindow() {
+    final service = _sigGenService;
+    if (service == null) {
+      return const Center(
+        child: Text(
+          'Signal Generator is not configured.',
+          style: TextStyle(color: Colors.white70),
+        ),
+      );
+    }
+    return BodePlotPanel(
+      getInstrument: _getInstrument,
+      signalGenerator: service,
+      isOnline: _isOnline,
+      generatorDetected: _sigGenDetected,
+      onClose: () => _togglePanel(ActivePanel.bode),
+      onRunningChanged: (running) {
+        _bodeIsRunning = running;
+        _sigGenDetector?.setPaused(running);
+        if (mounted) setState(() {});
+      },
+      onServiceCreated: (bodeService) {
+        _bodeService = bodeService;
+      },
+      onSaveState: (points, config, status) {
+        _savedBodePoints = points;
+        _savedBodeConfig = config;
+        _savedBodeStatus = status;
+      },
+      savedPoints: _savedBodePoints,
+      savedConfig: _savedBodeConfig,
+      savedStatus: _savedBodeStatus,
+    );
   }
 
   Widget _buildWaveformView() {
@@ -614,6 +744,20 @@ class _OsciHomePageState extends State<OsciHomePage>
               ? () => _togglePanel(ActivePanel.dataLogger)
               : null,
         ),
+        if (_signalGenerator == 'jds6600') ...[
+          const SizedBox(width: 16),
+          OsciToolbarButton(
+            label: 'Bode',
+            icon: const Icon(Icons.analytics_outlined, size: 25),
+            onPressed: (_isOnline &&
+                    _sigGenDetected &&
+                    !_isMacroPlaying &&
+                    !_isAcquiring &&
+                    !_isAcquiringWaveform)
+                ? () => _togglePanel(ActivePanel.bode)
+                : null,
+          ),
+        ],
         const SizedBox(width: 16),
         // Macro Recorder
         OsciToolbarButton(
@@ -696,13 +840,17 @@ class _OsciHomePageState extends State<OsciHomePage>
             icon: const Icon(Icons.save_alt, size: 25),
             color: (_isMacroPlaying)
                 ? Colors.white24
-                : (_canSaveStandard || _canSaveDataLoggerReport)
+                : (_canSaveStandard ||
+                      _canSaveDataLoggerReport ||
+                      _canSaveBodeCsv)
                 ? Colors.white70
                 : Colors.white24,
             tooltip: 'Save',
             onPressed:
                 (_isMacroPlaying ||
-                    !(_canSaveStandard || _canSaveDataLoggerReport))
+                    !(_canSaveStandard ||
+                        _canSaveDataLoggerReport ||
+                        _canSaveBodeCsv))
                 ? null
                 : _saveCurrentView,
           ),
@@ -725,9 +873,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          if (!_isUsb)
-            Row(
-              children: [
+          Row(
+            children: [
+              if (!_isUsb) ...[
                 const Icon(Icons.lan, color: Colors.white70, size: 20),
                 const SizedBox(width: 8),
                 const Text(
@@ -744,11 +892,7 @@ class _OsciHomePageState extends State<OsciHomePage>
                     letterSpacing: 1.1,
                   ),
                 ),
-              ],
-            )
-          else
-            Row(
-              children: [
+              ] else ...[
                 const Icon(Icons.usb, color: Colors.white70, size: 20),
                 const SizedBox(width: 8),
                 const Text(
@@ -760,7 +904,27 @@ class _OsciHomePageState extends State<OsciHomePage>
                   ),
                 ),
               ],
-            ),
+              if (_sigGenDetected) ...[
+                const SizedBox(width: 24),
+                const Icon(Icons.waves, color: Colors.white70, size: 20),
+                const SizedBox(width: 8),
+                const Text(
+                  "Signal Generator:",
+                  style: TextStyle(color: Colors.white70, fontSize: 16),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  _sigGenService?.deviceInfo?.modelName ?? 'JDS6600',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1.1,
+                  ),
+                ),
+              ],
+            ],
+          ),
           Row(
             children: [
               Text(
@@ -1226,6 +1390,11 @@ class _OsciHomePageState extends State<OsciHomePage>
     if (_activePanel == ActivePanel.dataLogger &&
         panel != ActivePanel.dataLogger) {
       _stopDataLoggerIfRunning();
+    _stopBodeIfRunning();
+    }
+    // Stop a running Bode sweep when leaving its panel.
+    if (_activePanel == ActivePanel.bode && panel != ActivePanel.bode) {
+      _stopBodeIfRunning();
     }
     setState(() {
       if (_activePanel == panel) {
@@ -1372,6 +1541,13 @@ class _OsciHomePageState extends State<OsciHomePage>
       onSignalGeneratorChanged: (value) async {
         setState(() => _signalGenerator = value);
         await AppPreferences.setString('siggen_device', value);
+        if (value != 'jds6600') {
+          _stopBodeIfRunning();
+          if (_activePanel == ActivePanel.bode) {
+            setState(() => _activePanel = ActivePanel.none);
+          }
+        }
+        _configureSigGenDetection();
       },
       providerNames: providerConfigs.map((c) => c.providerName).toList(),
       selectedProvider: _aiProvider,
@@ -1458,7 +1634,12 @@ class _OsciHomePageState extends State<OsciHomePage>
   bool _isPinging = false;
 
   Future<void> _pingDevice() async {
-    if (_isPinging || _isAcquiring || _isAcquiringWaveform) return;
+    if (_isPinging ||
+        _isAcquiring ||
+        _isAcquiringWaveform ||
+        _bodeIsRunning) {
+      return;
+    }
     _isPinging = true;
 
     try {
@@ -1534,8 +1715,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         _setFallbackWindowTitle();
         return;
       }
-      await instr.writeString('*IDN?');
-      final idn = (await instr.readString()).trim();
+      final idn = (await instr.queryString('*IDN?')).trim();
       final parts = idn.split(',');
       final name = parts.length >= 2
           ? '${parts[0].trim()} ${parts[1].trim()}'
@@ -1567,6 +1747,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     // Stop the Data Logger immediately when switching away from it
     if (!keepPanels && _activePanel == ActivePanel.dataLogger) {
       _stopDataLoggerIfRunning();
+    _stopBodeIfRunning();
     }
 
     setState(() {
@@ -1617,6 +1798,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   void _acquireWaveform() async {
     // Stop the Data Logger immediately when switching away from it
     _stopDataLoggerIfRunning();
+    _stopBodeIfRunning();
 
     setState(() {
       _isAcquiringWaveform = true;
@@ -1673,13 +1855,49 @@ class _OsciHomePageState extends State<OsciHomePage>
       _savedDlStatus == DataLoggerStatus.stopped &&
       (_savedDlPoints?.length ?? 0) > 1;
 
+  /// Whether Bode results can be exported as CSV.
+  bool get _canSaveBodeCsv =>
+      _activePanel == ActivePanel.bode &&
+      (_savedBodeStatus == BodeStatus.completed ||
+          _savedBodeStatus == BodeStatus.cancelled) &&
+      (_savedBodePoints?.any((point) => point.valid) ?? false);
+
   Future<void> _saveCurrentView() async {
-    if (_canSaveDataLoggerReport) {
+    if (_canSaveBodeCsv) {
+      await _saveBodeCsv();
+    } else if (_canSaveDataLoggerReport) {
       await _saveDataLoggerReport();
     } else if (_screenDump != null) {
       await _saveScreenDump();
     } else if (_waveformCh1 != null || _waveformCh2 != null) {
       await _saveWaveform();
+    }
+  }
+
+  Future<void> _saveBodeCsv() async {
+    final points = _savedBodePoints;
+    final config = _savedBodeConfig;
+    if (points == null || config == null || points.isEmpty) return;
+    try {
+      final prefix = await _askForFilenamePrefixIfNeeded();
+      if (prefix == null) return;
+      final baseName = prefix.isNotEmpty ? prefix : 'bode_plot_data';
+      final dir = await AppPaths.getOrCreateBodeCsvDir();
+      final file = await AppPaths.getUniqueFilePath(dir, baseName, 'csv');
+      final info = _sigGenService?.deviceInfo;
+      final generatorIdentity = info == null
+          ? 'JDS6600'
+          : 'JOY-IT,${info.modelName},${info.serialNumber},N/A';
+      final csv = buildBodeCsv(
+        config: config,
+        points: points,
+        deviceName: _deviceModel ?? _deviceName ?? _ipAddress,
+        generatorIdentity: generatorIdentity,
+      );
+      await file.writeAsString(csv);
+      _showInfoSnackBar('Saved ${file.uri.pathSegments.last}');
+    } catch (e) {
+      _showErrorSnackBar('Save failed: $e');
     }
   }
 
@@ -1894,6 +2112,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     await _checkNewsNotification();
     _loadProfileFiles();
     _startPingTimer();
+    _configureSigGenDetection();
     // Configure AI agent on startup if provider, token, and model are valid
     if (_isAiEnabled) {
       _configureAiService();
@@ -1911,6 +2130,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       'ask_for_filename_prefix',
     );
     final signalGenerator = await AppPreferences.getString('siggen_device');
+    final sigGenPort = await AppPreferences.getString('siggen_port');
     setState(() {
       _ipAddress = ip ?? '192.168.1.100';
       _isUsb = isUsb ?? false;
@@ -1921,6 +2141,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       _saveWithParams = saveWithParams ?? false;
       _askForFilenamePrefix = askForFilenamePrefix ?? false;
       _signalGenerator = signalGenerator == 'jds6600' ? 'jds6600' : 'none';
+      _sigGenPort = sigGenPort;
     });
   }
 
@@ -2148,7 +2369,10 @@ class _OsciHomePageState extends State<OsciHomePage>
     _refreshTimer?.cancel();
     _refreshTimer = Timer(Duration(milliseconds: _refreshDelayMs), () {
       _refreshPending = false;
-      if (mounted && _isOnline && !_isAcquiringWaveform) {
+      if (mounted &&
+          _isOnline &&
+          !_isAcquiringWaveform &&
+          !_bodeIsRunning) {
         _acquireScreenDump(keepPanels: true);
       }
     });
