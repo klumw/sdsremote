@@ -23,8 +23,6 @@ void main() {
                 llmModel: '',
                 saveWithParams: false,
                 askForFilenamePrefix: false,
-                isRunningDiagnostic: false,
-                diagnosticResults: const [],
                 callbacks: SettingsPanelCallbacks(
                   onSave: (_, _, _, _, _) {},
                   onClose: () {},
@@ -32,7 +30,6 @@ void main() {
                 ),
                 onSaveWithParamsChanged: (_) {},
                 onAskForFilenamePrefixChanged: (_) {},
-                onRunDiagnostic: () {},
               ),
             ],
           ),

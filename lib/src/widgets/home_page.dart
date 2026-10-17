@@ -209,8 +209,6 @@ class _OsciHomePageState extends State<OsciHomePage>
     0,
     0,
   ); // Will be calculated when dialog opens
-  bool _isRunningDiagnostic = false;
-  List<String> _diagnosticResults = [];
 
   // Chat
   final AiChatService _aiChatService = AiChatService();
@@ -1570,8 +1568,6 @@ class _OsciHomePageState extends State<OsciHomePage>
       llmModel: _llmModel,
       saveWithParams: _saveWithParams,
       askForFilenamePrefix: _askForFilenamePrefix,
-      isRunningDiagnostic: _isRunningDiagnostic,
-      diagnosticResults: _diagnosticResults,
       callbacks: SettingsPanelCallbacks(
         onSave: (newIp, newProvider, newToken, newModel, newIsUsb) async {
           final logger = AppLogger(agentName: 'main', toolName: 'onSave');
@@ -1629,7 +1625,6 @@ class _OsciHomePageState extends State<OsciHomePage>
         setState(() => _askForFilenamePrefix = v);
         await AppPreferences.setBool('ask_for_filename_prefix', v);
       },
-      onRunDiagnostic: _runConnectionDiagnostic,
     );
   }
 
@@ -2351,33 +2346,6 @@ class _OsciHomePageState extends State<OsciHomePage>
     if (mounted) {
       setState(() {
         // Trigger rebuild after AI service is configured
-      });
-    }
-  }
-
-  // =========================================================================
-  // Connection Diagnostic
-  // =========================================================================
-
-  Future<void> _runConnectionDiagnostic() async {
-    setState(() {
-      _isRunningDiagnostic = true;
-      _diagnosticResults = [];
-    });
-
-    try {
-      final instr = Vxi11Instrument(_ipAddress, sourceLabel: 'diag');
-      final results = await instr.testConnection(timeoutSeconds: 5.0);
-      setState(() {
-        _diagnosticResults = results;
-      });
-    } catch (e) {
-      setState(() {
-        _diagnosticResults.add('FAILURE: Connection diagnostic failed: $e');
-      });
-    } finally {
-      setState(() {
-        _isRunningDiagnostic = false;
       });
     }
   }

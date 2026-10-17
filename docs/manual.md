@@ -169,20 +169,7 @@ Two toggle switches control default export behavior across the application:
 
 Both settings take effect immediately and persist across application restarts.
 
-### 3.6 Connection Test
-
-The **TEST CONNECTION** button runs a low-level connectivity diagnostic against the configured IP address or USB device. This verifies that the host can reach the oscilloscope at the network or USB transport level before attempting SCPI communication.
-
-During the test (which takes up to 5 seconds), a progress indicator is shown. Results appear in a scrollable log area below the button:
-
-* **SUCCESS** (green) — The diagnostic step passed.
-* **FAILURE** or **ERROR** (red) — The step failed, with details about what went wrong.
-
-Common failure reasons include incorrect IP address, firewall blocking port 111, device powered off, USB driver conflicts, or network unreachability.
-
-> **Tip:** Always run the connection test after changing connection settings and before using other features. A successful test confirms basic connectivity but does not guarantee full SCPI command compatibility.
-
-### 3.7 Saving Configuration
+### 3.6 Saving Configuration
 
 Click the **SAVE CONFIGURATION** button to persist all settings. The application:
 
@@ -1154,10 +1141,8 @@ Press the **Save** button in the top toolbar while the Control Panel is active t
 1. Connect the oscilloscope to the network.
 2. Obtain its IP address.
 3. In **Settings** enter the IP address.
-4. In **Settings** click **TEST CONNECTION**.  
-   Check that network/USB low level connectivity works
-5. Save configuration.
-6. Verify that the status bar shows your device as `ONLINE`.
+4. Save configuration.
+5. Verify that the status bar shows your device as `ONLINE`.
 
 ### Application Directory
 
@@ -1190,7 +1175,6 @@ Files are stored in various subfolders of the application directory, depending o
   * Verify device power and network connection
   * Ensure oscilloscope is not in standby
   * If in network mode, validate IP address, firewall (VXI-11 uses port 111)
-  * Use connection test in settings
 
 * **Waveform Acquisition Failure**
   * Ensure at least one channel is enabled

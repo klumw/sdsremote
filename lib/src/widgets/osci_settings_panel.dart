@@ -33,12 +33,9 @@ class SettingsPanel extends StatefulWidget {
   final String llmModel;
   final bool saveWithParams;
   final bool askForFilenamePrefix;
-  final bool isRunningDiagnostic;
-  final List<String> diagnosticResults;
   final SettingsPanelCallbacks callbacks;
   final ValueChanged<bool> onSaveWithParamsChanged;
   final ValueChanged<bool> onAskForFilenamePrefixChanged;
-  final VoidCallback onRunDiagnostic;
 
   const SettingsPanel({
     super.key,
@@ -53,12 +50,9 @@ class SettingsPanel extends StatefulWidget {
     required this.llmModel,
     required this.saveWithParams,
     required this.askForFilenamePrefix,
-    required this.isRunningDiagnostic,
-    required this.diagnosticResults,
     required this.callbacks,
     required this.onSaveWithParamsChanged,
     required this.onAskForFilenamePrefixChanged,
-    required this.onRunDiagnostic,
   });
 
   @override
@@ -271,71 +265,6 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         ],
                       ),
                       const SizedBox(height: 20),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: widget.isRunningDiagnostic
-                                  ? null
-                                  : widget.onRunDiagnostic,
-                              icon: widget.isRunningDiagnostic
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.biotech, size: 18),
-                              label: const Text('TEST CONNECTION'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.cyanAccent,
-                                side: const BorderSide(
-                                  color: Colors.cyanAccent,
-                                ),
-                                padding: const EdgeInsets.symmetric(
-                                  vertical: 16,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                      if (widget.diagnosticResults.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Container(
-                          height: 120,
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: Colors.black26,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: Colors.white10),
-                          ),
-                          child: ListView.builder(
-                            itemCount: widget.diagnosticResults.length,
-                            itemBuilder: (context, index) {
-                              final line = widget.diagnosticResults[index];
-                              Color color = Colors.white70;
-                              if (line.startsWith('SUCCESS')) {
-                                color = Colors.greenAccent;
-                              }
-                              if (line.startsWith('FAILURE') ||
-                                  line.startsWith('ERROR')) {
-                                color = Colors.redAccent;
-                              }
-                              return Text(
-                                line,
-                                style: TextStyle(
-                                  color: color,
-                                  fontSize: 11,
-                                  fontFamily: 'monospace',
-                                ),
-                              );
-                            },
-                          ),
-                        ),
-                      ],
-                      const SizedBox(height: 16),
                       ElevatedButton(
                         style: ElevatedButton.styleFrom(
                           backgroundColor: Colors.cyan[800],
@@ -405,7 +334,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
     return DropdownButtonFormField<String>(
       initialValue: _isUsb ? 'USB' : 'Network',
       decoration: const InputDecoration(
-        labelText: 'Connection Mode',
+        labelText: 'Oscilloscope Connection Mode',
         floatingLabelBehavior: FloatingLabelBehavior.always,
         enabledBorder: OutlineInputBorder(
           borderSide: BorderSide(color: Colors.white24),
