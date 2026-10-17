@@ -308,14 +308,17 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
             ),
           ),
           const SizedBox(width: 16),
-          Text(
-            _statusLabel(_status),
-            style: TextStyle(
-              color: running ? Colors.greenAccent : Colors.white54,
-              fontSize: 12,
-              fontWeight: FontWeight.bold,
+          // The title already reads "Bode Plot — Complete" once the sweep
+          // has finished, so no extra status label is shown then.
+          if (_status != BodeStatus.completed)
+            Text(
+              _statusLabel(_status),
+              style: TextStyle(
+                color: running ? Colors.greenAccent : Colors.white54,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
             ),
-          ),
           const Spacer(),
           if (running)
             const SizedBox(
@@ -782,7 +785,9 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
       case BodeStatus.running:
         return 'RUNNING';
       case BodeStatus.completed:
-        return 'COMPLETED';
+        // Completion is already conveyed by the "Bode Plot — Complete"
+        // title, so no separate status label is rendered.
+        return '';
       case BodeStatus.cancelled:
         return 'CANCELLED';
       case BodeStatus.error:
