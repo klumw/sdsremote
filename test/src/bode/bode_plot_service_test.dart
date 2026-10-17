@@ -38,6 +38,7 @@ void main() {
         startFrequencyHz: 100,
         stopFrequencyHz: 1000,
         pointCount: 3,
+        measurePhase: true,
       ),
     );
 
@@ -121,6 +122,54 @@ void main() {
     expect(scope.readCalls, 6);
     expect(service.points.every((point) => !point.valid), isTrue);
     expect(service.points.first.note, contains('Unstable measurement'));
+  });
+
+  test('does not plot points below 5 mV on Vout', () async {
+    scope.voutRms = 0.004;
+
+    await service.start(
+      const BodeConfig(
+        startFrequencyHz: 100,
+        stopFrequencyHz: 200,
+        pointCount: 2,
+      ),
+    );
+
+    expect(service.status, BodeStatus.completed);
+    expect(service.points.length, 2);
+    expect(service.points.every((point) => !point.valid), isTrue);
+    expect(service.points.every((point) => point.gainDb == null), isTrue);
+    expect(service.points.first.note, contains('Vout below 5 mV'));
+  });
+
+  test('does not plot points below 5 mV on Vin', () async {
+    scope.vinRms = 0.004;
+
+    await service.start(
+      const BodeConfig(
+        startFrequencyHz: 100,
+        stopFrequencyHz: 200,
+        pointCount: 2,
+      ),
+    );
+
+    expect(service.points.every((point) => !point.valid), isTrue);
+    expect(service.points.every((point) => point.gainDb == null), isTrue);
+    expect(service.points.first.note, contains('Vin below 5 mV'));
+  });
+
+  test('keeps points at exactly 5 mV', () async {
+    scope.voutRms = 0.005;
+
+    await service.start(
+      const BodeConfig(
+        startFrequencyHz: 100,
+        stopFrequencyHz: 200,
+        pointCount: 2,
+      ),
+    );
+
+    expect(service.points.every((point) => point.valid), isTrue);
   });
 
   test('cancels a running sweep and turns the outputs off', () async {

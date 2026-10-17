@@ -4,7 +4,7 @@ import 'package:sdsremote/src/bode/bode_models.dart';
 
 void main() {
   test('writes header, columns and rows', () {
-    const config = BodeConfig();
+    const config = BodeConfig(measurePhase: true);
     final points = [
       const BodePoint(
         frequencyHz: 100,

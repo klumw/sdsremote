@@ -12,6 +12,23 @@ import 'bode_models.dart';
 /// noise floor and quantisation.
 const double bodeMinVinRms = 0.001;
 
+/// Below this RMS voltage on either channel no measurement point is plotted.
+const double bodeMinPlotVoltageRms = 0.005;
+
+/// Returns a note when Vin or Vout is below [bodeMinPlotVoltageRms], or null
+/// when both channels carry a usable voltage.
+///
+/// Missing values are not treated as "below"; they are already handled as
+/// invalid measurements elsewhere.
+String? bodeBelowThresholdNote(double? vinRms, double? voutRms) {
+  final vinLow = vinRms != null && vinRms < bodeMinPlotVoltageRms;
+  final voutLow = voutRms != null && voutRms < bodeMinPlotVoltageRms;
+  if (vinLow && voutLow) return 'Vin and Vout below 5 mV';
+  if (vinLow) return 'Vin below 5 mV';
+  if (voutLow) return 'Vout below 5 mV';
+  return null;
+}
+
 /// Builds the frequency points for a sweep.
 ///
 /// Throws [ArgumentError] for invalid start/stop/count combinations; the UI

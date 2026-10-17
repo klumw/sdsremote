@@ -241,11 +241,15 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final configuring =
-        _status == BodeStatus.configuring || _status == BodeStatus.idle;
+    // On error the panel returns to the configuration form so the message
+    // is shown there instead of staying on the chart.
+    final showConfig =
+        _status == BodeStatus.configuring ||
+        _status == BodeStatus.idle ||
+        _status == BodeStatus.error;
     return Container(
-      width: configuring ? 700 : double.infinity,
-      height: configuring ? null : double.infinity,
+      width: showConfig ? 700 : double.infinity,
+      height: showConfig ? null : double.infinity,
       margin: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppColors.panelBackground,
@@ -255,7 +259,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
       child: Column(
         children: [
           _buildHeader(),
-          if (!configuring)
+          if (!showConfig)
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
@@ -272,7 +276,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                 ),
               ),
             ),
-          _buildBottom(configuring),
+          _buildBottom(showConfig),
         ],
       ),
     );
@@ -335,7 +339,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
     );
   }
 
-  Widget _buildBottom(bool configuring) {
+  Widget _buildBottom(bool showConfig) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -346,7 +350,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (configuring || _status == BodeStatus.error)
+          if (showConfig)
             _buildConfigForm()
           else
             _buildRunningState(),
@@ -364,14 +368,37 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                 ),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Text(
-                _message!,
-                style: TextStyle(
-                  color: _messageIsError
-                      ? Colors.redAccent
-                      : Colors.greenAccent,
-                  fontSize: 12,
-                ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      _message!,
+                      style: TextStyle(
+                        color: _messageIsError
+                            ? Colors.redAccent
+                            : Colors.greenAccent,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    tooltip: 'Dismiss',
+                    onPressed: () => setState(() {
+                      _message = null;
+                      _messageIsError = false;
+                    }),
+                    icon: const Icon(Icons.close, size: 16),
+                    color: _messageIsError
+                        ? Colors.redAccent
+                        : Colors.greenAccent,
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(
+                      minWidth: 24,
+                      minHeight: 24,
+                    ),
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ],
               ),
             ),
           ],
@@ -821,18 +848,37 @@ class _BodePlotPainter extends CustomPainter {
     );
 
     final chartWidth = size.width - _left - _right;
-    final chartHeight = (size.height - _top - _bottom - _gap) / 2;
+    final showPhase = config.measurePhase;
+    // Without a phase measurement the gain chart uses the full height and
+    // carries the frequency axis itself.
+    final chartHeight = showPhase
+        ? (size.height - _top - _bottom - _gap) / 2
+        : size.height - _top - _bottom;
     if (chartWidth <= 0 || chartHeight <= 0) return;
     final magnitudeRect = Rect.fromLTWH(_left, _top, chartWidth, chartHeight);
-    final phaseRect = Rect.fromLTWH(
-      _left,
-      _top + chartHeight + _gap,
-      chartWidth,
-      chartHeight,
-    );
 
-    _drawChart(canvas, magnitudeRect, 'Gain (dB)', isPhase: false);
-    _drawChart(canvas, phaseRect, 'Phase (deg)', isPhase: true);
+    _drawChart(
+      canvas,
+      magnitudeRect,
+      'Gain (dB)',
+      isPhase: false,
+      showFrequencyAxis: !showPhase,
+    );
+    if (showPhase) {
+      final phaseRect = Rect.fromLTWH(
+        _left,
+        _top + chartHeight + _gap,
+        chartWidth,
+        chartHeight,
+      );
+      _drawChart(
+        canvas,
+        phaseRect,
+        'Phase (deg)',
+        isPhase: true,
+        showFrequencyAxis: true,
+      );
+    }
 
     if (points.every((point) => point.gainDb == null)) {
       _drawCenteredText(
@@ -850,6 +896,7 @@ class _BodePlotPainter extends CustomPainter {
     Rect rect,
     String yLabel, {
     required bool isPhase,
+    required bool showFrequencyAxis,
   }) {
     final border = Paint()
       ..color = AppColors.border
@@ -874,7 +921,7 @@ class _BodePlotPainter extends CustomPainter {
     for (final frequency in frequencyTicks) {
       final x = _xFor(frequency, start, stop, rect);
       canvas.drawLine(Offset(x, rect.top), Offset(x, rect.bottom), gridPaint);
-      if (isPhase) {
+      if (showFrequencyAxis) {
         _drawText(
           canvas,
           formatFrequencyHz(frequency),
@@ -907,7 +954,7 @@ class _BodePlotPainter extends CustomPainter {
       11,
     );
 
-    if (isPhase) {
+    if (showFrequencyAxis) {
       _drawText(
         canvas,
         'Frequency (Hz)',

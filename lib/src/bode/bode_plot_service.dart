@@ -156,14 +156,20 @@ class BodePlotService extends ChangeNotifier {
         reading = await _readStable(config, frequency, referenceVin);
       }
 
+      final belowThreshold =
+          bodeBelowThresholdNote(reading.vinRms, reading.voutRms);
       final suspicious = _isSuspiciousVin(reading, referenceVin, config);
-      if (!suspicious && reading.vinRms != null) {
+      if (!suspicious && belowThreshold == null && reading.vinRms != null) {
         referenceVin = referenceVin == null
             ? reading.vinRms
             : referenceVin * 0.8 + reading.vinRms! * 0.2;
       }
 
-      final gain = bodeGainDb(reading.vinRms, reading.voutRms);
+      // Below 5 mV on either channel the reading is dominated by noise, so
+      // no gain is recorded and the point is not drawn in the chart.
+      final gain = belowThreshold == null
+          ? bodeGainDb(reading.vinRms, reading.voutRms)
+          : null;
       final valid = gain != null && !suspicious;
       final point = BodePoint(
         frequencyHz: frequency,
@@ -175,6 +181,7 @@ class BodePlotService extends ChangeNotifier {
         phaseSource: reading.phaseSource,
         valid: valid,
         note: reading.error ??
+            belowThreshold ??
             (suspicious
                 ? 'Unstable measurement (Vin collapsed to '
                     '${reading.vinRms?.toStringAsFixed(4)} V); retried'
