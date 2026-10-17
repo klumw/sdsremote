@@ -5,6 +5,16 @@ appimage_builder/
 test/
 tests/
 
+# Root-level signal-generator tests are versioned even though test/ is
+# otherwise ignored. The leading slashes keep nested test/ directories ignored.
+!/test/
+/test/*
+!/test/src/
+/test/src/*
+!/test/src/signal_generator/
+!/test/src/signal_generator/**
+!/test/jds6600_check.dart
+
 # Miscellaneous
 *.class
 *.log

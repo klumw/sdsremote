@@ -25,6 +25,7 @@ dependencies:
   petitparser: ^7.0.2
   usbtmc_dart:
     path: packages/usbtmc_dart_patched
+  flutter_libserialport: ^0.6.0
 
 dev_dependencies:
   flutter_test:

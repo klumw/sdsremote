@@ -75,6 +75,9 @@ class _OsciHomePageState extends State<OsciHomePage>
   String? _deviceModel;
   Vxi11Instrument? _instrument;
 
+  // Signal generator selection (Settings → Signal Generator).
+  String _signalGenerator = 'none';
+
   // AI
   String _aiProvider = '';
   String _aiApiToken = '';
@@ -1365,6 +1368,11 @@ class _OsciHomePageState extends State<OsciHomePage>
       offset: _settingsOffset,
       ipAddress: _ipAddress,
       isUsb: _isUsb,
+      signalGenerator: _signalGenerator,
+      onSignalGeneratorChanged: (value) async {
+        setState(() => _signalGenerator = value);
+        await AppPreferences.setString('siggen_device', value);
+      },
       providerNames: providerConfigs.map((c) => c.providerName).toList(),
       selectedProvider: _aiProvider,
       aiApiToken: _aiApiToken,
@@ -1902,6 +1910,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     final askForFilenamePrefix = await AppPreferences.getBool(
       'ask_for_filename_prefix',
     );
+    final signalGenerator = await AppPreferences.getString('siggen_device');
     setState(() {
       _ipAddress = ip ?? '192.168.1.100';
       _isUsb = isUsb ?? false;
@@ -1911,6 +1920,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       _llmModel = model ?? '';
       _saveWithParams = saveWithParams ?? false;
       _askForFilenamePrefix = askForFilenamePrefix ?? false;
+      _signalGenerator = signalGenerator == 'jds6600' ? 'jds6600' : 'none';
     });
   }
 
@@ -1921,6 +1931,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       'ai_provider': _aiProvider,
       'ai_api_token': _aiApiToken,
       'llm_model': _llmModel,
+      'siggen_device': _signalGenerator,
     });
   }
 
@@ -1940,10 +1951,15 @@ class _OsciHomePageState extends State<OsciHomePage>
     try {
       final windowSize = await windowManager.getSize();
       final panelWidth = 400.0;
-      final panelHeight = 600.0; // Approximate height of the settings panel
+      // Approximate height including the signal-generator section.
+      final panelHeight = 780.0;
 
-      final centerX = (windowSize.width - panelWidth) / 2;
-      final centerY = (windowSize.height - panelHeight) / 2;
+      final centerX = ((windowSize.width - panelWidth) / 2)
+          .clamp(20.0, 1e9)
+          .toDouble();
+      final centerY = ((windowSize.height - panelHeight) / 2)
+          .clamp(20.0, 1e9)
+          .toDouble();
 
       setState(() {
         _settingsOffset = Offset(centerX, centerY);

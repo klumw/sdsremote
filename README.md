@@ -16,6 +16,7 @@ SDS-Remote enables remote control and AI-enhanced operation of Siglent SDS1202X-
 - **Waveform Acquisition & Data Export**: Capture and display waveform data from enabled channels. Save screen captures as images and export waveform data as CSV files.
 - **Device Parameter Monitoring**: View real-time parameters such as timebase, sample rate, and voltage settings. Cursor-based measurements are supported.
 - **Data Logging**: Log key data points over a period of time. Generate PDF measurement reports containing charts and key metrics, or export all recorded measurement points as CSV files.
+- **Signal Generator Selection**: Choose the signal-generator type in the settings (**No Signal Generator** or **JDS6600**). The JDS6600 backend is prepared for a later control UI.
 - **Macro Recorder**: Record, edit and play back SCPI command sequences. Supports variables, conditionals, loops, and both network and USB connections for automated test procedures.
 
 ### Waveform Data Acquisition
@@ -55,6 +56,30 @@ Save and restore oscilloscope configurations using local `.lss` profile files.
 Log key measurement data over configurable durations ranging from 1 minute to 24 hours. Measure frequency drift and peak-to-peak voltage variations and generate reports with a detailed diagram, start/end and min/max values. All data points can also be saved in a separate CSV file.
 
 ![Data Logger](docs/sdsremote_dl.png)
+
+### Signal Generator Selection
+
+**Settings → Signal Generator** contains a dropdown with two entries:
+
+- **No Signal Generator** (default)
+- **JDS6600** (JOY-IT/Juntek JDS6600 and JDS6600-Lite)
+
+The selection is persisted as `siggen_device`. The JDS6600 backend — USB-serial
+transport, register codec, SCPI subset and service — lives in
+`lib/src/signal_generator/`, but no control panel is wired yet. A hardware
+check for the backend is still available:
+
+```bash
+flutter build linux --debug
+LIBSERIALPORT_PATH="$PWD/build/linux/x64/debug/bundle/lib" \
+  dart run test/jds6600_check.dart /dev/ttyUSB0
+```
+
+The script saves registers 20-31, sets CH1 to a known signal, verifies the
+readback and restores the previous state. On Windows, point
+`LIBSERIALPORT_PATH` at the directory containing `serialport.dll` next to the
+built runner. On Linux the user must be in the `dialout` group; on Windows the
+CH340 driver must be installed.
 
 ### Macro Recorder
 
@@ -321,6 +346,11 @@ Non-widget, domain-specific support code is grouped into subfolders under
 - `lib/src/instrument/` — instrument I/O and protocol: `dart_vxi11.dart`
   (VXI-11/USBTMC transport), `scpi_parser.dart` (SCPI response parsing),
   `measurement.dart` (PAVA measurement parsing/formatting).
+- `lib/src/signal_generator/` — JDS6600 domain layer: `models.dart`,
+  `jds6600_protocol.dart` (register codec), `jds6600_transport.dart`
+  (transport seam), `jds6600_serial_transport.dart` (libserialport backend),
+  `serial_port_info.dart` (port discovery), `siggen_scpi.dart` (SCPI subset)
+  and `signal_generator_service.dart` (connection, cache, queue, polling).
 - `lib/src/macro/` — Macro language and recorder logic: `macro_ast.dart`,
   `macro_evaluator.dart`, `macro_grammar.dart`, `macro_lint_controller.dart`,
   `macro_lint_error.dart`, `macro_linter.dart`, `macro_recorder_models.dart`.

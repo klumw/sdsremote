@@ -25,6 +25,8 @@ class SettingsPanel extends StatefulWidget {
   final Offset offset;
   final String ipAddress;
   final bool isUsb;
+  final String signalGenerator;
+  final ValueChanged<String> onSignalGeneratorChanged;
   final List<String> providerNames;
   final String selectedProvider;
   final String aiApiToken;
@@ -43,6 +45,8 @@ class SettingsPanel extends StatefulWidget {
     required this.offset,
     required this.ipAddress,
     required this.isUsb,
+    required this.signalGenerator,
+    required this.onSignalGeneratorChanged,
     required this.providerNames,
     required this.selectedProvider,
     required this.aiApiToken,
@@ -67,6 +71,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   late TextEditingController _llmModelController;
   String? _selectedProvider;
   late bool _isUsb;
+  late String _signalGenerator;
 
   @override
   void initState() {
@@ -78,6 +83,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
     _selectedProvider = widget.selectedProvider.isNotEmpty
         ? widget.selectedProvider
         : null;
+    _signalGenerator = widget.signalGenerator;
   }
 
   @override
@@ -85,6 +91,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.isUsb != widget.isUsb) {
       _isUsb = widget.isUsb;
+    }
+    if (oldWidget.signalGenerator != widget.signalGenerator) {
+      _signalGenerator = widget.signalGenerator;
     }
     if (oldWidget.ipAddress != widget.ipAddress) {
       _ipController.text = widget.ipAddress;
@@ -115,9 +124,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
     return Positioned(
       left: widget.offset.dx,
       top: widget.offset.dy,
-      child: GestureDetector(
-        onPanUpdate: (details) => widget.callbacks.onDrag(details.delta),
-        child: Material(
+      child: Material(
           elevation: 20,
           color: Colors.transparent,
           child: Container(
@@ -137,8 +144,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Header
-                Container(
+                // Header (also the drag handle)
+                GestureDetector(
+                  onPanUpdate: (details) =>
+                      widget.callbacks.onDrag(details.delta),
+                  child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 12,
@@ -183,12 +193,18 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     ],
                   ),
                 ),
+                ),
                 // Body
                 Padding(
                   padding: const EdgeInsets.all(20),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
+                  child: ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: MediaQuery.sizeOf(context).height - 160,
+                    ),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
                       _buildConnectionModeDropdown(),
                       const SizedBox(height: 16),
                       if (!_isUsb) ...[
@@ -198,6 +214,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         ),
                         const SizedBox(height: 16),
                       ],
+                      _buildSignalGeneratorDropdown(),
+                      const SizedBox(height: 16),
                       _buildProviderDropdown(),
                       const SizedBox(height: 16),
                       _buildSettingsField(
@@ -214,13 +232,15 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       ),
                       const SizedBox(height: 16),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          const Text(
-                            'Save csv data',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 13,
+                          const Expanded(
+                            child: Text(
+                              'Save csv data',
+                              textAlign: TextAlign.end,
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                           Switch(
@@ -232,13 +252,15 @@ class _SettingsPanelState extends State<SettingsPanel> {
                       ),
                       const SizedBox(height: 8),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.end,
                         children: [
-                          const Text(
-                            'Ask for filename on save',
-                            style: TextStyle(
-                              color: Colors.white70,
-                              fontSize: 13,
+                          const Expanded(
+                            child: Text(
+                              'Ask for filename on save',
+                              textAlign: TextAlign.end,
+                              style: TextStyle(
+                                color: Colors.white70,
+                                fontSize: 13,
+                              ),
                             ),
                           ),
                           Switch(
@@ -338,11 +360,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     ],
                   ),
                 ),
+              ),
+            ),
               ],
             ),
           ),
         ),
-      ),
     );
   }
 
@@ -434,6 +457,59 @@ class _SettingsPanelState extends State<SettingsPanel> {
       ),
       keyboardType: keyboardType,
       style: const TextStyle(color: Colors.white, fontSize: 14),
+    );
+  }
+
+  Widget _buildSignalGeneratorDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Signal Generator',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          key: ValueKey('signal-generator-$_signalGenerator'),
+          initialValue: _signalGenerator,
+          isExpanded: true,
+          dropdownColor: const Color(0xFF252525),
+          decoration: const InputDecoration(
+            labelText: 'Device',
+            floatingLabelBehavior: FloatingLabelBehavior.always,
+            labelStyle: TextStyle(color: Colors.white70, fontSize: 14),
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.white24),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.cyanAccent),
+            ),
+            contentPadding: EdgeInsets.symmetric(
+              horizontal: 16,
+              vertical: 14,
+            ),
+          ),
+          items: const [
+            DropdownMenuItem<String>(
+              value: 'none',
+              child: Text('No Signal Generator'),
+            ),
+            DropdownMenuItem<String>(
+              value: 'jds6600',
+              child: Text('JDS6600'),
+            ),
+          ],
+          onChanged: (value) {
+            if (value == null) return;
+            setState(() => _signalGenerator = value);
+            widget.onSignalGeneratorChanged(value);
+          },
+        ),
+      ],
     );
   }
 }

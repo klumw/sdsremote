@@ -50,6 +50,8 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
 Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\flutter_windows.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\libusb-1.0.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\flutter_libserialport_plugin.dll"; DestDir: "{app}"; Flags: ignoreversion
+Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\serialport.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\msvcp140.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\msvcp140_1.dll"; DestDir: "{app}"; Flags: ignoreversion
 Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\msvcp140_2.dll"; DestDir: "{app}"; Flags: ignoreversion
