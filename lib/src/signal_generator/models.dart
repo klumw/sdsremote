@@ -81,10 +81,7 @@ enum Jds6600Waveform {
 
 /// Device identity and model limits.
 class Jds6600DeviceInfo {
-  const Jds6600DeviceInfo({
-    required this.modelMHz,
-    required this.serialNumber,
-  });
+  const Jds6600DeviceInfo({required this.modelMHz, required this.serialNumber});
 
   /// MHz class reported by register 0 (15 for the Lite, 60 for the standard).
   final int modelMHz;
@@ -179,10 +176,7 @@ class Jds6600OutputState {
   final bool ch2;
 
   Jds6600OutputState copyWith({bool? ch1, bool? ch2}) {
-    return Jds6600OutputState(
-      ch1: ch1 ?? this.ch1,
-      ch2: ch2 ?? this.ch2,
-    );
+    return Jds6600OutputState(ch1: ch1 ?? this.ch1, ch2: ch2 ?? this.ch2);
   }
 
   @override
@@ -208,8 +202,7 @@ class Jds6600Exception implements Exception {
   final Object? cause;
 
   @override
-  String toString() =>
-      cause == null ? message : '$message (cause: $cause)';
+  String toString() => cause == null ? message : '$message (cause: $cause)';
 }
 
 class Jds6600OpenException extends Jds6600Exception {

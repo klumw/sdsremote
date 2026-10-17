@@ -18,9 +18,7 @@ void main() {
     );
     detector = SignalGeneratorDetector(
       service: service,
-      listPorts: () async => const [
-        SerialPortInfo(name: '/dev/ttyUSB0'),
-      ],
+      listPorts: () async => const [SerialPortInfo(name: '/dev/ttyUSB0')],
       interval: const Duration(hours: 1),
     );
   });

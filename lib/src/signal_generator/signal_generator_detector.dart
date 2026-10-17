@@ -23,8 +23,8 @@ class SignalGeneratorDetector extends ChangeNotifier {
     this.interval = const Duration(seconds: 5),
     String? initialPort,
     this.onPortDetected,
-  })  : _listPorts = listPorts ?? (() async => listSerialPorts()),
-        _lastPort = initialPort;
+  }) : _listPorts = listPorts ?? (() async => listSerialPorts()),
+       _lastPort = initialPort;
 
   final SignalGeneratorService service;
   final SerialPortLister _listPorts;
@@ -151,9 +151,8 @@ class SignalGeneratorDetector extends ChangeNotifier {
   }
 
   void _setDetected(bool detected, String? port, String? identity) {
-    final changed = _isDetected != detected ||
-        _port != port ||
-        _identity != identity;
+    final changed =
+        _isDetected != detected || _port != port || _identity != identity;
     _isDetected = detected;
     _port = port;
     _identity = identity;

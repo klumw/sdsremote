@@ -336,11 +336,7 @@ class SiggenScpiInterpreter {
     throw _ScpiHeaderException('Undefined header "${segments.join(':')}"');
   }
 
-  Future<String?> _duty(
-    int channel,
-    bool isQuery,
-    String parameterText,
-  ) async {
+  Future<String?> _duty(int channel, bool isQuery, String parameterText) async {
     if (isQuery) {
       final percent = await _target.readDuty(channel);
       return _formatPercent(percent);

@@ -54,8 +54,7 @@ class Jds6600Protocol {
   static String writeCommand(int register, String value) =>
       ':w${registerText(register)}=$value.\n';
 
-  static String stopActionCommand() =>
-      writeCommand(registerAction, '0,0,0,0');
+  static String stopActionCommand() => writeCommand(registerAction, '0,0,0,0');
 
   // ---------------------------------------------------------------------------
   // Channel register selection
@@ -179,10 +178,7 @@ class Jds6600Protocol {
     required int modelMHz,
     required int serialNumber,
   }) {
-    return Jds6600DeviceInfo(
-      modelMHz: modelMHz,
-      serialNumber: serialNumber,
-    );
+    return Jds6600DeviceInfo(modelMHz: modelMHz, serialNumber: serialNumber);
   }
 
   /// Synthesised SCPI identity. The device has no firmware register, so the

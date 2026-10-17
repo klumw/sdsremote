@@ -52,10 +52,7 @@ class LibSerialPortJds6600Transport implements Jds6600Transport {
     if (!port.openReadWrite()) {
       final error = SerialPort.lastError;
       port.dispose();
-      throw Jds6600OpenException(
-        _friendlyOpenError(error),
-        error,
-      );
+      throw Jds6600OpenException(_friendlyOpenError(error), error);
     }
 
     try {
@@ -93,10 +90,7 @@ class LibSerialPortJds6600Transport implements Jds6600Transport {
     _rxBuffer += utf8.decode(data, allowMalformed: true);
     var newline = _rxBuffer.indexOf('\n');
     while (newline >= 0) {
-      final line = _rxBuffer
-          .substring(0, newline)
-          .replaceAll('\r', '')
-          .trim();
+      final line = _rxBuffer.substring(0, newline).replaceAll('\r', '').trim();
       _rxBuffer = _rxBuffer.substring(newline + 1);
       if (line.isNotEmpty) {
         _lines.add(line);
@@ -199,9 +193,7 @@ class LibSerialPortJds6600Transport implements Jds6600Transport {
   ) async {
     final port = _port;
     if (!_isOpen || port == null || !port.isOpen) {
-      throw Jds6600DisconnectedException(
-        'Serial port $portName is not open',
-      );
+      throw Jds6600DisconnectedException('Serial port $portName is not open');
     }
 
     // Drain complete stale replies before sending a new command.
@@ -217,10 +209,7 @@ class LibSerialPortJds6600Transport implements Jds6600Transport {
         );
       }
     } catch (e) {
-      throw Jds6600DisconnectedException(
-        'Could not write to $portName: $e',
-        e,
-      );
+      throw Jds6600DisconnectedException('Could not write to $portName: $e', e);
     }
 
     final accepted = <String>[];

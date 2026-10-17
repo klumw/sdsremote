@@ -17,18 +17,9 @@ void main() {
     });
 
     test('parses padded and unpadded echoes', () {
-      expect(
-        Jds6600Protocol.parseRegisterResponse(20, ':r20=1,0.'),
-        [1, 0],
-      );
-      expect(
-        Jds6600Protocol.parseRegisterResponse(0, ':r00=15.'),
-        [15],
-      );
-      expect(
-        Jds6600Protocol.parseRegisterResponse(0, ':r0=15.'),
-        [15],
-      );
+      expect(Jds6600Protocol.parseRegisterResponse(20, ':r20=1,0.'), [1, 0]);
+      expect(Jds6600Protocol.parseRegisterResponse(0, ':r00=15.'), [15]);
+      expect(Jds6600Protocol.parseRegisterResponse(0, ':r0=15.'), [15]);
     });
 
     test('parses a register sequence', () {
@@ -112,19 +103,13 @@ void main() {
 
     test('validation throws for out-of-range values', () {
       expect(
-        () => Jds6600Protocol.validateFrequency(
-          lite,
-          Jds6600Waveform.sine,
-          20e6,
-        ),
+        () =>
+            Jds6600Protocol.validateFrequency(lite, Jds6600Waveform.sine, 20e6),
         throwsA(isA<Jds6600RangeException>()),
       );
       expect(
-        () => Jds6600Protocol.validateFrequency(
-          lite,
-          Jds6600Waveform.sine,
-          1e3,
-        ),
+        () =>
+            Jds6600Protocol.validateFrequency(lite, Jds6600Waveform.sine, 1e3),
         returnsNormally,
       );
       expect(
@@ -148,9 +133,6 @@ void main() {
 
   test('synthesises an identity without firmware', () {
     const info = Jds6600DeviceInfo(modelMHz: 15, serialNumber: 12345);
-    expect(
-      Jds6600Protocol.identify(info),
-      'JOY-IT,JDS6600-LITE,12345,N/A',
-    );
+    expect(Jds6600Protocol.identify(info), 'JOY-IT,JDS6600-LITE,12345,N/A');
   });
 }

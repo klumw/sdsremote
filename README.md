@@ -109,6 +109,23 @@ readback and restores the previous state. On Windows, point
 built runner. On Linux the user must be in the `dialout` group; on Windows the
 CH340 driver must be installed.
 
+### Signal Generator Window (Ctrl+J)
+
+With **Signal Generator → JDS6600** selected and the generator detected, press
+**Ctrl+J** to open a separate OS window (there is no toolbar button). Pressing
+Ctrl+J again focuses the existing window. The window offers the two device
+views **JDS6600 CH1 / CH2** with waveform, frequency (Hz/kHz/MHz), amplitude
+(Vpp), DC offset, duty cycle (effective for square/pulse), global phase (CH2
+relative to CH1) and an immediate output on/off switch. Other values are
+applied explicitly with **Apply changes**; confirmed device values and pending
+edits are shown separately. Frequency and amplitude limits come from the active
+device model (JDS6600-LITE / JDS6600) and the selected waveform.
+Numeric values can be adjusted with spinner buttons next to the fields.
+
+All hardware access stays in the main window; the second window only sends
+typed commands through a bridge. Settings cannot be changed while a Bode sweep
+is running, and the child window closes together with the main application.
+
 ### Macro Recorder
 
 Record, edit and play back SCPI command sequences to automate repetitive measurement and configuration tasks. Supports variables, conditionals (`if`/`else`), loops (`while`), assertions, and both network (`connect("IP")`) and USB (`connect(usb)`) connections.
@@ -351,9 +368,10 @@ All Flutter widget class files live under `lib/src/widgets/`:
 - Panels: `data_logger_panel.dart`, `macro_editor_panel.dart`,
   `macro_recorder_panel.dart`, `osci_device_params_panel.dart`,
   `osci_physical_panel.dart`, `osci_profiles_panel.dart`,
-  `osci_settings_panel.dart`, `bode_plot_panel.dart`.
+  `osci_settings_panel.dart`, `bode_plot_panel.dart`,
+  `signal_generator_panel.dart`.
 - Windows/screens: `home_page.dart`, `osci_chat_window.dart`,
-  `osci_help_window.dart`.
+  `osci_help_window.dart`, `signal_generator_window.dart`.
 - Widgets & dialogs: `data_logger_dialog.dart`, `data_logger_plot.dart`,
   `osci_knob_widgets.dart`, `osci_news_notification.dart`,
   `osci_toolbar_button.dart`, `filename_prefix_dialog.dart`,
@@ -379,6 +397,11 @@ Non-widget, domain-specific support code is grouped into subfolders under
   (transport seam), `jds6600_serial_transport.dart` (libserialport backend),
   `serial_port_info.dart` (port discovery), `siggen_scpi.dart` (SCPI subset)
   and `signal_generator_service.dart` (connection, cache, queue, polling).
+  The Ctrl+J window adds `siggen_window_protocol.dart` (bridge DTOs),
+  `siggen_window_host.dart` / `siggen_window_launcher.dart` /
+  `siggen_window_server.dart` (main-window side) and
+  `siggen_window_client.dart` / `siggen_window_controller.dart`
+  (child-window side).
 - `lib/src/bode/` — Bode Plot domain and sweep: `bode_models.dart`,
   `bode_math.dart`, `bode_scope.dart`, `vxi11_bode_scope.dart`,
   `waveform_phase.dart`, `bode_plot_service.dart`, `bode_csv_writer.dart`,

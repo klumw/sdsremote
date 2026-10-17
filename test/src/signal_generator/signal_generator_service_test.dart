@@ -31,14 +31,16 @@ void main() {
     expect(service.outputs.ch2, isFalse);
   });
 
-  test('setFrequency writes the channel register and updates the cache',
-      () async {
-    await service.connect('/dev/ttyUSB0');
-    transport.sentCommands.clear();
-    await service.setFrequency(1, 2000);
-    expect(transport.sentCommands, contains(':w23=200000,0.'));
-    expect(service.ch1.frequencyHz, 2000);
-  });
+  test(
+    'setFrequency writes the channel register and updates the cache',
+    () async {
+      await service.connect('/dev/ttyUSB0');
+      transport.sentCommands.clear();
+      await service.setFrequency(1, 2000);
+      expect(transport.sentCommands, contains(':w23=200000,0.'));
+      expect(service.ch1.frequencyHz, 2000);
+    },
+  );
 
   test('refuses to write a zero frequency', () async {
     await service.connect('/dev/ttyUSB0');
@@ -62,7 +64,9 @@ void main() {
 
     expect(transport.registers[23], [500000, 0]);
     expect(
-      transport.sentCommands.where((command) => command == ':w23=500000,0.').length,
+      transport.sentCommands
+          .where((command) => command == ':w23=500000,0.')
+          .length,
       2,
     );
   });
@@ -84,6 +88,21 @@ void main() {
 
     transport.registers[23] = [250000, 0];
     expect(await service.executeScpi('SOUR1:FREQ?'), '2500.00');
+  });
+
+  test('SCPI supports duty cycle and phase', () async {
+    await service.connect('/dev/ttyUSB0');
+
+    await service.executeScpi('SOUR1:FUNC:SQU:DCYC 25');
+    expect(transport.registers[29], equals([250]));
+
+    await service.executeScpi('SOUR2:PULS:DCYC 12.5');
+    expect(transport.registers[30], equals([125]));
+    expect(await service.executeScpi('SOUR1:FUNC:SQU:DCYC?'), '25.0');
+
+    await service.executeScpi('SOUR2:PHAS 90');
+    expect(transport.registers[31], equals([900]));
+    expect(await service.executeScpi('SOUR1:PHAS?'), '90.0');
   });
 
   test('unknown SCPI command queues an error', () async {

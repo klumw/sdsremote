@@ -2,10 +2,7 @@ import 'package:sdsremote/src/signal_generator/jds6600_transport.dart';
 
 /// In-memory JDS6600 transport for unit tests.
 class FakeJds6600Transport implements Jds6600Transport {
-  FakeJds6600Transport({
-    this.deviceType = 15,
-    this.serialNumber = 12345,
-  }) {
+  FakeJds6600Transport({this.deviceType = 15, this.serialNumber = 12345}) {
     registers[0] = [deviceType];
     registers[1] = [serialNumber];
     registers[20] = [0, 0];

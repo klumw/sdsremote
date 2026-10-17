@@ -131,8 +131,10 @@ class SignalGeneratorService extends ChangeNotifier
       try {
         await transport.close();
       } catch (e) {
-        AppLogger(agentName: 'SigGen', toolName: 'disconnect')
-            .log('Error closing serial port: $e');
+        AppLogger(
+          agentName: 'SigGen',
+          toolName: 'disconnect',
+        ).log('Error closing serial port: $e');
       }
     }
   }
@@ -215,10 +217,7 @@ class SignalGeneratorService extends ChangeNotifier
     final command = Jds6600Protocol.encodeFrequency(hz);
     late double readback;
     for (var attempt = 1; attempt <= 2; attempt++) {
-      await _writeRegister(
-        Jds6600Protocol.frequencyRegister(channel),
-        command,
-      );
+      await _writeRegister(Jds6600Protocol.frequencyRegister(channel), command);
       final values = await _readRegisterValues(
         Jds6600Protocol.frequencyRegister(channel),
       );
@@ -306,9 +305,7 @@ class SignalGeneratorService extends ChangeNotifier
 
   Future<void> _setOutputInternal(int channel, bool enabled) async {
     // Read-modify-write: register 20 always sets both channels.
-    final values = await _readRegisterValues(
-      Jds6600Protocol.registerOutputs,
-    );
+    final values = await _readRegisterValues(Jds6600Protocol.registerOutputs);
     final current = Jds6600Protocol.decodeOutputs(values);
     final next = channel == 1
         ? current.copyWith(ch1: enabled)
@@ -373,9 +370,7 @@ class SignalGeneratorService extends ChangeNotifier
 
   @override
   Future<bool> readOutput(int channel) => _enqueue(() async {
-    final values = await _readRegisterValues(
-      Jds6600Protocol.registerOutputs,
-    );
+    final values = await _readRegisterValues(Jds6600Protocol.registerOutputs);
     final outputs = Jds6600Protocol.decodeOutputs(values);
     return channel == 1 ? outputs.ch1 : outputs.ch2;
   });
@@ -455,8 +450,10 @@ class SignalGeneratorService extends ChangeNotifier
       );
       values = Jds6600Protocol.parseRegisterSequence(20, lines);
     } catch (e) {
-      AppLogger(agentName: 'SigGen', toolName: 'readState')
-          .log('Multi-register read failed, falling back: $e');
+      AppLogger(
+        agentName: 'SigGen',
+        toolName: 'readState',
+      ).log('Multi-register read failed, falling back: $e');
       values = await _readStateIndividually(transport);
     }
     _applyRegisterValues(values);
@@ -471,9 +468,7 @@ class SignalGeneratorService extends ChangeNotifier
         Jds6600Protocol.readCommand(register),
         accept: (response) => response.startsWith(':r'),
       );
-      values.add(
-        Jds6600Protocol.parseRegisterResponse(register, line),
-      );
+      values.add(Jds6600Protocol.parseRegisterResponse(register, line));
     }
     return values;
   }
@@ -621,8 +616,10 @@ class SignalGeneratorService extends ChangeNotifier
       } catch (e) {
         _pollFailures++;
         _lastError = e.toString();
-        AppLogger(agentName: 'SigGen', toolName: 'poll')
-            .log('Poll failed ($_pollFailures): $e');
+        AppLogger(
+          agentName: 'SigGen',
+          toolName: 'poll',
+        ).log('Poll failed ($_pollFailures): $e');
         if (_pollFailures >= 3) {
           await _guard(() async {
             await _enqueue(_disconnectInternal);
@@ -749,9 +746,7 @@ class SignalGeneratorService extends ChangeNotifier
     _port = null;
     if (transport != null) {
       try {
-        await transport.close().timeout(
-          const Duration(milliseconds: 500),
-        );
+        await transport.close().timeout(const Duration(milliseconds: 500));
       } catch (_) {}
     }
   }

@@ -197,10 +197,7 @@ OscilloscopeMeasurement parseMeasurement(String raw) {
 
   final type = measurementTypes[measurement];
   if (type == null) {
-    throw FormatException(
-      'Unsupported measurement type "$measurement"',
-      raw,
-    );
+    throw FormatException('Unsupported measurement type "$measurement"', raw);
   }
 
   if (unitText.toLowerCase() != type.unit.toLowerCase()) {

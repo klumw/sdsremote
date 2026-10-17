@@ -43,5 +43,4 @@ List<SerialPortInfo> listSerialPorts() {
 }
 
 /// Whether the given port name is currently present.
-bool serialPortExists(String name) =>
-    SerialPort.availablePorts.contains(name);
+bool serialPortExists(String name) => SerialPort.availablePorts.contains(name);

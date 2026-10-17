@@ -49,6 +49,10 @@ import '../bode/bode_report.dart';
 import '../signal_generator/jds6600_serial_transport.dart';
 import '../signal_generator/signal_generator_detector.dart';
 import '../signal_generator/signal_generator_service.dart';
+import '../signal_generator/siggen_window_host.dart';
+import '../signal_generator/siggen_window_launcher.dart';
+import '../signal_generator/siggen_window_protocol.dart';
+import '../signal_generator/siggen_window_server.dart';
 import 'bode_plot_panel.dart';
 import '../app/app_paths.dart';
 import '../macro/macro_recorder_models.dart';
@@ -95,6 +99,12 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   // Signal generator selection (Settings → Signal Generator).
   String _signalGenerator = 'none';
+
+  // Signal generator OS window (Ctrl+J).
+  SigGenWindowHost? _sigGenWindowHost;
+  SigGenWindowServer? _sigGenWindowServer;
+  SigGenWindowLauncher? _sigGenWindowLauncher;
+  bool _sigGenWindowOpen = false;
 
   // AI
   String _aiProvider = '';
@@ -238,6 +248,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     super.initState();
     windowManager.addListener(this);
     windowManager.setPreventClose(true);
+    HardwareKeyboard.instance.addHandler(_onGlobalKeyEvent);
     _dlAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -292,6 +303,11 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_onGlobalKeyEvent);
+    _disposeSigGenWindowSupport();
+    final server = _sigGenWindowServer;
+    _sigGenWindowServer = null;
+    if (server != null) unawaited(server.dispose());
     _pingTimer?.cancel();
     _refreshTimer?.cancel();
     _closeInstrument();
@@ -311,8 +327,16 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   @override
   void onWindowClose() async {
+    // Close the signal-generator child window first; otherwise its engine can
+    // keep the process alive after the main window is gone.
+    try {
+      await _sigGenWindowLauncher?.close().timeout(const Duration(seconds: 2));
+    } catch (_) {
+      // Continue with the normal shutdown even if the child is unresponsive.
+    }
+
     // If a macro has unsaved changes, prompt the user before closing.
-    if (_isMacroModified) {
+    if (mounted && _isMacroModified) {
       final action = await showDialog<UnsavedMacroAction>(
         context: context,
         barrierDismissible: false,
@@ -455,6 +479,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   void _configureSigGenDetection() {
     if (_signalGenerator != 'jds6600') {
+      _disposeSigGenWindowSupport(closeWindow: true);
       _sigGenDetector?.dispose();
       _sigGenDetector = null;
       _sigGenDetected = false;
@@ -471,6 +496,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     _sigGenService ??= SignalGeneratorService(
       transportFactory: (port) => LibSerialPortJds6600Transport(port),
     );
+    _ensureSigGenWindowSupport();
     if (_sigGenDetector == null) {
       _sigGenDetector = SignalGeneratorDetector(
         service: _sigGenService!,
@@ -498,12 +524,109 @@ class _OsciHomePageState extends State<OsciHomePage>
     });
   }
 
+  // =========================================================================
+  // Signal generator window (Ctrl+J)
+  // =========================================================================
+
+  /// Global shortcut: Ctrl+J opens or focuses the signal generator window.
+  ///
+  /// The shortcut is intentionally not exposed as a toolbar button.
+  bool _onGlobalKeyEvent(KeyEvent event) {
+    if (event is! KeyDownEvent) return false;
+    if (!HardwareKeyboard.instance.isControlPressed) return false;
+    if (event.logicalKey != LogicalKeyboardKey.keyJ) return false;
+    if (_signalGenerator != 'jds6600') return false;
+    if (_isMacroPlaying) return false;
+    _ensureSigGenWindowSupport();
+    unawaited(_sigGenWindowLauncher?.openOrFocus());
+    return true;
+  }
+
+  /// Creates the window bridge lazily for the current generator service.
+  void _ensureSigGenWindowSupport() {
+    final service = _sigGenService;
+    if (service == null) return;
+
+    _sigGenWindowHost ??= SigGenWindowHost(
+      service: service,
+      sink: _SigGenWindowSink(_pushSigGenWindowState),
+      canMutate: () => !_bodeIsRunning && !_isMacroPlaying,
+    );
+
+    _sigGenWindowServer ??= SigGenWindowServer(
+      handler: (method, arguments) async {
+        final host = _sigGenWindowHost;
+        if (host == null) {
+          return SigGenCommandResult.failure(
+            const SigGenWindowState(),
+            'Signal generator is not configured',
+            errorType: 'disconnected',
+          );
+        }
+        return host.handleCommand(method, arguments);
+      },
+    );
+    unawaited(
+      _sigGenWindowServer!.register().catchError((Object error) {
+        AppLogger(
+          agentName: 'SigGen',
+          toolName: 'window',
+        ).log('Signal generator bridge registration failed: $error');
+      }),
+    );
+
+    _sigGenWindowLauncher ??= SigGenWindowLauncher(
+      backend: const WindowControllerBackend(),
+      canOpen: () =>
+          _signalGenerator == 'jds6600' && _sigGenDetected && !_isMacroPlaying,
+      onOpenChanged: _onSigGenWindowOpenChanged,
+    );
+  }
+
+  /// Tears down the bridge when the generator configuration changes.
+  void _disposeSigGenWindowSupport({bool closeWindow = false}) {
+    final launcher = _sigGenWindowLauncher;
+    _sigGenWindowLauncher = null;
+    if (launcher != null) {
+      if (closeWindow) unawaited(launcher.close());
+      launcher.dispose();
+    }
+    _sigGenWindowHost?.deactivate();
+    _sigGenWindowHost?.dispose();
+    _sigGenWindowHost = null;
+    _sigGenWindowOpen = false;
+    _sigGenService?.setPanelActive(false);
+  }
+
+  void _onSigGenWindowOpenChanged(bool open) {
+    _sigGenWindowOpen = open;
+    _sigGenService?.setPanelActive(open && !_bodeIsRunning);
+    final host = _sigGenWindowHost;
+    if (open) {
+      host?.activate();
+    } else {
+      host?.deactivate();
+    }
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _pushSigGenWindowState(SigGenWindowState state) async {
+    final launcher = _sigGenWindowLauncher;
+    if (launcher == null || !_sigGenWindowOpen) return;
+    try {
+      await launcher.pushState(state);
+    } catch (_) {
+      // The child window may have closed between the list and the push.
+    }
+  }
+
   void _stopBodeIfRunning() {
     if (_bodeIsRunning) {
       unawaited(_bodeService?.stop());
       _bodeIsRunning = false;
     }
     _sigGenDetector?.setPaused(false);
+    _sigGenService?.setPanelActive(_sigGenWindowOpen);
   }
 
   Widget _buildBodePlotWindow() {
@@ -526,6 +649,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       onRunningChanged: (running) {
         _bodeIsRunning = running;
         _sigGenDetector?.setPaused(running);
+        _sigGenService?.setPanelActive(_sigGenWindowOpen && !running);
         if (mounted) setState(() {});
       },
       onServiceCreated: (bodeService) {
@@ -3114,4 +3238,14 @@ class _OsciHomePageState extends State<OsciHomePage>
       );
     });
   }
+}
+
+/// Adapter that lets [SigGenWindowHost] push snapshots into the launcher.
+class _SigGenWindowSink implements SigGenWindowEventSink {
+  _SigGenWindowSink(this._push);
+
+  final Future<void> Function(SigGenWindowState) _push;
+
+  @override
+  Future<void> pushState(SigGenWindowState state) => _push(state);
 }

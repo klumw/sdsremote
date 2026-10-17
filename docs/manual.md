@@ -1130,6 +1130,14 @@ While the **Macro Recorder** is recording, every button press and knob adjustmen
 
 Press the **Save** button in the top toolbar while the Control Panel is active to save the current oscilloscope screen as a PNG file. Screenshots are stored in the `screenshots/` subdirectory of the application working directory. The image format is PNG.
 
+### 9.10 Signal Generator Window (Ctrl+J)
+
+When **Settings → Signal Generator** is set to **JDS6600** and the generator was detected, press **Ctrl+J** to open the signal generator window as a separate OS window. There is no toolbar button. Pressing Ctrl+J while the window is open brings it to the front.
+
+The window offers the two channel views **JDS6600 CH1 / CH2**: select the waveform, frequency, amplitude, DC offset, duty cycle (effective for square/pulse) and the global phase (CH2 relative to CH1). Numeric values can be adjusted with spinner buttons next to the fields. **Apply changes** sends only the modified values; **Refresh from device** re-reads all registers and **Use device values** discards pending edits. The output switch takes effect immediately and is independent of Apply. The confirmed device state and pending edits are displayed separately.
+
+Frequency and amplitude limits are derived from the detected model (JDS6600-LITE or JDS6600) and the selected waveform. While a Bode sweep is running, the generator controls are read-only. Closing the main application also closes this window.
+
 ---
 
 ## 10. Getting Started
