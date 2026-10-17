@@ -36,6 +36,7 @@ class Vxi11BodeScope implements BodeScope {
   bool _measurePhase = false;
   int _vinChannel = 1;
   int _voutChannel = 2;
+  double? _voutVdiv;
 
   @override
   Future<void> prepare({
@@ -73,6 +74,33 @@ class Vxi11BodeScope implements BodeScope {
     required double frequencyHz,
     required bool measurePhase,
   }) async {
+    var reading = await _readOnce(
+      vinChannel: vinChannel,
+      voutChannel: voutChannel,
+      frequencyHz: frequencyHz,
+      measurePhase: measurePhase,
+    );
+    // The V/div applies to the scope input, before the probe attenuation.
+    final scopeVout = reading.voutRms == null
+        ? null
+        : reading.voutRms! / _attnVout;
+    if (await _autoRangeVout(scopeVout)) {
+      reading = await _readOnce(
+        vinChannel: vinChannel,
+        voutChannel: voutChannel,
+        frequencyHz: frequencyHz,
+        measurePhase: measurePhase,
+      );
+    }
+    return reading;
+  }
+
+  Future<BodeReading> _readOnce({
+    required int vinChannel,
+    required int voutChannel,
+    required double frequencyHz,
+    required bool measurePhase,
+  }) async {
     final vinRaw = await _query('C$vinChannel:PAVA? RMS');
     final voutRaw = await _query('C$voutChannel:PAVA? RMS');
 
@@ -94,8 +122,14 @@ class Vxi11BodeScope implements BodeScope {
     var phaseSource = BodePhaseSource.none;
     String? meadRaw;
 
+    // Below ~-30 dB the output is close to the scope's noise/crosstalk floor;
+    // the scope's MEAD phase then tends to collapse toward 0°. Use the
+    // waveform-crossing estimate, which is computed from the acquired traces.
+    final useWaveformPhase =
+        vin != null && vout != null && vout < vin * 0.03;
+
     if (measurePhase) {
-      if (_meadConfigured) {
+      if (_meadConfigured && !useWaveformPhase) {
         // The scope accepts the ascending pair for the query. The pair order
         // is C1-C2 on the wire; reverse the sign when the configured input is
         // CH2 and the output is CH1.
@@ -172,6 +206,7 @@ class Vxi11BodeScope implements BodeScope {
     }
     _attnVin = await _queryDouble('C$_vinChannel:ATTN?') ?? _attnVin;
     _attnVout = await _queryDouble('C$_voutChannel:ATTN?') ?? _attnVout;
+    _voutVdiv = await _queryDouble('C$_voutChannel:VDIV?') ?? _voutVdiv;
     // ASET can reset the measurement setup; restore phase measurement.
     if (_measurePhase) {
       await _configureMead();
@@ -263,6 +298,55 @@ class Vxi11BodeScope implements BodeScope {
 
   Future<double?> _queryDouble(String command) async {
     return parseLastNumber(await _query(command));
+  }
+
+  /// Adjusts the output channel's V/div when the signal uses less than one
+  /// division (noise/quantisation dominate) or more than six divisions.
+  ///
+  /// At 200 mV/div the SDS1202X-E has a ~5.6 mV RMS noise floor; an RC
+  /// low-pass output of 5.4 mV at 100 kHz is lost in it. At 20 mV/div the
+  /// floor drops below 1 mV.
+  Future<bool> _autoRangeVout(double? voutRms) async {
+    if (voutRms == null || voutRms <= 0 || _instrument == null) return false;
+    final current = _voutVdiv;
+    if (current == null || current <= 0) return false;
+
+    // Sine crest factor; good enough for scale selection with other shapes.
+    final vpp = voutRms * 2 * math.sqrt(2);
+    final divisions = vpp / current;
+    if (divisions >= 1.0 && divisions <= 6.0) return false;
+
+    final target = _niceVdiv(vpp / 3.0).clamp(0.0005, 10.0).toDouble();
+    if ((target - current).abs() / current < 0.2) return false;
+
+    try {
+      await _write('C$_voutChannel:VDIV ${target}V');
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      _voutVdiv = target;
+      AppLogger(agentName: 'Bode', toolName: 'range').log(
+        'Vout=${voutRms.toStringAsFixed(5)} V: '
+        'CH$_voutChannel VDIV $current -> $target',
+      );
+      return true;
+    } catch (e) {
+      AppLogger(agentName: 'Bode', toolName: 'range')
+          .log('V/div change failed: $e');
+      return false;
+    }
+  }
+
+  /// Rounds [value] to the nearest scope 1-2-5 V/div step.
+  double _niceVdiv(double value) {
+    if (value <= 0) return 0.0005;
+    final exponent = (math.log(value) / math.ln10).floor();
+    final magnitude = math.pow(10, exponent).toDouble();
+    final candidates = [
+      for (final multiplier in const [1.0, 2.0, 5.0]) multiplier * magnitude,
+      10 * magnitude,
+    ];
+    return candidates.reduce(
+      (a, b) => (a - value).abs() <= (b - value).abs() ? a : b,
+    );
   }
 
   Future<double?> _waveformPhase(

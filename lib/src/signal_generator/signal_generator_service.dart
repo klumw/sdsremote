@@ -203,14 +203,38 @@ class SignalGeneratorService extends ChangeNotifier
   Future<void> _setFrequencyInternal(int channel, double hz) async {
     final info = _requireInfo();
     final state = channel == 1 ? _ch1 : _ch2;
+    if (!hz.isFinite || hz <= 0) {
+      throw Jds6600RangeException(
+        'Refusing to set a non-positive frequency: $hz Hz',
+      );
+    }
     Jds6600Protocol.validateFrequency(info, state.waveform, hz);
-    await _writeRegister(
-      Jds6600Protocol.frequencyRegister(channel),
-      Jds6600Protocol.encodeFrequency(hz),
-    );
-    _updateChannel(
-      channel,
-      state.copyWith(frequencyHz: hz),
+
+    // Verify the readback. A partial serial write can leave the device at
+    // 0 Hz; rewriting once recovers it instead of continuing a sweep at 0 Hz.
+    final command = Jds6600Protocol.encodeFrequency(hz);
+    late double readback;
+    for (var attempt = 1; attempt <= 2; attempt++) {
+      await _writeRegister(
+        Jds6600Protocol.frequencyRegister(channel),
+        command,
+      );
+      final values = await _readRegisterValues(
+        Jds6600Protocol.frequencyRegister(channel),
+      );
+      readback = Jds6600Protocol.decodeFrequency(values);
+      if ((readback - hz).abs() <= 0.05) {
+        _updateChannel(channel, state.copyWith(frequencyHz: hz));
+        return;
+      }
+      AppLogger(agentName: 'SigGen', toolName: 'setFrequency').log(
+        'Frequency readback mismatch on CH$channel: requested $hz Hz, '
+        'got $readback Hz (attempt $attempt/2)',
+      );
+    }
+    throw Jds6600ProtocolException(
+      'Frequency write failed on CH$channel: requested $hz Hz, '
+      'readback $readback Hz',
     );
   }
 

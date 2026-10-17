@@ -74,8 +74,11 @@ frequency, point count, logarithmic/linear spacing, amplitude, offset,
 waveform, settling time, optional phase measurement and selectable input/output
 channels (default CH1 = Vin, CH2 = Vout). It sweeps the JDS6600, measures RMS
 voltages and phase with the Siglent, computes gain in dB and phase in degrees,
-and shows two aligned plots with a shared logarithmic frequency axis. Results
-are exported as CSV through the top-bar Save action.
+and shows two aligned plots with a shared logarithmic frequency axis. The
+configuration mask has an optional **Report Name** field; the top-bar Save
+action captures the plot and writes a PDF report with the report name, the
+plot image and the sweep configuration to `bode/reports/` (the sweep data is
+additionally written as CSV when *Save csv data* is enabled).
 
 Signal wiring: generator CH1 → DUT input → scope CH1; DUT output → scope CH2.
 The generator outputs are switched off when a sweep finishes, fails or is
@@ -85,7 +88,10 @@ plausibility check. The scope returns the input relative to the output, so the
 sign is inverted; an RC low-pass was used to verify that a lagging output is
 shown as a negative phase. Transient scope acquisitions in which Vin collapses
 to the noise floor are retried; if the reading stays implausible, the point is
-marked invalid and left out of the plot instead of appearing as a spike.
+marked invalid and left out of the plot instead of appearing as a spike. The
+output channel's V/div is adjusted automatically when the signal is too small
+or too large for the current scale; below about −30 dB the phase is taken from
+the waveform crossings because the scope's MEAD measurement is noise-limited.
 
 The JDS6600 backend — USB-serial transport, register codec, SCPI subset and
 service — lives in `lib/src/signal_generator/`; the Bode logic lives in
@@ -375,7 +381,8 @@ Non-widget, domain-specific support code is grouped into subfolders under
   and `signal_generator_service.dart` (connection, cache, queue, polling).
 - `lib/src/bode/` — Bode Plot domain and sweep: `bode_models.dart`,
   `bode_math.dart`, `bode_scope.dart`, `vxi11_bode_scope.dart`,
-  `waveform_phase.dart`, `bode_plot_service.dart`, `bode_csv_writer.dart`.
+  `waveform_phase.dart`, `bode_plot_service.dart`, `bode_csv_writer.dart`,
+  `bode_report.dart`.
 - `lib/src/macro/` — Macro language and recorder logic: `macro_ast.dart`,
   `macro_evaluator.dart`, `macro_grammar.dart`, `macro_lint_controller.dart`,
   `macro_lint_error.dart`, `macro_linter.dart`, `macro_recorder_models.dart`.

@@ -40,6 +40,33 @@ void main() {
     expect(service.ch1.frequencyHz, 2000);
   });
 
+  test('refuses to write a zero frequency', () async {
+    await service.connect('/dev/ttyUSB0');
+    transport.sentCommands.clear();
+
+    await expectLater(
+      service.setFrequency(1, 0),
+      throwsA(isA<Jds6600RangeException>()),
+    );
+
+    expect(transport.sentCommands, isNot(contains(':w23=0,0.')));
+    expect(transport.registers[23], [100000, 0]);
+  });
+
+  test('rewrites a frequency whose readback does not match', () async {
+    await service.connect('/dev/ttyUSB0');
+    transport.dropFrequencyWrites = 1;
+    transport.sentCommands.clear();
+
+    await service.setFrequency(1, 5000);
+
+    expect(transport.registers[23], [500000, 0]);
+    expect(
+      transport.sentCommands.where((command) => command == ':w23=500000,0.').length,
+      2,
+    );
+  });
+
   test('output writes preserve the other channel', () async {
     transport.registers[20] = [0, 1];
     await service.connect('/dev/ttyUSB0');

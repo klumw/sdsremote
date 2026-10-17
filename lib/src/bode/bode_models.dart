@@ -26,6 +26,7 @@ class BodeConfig {
     this.vinChannel = 1,
     this.voutChannel = 2,
     this.generatorChannel = 1,
+    this.reportName = '',
   });
 
   final double startFrequencyHz;
@@ -41,6 +42,10 @@ class BodeConfig {
   final int voutChannel;
   final int generatorChannel;
 
+  /// Optional free-text report name (max 150 characters).
+  /// Shown in the configuration mask and included in the PDF report.
+  final String reportName;
+
   BodeConfig copyWith({
     double? startFrequencyHz,
     double? stopFrequencyHz,
@@ -54,6 +59,7 @@ class BodeConfig {
     int? vinChannel,
     int? voutChannel,
     int? generatorChannel,
+    String? reportName,
   }) {
     return BodeConfig(
       startFrequencyHz: startFrequencyHz ?? this.startFrequencyHz,
@@ -68,6 +74,7 @@ class BodeConfig {
       vinChannel: vinChannel ?? this.vinChannel,
       voutChannel: voutChannel ?? this.voutChannel,
       generatorChannel: generatorChannel ?? this.generatorChannel,
+      reportName: reportName ?? this.reportName,
     );
   }
 
@@ -85,24 +92,26 @@ class BodeConfig {
         other.measurePhase == measurePhase &&
         other.vinChannel == vinChannel &&
         other.voutChannel == voutChannel &&
-        other.generatorChannel == generatorChannel;
+        other.generatorChannel == generatorChannel &&
+        other.reportName == reportName;
   }
 
   @override
   int get hashCode => Object.hash(
-        startFrequencyHz,
-        stopFrequencyHz,
-        pointCount,
-        spacing,
-        amplitudeVpp,
-        offsetV,
-        waveform,
-        settling,
-        measurePhase,
-        vinChannel,
-        voutChannel,
-        generatorChannel,
-      );
+    startFrequencyHz,
+    stopFrequencyHz,
+    pointCount,
+    spacing,
+    amplitudeVpp,
+    offsetV,
+    waveform,
+    settling,
+    measurePhase,
+    vinChannel,
+    voutChannel,
+    generatorChannel,
+    reportName,
+  );
 }
 
 /// One measured frequency point.
@@ -169,14 +178,14 @@ class BodePoint {
 
   @override
   int get hashCode => Object.hash(
-        frequencyHz,
-        vinRms,
-        voutRms,
-        gainDb,
-        phaseDeg,
-        delaySeconds,
-        phaseSource,
-        valid,
-        note,
-      );
+    frequencyHz,
+    vinRms,
+    voutRms,
+    gainDb,
+    phaseDeg,
+    delaySeconds,
+    phaseSource,
+    valid,
+    note,
+  );
 }

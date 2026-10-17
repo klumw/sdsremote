@@ -13,6 +13,8 @@ import 'dart:io';
 ///   waveform/csv/       Waveform data CSV files (save & reference load)
 ///   logger/reports/     Data logger PDF reports
 ///   logger/csv/         Data logger CSV data files
+///   bode/reports/       Bode plot PDF reports
+///   bode/csv/           Bode plot CSV data files
 ///   automation/macros/  Macro (.m) files
 ///   automation/reports/ Macro PDF reports
 class AppPaths {
@@ -60,6 +62,10 @@ class AppPaths {
   /// `  <app working dir>/logger/csv  `
   static Directory get loggerCsvDirectory =>
       Directory('${defaultSaveDirectory.path}${_sep}logger${_sep}csv');
+
+  /// `  <app working dir>/bode/reports  `
+  static Directory get bodeReportsDirectory =>
+      Directory('${defaultSaveDirectory.path}${_sep}bode${_sep}reports');
 
   /// `  <app working dir>/bode/csv  `
   static Directory get bodeCsvDirectory =>
@@ -110,6 +116,9 @@ class AppPaths {
 
   static Future<Directory> getOrCreateLoggerCsvDir() =>
       ensureDirectoryExists(loggerCsvDirectory);
+
+  static Future<Directory> getOrCreateBodeReportsDir() =>
+      ensureDirectoryExists(bodeReportsDirectory);
 
   static Future<Directory> getOrCreateBodeCsvDir() =>
       ensureDirectoryExists(bodeCsvDirectory);

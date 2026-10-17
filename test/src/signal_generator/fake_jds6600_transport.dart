@@ -33,6 +33,9 @@ class FakeJds6600Transport implements Jds6600Transport {
   Object? errorOnTransact;
   Duration? delay;
 
+  /// Number of register-23 writes to acknowledge without applying.
+  int dropFrequencyWrites = 0;
+
   @override
   bool get isOpen => opened;
 
@@ -62,6 +65,10 @@ class FakeJds6600Transport implements Jds6600Transport {
     final write = RegExp(r'^:w0*(\d+)=(.*)\.$').firstMatch(trimmed);
     if (write != null) {
       final register = int.parse(write.group(1)!);
+      if (register == 23 && dropFrequencyWrites > 0) {
+        dropFrequencyWrites--;
+        return <String>[':ok'];
+      }
       registers[register] = _parseValues(write.group(2)!);
       return <String>[':ok'];
     }

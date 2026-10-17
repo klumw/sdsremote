@@ -31,6 +31,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Bode Plot Configuration'), findsOneWidget);
+    expect(find.text('Report Name (optional)'), findsOneWidget);
     expect(find.text('START SWEEP'), findsOneWidget);
     expect(find.text('CH1'), findsWidgets);
     expect(tester.takeException(), isNull);

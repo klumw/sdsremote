@@ -45,6 +45,7 @@ import '../data_logger/data_logger_report.dart';
 import '../bode/bode_csv_writer.dart';
 import '../bode/bode_models.dart';
 import '../bode/bode_plot_service.dart';
+import '../bode/bode_report.dart';
 import '../signal_generator/jds6600_serial_transport.dart';
 import '../signal_generator/signal_generator_detector.dart';
 import '../signal_generator/signal_generator_service.dart';
@@ -55,7 +56,6 @@ import 'macro_recorder_panel.dart';
 import 'macro_editor_panel.dart';
 import '../macro/macro_evaluator.dart';
 import '../ai/tools/vxi11_tool.dart' show onScpiCommandSent;
-
 
 class OsciHomePage extends StatefulWidget {
   const OsciHomePage({super.key});
@@ -225,6 +225,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   final GlobalKey _waveformKey = GlobalKey();
   final GlobalKey _dlPlotKey = GlobalKey();
+  final GlobalKey _bodePlotKey = GlobalKey();
 
   // =========================================================================
   // Computed Properties
@@ -522,6 +523,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       signalGenerator: service,
       isOnline: _isOnline,
       generatorDetected: _sigGenDetected,
+      plotKey: _bodePlotKey,
       onClose: () => _togglePanel(ActivePanel.bode),
       onRunningChanged: (running) {
         _bodeIsRunning = running;
@@ -591,20 +593,20 @@ class _OsciHomePageState extends State<OsciHomePage>
                     cursors: _cursorState,
                     params: _deviceParams!,
                     zoom: _zoomState,
-                    dataTMin: _waveformCh1 != null &&
-                            _waveformCh1!.points.isNotEmpty
+                    dataTMin:
+                        _waveformCh1 != null && _waveformCh1!.points.isNotEmpty
                         ? _waveformCh1!.points.first.$1
                         : _waveformCh2 != null &&
-                                _waveformCh2!.points.isNotEmpty
-                            ? _waveformCh2!.points.first.$1
-                            : null,
-                    dataTMax: _waveformCh1 != null &&
-                            _waveformCh1!.points.isNotEmpty
+                              _waveformCh2!.points.isNotEmpty
+                        ? _waveformCh2!.points.first.$1
+                        : null,
+                    dataTMax:
+                        _waveformCh1 != null && _waveformCh1!.points.isNotEmpty
                         ? _waveformCh1!.points.last.$1
                         : _waveformCh2 != null &&
-                                _waveformCh2!.points.isNotEmpty
-                            ? _waveformCh2!.points.last.$1
-                            : null,
+                              _waveformCh2!.points.isNotEmpty
+                        ? _waveformCh2!.points.last.$1
+                        : null,
                   ),
                   child: const SizedBox.expand(),
                 ),
@@ -749,7 +751,8 @@ class _OsciHomePageState extends State<OsciHomePage>
           OsciToolbarButton(
             label: 'Bode',
             icon: const Icon(Icons.analytics_outlined, size: 25),
-            onPressed: (_isOnline &&
+            onPressed:
+                (_isOnline &&
                     _sigGenDetected &&
                     !_isMacroPlaying &&
                     !_isAcquiring &&
@@ -765,10 +768,18 @@ class _OsciHomePageState extends State<OsciHomePage>
               ? "Playback"
               : (_isMacroRecording ? "Recording..." : "Macro Recorder"),
           icon: _isMacroPlaying
-              ? const Icon(Icons.play_circle, size: 25, color: Colors.greenAccent)
+              ? const Icon(
+                  Icons.play_circle,
+                  size: 25,
+                  color: Colors.greenAccent,
+                )
               : (_isMacroRecording
-                  ? const Icon(Icons.fiber_manual_record, size: 25, color: Colors.red)
-                  : const Icon(Icons.movie, size: 25)),
+                    ? const Icon(
+                        Icons.fiber_manual_record,
+                        size: 25,
+                        color: Colors.red,
+                      )
+                    : const Icon(Icons.movie, size: 25)),
           onPressed: _isOnline
               ? () => _togglePanel(ActivePanel.macroRecorder)
               : null,
@@ -782,9 +793,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
       decoration: const BoxDecoration(
         color: AppColors.panelBackground,
-        border: Border(
-          bottom: BorderSide(color: AppColors.border, width: 1.5),
-        ),
+        border: Border(bottom: BorderSide(color: AppColors.border, width: 1.5)),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -842,7 +851,7 @@ class _OsciHomePageState extends State<OsciHomePage>
                 ? Colors.white24
                 : (_canSaveStandard ||
                       _canSaveDataLoggerReport ||
-                      _canSaveBodeCsv)
+                      _canSaveBodeReport)
                 ? Colors.white70
                 : Colors.white24,
             tooltip: 'Save',
@@ -850,7 +859,7 @@ class _OsciHomePageState extends State<OsciHomePage>
                 (_isMacroPlaying ||
                     !(_canSaveStandard ||
                         _canSaveDataLoggerReport ||
-                        _canSaveBodeCsv))
+                        _canSaveBodeReport))
                 ? null
                 : _saveCurrentView,
           ),
@@ -1184,9 +1193,15 @@ class _OsciHomePageState extends State<OsciHomePage>
 
     if (mounted && !_macroHadPlaybackError) {
       if (_macroPlaybackCancelled) {
-        _showInfoSnackBar('Macro playback stopped', backgroundColor: Colors.orange);
+        _showInfoSnackBar(
+          'Macro playback stopped',
+          backgroundColor: Colors.orange,
+        );
       } else if (success) {
-        _showInfoSnackBar('Macro playback completed', backgroundColor: Colors.green);
+        _showInfoSnackBar(
+          'Macro playback completed',
+          backgroundColor: Colors.green,
+        );
       }
     }
   }
@@ -1390,7 +1405,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     if (_activePanel == ActivePanel.dataLogger &&
         panel != ActivePanel.dataLogger) {
       _stopDataLoggerIfRunning();
-    _stopBodeIfRunning();
+      _stopBodeIfRunning();
     }
     // Stop a running Bode sweep when leaving its panel.
     if (_activePanel == ActivePanel.bode && panel != ActivePanel.bode) {
@@ -1634,10 +1649,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   bool _isPinging = false;
 
   Future<void> _pingDevice() async {
-    if (_isPinging ||
-        _isAcquiring ||
-        _isAcquiringWaveform ||
-        _bodeIsRunning) {
+    if (_isPinging || _isAcquiring || _isAcquiringWaveform || _bodeIsRunning) {
       return;
     }
     _isPinging = true;
@@ -1747,7 +1759,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     // Stop the Data Logger immediately when switching away from it
     if (!keepPanels && _activePanel == ActivePanel.dataLogger) {
       _stopDataLoggerIfRunning();
-    _stopBodeIfRunning();
+      _stopBodeIfRunning();
     }
 
     setState(() {
@@ -1855,16 +1867,16 @@ class _OsciHomePageState extends State<OsciHomePage>
       _savedDlStatus == DataLoggerStatus.stopped &&
       (_savedDlPoints?.length ?? 0) > 1;
 
-  /// Whether Bode results can be exported as CSV.
-  bool get _canSaveBodeCsv =>
+  /// Whether a Bode plot report can be saved.
+  bool get _canSaveBodeReport =>
       _activePanel == ActivePanel.bode &&
       (_savedBodeStatus == BodeStatus.completed ||
           _savedBodeStatus == BodeStatus.cancelled) &&
       (_savedBodePoints?.any((point) => point.valid) ?? false);
 
   Future<void> _saveCurrentView() async {
-    if (_canSaveBodeCsv) {
-      await _saveBodeCsv();
+    if (_canSaveBodeReport) {
+      await _saveBodeReport();
     } else if (_canSaveDataLoggerReport) {
       await _saveDataLoggerReport();
     } else if (_screenDump != null) {
@@ -1874,28 +1886,102 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
   }
 
-  Future<void> _saveBodeCsv() async {
-    final points = _savedBodePoints;
-    final config = _savedBodeConfig;
-    if (points == null || config == null || points.isEmpty) return;
+  /// Captures the Bode plot as a PNG image, generates a PDF report, and
+  /// saves it to the application's default save directory. When "Save csv
+  /// data" is enabled, the sweep data is written as CSV as well.
+  Future<void> _saveBodeReport() async {
     try {
       final prefix = await _askForFilenamePrefixIfNeeded();
-      if (prefix == null) return;
-      final baseName = prefix.isNotEmpty ? prefix : 'bode_plot_data';
-      final dir = await AppPaths.getOrCreateBodeCsvDir();
-      final file = await AppPaths.getUniqueFilePath(dir, baseName, 'csv');
+      if (prefix == null) return; // user cancelled
+      final pdfBaseName = prefix.isNotEmpty ? prefix : 'bode_plot_report';
+      final csvBaseName = prefix.isNotEmpty ? prefix : 'bode_plot_data';
+
+      final points = _savedBodePoints;
+      final config = _savedBodeConfig;
+      if (points == null || config == null || points.isEmpty) {
+        throw Exception('No Bode plot data available');
+      }
+
+      // Capture the plot image from the RepaintBoundary
+      final boundary =
+          _bodePlotKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
+      if (boundary == null) {
+        throw Exception('Bode plot not rendered yet');
+      }
+
+      // Capture at higher pixel ratio for better quality
+      final uiImage = await boundary.toImage(pixelRatio: 2.0);
+      final byteData = await uiImage.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      );
+      if (byteData == null) {
+        throw Exception('Failed to capture Bode plot');
+      }
+      final rgba = byteData.buffer.asUint8List();
+
+      // Brighten each pixel the same way the Data Logger report does, so the
+      // dark plot background stays readable in the printed PDF.
+      final image = img.Image.fromBytes(
+        width: uiImage.width,
+        height: uiImage.height,
+        bytes: rgba.buffer,
+        numChannels: 4,
+      );
+      for (final pixel in image) {
+        pixel.r = (pixel.r * 2.5).clamp(0, 255).toInt();
+        pixel.g = (pixel.g * 2.5).clamp(0, 255).toInt();
+        pixel.b = (pixel.b * 2.5).clamp(0, 255).toInt();
+      }
+      final chartImageBytes = img.encodePng(image);
+
       final info = _sigGenService?.deviceInfo;
       final generatorIdentity = info == null
           ? 'JDS6600'
           : 'JOY-IT,${info.modelName},${info.serialNumber},N/A';
-      final csv = buildBodeCsv(
+      final deviceName = _deviceModel ?? _deviceName ?? _ipAddress;
+
+      // Generate the PDF report
+      final pdfBytes = await BodeReport.generatePdf(
         config: config,
         points: points,
-        deviceName: _deviceModel ?? _deviceName ?? _ipAddress,
+        chartImageBytes: chartImageBytes,
+        deviceName: deviceName,
         generatorIdentity: generatorIdentity,
       );
-      await file.writeAsString(csv);
-      _showInfoSnackBar('Saved ${file.uri.pathSegments.last}');
+
+      // Write to the Bode reports subdirectory
+      final dir = await AppPaths.getOrCreateBodeReportsDir();
+      final file = await AppPaths.getUniqueFilePath(dir, pdfBaseName, 'pdf');
+      await file.writeAsBytes(pdfBytes);
+      final pdfName = file.uri.pathSegments.last;
+
+      // If "Save csv data" is enabled, also write the sweep data as CSV
+      String? csvName;
+      if (_saveWithParams) {
+        final csvDir = await AppPaths.getOrCreateBodeCsvDir();
+        final csvFile = await AppPaths.getUniqueFilePath(
+          csvDir,
+          csvBaseName,
+          'csv',
+        );
+        await csvFile.writeAsString(
+          buildBodeCsv(
+            config: config,
+            points: points,
+            deviceName: deviceName,
+            generatorIdentity: generatorIdentity,
+          ),
+        );
+        csvName = csvFile.uri.pathSegments.last;
+      }
+
+      if (mounted) {
+        final msg = _saveWithParams
+            ? 'Saved $pdfName + $csvName'
+            : 'Saved $pdfName';
+        _showInfoSnackBar(msg);
+      }
     } catch (e) {
       _showErrorSnackBar('Save failed: $e');
     }
@@ -2369,10 +2455,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     _refreshTimer?.cancel();
     _refreshTimer = Timer(Duration(milliseconds: _refreshDelayMs), () {
       _refreshPending = false;
-      if (mounted &&
-          _isOnline &&
-          !_isAcquiringWaveform &&
-          !_bodeIsRunning) {
+      if (mounted && _isOnline && !_isAcquiringWaveform && !_bodeIsRunning) {
         _acquireScreenDump(keepPanels: true);
       }
     });
@@ -2413,20 +2496,32 @@ class _OsciHomePageState extends State<OsciHomePage>
   // SnackBar Helpers
   // =========================================================================
 
-  void _showErrorSnackBar(String message, {Duration duration = const Duration(seconds: 5)}) {
+  void _showErrorSnackBar(
+    String message, {
+    Duration duration = const Duration(seconds: 5),
+  }) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red, duration: duration),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+        duration: duration,
+      ),
     );
   }
 
-  void _showInfoSnackBar(String message, {
+  void _showInfoSnackBar(
+    String message, {
     Duration duration = const Duration(seconds: 3),
     Color? backgroundColor,
   }) {
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), duration: duration, backgroundColor: backgroundColor),
+      SnackBar(
+        content: Text(message),
+        duration: duration,
+        backgroundColor: backgroundColor,
+      ),
     );
   }
 
@@ -2438,10 +2533,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// refreshes the screen dump, and enforces a cooldown.
   ///
   /// Returns `true` if the command was sent and screen refreshed successfully.
-  Future<bool> _processScpiEvent(
-    String command, {
-    String? errorContext,
-  }) async {
+  Future<bool> _processScpiEvent(String command, {String? errorContext}) async {
     if (_isProcessingEvent || !_isOnline) return false;
 
     _isProcessingEvent = true;
@@ -2472,8 +2564,10 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   /// Handles soft key button press (M1-M6).
   /// Sends $$SY_FP X,1 command where X is button number, then refreshes screen.
-  void _handleSoftKeyPress(int buttonNumber) =>
-      _processScpiEvent('\$\$SY_FP $buttonNumber,1', errorContext: 'M$buttonNumber');
+  void _handleSoftKeyPress(int buttonNumber) => _processScpiEvent(
+    '\$\$SY_FP $buttonNumber,1',
+    errorContext: 'M$buttonNumber',
+  );
 
   /// Handles MENU button press.
   /// Sends $$SY_FP 0,1 command (VXI special SPCI command for MENU button),
@@ -2496,11 +2590,10 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   /// Generic handler for knob tap/click.
   /// Sends `$$SY_FP <cmd>,0`.
-  Future<void> _handleKnobTapped(KnobId knob) =>
-      _processScpiEvent(
-        '\$\$SY_FP ${knob.scpiCommandNumber},0',
-        errorContext: '${knob.name} knob tap',
-      );
+  Future<void> _handleKnobTapped(KnobId knob) => _processScpiEvent(
+    '\$\$SY_FP ${knob.scpiCommandNumber},0',
+    errorContext: '${knob.name} knob tap',
+  );
 
   // =========================================================================
   // Button Operations (generic handler)
@@ -2746,21 +2839,27 @@ class _OsciHomePageState extends State<OsciHomePage>
         (null, _) => 'ch2',
         _ when !bothPresent => null,
         _ => await showDialog<String>(
-            context: context,
-            builder: (ctx) => SimpleDialog(
-              title: const Text('Select Channel'),
-              children: [
-                SimpleDialogOption(
-                  onPressed: () => Navigator.pop(ctx, 'ch1'),
-                  child: const Text('CH1', style: TextStyle(color: Colors.yellow)),
+          context: context,
+          builder: (ctx) => SimpleDialog(
+            title: const Text('Select Channel'),
+            children: [
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(ctx, 'ch1'),
+                child: const Text(
+                  'CH1',
+                  style: TextStyle(color: Colors.yellow),
                 ),
-                SimpleDialogOption(
-                  onPressed: () => Navigator.pop(ctx, 'ch2'),
-                  child: const Text('CH2', style: TextStyle(color: Color(0xFFFF20FF))),
+              ),
+              SimpleDialogOption(
+                onPressed: () => Navigator.pop(ctx, 'ch2'),
+                child: const Text(
+                  'CH2',
+                  style: TextStyle(color: Color(0xFFFF20FF)),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
+        ),
       };
       if (channel == null) return;
 
@@ -3016,10 +3115,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   void _updateRefDrag(DragUpdateDetails details) {
     final size = _getWaveformSize();
     final params = _deviceParams;
-    if (size == null ||
-        size.width == 0 ||
-        size.height == 0 ||
-        params == null) {
+    if (size == null || size.width == 0 || size.height == 0 || params == null) {
       return;
     }
 

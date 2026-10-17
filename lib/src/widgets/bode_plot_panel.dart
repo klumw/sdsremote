@@ -21,6 +21,7 @@ class BodePlotPanel extends StatefulWidget {
     required this.isOnline,
     required this.generatorDetected,
     required this.onClose,
+    this.plotKey,
     this.onRunningChanged,
     this.onServiceCreated,
     this.onSaveState,
@@ -34,13 +35,19 @@ class BodePlotPanel extends StatefulWidget {
   final bool isOnline;
   final bool generatorDetected;
   final VoidCallback onClose;
+
+  /// GlobalKey for the plot area's RepaintBoundary, used to capture
+  /// the Bode plot as an image for PDF report generation.
+  final GlobalKey? plotKey;
+
   final ValueChanged<bool>? onRunningChanged;
   final ValueChanged<BodePlotService>? onServiceCreated;
   final void Function(
     List<BodePoint> points,
     BodeConfig? config,
     BodeStatus status,
-  )? onSaveState;
+  )?
+  onSaveState;
   final List<BodePoint>? savedPoints;
   final BodeConfig? savedConfig;
   final BodeStatus? savedStatus;
@@ -65,6 +72,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
   late final TextEditingController _amplitudeController;
   late final TextEditingController _offsetController;
   late final TextEditingController _settleController;
+  late final TextEditingController _reportNameController;
   String _startUnit = 'Hz';
   String _stopUnit = 'kHz';
 
@@ -81,6 +89,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
     _amplitudeController = TextEditingController();
     _offsetController = TextEditingController();
     _settleController = TextEditingController();
+    _reportNameController = TextEditingController();
     _applyDraftToControllers();
   }
 
@@ -100,6 +109,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
       _amplitudeController,
       _offsetController,
       _settleController,
+      _reportNameController,
     ]) {
       controller.dispose();
     }
@@ -107,14 +117,17 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
   }
 
   void _applyDraftToControllers() {
-    _startController.text =
-        _trim(_draft.startFrequencyHz / _unitFactor(_startUnit));
-    _stopController.text =
-        _trim(_draft.stopFrequencyHz / _unitFactor(_stopUnit));
+    _startController.text = _trim(
+      _draft.startFrequencyHz / _unitFactor(_startUnit),
+    );
+    _stopController.text = _trim(
+      _draft.stopFrequencyHz / _unitFactor(_stopUnit),
+    );
     _pointsController.text = '${_draft.pointCount}';
     _amplitudeController.text = _trim(_draft.amplitudeVpp);
     _offsetController.text = _trim(_draft.offsetV);
     _settleController.text = '${_draft.settling.inMilliseconds}';
+    _reportNameController.text = _draft.reportName;
   }
 
   BodePlotService _ensureService() {
@@ -174,6 +187,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
         amplitudeVpp: amplitude,
         offsetV: offset,
         settling: Duration(milliseconds: settle),
+        reportName: _reportNameController.text.trim(),
       );
     });
   }
@@ -227,8 +241,8 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
 
   @override
   Widget build(BuildContext context) {
-    final configuring = _status == BodeStatus.configuring ||
-        _status == BodeStatus.idle;
+    final configuring =
+        _status == BodeStatus.configuring || _status == BodeStatus.idle;
     return Container(
       width: configuring ? 700 : double.infinity,
       height: configuring ? null : double.infinity,
@@ -246,6 +260,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                 child: RepaintBoundary(
+                  key: widget.plotKey,
                   child: CustomPaint(
                     painter: _BodePlotPainter(
                       points: _points,
@@ -367,7 +382,8 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
       _draft,
       widget.signalGenerator.deviceInfo,
     );
-    final ready = widget.isOnline &&
+    final ready =
+        widget.isOnline &&
         widget.generatorDetected &&
         widget.signalGenerator.isConnected;
     return SingleChildScrollView(
@@ -383,6 +399,42 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
             ),
           ),
           const SizedBox(height: 10),
+
+          // ---- Report Name ----
+          TextField(
+            controller: _reportNameController,
+            maxLength: 150,
+            style: const TextStyle(color: Colors.white, fontSize: 13),
+            decoration: InputDecoration(
+              hintText: 'Report Name (optional)',
+              hintStyle: const TextStyle(color: Colors.white38, fontSize: 13),
+              filled: true,
+              fillColor: const Color(0xFF172A45).withValues(alpha: 0.5),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 12,
+                vertical: 10,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFF475569)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Color(0xFF475569)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(8),
+                borderSide: const BorderSide(color: Colors.cyanAccent),
+              ),
+              counterStyle: const TextStyle(
+                color: Colors.white38,
+                fontSize: 10,
+              ),
+            ),
+            onChanged: (_) => _updateDraft(),
+          ),
+          const SizedBox(height: 10),
+
           Row(
             children: [
               Expanded(child: _frequencyField('Start', _startController, true)),
@@ -480,9 +532,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                       .toList(),
                   onChanged: (value) {
                     if (value == null) return;
-                    setState(
-                      () => _draft = _draft.copyWith(waveform: value),
-                    );
+                    setState(() => _draft = _draft.copyWith(waveform: value));
                   },
                 ),
               ),
@@ -502,9 +552,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                   ],
                   onChanged: (value) {
                     if (value == null) return;
-                    setState(
-                      () => _draft = _draft.copyWith(vinChannel: value),
-                    );
+                    setState(() => _draft = _draft.copyWith(vinChannel: value));
                   },
                 ),
               ),
@@ -553,8 +601,8 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
               !widget.isOnline
                   ? 'Oscilloscope not detected.'
                   : !widget.generatorDetected
-                      ? 'Signal generator not detected.'
-                      : 'Signal generator not connected.',
+                  ? 'Signal generator not detected.'
+                  : 'Signal generator not connected.',
               style: const TextStyle(color: Colors.orangeAccent, fontSize: 12),
             ),
           ],
@@ -591,8 +639,8 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                 _status == BodeStatus.running
                     ? 'Sweeping — point $progress'
                     : _status == BodeStatus.completed
-                        ? 'Sweep complete — $progress points'
-                        : _statusLabel(_status),
+                    ? 'Sweep complete — $progress points'
+                    : _statusLabel(_status),
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 13,
@@ -602,10 +650,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
               if (current != null)
                 Text(
                   'Current: ${formatFrequencyHz(current)}',
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 12,
-                  ),
+                  style: const TextStyle(color: Colors.white54, fontSize: 12),
                 ),
               if (last != null)
                 Text(
@@ -657,8 +702,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
           child: TextField(
             controller: controller,
             onChanged: (_) => _updateDraft(),
-            keyboardType:
-                const TextInputType.numberWithOptions(decimal: true),
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
             decoration: _decoration(label),
           ),
         ),
@@ -672,10 +716,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
             decoration: _decoration('Unit'),
             items: const ['Hz', 'kHz', 'MHz']
                 .map(
-                  (value) => DropdownMenuItem(
-                    value: value,
-                    child: Text(value),
-                  ),
+                  (value) => DropdownMenuItem(value: value, child: Text(value)),
                 )
                 .toList(),
             onChanged: (value) {
@@ -705,8 +746,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
       focusedBorder: const OutlineInputBorder(
         borderSide: BorderSide(color: Colors.cyanAccent),
       ),
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
     );
   }
 
@@ -817,8 +857,9 @@ class _BodePlotPainter extends CustomPainter {
     if (start <= 0 || stop <= start) return;
 
     final frequencyTicks = _frequencyTicks(start, stop);
-    final gainTicks =
-        isPhase ? const [-180.0, -90.0, 0.0, 90.0, 180.0] : _gainTicks();
+    final gainTicks = isPhase
+        ? const [-180.0, -90.0, 0.0, 90.0, 180.0]
+        : _gainTicks();
     final yMin = isPhase ? -180.0 : gainTicks.first;
     final yMax = isPhase ? 180.0 : gainTicks.last;
 
@@ -939,15 +980,18 @@ class _BodePlotPainter extends CustomPainter {
   List<double> _niceTicks(double min, double max) {
     const target = 5;
     final rawStep = (max - min) / target;
-    final magnitude =
-        math.pow(10, (math.log(rawStep) / math.ln10).floor()).toDouble();
+    final magnitude = math
+        .pow(10, (math.log(rawStep) / math.ln10).floor())
+        .toDouble();
     final step = [1.0, 2.0, 5.0, 10.0]
         .map((value) => value * magnitude)
         .firstWhere((value) => value >= rawStep, orElse: () => 10 * magnitude);
     final ticks = <double>[];
-    for (var value = (min / step).floor() * step;
-        value <= max + step / 2;
-        value += step) {
+    for (
+      var value = (min / step).floor() * step;
+      value <= max + step / 2;
+      value += step
+    ) {
       ticks.add(value.toDouble());
     }
     return ticks.isEmpty ? [min, max] : ticks;
@@ -955,8 +999,9 @@ class _BodePlotPainter extends CustomPainter {
 
   List<double> _frequencyTicks(double start, double stop) {
     final ticks = <double>[];
-    final firstDecade =
-        math.pow(10, (math.log(start) / math.ln10).floor()).toDouble();
+    final firstDecade = math
+        .pow(10, (math.log(start) / math.ln10).floor())
+        .toDouble();
     var decade = firstDecade;
     while (decade <= stop * 1.001) {
       for (final multiplier in const [1.0, 2.0, 5.0]) {
@@ -971,7 +1016,8 @@ class _BodePlotPainter extends CustomPainter {
   }
 
   double _xFor(double frequency, double start, double stop, Rect rect) {
-    final fraction = (math.log(frequency) - math.log(start)) /
+    final fraction =
+        (math.log(frequency) - math.log(start)) /
         (math.log(stop) - math.log(start));
     return rect.left + fraction.clamp(0.0, 1.0) * rect.width;
   }
