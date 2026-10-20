@@ -15,10 +15,7 @@ void main() {
     });
 
     test('accepts a response without a comma', () {
-      expect(
-        parsePavaRms('C1:PAVA RMS 3.424E-01V', 1),
-        closeTo(0.3424, 1e-12),
-      );
+      expect(parsePavaRms('C1:PAVA RMS 3.424E-01V', 1), closeTo(0.3424, 1e-12));
     });
 
     test('rejects a response for the other channel', () {
@@ -28,7 +25,10 @@ void main() {
     test('rejects out-of-range and foreign responses', () {
       expect(parsePavaRms('C1:PAVA RMS,****', 1), isNull);
       expect(
-        parsePavaRms('Siglent Technologies,SDS1202X-E,SDS1EDEX5R7059,1.3.27', 1),
+        parsePavaRms(
+          'Siglent Technologies,SDS1202X-E,SDS1EDEX5R7059,1.3.27',
+          1,
+        ),
         isNull,
       );
     });
@@ -56,10 +56,7 @@ void main() {
         parseMeadPhase('Siglent Technologies,SDS1202X-E,SDS1EDEX5R7059,1.3.27'),
         isNull,
       );
-      expect(
-        parseMeadPhase('-113,Undefined header,MEASURE_DELAY'),
-        isNull,
-      );
+      expect(parseMeadPhase('-113,Undefined header,MEASURE_DELAY'), isNull);
     });
   });
 }

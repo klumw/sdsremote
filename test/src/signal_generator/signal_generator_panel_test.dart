@@ -244,4 +244,24 @@ void main() {
       isEmpty,
     );
   });
+
+  testWidgets('FY6900 limits and phase label follow the identity query', (
+    tester,
+  ) async {
+    final client = FakeSigGenWindowClient(
+      fakeWindowState(family: SiggenFamily.fy6900, modelMHz: 60),
+    );
+    final controller = await _pumpPanel(tester, client: client);
+
+    expect(find.text('Phase (CH1)'), findsOneWidget);
+    expect(find.textContaining('60 MHz'), findsWidgets);
+    expect(find.textContaining('+12'), findsWidgets);
+    expect(find.textContaining('99.9'), findsWidgets);
+    expect(find.textContaining('square/rectangle'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    controller.selectDevice(SigGenDeviceSelection.ch2);
+    await tester.pumpAndSettle();
+    expect(find.text('Phase (CH2)'), findsOneWidget);
+  });
 }

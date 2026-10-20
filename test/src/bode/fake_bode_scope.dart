@@ -41,10 +41,7 @@ class FakeBodeScope implements BodeScope {
     }
     if (outOfRangeOnce) {
       outOfRangeOnce = false;
-      return const BodeReading(
-        outOfRange: true,
-        error: 'Signal outside range',
-      );
+      return const BodeReading(outOfRange: true, error: 'Signal outside range');
     }
     final phase = measurePhase ? phaseDeg : null;
     final vin = vinSequence.isNotEmpty ? vinSequence.removeAt(0) : vinRms;
@@ -52,8 +49,7 @@ class FakeBodeScope implements BodeScope {
       vinRms: vin,
       voutRms: voutRms,
       phaseDeg: phase,
-      delaySeconds:
-          phase == null ? null : -phase / (360.0 * frequencyHz),
+      delaySeconds: phase == null ? null : -phase / (360.0 * frequencyHz),
       phaseSource: phase == null ? BodePhaseSource.none : BodePhaseSource.mead,
     );
   }

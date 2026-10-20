@@ -36,8 +36,7 @@ class BodeScopeException implements Exception {
   final Object? cause;
 
   @override
-  String toString() =>
-      cause == null ? message : '$message (cause: $cause)';
+  String toString() => cause == null ? message : '$message (cause: $cause)';
 }
 
 abstract class BodeScope {

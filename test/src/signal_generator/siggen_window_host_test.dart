@@ -1,9 +1,11 @@
+import 'package:sdsremote/src/signal_generator/fy6900_driver.dart';
 import 'package:sdsremote/src/signal_generator/models.dart';
 import 'package:sdsremote/src/signal_generator/siggen_window_host.dart';
 import 'package:sdsremote/src/signal_generator/siggen_window_protocol.dart';
 import 'package:sdsremote/src/signal_generator/signal_generator_service.dart';
 import 'package:test/test.dart';
 
+import 'fake_fy6900_transport.dart';
 import 'fake_jds6600_transport.dart';
 
 class _RecordingSink implements SigGenWindowEventSink {
@@ -53,6 +55,7 @@ void main() {
     expect(state.generator.connected, isTrue);
     expect(state.generator.mutable, isTrue);
     expect(state.generator.modelName, equals('JDS6600-LITE'));
+    expect(state.generator.family, SiggenFamily.jds6600);
     expect(state.generator.modelMHz, equals(15));
     expect(state.generator.port, equals('/dev/fake'));
     expect(state.generator.ch1.waveform, equals(Jds6600Waveform.sine));
@@ -64,6 +67,7 @@ void main() {
     final decoded = SigGenWindowState.fromJson(state.toJson());
 
     expect(decoded.generator.connected, isTrue);
+    expect(decoded.generator.family, SiggenFamily.jds6600);
     expect(decoded.generator.ch1.frequencyHz, equals(1000));
     expect(decoded.generator.ch2.waveform, equals(Jds6600Waveform.sine));
     expect(decoded.generator.lastRefresh, isNotNull);
@@ -133,11 +137,14 @@ void main() {
 
   test('dispatches global phase', () async {
     final result = await host.handleCommand(SigGenWindowMethods.setPhase, {
+      'channel': 1,
       'value': 90.0,
     });
 
     expect(result.ok, isTrue);
     expect(transport.registers[31], equals([900]));
+    expect(result.state.generator.ch1.phaseDeg, equals(90));
+    expect(result.state.generator.ch2.phaseDeg, equals(90));
     expect(result.state.generator.phaseDeg, equals(90));
   });
 
@@ -228,5 +235,41 @@ void main() {
 
     expect(result.ok, isFalse);
     expect(result.errorType, equals('protocol'));
+  });
+
+  test('forwards the FY6900 family and identified model', () async {
+    final fyTransport = FakeFy6900Transport();
+    final fyService = SignalGeneratorService(
+      driverFactory: (_) => Fy6900Driver(fyTransport),
+      pollInterval: Duration.zero,
+    );
+    final fyHost = SigGenWindowHost(
+      service: fyService,
+      sink: _RecordingSink(),
+      canMutate: () => true,
+    );
+    addTearDown(() async {
+      fyHost.dispose();
+      await fyService.shutdown();
+    });
+    await fyService.connect('/dev/fy');
+
+    final state = fyHost.buildSnapshot();
+    expect(state.generator.family, SiggenFamily.fy6900);
+    expect(state.generator.modelName, equals('FY6900-60M'));
+    expect(state.generator.modelMHz, equals(60));
+
+    final decoded = SigGenWindowState.fromJson(state.toJson());
+    expect(decoded.generator.family, SiggenFamily.fy6900);
+    expect(decoded.generator.modelMHz, equals(60));
+
+    final phaseResult = await fyHost.handleCommand(
+      SigGenWindowMethods.setPhase,
+      {'channel': 1, 'value': 45.0},
+    );
+    expect(phaseResult.ok, isTrue);
+    expect(fyTransport.channel(1).phaseDeg, equals(45));
+    expect(phaseResult.state.generator.ch1.phaseDeg, equals(45));
+    expect(phaseResult.state.generator.ch2.phaseDeg, equals(0));
   });
 }

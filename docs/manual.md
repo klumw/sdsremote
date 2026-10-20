@@ -49,7 +49,7 @@ All user data (screenshots, waveforms, profiles, macros, reports) is stored unde
 | Linux | `~/.local/share/sdsremote/` |
 | Windows | `%LocalAppData%\sdsremote` |
 
-See section 10 (Application Directory) for a complete breakdown of subdirectories.
+See section 11 (Application Directory) for a complete breakdown of subdirectories.
 
 ### 1.3 Known Limitations
 
@@ -94,6 +94,10 @@ See section 10 (Application Directory) for a complete breakdown of subdirectorie
 * **Data Logger**
   * Log key parameters over time
   * Export pdf reports or save data points in a csv file
+
+* **Bode**
+  * Opens the Bode Plot panel when a supported signal generator is configured and detected
+  * Requires the oscilloscope to be online
 
 * **Macro Recorder**
   * Record, edit and play back SCPI command sequences
@@ -173,7 +177,7 @@ Both settings take effect immediately and persist across application restarts.
 
 Click the **SAVE CONFIGURATION** button to persist all settings. The application:
 
-1. Stores the connection mode, IP address, AI provider, API token, and model name to the preferences file.
+1. Stores the connection mode, IP address, signal generator selection, AI provider, API token, and model name to the preferences file.
 2. Reconnects to the oscilloscope using the new connection settings.
 3. Initializes the AI chat service if all AI fields are populated.
 4. Closes the Settings panel.
@@ -181,6 +185,16 @@ Click the **SAVE CONFIGURATION** button to persist all settings. The application
 The status bar updates to reflect the new connection state. If `ONLINE` is shown, the oscilloscope is reachable and ready for operation.
 
 > **Note:** The API token is stored in plain text in the preferences file (`preferences/preferences.json`) within the application directory. Ensure appropriate file system permissions if working in a shared environment.
+
+### 3.7 Signal Generator
+
+Select the signal generator used by the Bode Plot and the signal generator window:
+
+* **No Signal Generator** — disables generator features (default).
+* **JDS6600** — JOY-IT/Juntek JDS6600 and JDS6600-Lite.
+* **FY6900** — FeelElec FY6900 series.
+
+The selection is persisted as `siggen_device` and restored on the next launch. When a generator is selected, the application scans the serial ports, identifies it via `*IDN?` and enables the **Bode** button and the signal generator window (Ctrl+J). The detected model supplies the frequency, amplitude and offset limits; see the Bode Plot chapter ([section 10](#10-bode-plot)).
 
 ---
 
@@ -1132,15 +1146,129 @@ Press the **Save** button in the top toolbar while the Control Panel is active t
 
 ### 9.10 Signal Generator Window (Ctrl+J)
 
-When **Settings → Signal Generator** is set to **JDS6600** and the generator was detected, press **Ctrl+J** to open the signal generator window as a separate OS window. There is no toolbar button. Pressing Ctrl+J while the window is open brings it to the front.
+When **Settings → Signal Generator** is set to **JDS6600** or **FY6900** and the generator was detected, press **Ctrl+J** to open the signal generator window as a separate OS window. There is no toolbar button. Pressing Ctrl+J while the window is open brings it to the front.
 
-The window offers the two channel views **JDS6600 CH1 / CH2**: select the waveform, frequency, amplitude, DC offset, duty cycle (effective for square/pulse) and the global phase (CH2 relative to CH1). Numeric values can be adjusted with spinner buttons next to the fields. **Apply changes** sends only the modified values; **Refresh from device** re-reads all registers and **Use device values** discards pending edits. The output switch takes effect immediately and is independent of Apply. The confirmed device state and pending edits are displayed separately.
+The window offers the two channel views **CH1 / CH2**: select the waveform, frequency, amplitude, DC offset, duty cycle (effective for square/pulse on the JDS6600 and square/rectangle on the FY6900) and the phase (global CH2 relative to CH1 on the JDS6600, per-channel phase on the FY6900). Numeric values can be adjusted with spinner buttons next to the fields. **Apply changes** sends only the modified values; **Refresh from device** re-reads all registers and **Use device values** discards pending edits. The output switch takes effect immediately and is independent of Apply. The confirmed device state and pending edits are displayed separately.
 
-Frequency and amplitude limits are derived from the detected model (JDS6600-LITE or JDS6600) and the selected waveform. While a Bode sweep is running, the generator controls are read-only. Closing the main application also closes this window.
+Frequency and amplitude limits are derived from the model returned by the driver identity query (JDS6600-LITE/JDS6600 or FY6900-20M … FY6900-100M) and the selected waveform; offset, duty-cycle and phase ranges are derived from the same detected device family. The hint below each field shows the active limits. While a Bode sweep is running, the generator controls are read-only. Closing the main application also closes this window.
 
 ---
 
-## 10. Getting Started
+## 10. Bode Plot
+
+The **Bode Plot** measures the frequency response of a device under test (DUT). The configured signal generator sweeps the frequency, the oscilloscope measures the RMS voltages at the DUT input and output and, optionally, the phase, and the application plots the gain in dB and the phase in degrees against a shared frequency axis.
+
+### 10.1 Prerequisites
+
+* The oscilloscope is connected and the status bar shows `ONLINE`.
+* A supported signal generator is selected in **Settings → Signal Generator** (see [section 3.7](#37-signal-generator)):
+  * **JDS6600** — JOY-IT/Juntek JDS6600 and JDS6600-Lite
+  * **FY6900** — FeelElec FY6900 series
+  * **No Signal Generator** disables the Bode function.
+* The generator is detected.
+* Wiring:
+  * Generator output → DUT input.
+  * DUT output → oscilloscope **CH2** (Vout).
+  * Oscilloscope **CH1** → generator output / DUT input (Vin).
+  * Generator and oscilloscope share a common ground.
+* The generator's serial port is accessible:
+  * Linux: the user is a member of the `dialout` group.
+  * Windows: the CH340 USB-serial driver is installed.
+* The desired frequency range and amplitude are within the limits of the detected model (see 10.2). The configuration form shows the active limits.
+
+> **Note:** The Bode button is unavailable while a macro is playing or a waveform acquisition is running. While a sweep is running, the signal generator window (Ctrl+J) is read-only.
+
+### 10.2 Signal Generators and Model Limits
+
+| Model | Sine | Square | Triangle / pulse / other |
+|:------|-----:|-------:|-------------------------:|
+| JDS6600-LITE | 15 MHz | 15 MHz | 6 MHz |
+| JDS6600 | 60 MHz | 15 MHz | 6 MHz |
+| FY6900-20M | 20 MHz | 15 MHz | 10 MHz |
+| FY6900-30M | 30 MHz | 25 MHz | 10 MHz |
+| FY6900-50M | 50 MHz | 25 MHz | 10 MHz |
+| FY6900-60M | 60 MHz | 25 MHz | 10 MHz |
+| FY6900-100M | 100 MHz | 25 MHz | 10 MHz |
+
+Amplitude and DC-offset limits:
+
+| Generator | Amplitude | DC offset |
+|:----------|:----------|:----------|
+| JDS6600 / JDS6600-LITE | 20 Vpp below 10 MHz, 10 Vpp at/above 10 MHz | ±9.99 V |
+| FY6900 | 24 Vpp up to 5 MHz, 20 Vpp up to 10 MHz, 10 Vpp up to 20 MHz, 5 Vpp above 20 MHz | ±12 V up to 20 MHz, ±2.5 V above 20 MHz |
+
+Generator-specific notes:
+
+* **JDS6600:** one global phase register (CH2 relative to CH1). Phase commands address this register regardless of the selected generator channel.
+* **FY6900:** per-channel phase; the selected generator channel is addressed. The app's **Square** waveform is mapped to the FY6900 **Rectangle** waveform, which is the duty-adjustable shape.
+* Arbitrary waveforms cannot be used for a Bode sweep.
+* The generator outputs are switched off automatically when the sweep completes, fails or is cancelled.
+
+### 10.3 Opening the Bode Plot
+
+1. Connect the oscilloscope and wait for `ONLINE`.
+2. Select the generator in **Settings → Signal Generator** and save the configuration.
+3. Wait until the generator is detected.
+4. Click **Bode** in the top toolbar. The Bode Plot panel opens with the configuration form.
+
+The Bode panel is not available when no generator is configured or no generator is detected.
+
+### 10.4 Configuring a Sweep
+
+| Field | Description |
+|:------|:------------|
+| Report Name | Optional name (max. 150 characters) for the saved report. |
+| Start / Stop | Frequency range; choose Hz, kHz or MHz per field. |
+| Points | Number of sweep points (2–500). |
+| Amplitude | Generator output in Vpp; limited by the model and frequency. |
+| Offset | Generator DC offset; limited by the model and frequency. |
+| Settle (ms) | Extra settling time per point; the application enforces at least three periods and 200 ms and caps the value at 5 s. |
+| Spacing | Logarithmic (default) or linear frequency spacing. |
+| Waveform | Sweep waveform (sine, square, triangle, pulse, …). |
+| Vin channel | Oscilloscope channel connected to the DUT input (default CH1). |
+| Vout channel | Oscilloscope channel connected to the DUT output (default CH2). |
+| Measure phase | Enables phase measurement in addition to gain. |
+
+The form shows the active model limits below the waveform field, for example:
+
+`Model FY6900-60M: Sine up to 60 MHz · amplitude up to 24 Vpp · offset ±12 V`
+
+**START SWEEP** is disabled while the configuration is invalid. The reason is displayed above the button, for example when the stop frequency exceeds the limit for the detected model and selected waveform.
+
+### 10.5 Running a Sweep
+
+1. Verify the wiring and the DUT.
+2. Configure the frequency range, waveform, amplitude, offset and channels.
+3. Click **START SWEEP**.
+4. The generator output is enabled. The oscilloscope is prepared (including automatic vertical scaling) and each point is measured after the settling time.
+5. The gain and, when enabled, the phase are calculated for each point; the plots update as the sweep progresses.
+6. **STOP** cancels the sweep. The generator outputs are switched off on completion, failure and cancellation.
+
+During the sweep, generator detection is paused and the signal generator window cannot change settings. Points with no usable measurement (Vin/Vout below 5 mV RMS, out-of-range values or an unstable input) are retried and, if they remain invalid, left out of the plot instead of appearing as spikes.
+
+### 10.6 Reading the Results
+
+* The **gain plot** shows `20 · log10(Vout / Vin)` in dB.
+* The **phase plot** shows the phase in degrees. The oscilloscope measures the input relative to the output, so the displayed sign is corrected for the usual generator → DUT → scope wiring.
+* Both plots share the same logarithmic frequency axis.
+* The sweep progress and the current/last point are shown above the plots. After a sweep, **NEW** returns to the configuration form.
+
+### 10.7 Reports and CSV
+
+The **Save** action in the top toolbar captures the Bode plot and writes a PDF report to `bode/reports/`. The report contains the plot, the report name and the sweep configuration. When **Save csv data** is enabled in the Settings, the sweep points are additionally written as CSV to `bode/csv/`. The generator identity (for example `FeelElec,FY6900-60M`) and the oscilloscope name are included.
+
+### 10.8 Troubleshooting
+
+* **Bode button is missing** — the oscilloscope is offline, no generator is configured, the generator was not detected, or a macro is playing.
+* **START SWEEP is disabled** — the configuration is invalid; read the message below the fields. A common cause is a stop frequency above the limit of the detected model and selected waveform.
+* **Frequency write failed** — the generator did not confirm the frequency. Check the serial(USB) connection and the model limits. The FY6900 firmware can report frequencies with a small rounding error (~0.1 Hz); the driver tolerates this.
+* **No or unstable gain/phase** — increase the amplitude or settling time, reduce the frequency range, and verify that the oscilloscope inputs are not clipped. Below about 5 mV RMS the point is omitted; below 1 mV Vin the gain is not valid.
+* **Generator output stays on** — the application switches the outputs off when the sweep ends. If the application was interrupted, switch them off in the signal generator window (Ctrl+J) or on the device.
+* **Serial(USB) port cannot be opened** — on Linux add the user to the `dialout` group and log in again; on Windows install the CH340 driver.
+
+---
+
+## 11. Getting Started
 
 ### Basic Connection Setup for Network Mode
 
@@ -1170,12 +1298,14 @@ Files are stored in various subfolders of the application directory, depending o
 | waveform/csv | Waveform csv data |
 | logger/reports | Data logger reports |
 | logger/csv | Data logger csv data |
+| bode/reports | Bode plot PDF reports |
+| bode/csv | Bode plot CSV data |
 | profiles | Device profiles |
 | automation/macros | Macro (.m) files |
 
 ---
 
-## 11. Troubleshooting (Non-AI)
+## 12. Troubleshooting (Non-AI)
 
 ### Connection Issues
 
@@ -1199,7 +1329,7 @@ Files are stored in various subfolders of the application directory, depending o
 
 ---
 
-## 12. Technical Details
+## 13. Technical Details
 
 ### Communication
 
@@ -1223,7 +1353,7 @@ Files are stored in various subfolders of the application directory, depending o
 ---
 
 
-## 13. Support and Feedback
+## 14. Support and Feedback
 
 ### Logging Directory
 
@@ -1237,6 +1367,6 @@ The log directory  is at `/tmp/sds/logging/sds.log` (Linux) or `%TEMP%\sds\loggi
 
 ---
 
-## 14. License
+## 15. License
 
 This software is released under the terms and conditions of the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0.html).

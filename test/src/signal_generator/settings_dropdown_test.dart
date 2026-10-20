@@ -3,7 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:sdsremote/src/widgets/osci_settings_panel.dart';
 
 void main() {
-  testWidgets('signal generator dropdown offers both entries', (tester) async {
+  testWidgets('signal generator dropdown offers all entries', (tester) async {
     String selected = 'none';
 
     await tester.pumpWidget(
@@ -44,11 +44,12 @@ void main() {
     await tester.tap(find.text('No Signal Generator'));
     await tester.pumpAndSettle();
     expect(find.text('JDS6600'), findsOneWidget);
+    expect(find.text('FY6900'), findsOneWidget);
 
-    await tester.tap(find.text('JDS6600'));
+    await tester.tap(find.text('FY6900'));
     await tester.pumpAndSettle();
 
-    expect(selected, 'jds6600');
+    expect(selected, 'fy6900');
     expect(tester.takeException(), isNull);
   });
 }

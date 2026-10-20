@@ -8,6 +8,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import 'fy6900_protocol.dart';
 import 'jds6600_protocol.dart';
 import 'models.dart';
 import 'siggen_window_client.dart';
@@ -68,15 +69,10 @@ class SigGenChannelDraft {
     required this.phaseText,
   });
 
-  factory SigGenChannelDraft.defaults() => SigGenChannelDraft.fromSnapshot(
-    const SigGenChannelSnapshot.defaults(),
-    phaseDeg: 0,
-  );
+  factory SigGenChannelDraft.defaults() =>
+      SigGenChannelDraft.fromSnapshot(const SigGenChannelSnapshot.defaults());
 
-  factory SigGenChannelDraft.fromSnapshot(
-    SigGenChannelSnapshot snapshot, {
-    required double phaseDeg,
-  }) {
+  factory SigGenChannelDraft.fromSnapshot(SigGenChannelSnapshot snapshot) {
     final frequency = _formatFrequency(snapshot.frequencyHz);
     return SigGenChannelDraft(
       waveform: snapshot.waveform,
@@ -85,7 +81,7 @@ class SigGenChannelDraft {
       amplitudeText: _formatNumber(snapshot.amplitudeVpp),
       offsetText: _formatNumber(snapshot.offsetV),
       dutyText: _formatNumber(snapshot.dutyPercent),
-      phaseText: _formatNumber(phaseDeg),
+      phaseText: _formatNumber(snapshot.phaseDeg),
     );
   }
 
@@ -170,6 +166,21 @@ class SignalGeneratorPanelController extends ChangeNotifier {
 
   SigGenWindowState get state => _state;
   SigGenGeneratorSnapshot get generator => _state.generator;
+
+  /// Device information reconstructed from the identity query the main window
+  /// performed through the driver. `family` and `modelMHz` select the limit
+  /// table for both generators.
+  Jds6600DeviceInfo get deviceInfo => Jds6600DeviceInfo(
+    modelMHz:
+        generator.modelMHz ??
+        (generator.family == SiggenFamily.fy6900 ? 20 : 15),
+    serialNumber: 0,
+    family: generator.family,
+    modelNameOverride: generator.modelName,
+  );
+
+  /// Input limits derived from the detected device family.
+  SiggenLimits get limits => deviceInfo.limits;
   SigGenDeviceSelection get selection => _selection;
   int get selectedChannel => _selection.channel;
   bool get busy => _busy;
@@ -272,7 +283,6 @@ class SignalGeneratorPanelController extends ChangeNotifier {
     _editedChannels.remove(selectedChannel);
     _drafts[selectedChannel] = SigGenChannelDraft.fromSnapshot(
       confirmedChannel,
-      phaseDeg: generator.phaseDeg,
     );
     _message = null;
     notifyListeners();
@@ -389,7 +399,7 @@ class SignalGeneratorPanelController extends ChangeNotifier {
     if (_differs(draft.amplitudeVpp, confirmed.amplitudeVpp)) return true;
     if (_differs(draft.offsetV, confirmed.offsetV)) return true;
     if (_differs(draft.dutyPercent, confirmed.dutyPercent)) return true;
-    if (_differs(draft.phaseDeg, _state.generator.phaseDeg)) return true;
+    if (_differs(draft.phaseDeg, confirmed.phaseDeg)) return true;
     return false;
   }
 
@@ -419,8 +429,8 @@ class SignalGeneratorPanelController extends ChangeNotifier {
       commands.add(() => client.setDuty(channel, duty));
     }
     final phase = draft.phaseDeg;
-    if (phase != null && _differs(phase, _state.generator.phaseDeg)) {
-      commands.add(() => client.setPhase(phase));
+    if (phase != null && _differs(phase, confirmed.phaseDeg)) {
+      commands.add(() => client.setPhase(channel, phase));
     }
     return commands;
   }
@@ -437,24 +447,41 @@ class SignalGeneratorPanelController extends ChangeNotifier {
       return 'Phase: enter a valid number';
     }
 
-    final info = Jds6600DeviceInfo(
-      modelMHz: _state.generator.modelMHz ?? 15,
-      serialNumber: 0,
-    );
+    final info = deviceInfo;
     try {
-      Jds6600Protocol.validateFrequency(
-        info,
-        draft.waveform,
-        draft.frequencyHz!,
-      );
-      Jds6600Protocol.validateAmplitude(
-        info,
-        draft.frequencyHz!,
-        draft.amplitudeVpp!,
-      );
-      Jds6600Protocol.validateOffset(draft.offsetV!);
-      Jds6600Protocol.validateDuty(draft.dutyPercent!);
-      Jds6600Protocol.validatePhase(draft.phaseDeg!);
+      if (info.family == SiggenFamily.fy6900) {
+        Fy6900Protocol.validateFrequency(
+          info,
+          draft.waveform,
+          draft.frequencyHz!,
+        );
+        Fy6900Protocol.validateAmplitude(
+          info,
+          draft.frequencyHz!,
+          draft.amplitudeVpp!,
+        );
+        Fy6900Protocol.validateOffsetAtFrequency(
+          info,
+          draft.frequencyHz!,
+          draft.offsetV!,
+        );
+        Fy6900Protocol.validateDuty(draft.dutyPercent!);
+        Fy6900Protocol.validatePhase(draft.phaseDeg!);
+      } else {
+        Jds6600Protocol.validateFrequency(
+          info,
+          draft.waveform,
+          draft.frequencyHz!,
+        );
+        Jds6600Protocol.validateAmplitude(
+          info,
+          draft.frequencyHz!,
+          draft.amplitudeVpp!,
+        );
+        Jds6600Protocol.validateOffset(draft.offsetV!);
+        Jds6600Protocol.validateDuty(draft.dutyPercent!);
+        Jds6600Protocol.validatePhase(draft.phaseDeg!);
+      }
     } on Jds6600RangeException catch (error) {
       return error.message;
     }
@@ -482,7 +509,6 @@ class SignalGeneratorPanelController extends ChangeNotifier {
       if (force || !_editedChannels.contains(channel)) {
         _drafts[channel] = SigGenChannelDraft.fromSnapshot(
           _state.generator.channel(channel),
-          phaseDeg: _state.generator.phaseDeg,
         );
         _editedChannels.remove(channel);
       }

@@ -30,9 +30,12 @@ abstract class SiggenScpiTarget {
   Future<void> setDuty(int channel, double percent);
   Future<double> readDuty(int channel);
 
-  /// The JDS6600 has one global phase register: CH2 relative to CH1.
-  Future<void> setPhase(double degrees);
-  Future<double> readPhase();
+  /// Sets or reads the phase of [channel], exposed as `SOUR<channel>:PHAS`.
+  ///
+  /// The JDS6600 maps both channels to its global CH2-vs-CH1 register; the
+  /// FY6900 has per-channel phase.
+  Future<void> setPhase(int channel, double degrees);
+  Future<double> readPhase(int channel);
 
   Future<void> setOutput(int channel, bool enabled);
   Future<bool> readOutput(int channel);
@@ -308,7 +311,7 @@ class SiggenScpiInterpreter {
       case 'PHAS':
         if (segments.length == 2) {
           if (isQuery) {
-            final degrees = await _target.readPhase();
+            final degrees = await _target.readPhase(channel);
             return _formatDegrees(degrees);
           }
           final degrees = _parseNumber(
@@ -317,7 +320,7 @@ class SiggenScpiInterpreter {
             units: _phaseUnits,
             kind: 'phase',
           );
-          await _target.setPhase(degrees);
+          await _target.setPhase(channel, degrees);
           return null;
         }
         break;

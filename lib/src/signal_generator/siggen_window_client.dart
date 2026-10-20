@@ -30,7 +30,7 @@ abstract class SigGenWindowClient {
   Future<SigGenCommandResult> setAmplitude(int channel, double vpp);
   Future<SigGenCommandResult> setOffset(int channel, double volts);
   Future<SigGenCommandResult> setDuty(int channel, double percent);
-  Future<SigGenCommandResult> setPhase(double degrees);
+  Future<SigGenCommandResult> setPhase(int channel, double degrees);
   Future<SigGenCommandResult> setOutput(int channel, bool enabled);
 
   Future<void> dispose();
@@ -157,8 +157,10 @@ class DesktopSigGenWindowClient implements SigGenWindowClient {
   );
 
   @override
-  Future<SigGenCommandResult> setPhase(double degrees) =>
-      _invoke(SigGenWindowMethods.setPhase, {'value': degrees});
+  Future<SigGenCommandResult> setPhase(int channel, double degrees) => _invoke(
+    SigGenWindowMethods.setPhase,
+    {'channel': channel, 'value': degrees},
+  );
 
   @override
   Future<SigGenCommandResult> setOutput(int channel, bool enabled) => _invoke(

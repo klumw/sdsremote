@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sdsremote/src/bode/bode_models.dart';
 import 'package:sdsremote/src/bode/bode_plot_service.dart';
+import 'package:sdsremote/src/signal_generator/fy6900_driver.dart';
 import 'package:sdsremote/src/signal_generator/signal_generator_service.dart';
 
+import '../signal_generator/fake_fy6900_transport.dart';
 import '../signal_generator/fake_jds6600_transport.dart';
 import 'fake_bode_scope.dart';
 
@@ -59,20 +61,19 @@ void main() {
     expect(generator.outputs.ch2, isFalse);
   });
 
-  test('rejects an invalid configuration before touching the devices',
-      () async {
-    await service.start(
-      const BodeConfig(
-        startFrequencyHz: 1000,
-        stopFrequencyHz: 100,
-      ),
-    );
+  test(
+    'rejects an invalid configuration before touching the devices',
+    () async {
+      await service.start(
+        const BodeConfig(startFrequencyHz: 1000, stopFrequencyHz: 100),
+      );
 
-    expect(service.status, BodeStatus.error);
-    expect(service.errorMessage, contains('Stop frequency'));
-    expect(scope.prepareCalls, 0);
-    expect(scope.readCalls, 0);
-  });
+      expect(service.status, BodeStatus.error);
+      expect(service.errorMessage, contains('Stop frequency'));
+      expect(scope.prepareCalls, 0);
+      expect(scope.readCalls, 0);
+    },
+  );
 
   test('retries an out-of-range point once after auto-set', () async {
     scope.outOfRangeOnce = true;
@@ -207,5 +208,40 @@ void main() {
     expect(service.points, isEmpty);
     expect(service.status, BodeStatus.idle);
     expect(service.completedPoints, 0);
+  });
+
+  test('runs a sweep on an FY6900', () async {
+    final fyTransport = FakeFy6900Transport();
+    final fyGenerator = SignalGeneratorService(
+      driverFactory: (_) => Fy6900Driver(fyTransport),
+      pollInterval: Duration.zero,
+    );
+    final fyService = BodePlotService(
+      signalGenerator: fyGenerator,
+      scope: FakeBodeScope(),
+      skipSettling: true,
+    );
+    addTearDown(() async {
+      fyService.dispose();
+      await fyGenerator.shutdown();
+    });
+    await fyGenerator.connect('/dev/ttyUSB0');
+
+    await fyService.start(
+      const BodeConfig(
+        startFrequencyHz: 100,
+        stopFrequencyHz: 1000,
+        pointCount: 3,
+      ),
+    );
+
+    expect(fyService.status, BodeStatus.completed);
+    expect(fyService.points.length, 3);
+    expect(fyTransport.sentCommands, contains('WMF00000100.000000'));
+    expect(fyTransport.sentCommands, contains('WMF00001000.000000'));
+    expect(fyTransport.sentCommands, contains('WMN1'));
+    expect(fyTransport.sentCommands, contains('WMN0'));
+    expect(fyGenerator.outputs.ch1, isFalse);
+    expect(fyGenerator.outputs.ch2, isFalse);
   });
 }

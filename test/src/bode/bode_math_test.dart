@@ -38,10 +38,7 @@ void main() {
       );
       expect(
         () => buildFrequencyPoints(
-          const BodeConfig(
-            startFrequencyHz: 100,
-            stopFrequencyHz: 100,
-          ),
+          const BodeConfig(startFrequencyHz: 100, stopFrequencyHz: 100),
         ),
         throwsArgumentError,
       );
@@ -91,18 +88,12 @@ void main() {
 
     test('rejects invalid ranges, counts and channels', () {
       expect(
-        validateBodeConfig(
-          const BodeConfig(startFrequencyHz: 0),
-          lite,
-        ),
+        validateBodeConfig(const BodeConfig(startFrequencyHz: 0), lite),
         contains('Start frequency'),
       );
       expect(
         validateBodeConfig(
-          const BodeConfig(
-            startFrequencyHz: 1000,
-            stopFrequencyHz: 100,
-          ),
+          const BodeConfig(startFrequencyHz: 1000, stopFrequencyHz: 100),
           lite,
         ),
         contains('Stop frequency'),
@@ -129,18 +120,128 @@ void main() {
 
     test('rejects frequencies and amplitudes outside the generator limits', () {
       expect(
+        validateBodeConfig(const BodeConfig(stopFrequencyHz: 20e6), lite),
+        contains('exceeds'),
+      );
+      expect(
+        validateBodeConfig(const BodeConfig(amplitudeVpp: 25), lite),
+        contains('Amplitude'),
+      );
+    });
+  });
+
+  group('FY6900 validation', () {
+    const fy60 = Jds6600DeviceInfo(
+      modelMHz: 60,
+      serialNumber: 1,
+      family: SiggenFamily.fy6900,
+      modelNameOverride: 'FY6900-60M',
+    );
+    const fy30 = Jds6600DeviceInfo(
+      modelMHz: 30,
+      serialNumber: 1,
+      family: SiggenFamily.fy6900,
+      modelNameOverride: 'FY6900-30M',
+    );
+
+    test('sine frequency limit follows the identified model', () {
+      expect(
+        validateBodeConfig(const BodeConfig(stopFrequencyHz: 60e6), fy60),
+        isNull,
+      );
+      expect(
+        validateBodeConfig(const BodeConfig(stopFrequencyHz: 60.1e6), fy60),
+        contains('FY6900-60M'),
+      );
+      expect(
+        validateBodeConfig(const BodeConfig(stopFrequencyHz: 30e6), fy30),
+        isNull,
+      );
+      expect(
+        validateBodeConfig(const BodeConfig(stopFrequencyHz: 30.1e6), fy30),
+        contains('FY6900-30M'),
+      );
+    });
+
+    test('square and triangle use their own limits', () {
+      expect(
         validateBodeConfig(
-          const BodeConfig(stopFrequencyHz: 20e6),
-          lite,
+          const BodeConfig(
+            stopFrequencyHz: 25e6,
+            waveform: Jds6600Waveform.square,
+          ),
+          fy60,
+        ),
+        isNull,
+      );
+      expect(
+        validateBodeConfig(
+          const BodeConfig(
+            stopFrequencyHz: 25.1e6,
+            waveform: Jds6600Waveform.square,
+          ),
+          fy60,
         ),
         contains('exceeds'),
       );
       expect(
         validateBodeConfig(
-          const BodeConfig(amplitudeVpp: 25),
-          lite,
+          const BodeConfig(
+            stopFrequencyHz: 10e6,
+            waveform: Jds6600Waveform.triangle,
+          ),
+          fy60,
+        ),
+        isNull,
+      );
+      expect(
+        validateBodeConfig(
+          const BodeConfig(
+            stopFrequencyHz: 10.1e6,
+            waveform: Jds6600Waveform.triangle,
+          ),
+          fy60,
+        ),
+        contains('exceeds'),
+      );
+    });
+
+    test('amplitude bands and offset limits follow the model', () {
+      expect(
+        validateBodeConfig(
+          const BodeConfig(stopFrequencyHz: 1e6, amplitudeVpp: 24),
+          fy60,
+        ),
+        isNull,
+      );
+      expect(
+        validateBodeConfig(
+          const BodeConfig(stopFrequencyHz: 1e6, amplitudeVpp: 24.1),
+          fy60,
         ),
         contains('Amplitude'),
+      );
+      expect(
+        validateBodeConfig(
+          const BodeConfig(stopFrequencyHz: 1e6, offsetV: 12),
+          fy60,
+        ),
+        isNull,
+      );
+      expect(
+        validateBodeConfig(
+          const BodeConfig(stopFrequencyHz: 1e6, offsetV: 12.1),
+          fy60,
+        ),
+        contains('Offset'),
+      );
+      // Above 20 MHz the FY6900 offset range drops to ±2.5 V.
+      expect(
+        validateBodeConfig(
+          const BodeConfig(stopFrequencyHz: 21e6, offsetV: 3),
+          fy60,
+        ),
+        contains('Offset'),
       );
     });
   });
@@ -151,10 +252,7 @@ void main() {
       effectiveSettling(config, 10).inMilliseconds,
       greaterThanOrEqualTo(300),
     );
-    expect(
-      effectiveSettling(config, 1000).inMilliseconds,
-      200,
-    );
+    expect(effectiveSettling(config, 1000).inMilliseconds, 200);
     expect(
       effectiveSettling(
         const BodeConfig(settling: Duration(seconds: 1)),
@@ -162,10 +260,7 @@ void main() {
       ).inMilliseconds,
       1000,
     );
-    expect(
-      effectiveSettling(config, 0.1).inMilliseconds,
-      5000,
-    );
+    expect(effectiveSettling(config, 0.1).inMilliseconds, 5000);
   });
 
   test('parses the last number from scope responses', () {

@@ -54,8 +54,8 @@ class Vxi11BodeScope implements BodeScope {
     _measurePhase = measurePhase;
 
     _originalTriggerMode = _modeFromResponse(await _query('TRMD?'));
-    _changedTriggerMode = _originalTriggerMode == 'STOP' ||
-        _originalTriggerMode == 'SINGLE';
+    _changedTriggerMode =
+        _originalTriggerMode == 'STOP' || _originalTriggerMode == 'SINGLE';
     if (_changedTriggerMode) {
       await _write('TRMD AUTO');
     }
@@ -125,8 +125,7 @@ class Vxi11BodeScope implements BodeScope {
     // Below ~-30 dB the output is close to the scope's noise/crosstalk floor;
     // the scope's MEAD phase then tends to collapse toward 0°. Use the
     // waveform-crossing estimate, which is computed from the acquired traces.
-    final useWaveformPhase =
-        vin != null && vout != null && vout < vin * 0.03;
+    final useWaveformPhase = vin != null && vout != null && vout < vin * 0.03;
 
     if (measurePhase) {
       if (_meadConfigured && !useWaveformPhase) {
@@ -183,7 +182,8 @@ class Vxi11BodeScope implements BodeScope {
 
     String? error;
     if (vin == null || vout == null) {
-      error = 'Unexpected RMS response '
+      error =
+          'Unexpected RMS response '
           '(Vin="$vinRaw", Vout="$voutRaw").';
     }
 
@@ -246,8 +246,10 @@ class Vxi11BodeScope implements BodeScope {
       _meadConfigured = true;
     } catch (e) {
       _meadConfigured = false;
-      AppLogger(agentName: 'Bode', toolName: 'mead')
-          .log('MEAD setup failed: $e');
+      AppLogger(
+        agentName: 'Bode',
+        toolName: 'mead',
+      ).log('MEAD setup failed: $e');
     }
   }
 
@@ -265,8 +267,10 @@ class Vxi11BodeScope implements BodeScope {
         await _query('C1-C2:MEAD? PHA');
       }
     } catch (e) {
-      AppLogger(agentName: 'Bode', toolName: 'prime')
-          .log('Priming measurement failed: $e');
+      AppLogger(
+        agentName: 'Bode',
+        toolName: 'prime',
+      ).log('Priming measurement failed: $e');
     }
   }
 
@@ -329,8 +333,10 @@ class Vxi11BodeScope implements BodeScope {
       );
       return true;
     } catch (e) {
-      AppLogger(agentName: 'Bode', toolName: 'range')
-          .log('V/div change failed: $e');
+      AppLogger(
+        agentName: 'Bode',
+        toolName: 'range',
+      ).log('V/div change failed: $e');
       return false;
     }
   }

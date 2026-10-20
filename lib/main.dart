@@ -99,7 +99,7 @@ Future<void> _runSignalGeneratorWindow() async {
   const windowOptions = WindowOptions(
     size: Size(760, 600),
     minimumSize: Size(760, 600),
-    title: 'Signal Generator — JDS6600',
+    title: 'Signal Generator',
     center: true,
   );
   try {

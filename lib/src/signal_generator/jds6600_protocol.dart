@@ -183,8 +183,7 @@ class Jds6600Protocol {
 
   /// Synthesised SCPI identity. The device has no firmware register, so the
   /// fourth field is deliberately `N/A`.
-  static String identify(Jds6600DeviceInfo info) =>
-      'JOY-IT,${info.modelName},${info.serialNumber},N/A';
+  static String identify(Jds6600DeviceInfo info) => info.scpiIdentity;
 
   // ---------------------------------------------------------------------------
   // Value conversions

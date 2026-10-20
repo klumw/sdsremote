@@ -431,6 +431,10 @@ class _SettingsPanelState extends State<SettingsPanel> {
               value: 'jds6600',
               child: Text('JDS6600'),
             ),
+            DropdownMenuItem<String>(
+              value: 'fy6900',
+              child: Text('FY6900'),
+            ),
           ],
           onChanged: (value) {
             if (value == null) return;

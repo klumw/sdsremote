@@ -144,19 +144,81 @@ void main() {
     expect(controller.generator.ch1Output, isTrue);
   });
 
-  test('phase is global and editable from both channels', () async {
+  test('JDS6600 phase is global and editable from both channels', () async {
     controller.updatePhaseText('90');
     client.calls.clear();
     await controller.applyChanges();
 
-    expect(client.calls, equals(['setPhase:90.0']));
+    expect(client.calls, equals(['setPhase:1:90.0']));
+    expect(controller.generator.ch1.phaseDeg, equals(90));
+    expect(controller.generator.ch2.phaseDeg, equals(90));
     expect(controller.generator.phaseDeg, equals(90));
 
     controller.selectDevice(SigGenDeviceSelection.ch2);
     controller.updatePhaseText('180');
     client.calls.clear();
     await controller.applyChanges();
-    expect(client.calls, equals(['setPhase:180.0']));
+    expect(client.calls, equals(['setPhase:2:180.0']));
+    expect(controller.generator.ch1.phaseDeg, equals(180));
+    expect(controller.generator.ch2.phaseDeg, equals(180));
+  });
+
+  test('applies every field to the selected CH2', () async {
+    controller.selectDevice(SigGenDeviceSelection.ch2);
+    controller.updateWaveform(Jds6600Waveform.square);
+    controller.updateFrequencyText('2');
+    controller.updateAmplitudeText('2');
+    controller.updateOffsetText('0.5');
+    controller.updateDutyText('25');
+    controller.updatePhaseText('30');
+    client.calls.clear();
+
+    await controller.applyChanges();
+
+    expect(
+      client.calls,
+      equals([
+        'setWaveform:2:square',
+        'setFrequency:2:2000.0',
+        'setAmplitude:2:2.0',
+        'setOffset:2:0.5',
+        'setDuty:2:25.0',
+        'setPhase:2:30.0',
+      ]),
+    );
+    expect(controller.generator.ch2.waveform, Jds6600Waveform.square);
+    expect(controller.generator.ch2.dutyPercent, equals(25));
+    expect(controller.generator.ch2.phaseDeg, equals(30));
+    expect(controller.generator.ch1.frequencyHz, equals(1000));
+  });
+
+  test('FY6900 phase is applied only to the selected channel', () async {
+    controller.dispose();
+    client = FakeSigGenWindowClient(
+      fakeWindowState(family: SiggenFamily.fy6900, modelMHz: 60),
+    );
+    controller = SignalGeneratorPanelController(
+      client: client,
+      refreshInterval: const Duration(hours: 1),
+    );
+    await controller.init();
+
+    controller.updatePhaseText('45');
+    client.calls.clear();
+    await controller.applyChanges();
+
+    expect(client.calls, equals(['setPhase:1:45.0']));
+    expect(controller.generator.ch1.phaseDeg, equals(45));
+    expect(controller.generator.ch2.phaseDeg, equals(0));
+
+    controller.selectDevice(SigGenDeviceSelection.ch2);
+    controller.updatePhaseText('90');
+    client.calls.clear();
+    await controller.applyChanges();
+
+    expect(client.calls, equals(['setPhase:2:90.0']));
+    expect(controller.generator.ch1.phaseDeg, equals(45));
+    expect(controller.generator.ch2.phaseDeg, equals(90));
   });
 
   test('duty can be applied for any waveform', () async {
@@ -257,5 +319,71 @@ void main() {
 
     expect(controller.message, contains('Bode sweep'));
     expect(controller.messageIsError, isTrue);
+  });
+
+  test('FY6900 limits come from the identified 60 MHz model', () async {
+    controller.dispose();
+    client = FakeSigGenWindowClient(
+      fakeWindowState(family: SiggenFamily.fy6900, modelMHz: 60),
+    );
+    controller = SignalGeneratorPanelController(
+      client: client,
+      refreshInterval: const Duration(hours: 1),
+    );
+    await controller.init();
+
+    expect(controller.deviceInfo.family, SiggenFamily.fy6900);
+    expect(controller.deviceInfo.modelName, 'FY6900-60M');
+
+    controller.updateFrequencyUnit('MHz');
+    controller.updateFrequencyText('60');
+    expect(controller.validationError, isNull);
+    controller.updateFrequencyText('60.1');
+    expect(controller.validationError, contains('Frequency'));
+
+    controller.updateFrequencyText('25');
+    controller.updateWaveform(Jds6600Waveform.square);
+    expect(controller.validationError, isNull);
+    controller.updateFrequencyText('25.1');
+    expect(controller.validationError, contains('Frequency'));
+
+    controller.updateWaveform(Jds6600Waveform.sine);
+    controller.updateFrequencyText('15');
+    controller.updateAmplitudeText('10');
+    expect(controller.validationError, isNull);
+    controller.updateAmplitudeText('10.1');
+    expect(controller.validationError, contains('Amplitude'));
+
+    controller.updateFrequencyText('1');
+    controller.updateAmplitudeText('1');
+    controller.updateOffsetText('12');
+    expect(controller.validationError, isNull);
+    controller.updateOffsetText('12.1');
+    expect(controller.validationError, contains('Offset'));
+
+    controller.updateOffsetText('0');
+    controller.updateWaveform(Jds6600Waveform.square);
+    controller.updateDutyText('0');
+    expect(controller.validationError, contains('Duty'));
+    controller.updateDutyText('99.9');
+    expect(controller.validationError, isNull);
+  });
+
+  test('FY6900 uses a 100 MHz identified model as the sine limit', () async {
+    controller.dispose();
+    client = FakeSigGenWindowClient(
+      fakeWindowState(family: SiggenFamily.fy6900, modelMHz: 100),
+    );
+    controller = SignalGeneratorPanelController(
+      client: client,
+      refreshInterval: const Duration(hours: 1),
+    );
+    await controller.init();
+
+    controller.updateFrequencyUnit('MHz');
+    controller.updateFrequencyText('100');
+    expect(controller.validationError, isNull);
+    controller.updateFrequencyText('100.1');
+    expect(controller.validationError, contains('Frequency'));
   });
 }

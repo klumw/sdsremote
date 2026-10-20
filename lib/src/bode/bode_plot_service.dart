@@ -1,7 +1,8 @@
 /// Bode sweep orchestration.
 ///
-/// Drives the JDS6600 frequency by frequency, reads Vin/Vout/phase from the
-/// [BodeScope] and publishes progress through [ChangeNotifier].
+/// Drives the configured signal generator (JDS6600 or FY6900) frequency by
+/// frequency, reads Vin/Vout/phase from the [BodeScope] and publishes progress
+/// through [ChangeNotifier].
 library;
 
 import 'dart:async';
@@ -97,8 +98,10 @@ class BodePlotService extends ChangeNotifier {
       try {
         await scope.restore();
       } catch (e) {
-        AppLogger(agentName: 'Bode', toolName: 'restore')
-            .log('Scope restore failed: $e');
+        AppLogger(
+          agentName: 'Bode',
+          toolName: 'restore',
+        ).log('Scope restore failed: $e');
       }
       _currentFrequencyHz = null;
       _running = false;
@@ -156,8 +159,10 @@ class BodePlotService extends ChangeNotifier {
         reading = await _readStable(config, frequency, referenceVin);
       }
 
-      final belowThreshold =
-          bodeBelowThresholdNote(reading.vinRms, reading.voutRms);
+      final belowThreshold = bodeBelowThresholdNote(
+        reading.vinRms,
+        reading.voutRms,
+      );
       final suspicious = _isSuspiciousVin(reading, referenceVin, config);
       if (!suspicious && belowThreshold == null && reading.vinRms != null) {
         referenceVin = referenceVin == null
@@ -180,15 +185,16 @@ class BodePlotService extends ChangeNotifier {
         delaySeconds: reading.delaySeconds,
         phaseSource: reading.phaseSource,
         valid: valid,
-        note: reading.error ??
+        note:
+            reading.error ??
             belowThreshold ??
             (suspicious
                 ? 'Unstable measurement (Vin collapsed to '
-                    '${reading.vinRms?.toStringAsFixed(4)} V); retried'
+                      '${reading.vinRms?.toStringAsFixed(4)} V); retried'
                 : gain == null
-                    ? 'No valid gain (Vin below threshold or missing '
-                        'measurement)'
-                    : null),
+                ? 'No valid gain (Vin below threshold or missing '
+                      'measurement)'
+                : null),
       );
       _points.add(point);
       _completedPoints = index + 1;
@@ -213,8 +219,7 @@ class BodePlotService extends ChangeNotifier {
       measurePhase: config.measurePhase,
     );
     var retries = 0;
-    while (retries < 2 &&
-        _isSuspiciousVin(reading, referenceVin, config)) {
+    while (retries < 2 && _isSuspiciousVin(reading, referenceVin, config)) {
       retries++;
       AppLogger(agentName: 'Bode', toolName: 'glitch').log(
         'f=${frequency.toStringAsFixed(1)} Hz suspicious Vin='

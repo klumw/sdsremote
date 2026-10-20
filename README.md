@@ -16,7 +16,7 @@ SDS-Remote enables remote control and AI-enhanced operation of Siglent SDS1202X-
 - **Waveform Acquisition & Data Export**: Capture and display waveform data from enabled channels. Save screen captures as images and export waveform data as CSV files.
 - **Device Parameter Monitoring**: View real-time parameters such as timebase, sample rate, and voltage settings. Cursor-based measurements are supported.
 - **Data Logging**: Log key data points over a period of time. Generate PDF measurement reports containing charts and key metrics, or export all recorded measurement points as CSV files.
-- **Signal Generator & Bode Plot**: Choose **No Signal Generator** or **JDS6600** in the settings. With JDS6600 selected, a **Bode** toolbar button appears once both the oscilloscope and the generator are detected; it runs a frequency sweep and plots gain and phase.
+- **Signal Generator & Bode Plot**: Choose **No Signal Generator**, **JDS6600** or **FY6900** in the settings. With JDS6600 or FY6900 selected, a **Bode** toolbar button appears once both the oscilloscope and the generator are detected; it runs a frequency sweep and plots gain and phase. The sweep limits are taken from the detected generator model and the selected waveform.
 - **Macro Recorder**: Record, edit and play back SCPI command sequences. Supports variables, conditionals, loops, and both network and USB connections for automated test procedures.
 
 ### Waveform Data Acquisition
@@ -59,26 +59,35 @@ Log key measurement data over configurable durations ranging from 1 minute to 24
 
 ### Signal Generator Selection
 
-**Settings → Signal Generator** contains a dropdown with two entries:
+**Settings → Signal Generator** contains a dropdown with three entries:
 
 - **No Signal Generator** (default)
 - **JDS6600** (JOY-IT/Juntek JDS6600 and JDS6600-Lite)
+- **FY6900** (FeelElec FY6900; Bode plot, port detection and signal-generator
+  window)
 
-The selection is persisted as `siggen_device`. When **JDS6600** is selected,
-the app scans the serial ports, identifies the generator via the SCPI identity
-(`*IDN?`) and shows a **Bode** button once the oscilloscope is online and the
-generator is detected.
+The selection is persisted as `siggen_device`. The app scans the serial ports,
+identifies the configured generator via the SCPI identity (`*IDN?`) and shows a
+**Bode** button once the oscilloscope is online and the generator is detected.
+The JDS6600 identifies as `JOY-IT,JDS6600-…`; the FY6900 as
+`FeelElec,FY6900-…`.
 
 The **Bode Plot** panel follows the Data Logger layout and supports start/stop
 frequency, point count, logarithmic/linear spacing, amplitude, offset,
 waveform, settling time, optional phase measurement and selectable input/output
-channels (default CH1 = Vin, CH2 = Vout). It sweeps the JDS6600, measures RMS
+channels (default CH1 = Vin, CH2 = Vout). It sweeps the configured signal
+generator (JDS6600 or FY6900), measures RMS
 voltages and phase with the Siglent, computes gain in dB and phase in degrees,
 and shows two aligned plots with a shared logarithmic frequency axis. The
 configuration mask has an optional **Report Name** field; the top-bar Save
 action captures the plot and writes a PDF report with the report name, the
 plot image and the sweep configuration to `bode/reports/` (the sweep data is
 additionally written as CSV when *Save csv data* is enabled).
+
+Start/stop frequency, amplitude and offset limits are derived from the detected
+generator model and the selected waveform (for example a FY6900-30M sine sweep
+is limited to 30 MHz, a FY6900-60M to 60 MHz). The configuration form shows the
+active model limits.
 
 Signal wiring: generator CH1 → DUT input → scope CH1; DUT output → scope CH2.
 The generator outputs are switched off when a sweep finishes, fails or is
@@ -93,9 +102,12 @@ output channel's V/div is adjusted automatically when the signal is too small
 or too large for the current scale; below about −30 dB the phase is taken from
 the waveform crossings because the scope's MEAD measurement is noise-limited.
 
-The JDS6600 backend — USB-serial transport, register codec, SCPI subset and
-service — lives in `lib/src/signal_generator/`; the Bode logic lives in
-`lib/src/bode/`. A hardware check for the generator is still available:
+The signal-generator backend lives in `lib/src/signal_generator/`: the shared
+service, SCPI layer and `SiggenDriver` seam, the JDS6600 register codec, and
+the FY6900 command codec (`fy6900_protocol.dart` / `fy6900_driver.dart`). Both
+drivers offer the same SCPI command syntax (`SOURce<n>:FREQ`, `VOLT`, `PHAS`,
+`OUTP<n>:STAT`, …). The Bode logic lives in `lib/src/bode/`. A hardware check
+for the JDS6600 is still available:
 
 ```bash
 flutter build linux --debug
@@ -111,16 +123,21 @@ CH340 driver must be installed.
 
 ### Signal Generator Window (Ctrl+J)
 
-With **Signal Generator → JDS6600** selected and the generator detected, press
-**Ctrl+J** to open a separate OS window (there is no toolbar button). Pressing
-Ctrl+J again focuses the existing window. The window offers the two device
-views **JDS6600 CH1 / CH2** with waveform, frequency (Hz/kHz/MHz), amplitude
-(Vpp), DC offset, duty cycle (effective for square/pulse), global phase (CH2
-relative to CH1) and an immediate output on/off switch. Other values are
-applied explicitly with **Apply changes**; confirmed device values and pending
-edits are shown separately. Frequency and amplitude limits come from the active
-device model (JDS6600-LITE / JDS6600) and the selected waveform.
-Numeric values can be adjusted with spinner buttons next to the fields.
+With **Signal Generator → JDS6600** or **FY6900** selected and the generator
+detected, press **Ctrl+J** to open a separate OS window (there is no toolbar
+button). Pressing Ctrl+J again focuses the existing window. The window offers
+the two channel views **CH1 / CH2** with waveform, frequency (Hz/kHz/MHz),
+amplitude (Vpp), DC offset, duty cycle (effective for square/pulse on the
+JDS6600 and square/rectangle on the FY6900), phase
+(global CH2-vs-CH1 on the JDS6600, per-channel phase on the FY6900) and an
+immediate
+output on/off switch. Other values are applied explicitly with **Apply
+changes**; confirmed device values and pending edits are shown separately.
+Frequency and amplitude limits come from the model returned by the driver
+identity query (JDS6600-LITE/JDS6600 or FY6900-20M…FY6900-100M) and the
+selected waveform; offset, duty-cycle and phase ranges are derived from the
+same detected device family. Numeric values can be adjusted with spinner
+buttons next to the fields.
 
 All hardware access stays in the main window; the second window only sends
 typed commands through a bridge. Settings cannot be changed while a Bode sweep
@@ -392,9 +409,12 @@ Non-widget, domain-specific support code is grouped into subfolders under
 - `lib/src/instrument/` — instrument I/O and protocol: `dart_vxi11.dart`
   (VXI-11/USBTMC transport), `scpi_parser.dart` (SCPI response parsing),
   `measurement.dart` (PAVA measurement parsing/formatting).
-- `lib/src/signal_generator/` — JDS6600 domain layer: `models.dart`,
-  `jds6600_protocol.dart` (register codec), `jds6600_transport.dart`
-  (transport seam), `jds6600_serial_transport.dart` (libserialport backend),
+- `lib/src/signal_generator/` — signal-generator domain layer shared by both
+  families: `models.dart` (identity and limits), `siggen_driver.dart` (driver
+  seam), `jds6600_protocol.dart` (register codec), `jds6600_driver.dart`,
+  `fy6900_protocol.dart` (command codec), `fy6900_driver.dart`,
+  `jds6600_transport.dart` (transport seam), `jds6600_serial_transport.dart`
+  and `fy6900_serial_transport.dart` (libserialport backends),
   `serial_port_info.dart` (port discovery), `siggen_scpi.dart` (SCPI subset)
   and `signal_generator_service.dart` (connection, cache, queue, polling).
   The Ctrl+J window adds `siggen_window_protocol.dart` (bridge DTOs),

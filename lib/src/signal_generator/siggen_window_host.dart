@@ -7,6 +7,7 @@ library;
 
 import 'dart:async';
 
+import 'models.dart';
 import 'siggen_window_protocol.dart';
 import 'signal_generator_service.dart';
 
@@ -61,6 +62,7 @@ class SigGenWindowHost {
         mutable: _canMutate() && service.isConnected,
         port: service.port,
         modelName: info?.modelName,
+        family: info?.family ?? SiggenFamily.jds6600,
         isLite: info?.isLite,
         modelMHz: info?.modelMHz,
         ch1: SigGenChannelSnapshot.fromChannelState(service.ch1),
@@ -130,7 +132,10 @@ class SigGenWindowHost {
             _asDouble(args['value']),
           );
         case SigGenWindowMethods.setPhase:
-          await service.setPhase(_asDouble(args['value']));
+          await service.setPhase(
+            sigGenChannelFromArgs(args['channel']),
+            _asDouble(args['value']),
+          );
         case SigGenWindowMethods.setOutput:
           await service.setOutput(
             sigGenChannelFromArgs(args['channel']),

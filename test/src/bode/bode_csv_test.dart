@@ -56,12 +56,7 @@ void main() {
     final csv = buildBodeCsv(
       config: config,
       points: const [
-        BodePoint(
-          frequencyHz: 100,
-          vinRms: 1,
-          voutRms: 1,
-          gainDb: 0,
-        ),
+        BodePoint(frequencyHz: 100, vinRms: 1, voutRms: 1, gainDb: 0),
       ],
       deviceName: 'scope',
       generatorIdentity: 'gen',
@@ -69,9 +64,7 @@ void main() {
 
     expect(
       csv,
-      contains(
-        'Frequency (Hz),Vin Rms (V),Vout Rms (V),Gain (dB),Valid,Note',
-      ),
+      contains('Frequency (Hz),Vin Rms (V),Vout Rms (V),Gain (dB),Valid,Note'),
     );
     expect(csv, isNot(contains('Phase (deg)')));
   });

@@ -1,8 +1,12 @@
-/// libserialport-backed transport for the JDS6600.
+/// libserialport-backed transport for line-oriented signal generators.
 ///
-/// The device is a CH340-style USB-serial adapter speaking 115200 8N1 with
-/// ASCII, line-terminated commands. Reads run in libserialport's reader
-/// isolate; small writes stay on the calling isolate.
+/// The JDS6600 and FY6900 both use CH340-style USB-serial adapters speaking
+/// 115200 8N1 with ASCII, line-terminated commands. Reads run in
+/// libserialport's reader isolate; small writes stay on the calling isolate.
+///
+/// [keepEmptyLines] is disabled for the JDS6600 (which drops stray blank
+/// lines) and enabled for the FY6900, whose only write acknowledgement is a
+/// bare line feed.
 library;
 
 import 'dart:async';
@@ -22,10 +26,15 @@ class LibSerialPortJds6600Transport implements Jds6600Transport {
     this.portName, {
     this.baudRate = 115200,
     this.retries = 1,
-  });
+    bool keepEmptyLines = false,
+  }) : _keepEmptyLines = keepEmptyLines;
 
   final String portName;
   final int baudRate;
+
+  /// Whether a bare line feed is delivered as an empty line. The FY6900 uses
+  /// that as its write acknowledgement.
+  final bool _keepEmptyLines;
 
   /// Number of additional attempts after a timeout. JDS6600 commands are
   /// idempotent register reads/writes, so a retry is safe.
@@ -92,7 +101,7 @@ class LibSerialPortJds6600Transport implements Jds6600Transport {
     while (newline >= 0) {
       final line = _rxBuffer.substring(0, newline).replaceAll('\r', '').trim();
       _rxBuffer = _rxBuffer.substring(newline + 1);
-      if (line.isNotEmpty) {
+      if (line.isNotEmpty || _keepEmptyLines) {
         _lines.add(line);
         _wakeWaiter();
       }
@@ -291,7 +300,7 @@ class LibSerialPortJds6600Transport implements Jds6600Transport {
     }
     if (error?.errorCode == 16) {
       return '$portName is busy. Close other serial-port programs '
-          '(JDS software, PulseView, another app) and retry.';
+          '(generator software, PulseView, another app) and retry.';
     }
     return 'Could not open $portName: ${error?.message ?? 'unknown error'}';
   }

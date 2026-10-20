@@ -1,9 +1,9 @@
-/// Automatic serial-port discovery for the JDS6600.
+/// Automatic serial-port discovery for supported signal generators.
 ///
 /// The detector tries the last known port first, then all serial ports
 /// (CH340 adapters first). It confirms a candidate by connecting and reading
-/// the SCPI identity (`*IDN?`), which the JDS6600 driver synthesises from
-/// registers 0/1.
+/// the SCPI identity (`*IDN?`), checking it against [identityToken]
+/// (`JDS6600` or `FY6900`).
 library;
 
 import 'dart:async';
@@ -22,6 +22,7 @@ class SignalGeneratorDetector extends ChangeNotifier {
     SerialPortLister? listPorts,
     this.interval = const Duration(seconds: 5),
     String? initialPort,
+    this.identityToken = 'JDS6600',
     this.onPortDetected,
   }) : _listPorts = listPorts ?? (() async => listSerialPorts()),
        _lastPort = initialPort;
@@ -29,6 +30,10 @@ class SignalGeneratorDetector extends ChangeNotifier {
   final SignalGeneratorService service;
   final SerialPortLister _listPorts;
   final Duration interval;
+
+  /// Identity fragment expected in `*IDN?` (for example `JDS6600`).
+  final String identityToken;
+
   final ValueChanged<String>? onPortDetected;
 
   String? _lastPort;
@@ -96,7 +101,7 @@ class SignalGeneratorDetector extends ChangeNotifier {
       try {
         await service.refreshDeviceInfo();
         final identity = await service.executeScpi('*IDN?');
-        if (identity != null && identity.contains('JDS6600')) {
+        if (identity != null && _matchesIdentity(identity)) {
           _lastPort = service.port ?? _lastPort;
           _setDetected(true, service.port, identity);
           return;
@@ -133,7 +138,7 @@ class SignalGeneratorDetector extends ChangeNotifier {
         await service.connect(port);
         await service.refreshDeviceInfo();
         final identity = await service.executeScpi('*IDN?');
-        if (identity != null && identity.contains('JDS6600')) {
+        if (identity != null && _matchesIdentity(identity)) {
           _lastPort = port;
           onPortDetected?.call(port);
           _setDetected(true, port, identity);
@@ -149,6 +154,9 @@ class SignalGeneratorDetector extends ChangeNotifier {
 
     _setDetected(false, null, null);
   }
+
+  bool _matchesIdentity(String identity) =>
+      identity.toUpperCase().contains(identityToken.toUpperCase());
 
   void _setDetected(bool detected, String? port, String? identity) {
     final changed =

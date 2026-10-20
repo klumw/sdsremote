@@ -4,6 +4,7 @@ library;
 import 'dart:math' as math;
 
 import '../data_logger/data_logger_models.dart' show computeGainDb;
+import '../signal_generator/fy6900_protocol.dart';
 import '../signal_generator/jds6600_protocol.dart';
 import '../signal_generator/models.dart';
 import 'bode_models.dart';
@@ -107,12 +108,12 @@ String? validateBodeConfig(BodeConfig config, Jds6600DeviceInfo? info) {
   if (!config.amplitudeVpp.isFinite || config.amplitudeVpp < 0) {
     return 'Amplitude must not be negative.';
   }
+  final limits = info?.limits ?? SiggenLimits.jds6600;
   if (!config.offsetV.isFinite ||
-      config.offsetV < Jds6600DeviceInfo.minOffsetV ||
-      config.offsetV > Jds6600DeviceInfo.maxOffsetV) {
+      config.offsetV < limits.minOffsetV ||
+      config.offsetV > limits.maxOffsetV) {
     return 'Offset must be between '
-        '${Jds6600DeviceInfo.minOffsetV} and '
-        '${Jds6600DeviceInfo.maxOffsetV} V.';
+        '${limits.minOffsetV} and ${limits.maxOffsetV} V.';
   }
   if (config.settling.isNegative) {
     return 'Settling time must not be negative.';
@@ -134,14 +135,25 @@ String? validateBodeConfig(BodeConfig config, Jds6600DeviceInfo? info) {
   }
 
   if (info != null) {
+    if (start < info.limits.minFrequencyHz) {
+      return 'Start frequency (${formatFrequencyHz(start)}) is below the '
+          '${info.modelName} minimum of '
+          '${info.limits.minFrequencyHz.toStringAsFixed(6)} Hz.';
+    }
     final maxFrequency = info.maxFrequencyHz(config.waveform);
     if (stop > maxFrequency) {
       return 'Stop frequency (${formatFrequencyHz(stop)}) exceeds the '
           '${config.waveform.displayName} limit of '
-          '${formatFrequencyHz(maxFrequency)}.';
+          '${formatFrequencyHz(maxFrequency)} for ${info.modelName}.';
     }
     try {
-      Jds6600Protocol.validateAmplitude(info, stop, config.amplitudeVpp);
+      if (info.family == SiggenFamily.fy6900) {
+        Fy6900Protocol.validateAmplitude(info, stop, config.amplitudeVpp);
+        Fy6900Protocol.validateOffsetAtFrequency(info, stop, config.offsetV);
+      } else {
+        Jds6600Protocol.validateAmplitude(info, stop, config.amplitudeVpp);
+        Jds6600Protocol.validateOffset(config.offsetV);
+      }
     } on Jds6600RangeException catch (e) {
       return e.message;
     }
@@ -154,10 +166,7 @@ String? validateBodeConfig(BodeConfig config, Jds6600DeviceInfo? info) {
 Duration effectiveSettling(BodeConfig config, double frequencyHz) {
   final configured = config.settling.inMilliseconds / 1000.0;
   final cycles = frequencyHz > 0 ? 3.0 / frequencyHz : 0.0;
-  final seconds = math.min(
-    5.0,
-    math.max(configured, math.max(cycles, 0.2)),
-  );
+  final seconds = math.min(5.0, math.max(configured, math.max(cycles, 0.2)));
   return Duration(milliseconds: (seconds * 1000).round());
 }
 

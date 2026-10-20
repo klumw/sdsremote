@@ -2,8 +2,9 @@
 /// readback and polling.
 ///
 /// The service is deliberately independent of Flutter widgets and of the
-/// Siglent instrument path. It owns one serial transport at a time and
-/// serialises every transaction through a single operation queue.
+/// Siglent instrument path. It owns one [SiggenDriver] at a time and
+/// serialises every transaction through a single operation queue. All
+/// device-specific framing and value encoding lives behind the driver seam.
 library;
 
 import 'dart:async';
@@ -12,27 +13,35 @@ import 'dart:collection';
 import 'package:flutter/foundation.dart';
 
 import '../core/logger.dart';
-import 'jds6600_protocol.dart';
+import 'jds6600_driver.dart';
 import 'jds6600_transport.dart';
 import 'models.dart';
+import 'siggen_driver.dart';
 import 'siggen_scpi.dart';
 
 typedef Jds6600TransportFactory = Jds6600Transport Function(String port);
 
 class SignalGeneratorService extends ChangeNotifier
     implements SiggenScpiTarget {
+  /// Builds a service around a concrete generator driver.
   SignalGeneratorService({
-    required Jds6600TransportFactory transportFactory,
+    Jds6600TransportFactory? transportFactory,
+    SiggenDriverFactory? driverFactory,
     this.pollInterval = const Duration(seconds: 1),
-  }) : _transportFactory = transportFactory {
+  }) : assert(
+         (transportFactory == null) != (driverFactory == null),
+         'Provide exactly one of transportFactory or driverFactory',
+       ),
+       _driverFactory =
+           driverFactory ?? ((port) => Jds6600Driver(transportFactory!(port))) {
     _scpi = SiggenScpiInterpreter(this);
   }
 
-  final Jds6600TransportFactory _transportFactory;
+  final SiggenDriverFactory _driverFactory;
   final Duration pollInterval;
   late final SiggenScpiInterpreter _scpi;
 
-  Jds6600Transport? _transport;
+  SiggenDriver? _driver;
   String? _port;
   Jds6600DeviceInfo? _deviceInfo;
   Jds6600ChannelState _ch1 = const Jds6600ChannelState();
@@ -56,7 +65,7 @@ class SignalGeneratorService extends ChangeNotifier
   // Read-only state
   // ---------------------------------------------------------------------------
 
-  bool get isConnected => _transport?.isOpen ?? false;
+  bool get isConnected => _driver?.isOpen ?? false;
 
   String? get port => _port;
 
@@ -71,6 +80,8 @@ class SignalGeneratorService extends ChangeNotifier
 
   Jds6600OutputState get outputs => _outputs;
 
+  /// Aggregate phase (CH2). The JDS6600 reports its global CH2-vs-CH1 value
+  /// here; use [channel] for the per-channel FY6900 phase.
   double get phaseDeg => _phaseDeg;
 
   bool get actionActive => _actionActive;
@@ -93,10 +104,10 @@ class SignalGeneratorService extends ChangeNotifier
     if (isConnected && _port == portName) return;
     await _disconnectInternal();
 
-    final transport = _transportFactory(portName);
+    final driver = _driverFactory(portName);
     try {
-      await transport.open();
-      _transport = transport;
+      await driver.open();
+      _driver = driver;
       _port = portName;
       await _readDeviceInfoInternal();
       await _readStateInternal();
@@ -105,10 +116,10 @@ class SignalGeneratorService extends ChangeNotifier
       _startPollingIfNeeded();
       _notify();
     } catch (e) {
-      _transport = null;
+      _driver = null;
       _port = null;
       try {
-        await transport.close();
+        await driver.close();
       } catch (_) {}
       rethrow;
     }
@@ -120,16 +131,16 @@ class SignalGeneratorService extends ChangeNotifier
 
   Future<void> _disconnectInternal() async {
     _stopPolling();
-    final transport = _transport;
-    _transport = null;
+    final driver = _driver;
+    _driver = null;
     _port = null;
     _deviceInfo = null;
     _actionActive = false;
     _lastError = null;
     _notify();
-    if (transport != null) {
+    if (driver != null) {
       try {
-        await transport.close();
+        await driver.close();
       } catch (e) {
         AppLogger(
           agentName: 'SigGen',
@@ -152,16 +163,16 @@ class SignalGeneratorService extends ChangeNotifier
       }
     }
 
-    final transport = _transportFactory(portName);
+    final driver = _driverFactory(portName);
     try {
-      await transport.open();
-      final info = await _readDeviceInfoFrom(transport);
+      await driver.open();
+      final info = await driver.readDeviceInfo();
       return 'SUCCESS: ${info.modelName}, serial ${info.serialNumber}';
     } catch (e) {
       return 'FAILURE: $e';
     } finally {
       try {
-        await transport.close();
+        await driver.close();
       } catch (_) {}
     }
   }
@@ -173,207 +184,115 @@ class SignalGeneratorService extends ChangeNotifier
   @override
   Future<void> setWaveform(int channel, Jds6600Waveform waveform) =>
       _guard(() async {
-        await _enqueue(() => _setWaveformInternal(channel, waveform));
+        await _enqueue(() async {
+          await _requireDriver().setWaveform(channel, waveform);
+          _updateChannel(
+            channel,
+            channel == 1
+                ? _ch1.copyWith(waveform: waveform)
+                : _ch2.copyWith(waveform: waveform),
+          );
+        });
       });
-
-  Future<void> _setWaveformInternal(
-    int channel,
-    Jds6600Waveform waveform,
-  ) async {
-    if (waveform == Jds6600Waveform.arbitrary) {
-      throw const Jds6600RangeException(
-        'Arbitrary waveform selection is not supported in stage 1',
-      );
-    }
-    await _writeRegister(
-      Jds6600Protocol.waveformRegister(channel),
-      Jds6600Protocol.encodeWaveform(waveform),
-    );
-    _updateChannel(
-      channel,
-      channel == 1
-          ? _ch1.copyWith(waveform: waveform)
-          : _ch2.copyWith(waveform: waveform),
-    );
-  }
 
   @override
   Future<void> setFrequency(int channel, double hz) => _guard(() async {
-    await _enqueue(() => _setFrequencyInternal(channel, hz));
+    await _enqueue(() async {
+      await _requireDriver().setFrequency(channel, hz);
+      final state = channel == 1 ? _ch1 : _ch2;
+      _updateChannel(channel, state.copyWith(frequencyHz: hz));
+    });
   });
-
-  Future<void> _setFrequencyInternal(int channel, double hz) async {
-    final info = _requireInfo();
-    final state = channel == 1 ? _ch1 : _ch2;
-    if (!hz.isFinite || hz <= 0) {
-      throw Jds6600RangeException(
-        'Refusing to set a non-positive frequency: $hz Hz',
-      );
-    }
-    Jds6600Protocol.validateFrequency(info, state.waveform, hz);
-
-    // Verify the readback. A partial serial write can leave the device at
-    // 0 Hz; rewriting once recovers it instead of continuing a sweep at 0 Hz.
-    final command = Jds6600Protocol.encodeFrequency(hz);
-    late double readback;
-    for (var attempt = 1; attempt <= 2; attempt++) {
-      await _writeRegister(Jds6600Protocol.frequencyRegister(channel), command);
-      final values = await _readRegisterValues(
-        Jds6600Protocol.frequencyRegister(channel),
-      );
-      readback = Jds6600Protocol.decodeFrequency(values);
-      if ((readback - hz).abs() <= 0.05) {
-        _updateChannel(channel, state.copyWith(frequencyHz: hz));
-        return;
-      }
-      AppLogger(agentName: 'SigGen', toolName: 'setFrequency').log(
-        'Frequency readback mismatch on CH$channel: requested $hz Hz, '
-        'got $readback Hz (attempt $attempt/2)',
-      );
-    }
-    throw Jds6600ProtocolException(
-      'Frequency write failed on CH$channel: requested $hz Hz, '
-      'readback $readback Hz',
-    );
-  }
 
   @override
   Future<void> setAmplitude(int channel, double vpp) => _guard(() async {
-    await _enqueue(() => _setAmplitudeInternal(channel, vpp));
+    await _enqueue(() async {
+      await _requireDriver().setAmplitude(channel, vpp);
+      final state = channel == 1 ? _ch1 : _ch2;
+      _updateChannel(channel, state.copyWith(amplitudeVpp: vpp));
+    });
   });
-
-  Future<void> _setAmplitudeInternal(int channel, double vpp) async {
-    final info = _requireInfo();
-    final state = channel == 1 ? _ch1 : _ch2;
-    Jds6600Protocol.validateAmplitude(info, state.frequencyHz, vpp);
-    await _writeRegister(
-      Jds6600Protocol.amplitudeRegister(channel),
-      Jds6600Protocol.encodeAmplitude(vpp),
-    );
-    _updateChannel(channel, state.copyWith(amplitudeVpp: vpp));
-  }
 
   @override
   Future<void> setOffset(int channel, double volts) => _guard(() async {
-    await _enqueue(() => _setOffsetInternal(channel, volts));
+    await _enqueue(() async {
+      await _requireDriver().setOffset(channel, volts);
+      final state = channel == 1 ? _ch1 : _ch2;
+      _updateChannel(channel, state.copyWith(offsetV: volts));
+    });
   });
-
-  Future<void> _setOffsetInternal(int channel, double volts) async {
-    Jds6600Protocol.validateOffset(volts);
-    final state = channel == 1 ? _ch1 : _ch2;
-    await _writeRegister(
-      Jds6600Protocol.offsetRegister(channel),
-      Jds6600Protocol.encodeOffset(volts),
-    );
-    _updateChannel(channel, state.copyWith(offsetV: volts));
-  }
 
   @override
   Future<void> setDuty(int channel, double percent) => _guard(() async {
-    await _enqueue(() => _setDutyInternal(channel, percent));
+    await _enqueue(() async {
+      await _requireDriver().setDuty(channel, percent);
+      final state = channel == 1 ? _ch1 : _ch2;
+      _updateChannel(channel, state.copyWith(dutyPercent: percent));
+    });
   });
-
-  Future<void> _setDutyInternal(int channel, double percent) async {
-    Jds6600Protocol.validateDuty(percent);
-    final state = channel == 1 ? _ch1 : _ch2;
-    await _writeRegister(
-      Jds6600Protocol.dutyRegister(channel),
-      Jds6600Protocol.encodeDuty(percent),
-    );
-    _updateChannel(channel, state.copyWith(dutyPercent: percent));
-  }
 
   @override
-  Future<void> setPhase(double degrees) => _guard(() async {
-    await _enqueue(() => _setPhaseInternal(degrees));
+  Future<void> setPhase(int channel, double degrees) => _guard(() async {
+    await _enqueue(() async {
+      await _requireDriver().setPhase(channel, degrees);
+      // The JDS6600 has one global CH2-vs-CH1 register; the FY6900 has
+      // independent per-channel phase.
+      if (_deviceInfo?.family == SiggenFamily.jds6600) {
+        _ch1 = _ch1.copyWith(phaseDeg: degrees);
+        _ch2 = _ch2.copyWith(phaseDeg: degrees);
+      } else if (channel == 1) {
+        _ch1 = _ch1.copyWith(phaseDeg: degrees);
+      } else {
+        _ch2 = _ch2.copyWith(phaseDeg: degrees);
+      }
+      _phaseDeg = _ch2.phaseDeg;
+      _lastRefresh = DateTime.now();
+      _notify();
+    });
   });
-
-  Future<void> _setPhaseInternal(double degrees) async {
-    Jds6600Protocol.validatePhase(degrees);
-    await _writeRegister(
-      Jds6600Protocol.registerPhase,
-      Jds6600Protocol.encodePhase(degrees),
-    );
-    _phaseDeg = degrees;
-    _notify();
-  }
 
   @override
   Future<void> setOutput(int channel, bool enabled) => _guard(() async {
-    await _enqueue(() => _setOutputInternal(channel, enabled));
+    await _enqueue(() async {
+      await _requireDriver().setOutput(channel, enabled);
+      _outputs = channel == 1
+          ? _outputs.copyWith(ch1: enabled)
+          : _outputs.copyWith(ch2: enabled);
+      _notify();
+    });
   });
-
-  Future<void> _setOutputInternal(int channel, bool enabled) async {
-    // Read-modify-write: register 20 always sets both channels.
-    final values = await _readRegisterValues(Jds6600Protocol.registerOutputs);
-    final current = Jds6600Protocol.decodeOutputs(values);
-    final next = channel == 1
-        ? current.copyWith(ch1: enabled)
-        : current.copyWith(ch2: enabled);
-    await _writeRegister(
-      Jds6600Protocol.registerOutputs,
-      Jds6600Protocol.encodeOutputs(next.ch1, next.ch2),
-    );
-    _outputs = next;
-    _notify();
-  }
 
   // ---------------------------------------------------------------------------
   // Typed readers (used by the SCPI layer)
   // ---------------------------------------------------------------------------
 
   @override
-  Future<Jds6600Waveform> readWaveform(int channel) => _enqueue(() async {
-    final values = await _readRegisterValues(
-      Jds6600Protocol.waveformRegister(channel),
-    );
-    return Jds6600Protocol.decodeWaveform(values);
-  });
+  Future<Jds6600Waveform> readWaveform(int channel) =>
+      _enqueue(() => _requireDriver().readWaveform(channel));
 
   @override
-  Future<double> readFrequency(int channel) => _enqueue(() async {
-    final values = await _readRegisterValues(
-      Jds6600Protocol.frequencyRegister(channel),
-    );
-    return Jds6600Protocol.decodeFrequency(values);
-  });
+  Future<double> readFrequency(int channel) =>
+      _enqueue(() => _requireDriver().readFrequency(channel));
 
   @override
-  Future<double> readAmplitude(int channel) => _enqueue(() async {
-    final values = await _readRegisterValues(
-      Jds6600Protocol.amplitudeRegister(channel),
-    );
-    return Jds6600Protocol.decodeAmplitude(values);
-  });
+  Future<double> readAmplitude(int channel) =>
+      _enqueue(() => _requireDriver().readAmplitude(channel));
 
   @override
-  Future<double> readOffset(int channel) => _enqueue(() async {
-    final values = await _readRegisterValues(
-      Jds6600Protocol.offsetRegister(channel),
-    );
-    return Jds6600Protocol.decodeOffset(values);
-  });
+  Future<double> readOffset(int channel) =>
+      _enqueue(() => _requireDriver().readOffset(channel));
 
   @override
-  Future<double> readDuty(int channel) => _enqueue(() async {
-    final values = await _readRegisterValues(
-      Jds6600Protocol.dutyRegister(channel),
-    );
-    return Jds6600Protocol.decodeDuty(values);
-  });
+  Future<double> readDuty(int channel) =>
+      _enqueue(() => _requireDriver().readDuty(channel));
 
   @override
-  Future<double> readPhase() => _enqueue(() async {
-    final values = await _readRegisterValues(Jds6600Protocol.registerPhase);
-    return Jds6600Protocol.decodePhase(values);
-  });
+  Future<double> readPhase(int channel) =>
+      _enqueue(() => _requireDriver().readPhase(channel));
 
   @override
-  Future<bool> readOutput(int channel) => _enqueue(() async {
-    final values = await _readRegisterValues(Jds6600Protocol.registerOutputs);
-    final outputs = Jds6600Protocol.decodeOutputs(values);
-    return channel == 1 ? outputs.ch1 : outputs.ch2;
-  });
+  Future<bool> readOutput(int channel) =>
+      _enqueue(() => _requireDriver().readOutput(channel));
 
   // ---------------------------------------------------------------------------
   // Readback / reset
@@ -383,126 +302,31 @@ class SignalGeneratorService extends ChangeNotifier
   Future<void> refreshDeviceInfo() => _enqueue(_readDeviceInfoInternal);
 
   Future<void> _readDeviceInfoInternal() async {
-    final transport = _requireTransport();
-    final info = await _readDeviceInfoFrom(transport);
+    final info = await _requireDriver().readDeviceInfo();
     _deviceInfo = info;
     _notify();
-  }
-
-  Future<Jds6600DeviceInfo> _readDeviceInfoFrom(
-    Jds6600Transport transport,
-  ) async {
-    final command = Jds6600Protocol.readCommand(0, count: 2);
-    try {
-      final lines = await transport.transactMany(
-        command,
-        count: 2,
-        accept: (line) => line.startsWith(':r'),
-      );
-      final values = Jds6600Protocol.parseRegisterSequence(0, lines);
-      return Jds6600DeviceInfo(
-        modelMHz: values[0].first,
-        serialNumber: values[1].first,
-      );
-    } on Jds6600ProtocolException catch (_) {
-      // Some firmware variants reject multi-register reads; fall back.
-      final modelLine = await transport.transact(
-        Jds6600Protocol.readCommand(0),
-        accept: (line) => line.startsWith(':r'),
-      );
-      final serialLine = await transport.transact(
-        Jds6600Protocol.readCommand(1),
-        accept: (line) => line.startsWith(':r'),
-      );
-      return Jds6600DeviceInfo(
-        modelMHz: Jds6600Protocol.parseSingleValue(0, modelLine),
-        serialNumber: Jds6600Protocol.parseSingleValue(1, serialLine),
-      );
-    } on Jds6600TimeoutException catch (_) {
-      // A multi-register read may time out on clones that only support
-      // single-register reads; fall back as well.
-      final modelLine = await transport.transact(
-        Jds6600Protocol.readCommand(0),
-        accept: (line) => line.startsWith(':r'),
-      );
-      final serialLine = await transport.transact(
-        Jds6600Protocol.readCommand(1),
-        accept: (line) => line.startsWith(':r'),
-      );
-      return Jds6600DeviceInfo(
-        modelMHz: Jds6600Protocol.parseSingleValue(0, modelLine),
-        serialNumber: Jds6600Protocol.parseSingleValue(1, serialLine),
-      );
-    }
   }
 
   Future<void> refreshAll() => _enqueue(_readStateInternal);
 
   Future<void> _readStateInternal() async {
-    final transport = _requireTransport();
-    List<List<int>> values;
-    try {
-      final command = Jds6600Protocol.readCommand(20, count: 13);
-      final lines = await transport.transactMany(
-        command,
-        count: 13,
-        accept: (line) => line.startsWith(':r'),
-      );
-      values = Jds6600Protocol.parseRegisterSequence(20, lines);
-    } catch (e) {
-      AppLogger(
-        agentName: 'SigGen',
-        toolName: 'readState',
-      ).log('Multi-register read failed, falling back: $e');
-      values = await _readStateIndividually(transport);
-    }
-    _applyRegisterValues(values);
+    final snapshot = await _requireDriver().readState();
+    _applySnapshot(snapshot);
   }
 
-  Future<List<List<int>>> _readStateIndividually(
-    Jds6600Transport transport,
-  ) async {
-    final values = <List<int>>[];
-    for (var register = 20; register <= 32; register++) {
-      final line = await transport.transact(
-        Jds6600Protocol.readCommand(register),
-        accept: (response) => response.startsWith(':r'),
-      );
-      values.add(Jds6600Protocol.parseRegisterResponse(register, line));
-    }
-    return values;
-  }
-
-  void _applyRegisterValues(List<List<int>> values) {
-    if (values.length < 13) {
-      throw Jds6600ProtocolException(
-        'Expected 13 register lines, got ${values.length}',
-      );
-    }
-    _outputs = Jds6600Protocol.decodeOutputs(values[0]);
-    _ch1 = Jds6600ChannelState(
-      waveform: Jds6600Protocol.decodeWaveform(values[1]),
-      frequencyHz: Jds6600Protocol.decodeFrequency(values[3]),
-      amplitudeVpp: Jds6600Protocol.decodeAmplitude(values[5]),
-      offsetV: Jds6600Protocol.decodeOffset(values[7]),
-      dutyPercent: Jds6600Protocol.decodeDuty(values[9]),
-    );
-    _ch2 = Jds6600ChannelState(
-      waveform: Jds6600Protocol.decodeWaveform(values[2]),
-      frequencyHz: Jds6600Protocol.decodeFrequency(values[4]),
-      amplitudeVpp: Jds6600Protocol.decodeAmplitude(values[6]),
-      offsetV: Jds6600Protocol.decodeOffset(values[8]),
-      dutyPercent: Jds6600Protocol.decodeDuty(values[10]),
-    );
-    _phaseDeg = Jds6600Protocol.decodePhase(values[11]);
-    _actionActive = values[12].any((value) => value != 0);
+  void _applySnapshot(SiggenStateSnapshot snapshot) {
+    _outputs = snapshot.outputs;
+    _ch1 = snapshot.ch1;
+    _ch2 = snapshot.ch2;
+    _phaseDeg = snapshot.phaseDeg;
+    _actionActive = snapshot.actionActive;
     _lastRefresh = DateTime.now();
     _notify();
   }
 
   Future<void> stopActions() => _guard(() async {
     await _enqueue(() async {
-      await _writeRegister(Jds6600Protocol.registerAction, '0,0,0,0');
+      await _requireDriver().stopActions();
       _actionActive = false;
       _notify();
     });
@@ -514,38 +338,7 @@ class SignalGeneratorService extends ChangeNotifier
   });
 
   Future<void> _resetSafeStateInternal() async {
-    _requireTransport();
-    await _writeRegister(Jds6600Protocol.registerAction, '0,0,0,0');
-    await _writeRegister(
-      Jds6600Protocol.registerOutputs,
-      Jds6600Protocol.encodeOutputs(false, false),
-    );
-    for (final channel in const [1, 2]) {
-      await _writeRegister(
-        Jds6600Protocol.waveformRegister(channel),
-        Jds6600Protocol.encodeWaveform(Jds6600Waveform.sine),
-      );
-      await _writeRegister(
-        Jds6600Protocol.frequencyRegister(channel),
-        Jds6600Protocol.encodeFrequency(1000),
-      );
-      await _writeRegister(
-        Jds6600Protocol.amplitudeRegister(channel),
-        Jds6600Protocol.encodeAmplitude(1),
-      );
-      await _writeRegister(
-        Jds6600Protocol.offsetRegister(channel),
-        Jds6600Protocol.encodeOffset(0),
-      );
-      await _writeRegister(
-        Jds6600Protocol.dutyRegister(channel),
-        Jds6600Protocol.encodeDuty(50),
-      );
-    }
-    await _writeRegister(
-      Jds6600Protocol.registerPhase,
-      Jds6600Protocol.encodePhase(0),
-    );
+    await _requireDriver().resetSafeState();
 
     _ch1 = const Jds6600ChannelState();
     _ch2 = const Jds6600ChannelState();
@@ -622,8 +415,8 @@ class SignalGeneratorService extends ChangeNotifier
         ).log('Poll failed ($_pollFailures): $e');
         // A closed/unusable transport means the device is gone; do not wait
         // for further timeouts before reporting the disconnection.
-        final transportGone = e is Jds6600DisconnectedException;
-        if (_pollFailures >= 3 || transportGone) {
+        final driverGone = e is Jds6600DisconnectedException;
+        if (_pollFailures >= 3 || driverGone) {
           await _guard(() async {
             await _enqueue(_disconnectInternal);
           });
@@ -643,40 +436,14 @@ class SignalGeneratorService extends ChangeNotifier
   // Internal helpers
   // ---------------------------------------------------------------------------
 
-  Jds6600Transport _requireTransport() {
-    final transport = _transport;
-    if (transport == null || !transport.isOpen) {
+  SiggenDriver _requireDriver() {
+    final driver = _driver;
+    if (driver == null || !driver.isOpen) {
       throw const Jds6600DisconnectedException(
         'Signal generator is not connected',
       );
     }
-    return transport;
-  }
-
-  Jds6600DeviceInfo _requireInfo() {
-    final info = _deviceInfo;
-    if (info == null) {
-      throw const Jds6600ProtocolException(
-        'Signal generator has not been identified',
-      );
-    }
-    return info;
-  }
-
-  Future<List<int>> _readRegisterValues(int register) async {
-    final transport = _requireTransport();
-    final line = await transport.transact(
-      Jds6600Protocol.readCommand(register),
-      accept: (response) => response.startsWith(':r'),
-    );
-    return Jds6600Protocol.parseRegisterResponse(register, line);
-  }
-
-  Future<void> _writeRegister(int register, String value) async {
-    final transport = _requireTransport();
-    final command = Jds6600Protocol.writeCommand(register, value);
-    final response = await transport.transact(command);
-    Jds6600Protocol.ensureAck(response, command);
+    return driver;
   }
 
   void _updateChannel(int channel, Jds6600ChannelState state) {
@@ -744,12 +511,12 @@ class SignalGeneratorService extends ChangeNotifier
     if (_disposed) return;
     _disposed = true;
     _stopPolling();
-    final transport = _transport;
-    _transport = null;
+    final driver = _driver;
+    _driver = null;
     _port = null;
-    if (transport != null) {
+    if (driver != null) {
       try {
-        await transport.close().timeout(const Duration(milliseconds: 500));
+        await driver.close().timeout(const Duration(milliseconds: 500));
       } catch (_) {}
     }
   }
@@ -758,10 +525,10 @@ class SignalGeneratorService extends ChangeNotifier
   void dispose() {
     _disposed = true;
     _stopPolling();
-    final transport = _transport;
-    _transport = null;
-    if (transport != null) {
-      unawaited(transport.close());
+    final driver = _driver;
+    _driver = null;
+    if (driver != null) {
+      unawaited(driver.close());
     }
     super.dispose();
   }

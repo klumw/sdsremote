@@ -350,10 +350,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (showConfig)
-            _buildConfigForm()
-          else
-            _buildRunningState(),
+          if (showConfig) _buildConfigForm() else _buildRunningState(),
           if (_message != null) ...[
             const SizedBox(height: 10),
             Container(
@@ -404,6 +401,28 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
           ],
         ],
       ),
+    );
+  }
+
+  /// Shows the limits of the connected generator model for the current
+  /// waveform. The same limits are enforced by [validateBodeConfig].
+  Widget _buildModelLimits() {
+    final info = widget.signalGenerator.deviceInfo;
+    if (info == null) {
+      return const Text(
+        'Connect the signal generator to load the model limits.',
+        style: TextStyle(color: Colors.white38, fontSize: 11),
+      );
+    }
+    final maxFrequency = info.maxFrequencyHz(_draft.waveform);
+    final maxAmplitude = info.maxAmplitudeVpp(_draft.stopFrequencyHz);
+    final maxOffset = info.maxOffsetVAt(_draft.stopFrequencyHz);
+    return Text(
+      'Model ${info.modelName}: ${_draft.waveform.displayName} up to '
+      '${formatFrequencyHz(maxFrequency)} · amplitude up to '
+      '${_trim(maxAmplitude)} Vpp · offset ±${_trim(maxOffset)} V',
+      key: const Key('bode-model-limits'),
+      style: const TextStyle(color: Colors.white54, fontSize: 11),
     );
   }
 
@@ -568,6 +587,8 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
               ),
             ],
           ),
+          const SizedBox(height: 6),
+          _buildModelLimits(),
           const SizedBox(height: 8),
           Row(
             children: [

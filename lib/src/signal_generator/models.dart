@@ -1,4 +1,5 @@
-/// Domain models for the JOY-IT / Juntek JDS6600 signal generator.
+/// Domain models shared by the supported signal generators
+/// (JOY-IT / Juntek JDS6600 and FeelElec FY6900).
 ///
 /// This layer is deliberately free of Flutter and transport imports so it can
 /// be unit-tested without a device.
@@ -79,23 +80,67 @@ enum Jds6600Waveform {
   }
 }
 
-/// Device identity and model limits.
-class Jds6600DeviceInfo {
-  const Jds6600DeviceInfo({required this.modelMHz, required this.serialNumber});
+/// Device family used to pick model limits and identity formatting.
+enum SiggenFamily { jds6600, fy6900 }
 
-  /// MHz class reported by register 0 (15 for the Lite, 60 for the standard).
+/// Device identity and model limits.
+///
+/// The class predates multi-device support and keeps its name so the existing
+/// Bode and signal-generator UI keep compiling; [family] decides which limit
+/// table and `*IDN?` identity apply.
+class Jds6600DeviceInfo {
+  const Jds6600DeviceInfo({
+    required this.modelMHz,
+    required this.serialNumber,
+    this.family = SiggenFamily.jds6600,
+    this.modelNameOverride,
+  });
+
+  /// MHz class reported by register 0 (JDS6600) or the `UMO` reply (FY6900).
   final int modelMHz;
 
-  /// Serial number reported by register 1.
+  /// Serial number reported by register 1 / the `UID` reply.
   final int serialNumber;
 
-  bool get isLite => modelMHz <= 15;
+  final SiggenFamily family;
 
-  String get modelName => isLite ? 'JDS6600-LITE' : 'JDS6600';
+  /// Exact model string reported by the device, when available.
+  final String? modelNameOverride;
+
+  bool get isLite => family == SiggenFamily.jds6600 && modelMHz <= 15;
+
+  String get modelName {
+    final override = modelNameOverride;
+    if (override != null && override.isNotEmpty) return override;
+    if (family == SiggenFamily.fy6900) {
+      return modelMHz > 0 ? 'FY6900-${modelMHz}M' : 'FY6900';
+    }
+    return isLite ? 'JDS6600-LITE' : 'JDS6600';
+  }
+
+  /// SCPI identity returned by `*IDN?`.
+  String get scpiIdentity {
+    final manufacturer = family == SiggenFamily.fy6900 ? 'FeelElec' : 'JOY-IT';
+    return '$manufacturer,$modelName,$serialNumber,N/A';
+  }
 
   /// Maximum frequency for a waveform, derived from the documented model
   /// limits. For unknown models the conservative Lite limits are used.
   double maxFrequencyHz(Jds6600Waveform waveform) {
+    if (family == SiggenFamily.fy6900) {
+      switch (waveform.family) {
+        case Jds6600WaveformFamily.sine:
+          return modelMHz > 0 ? modelMHz * 1e6 : 20e6;
+        case Jds6600WaveformFamily.square:
+          // FY6900-20M is specified to 15 MHz; the larger models to 25 MHz.
+          return modelMHz >= 30 ? 25e6 : 15e6;
+        case Jds6600WaveformFamily.triangle:
+        case Jds6600WaveformFamily.pulse:
+        case Jds6600WaveformFamily.other:
+        case Jds6600WaveformFamily.arbitrary:
+          return 10e6;
+      }
+    }
     final modelMax = modelMHz > 0 ? modelMHz * 1e6 : 15e6;
     switch (waveform.family) {
       case Jds6600WaveformFamily.sine:
@@ -114,11 +159,34 @@ class Jds6600DeviceInfo {
 
   /// Amplitude limit in Vpp for the given frequency.
   ///
-  /// The Lite data sheet specifies 0-20 Vpp below 10 MHz and 0-10 Vpp above.
-  /// The same conservative limits are applied to the standard model until
-  /// measured otherwise.
-  double maxAmplitudeVpp(double frequencyHz) =>
-      frequencyHz < 10e6 ? 20.0 : 10.0;
+  /// The JDS6600 Lite data sheet specifies 0-20 Vpp below 10 MHz and
+  /// 0-10 Vpp above. The FY6900 specifies 24/20/10/5 Vpp for the frequency
+  /// bands up to 5/10/20 MHz and above.
+  double maxAmplitudeVpp(double frequencyHz) {
+    if (family == SiggenFamily.fy6900) {
+      if (frequencyHz <= 5e6) return 24.0;
+      if (frequencyHz <= 10e6) return 20.0;
+      if (frequencyHz <= 20e6) return 10.0;
+      return 5.0;
+    }
+    return frequencyHz < 10e6 ? 20.0 : 10.0;
+  }
+
+  /// Input limits for this device family.
+  SiggenLimits get limits => SiggenLimits.forFamily(family);
+
+  /// Maximum DC offset at the given output frequency.
+  ///
+  /// The FY6900 allows ±12 V up to 20 MHz and ±2.5 V above. The JDS6600 uses
+  /// its fixed ±9.99 V range.
+  double maxOffsetVAt(double frequencyHz) {
+    if (family == SiggenFamily.fy6900) {
+      return frequencyHz > 20e6 ? 2.5 : 12.0;
+    }
+    return maxOffsetV;
+  }
+
+  double minOffsetVAt(double frequencyHz) => -maxOffsetVAt(frequencyHz);
 
   static const double minFrequencyHz = 0.01;
   static const double minOffsetV = -9.99;
@@ -129,6 +197,56 @@ class Jds6600DeviceInfo {
   static const double maxPhaseDegrees = 360.0;
 }
 
+/// Input limits derived from the detected device family.
+///
+/// Frequency and amplitude limits additionally depend on the waveform and the
+/// frequency band; those are provided by [Jds6600DeviceInfo.maxFrequencyHz]
+/// and [Jds6600DeviceInfo.maxAmplitudeVpp].
+class SiggenLimits {
+  const SiggenLimits({
+    required this.minFrequencyHz,
+    required this.minOffsetV,
+    required this.maxOffsetV,
+    required this.minDutyPercent,
+    required this.maxDutyPercent,
+    required this.minPhaseDegrees,
+    required this.maxPhaseDegrees,
+  });
+
+  final double minFrequencyHz;
+  final double minOffsetV;
+  final double maxOffsetV;
+  final double minDutyPercent;
+  final double maxDutyPercent;
+  final double minPhaseDegrees;
+  final double maxPhaseDegrees;
+
+  static const SiggenLimits jds6600 = SiggenLimits(
+    minFrequencyHz: Jds6600DeviceInfo.minFrequencyHz,
+    minOffsetV: Jds6600DeviceInfo.minOffsetV,
+    maxOffsetV: Jds6600DeviceInfo.maxOffsetV,
+    minDutyPercent: Jds6600DeviceInfo.minDutyPercent,
+    maxDutyPercent: Jds6600DeviceInfo.maxDutyPercent,
+    minPhaseDegrees: Jds6600DeviceInfo.minPhaseDegrees,
+    maxPhaseDegrees: Jds6600DeviceInfo.maxPhaseDegrees,
+  );
+
+  /// FY6900 values from the vendor manual: 1 uHz resolution, ±12 V offset
+  /// (up to 20 MHz), 0.1-99.9 % duty and 0-359.99 degrees phase.
+  static const SiggenLimits fy6900 = SiggenLimits(
+    minFrequencyHz: 0.000001,
+    minOffsetV: -12.0,
+    maxOffsetV: 12.0,
+    minDutyPercent: 0.1,
+    maxDutyPercent: 99.9,
+    minPhaseDegrees: 0.0,
+    maxPhaseDegrees: 360.0,
+  );
+
+  static SiggenLimits forFamily(SiggenFamily family) =>
+      family == SiggenFamily.fy6900 ? fy6900 : jds6600;
+}
+
 /// State of one generator channel as cached by the service.
 class Jds6600ChannelState {
   const Jds6600ChannelState({
@@ -137,6 +255,7 @@ class Jds6600ChannelState {
     this.amplitudeVpp = 1.0,
     this.offsetV = 0.0,
     this.dutyPercent = 50.0,
+    this.phaseDeg = 0.0,
   });
 
   final Jds6600Waveform waveform;
@@ -145,12 +264,17 @@ class Jds6600ChannelState {
   final double offsetV;
   final double dutyPercent;
 
+  /// Channel phase in degrees. The JDS6600 reports the same global
+  /// CH2-vs-CH1 value for both channels; the FY6900 has per-channel phase.
+  final double phaseDeg;
+
   Jds6600ChannelState copyWith({
     Jds6600Waveform? waveform,
     double? frequencyHz,
     double? amplitudeVpp,
     double? offsetV,
     double? dutyPercent,
+    double? phaseDeg,
   }) {
     return Jds6600ChannelState(
       waveform: waveform ?? this.waveform,
@@ -158,6 +282,7 @@ class Jds6600ChannelState {
       amplitudeVpp: amplitudeVpp ?? this.amplitudeVpp,
       offsetV: offsetV ?? this.offsetV,
       dutyPercent: dutyPercent ?? this.dutyPercent,
+      phaseDeg: phaseDeg ?? this.phaseDeg,
     );
   }
 
@@ -165,7 +290,7 @@ class Jds6600ChannelState {
   String toString() =>
       'Jds6600ChannelState(waveform: $waveform, frequencyHz: $frequencyHz, '
       'amplitudeVpp: $amplitudeVpp, offsetV: $offsetV, '
-      'dutyPercent: $dutyPercent)';
+      'dutyPercent: $dutyPercent, phaseDeg: $phaseDeg)';
 }
 
 /// Output-enable state of both channels.

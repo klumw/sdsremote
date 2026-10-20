@@ -1,4 +1,4 @@
-/// Remote-control UI for the JDS6600 signal generator.
+/// Remote-control UI for the configured signal generator (JDS6600 or FY6900).
 ///
 /// Pure presentation: all state, validation and device access live in
 /// [SignalGeneratorPanelController]. No menu button is provided; the window is
@@ -587,7 +587,7 @@ class _SignalGeneratorPanelState extends State<SignalGeneratorPanel> {
             ),
           ],
         ),
-        _hint('Range: −9.99 … +9.99 V'),
+        _hint(_offsetHint(draft)),
       ],
     );
   }
@@ -619,7 +619,7 @@ class _SignalGeneratorPanelState extends State<SignalGeneratorPanel> {
             ),
           ],
         ),
-        _hint('Range: 0 … 100 % (effective for square/pulse)'),
+        _hint(_dutyHint),
       ],
     );
   }
@@ -638,7 +638,7 @@ class _SignalGeneratorPanelState extends State<SignalGeneratorPanel> {
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
-                decoration: _decoration('Phase (CH2 vs CH1)', suffix: '°'),
+                decoration: _decoration(_phaseLabel, suffix: '°'),
                 onChanged: _controller.updatePhaseText,
               ),
             ),
@@ -651,7 +651,7 @@ class _SignalGeneratorPanelState extends State<SignalGeneratorPanel> {
             ),
           ],
         ),
-        _hint('Range: 0 … 360° (global device phase)'),
+        _hint(_phaseHint),
       ],
     );
   }
@@ -717,17 +717,11 @@ class _SignalGeneratorPanelState extends State<SignalGeneratorPanel> {
       'kHz' => 1e3,
       _ => 1.0,
     };
-    final info = Jds6600DeviceInfo(
-      modelMHz: _controller.generator.modelMHz ?? 15,
-      serialNumber: 0,
-    );
+    final info = _controller.deviceInfo;
     final current =
         draft.frequencyHz ?? _controller.confirmedChannel.frequencyHz;
     final next = (current + direction * factor)
-        .clamp(
-          Jds6600DeviceInfo.minFrequencyHz,
-          info.maxFrequencyHz(draft.waveform),
-        )
+        .clamp(info.limits.minFrequencyHz, info.maxFrequencyHz(draft.waveform))
         .toDouble();
     _applySpinner(
       _frequency,
@@ -738,10 +732,7 @@ class _SignalGeneratorPanelState extends State<SignalGeneratorPanel> {
 
   void _stepAmplitude(int direction) {
     final draft = _controller.draft;
-    final info = Jds6600DeviceInfo(
-      modelMHz: _controller.generator.modelMHz ?? 15,
-      serialNumber: 0,
-    );
+    final info = _controller.deviceInfo;
     final confirmed = _controller.confirmedChannel;
     final frequency = draft.frequencyHz ?? confirmed.frequencyHz;
     final current = draft.amplitudeVpp ?? confirmed.amplitudeVpp;
@@ -757,25 +748,34 @@ class _SignalGeneratorPanelState extends State<SignalGeneratorPanel> {
 
   void _stepOffset(int direction) {
     final draft = _controller.draft;
+    final info = _controller.deviceInfo;
+    final frequency =
+        draft.frequencyHz ?? _controller.confirmedChannel.frequencyHz;
     final current = draft.offsetV ?? _controller.confirmedChannel.offsetV;
     final next = (current + direction * 0.1)
-        .clamp(Jds6600DeviceInfo.minOffsetV, Jds6600DeviceInfo.maxOffsetV)
+        .clamp(info.minOffsetVAt(frequency), info.maxOffsetVAt(frequency))
         .toDouble();
     _applySpinner(_offset, _fmtNumber(next), _controller.updateOffsetText);
   }
 
   void _stepDuty(int direction) {
     final draft = _controller.draft;
+    final limits = _controller.limits;
     final current =
         draft.dutyPercent ?? _controller.confirmedChannel.dutyPercent;
-    final next = (current + direction * 1.0).clamp(0.0, 100.0).toDouble();
+    final next = (current + direction * 1.0)
+        .clamp(limits.minDutyPercent, limits.maxDutyPercent)
+        .toDouble();
     _applySpinner(_duty, _fmtNumber(next), _controller.updateDutyText);
   }
 
   void _stepPhase(int direction) {
     final draft = _controller.draft;
-    final current = draft.phaseDeg ?? _controller.generator.phaseDeg;
-    final next = (current + direction * 1.0).clamp(0.0, 360.0).toDouble();
+    final limits = _controller.limits;
+    final current = draft.phaseDeg ?? _controller.confirmedChannel.phaseDeg;
+    final next = (current + direction * 1.0)
+        .clamp(limits.minPhaseDegrees, limits.maxPhaseDegrees)
+        .toDouble();
     _applySpinner(_phase, _fmtNumber(next), _controller.updatePhaseText);
   }
 
@@ -793,24 +793,56 @@ class _SignalGeneratorPanelState extends State<SignalGeneratorPanel> {
   }
 
   String _frequencyHint(SigGenChannelDraft draft) {
-    final info = Jds6600DeviceInfo(
-      modelMHz: _controller.generator.modelMHz ?? 15,
-      serialNumber: 0,
-    );
+    final info = _controller.deviceInfo;
     final max = info.maxFrequencyHz(draft.waveform);
-    return 'Range: 0.01 Hz … ${formatMeasurementValue(max, 'Hz')} '
+    return 'Range: ${_fmtNumber(info.limits.minFrequencyHz)} Hz … '
+        '${formatMeasurementValue(max, 'Hz')} '
         '(${draft.waveform.displayName})';
   }
 
   String _amplitudeHint(SigGenChannelDraft draft) {
-    final info = Jds6600DeviceInfo(
-      modelMHz: _controller.generator.modelMHz ?? 15,
-      serialNumber: 0,
-    );
+    final info = _controller.deviceInfo;
     final frequency = draft.frequencyHz ?? 1000;
     final max = info.maxAmplitudeVpp(frequency);
     return 'Range: 0 … ${_fmtNumber(max)} Vpp at '
         '${formatMeasurementValue(frequency, 'Hz')}';
+  }
+
+  String _offsetHint(SigGenChannelDraft draft) {
+    final info = _controller.deviceInfo;
+    final frequency =
+        draft.frequencyHz ?? _controller.confirmedChannel.frequencyHz;
+    final min = info.minOffsetVAt(frequency);
+    final max = info.maxOffsetVAt(frequency);
+    final maxText = max >= 0 ? '+${_fmtNumber(max)}' : _fmtNumber(max);
+    return 'Range: ${_fmtNumber(min)} … $maxText V at '
+        '${formatMeasurementValue(frequency, 'Hz')}';
+  }
+
+  String get _dutyHint {
+    final limits = _controller.limits;
+    final applies = _controller.generator.family == SiggenFamily.fy6900
+        ? 'square/rectangle'
+        : 'square/pulse';
+    return 'Range: ${_fmtNumber(limits.minDutyPercent)} … '
+        '${_fmtNumber(limits.maxDutyPercent)} % '
+        '(effective for $applies)';
+  }
+
+  String get _phaseLabel {
+    if (_controller.generator.family == SiggenFamily.fy6900) {
+      return 'Phase (CH${_controller.selectedChannel})';
+    }
+    return 'Phase (CH2 vs CH1)';
+  }
+
+  String get _phaseHint {
+    final limits = _controller.limits;
+    final description = _controller.generator.family == SiggenFamily.fy6900
+        ? 'CH${_controller.selectedChannel} phase'
+        : 'global device phase';
+    return 'Range: ${_fmtNumber(limits.minPhaseDegrees)} … '
+        '${_fmtNumber(limits.maxPhaseDegrees)}° ($description)';
   }
 
   String _confirmedSummary(int channel) {
@@ -822,7 +854,8 @@ class _SignalGeneratorPanelState extends State<SignalGeneratorPanel> {
       '${_fmtNumber(confirmed.offsetV)} V offset',
       if (dutyAppliesTo(confirmed.waveform))
         '${_fmtNumber(confirmed.dutyPercent)} % duty',
-      if (channel == 2) '${_fmtNumber(_controller.generator.phaseDeg)}° phase',
+      if (channel == 2 || _controller.generator.family == SiggenFamily.fy6900)
+        '${_fmtNumber(confirmed.phaseDeg)}° phase',
     ];
     return '${_controller.generator.lastRefresh == null ? 'Last known' : 'Device'}: '
         '${parts.join(' · ')}';

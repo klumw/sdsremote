@@ -1,7 +1,9 @@
-/// Transport seam for the JDS6600.
+/// Line-oriented transport seam for signal generators.
 ///
-/// This file deliberately imports neither Flutter nor libserialport so unit
-/// tests can use a fake transport without loading the native library.
+/// Both the JDS6600 register protocol and the FY6900 command protocol use the
+/// same transaction contract. This file deliberately imports neither Flutter
+/// nor libserialport so unit tests can use a fake transport without loading
+/// the native library.
 library;
 
 /// Narrow transport interface.

@@ -46,6 +46,9 @@ import '../bode/bode_csv_writer.dart';
 import '../bode/bode_models.dart';
 import '../bode/bode_plot_service.dart';
 import '../bode/bode_report.dart';
+import '../signal_generator/fy6900_driver.dart';
+import '../signal_generator/fy6900_serial_transport.dart';
+import '../signal_generator/jds6600_driver.dart';
 import '../signal_generator/jds6600_serial_transport.dart';
 import '../signal_generator/signal_generator_detector.dart';
 import '../signal_generator/signal_generator_service.dart';
@@ -99,6 +102,9 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   // Signal generator selection (Settings → Signal Generator).
   String _signalGenerator = 'none';
+
+  /// Device family the current [_sigGenService] was built for.
+  String? _sigGenDeviceType;
 
   // Signal generator OS window (Ctrl+J).
   SigGenWindowHost? _sigGenWindowHost;
@@ -479,7 +485,9 @@ class _OsciHomePageState extends State<OsciHomePage>
   // =========================================================================
 
   void _configureSigGenDetection() {
-    if (_signalGenerator != 'jds6600') {
+    final device = _signalGenerator;
+    final supported = device == 'jds6600' || device == 'fy6900';
+    if (!supported) {
       _disposeSigGenWindowSupport(closeWindow: true);
       _sigGenDetector?.dispose();
       _sigGenDetector = null;
@@ -487,6 +495,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       _sigGenPort = null;
       final service = _sigGenService;
       _sigGenService = null;
+      _sigGenDeviceType = null;
       if (service != null) {
         service.removeListener(_onSigGenServiceChanged);
         unawaited(service.disconnect());
@@ -495,18 +504,39 @@ class _OsciHomePageState extends State<OsciHomePage>
       return;
     }
 
+    // Rebuild the service when the selected generator family changes.
+    if (_sigGenService != null && _sigGenDeviceType != device) {
+      _disposeSigGenWindowSupport(closeWindow: true);
+      _sigGenDetector?.dispose();
+      _sigGenDetector = null;
+      _sigGenDetected = false;
+      final oldService = _sigGenService;
+      _sigGenService = null;
+      _sigGenDeviceType = null;
+      if (oldService != null) {
+        oldService.removeListener(_onSigGenServiceChanged);
+        unawaited(oldService.disconnect());
+        oldService.dispose();
+      }
+    }
+
     if (_sigGenService == null) {
+      final isFy6900 = device == 'fy6900';
       final service = SignalGeneratorService(
-        transportFactory: (port) => LibSerialPortJds6600Transport(port),
+        driverFactory: isFy6900
+            ? (port) => Fy6900Driver(LibSerialPortFy6900Transport(port))
+            : (port) => Jds6600Driver(LibSerialPortJds6600Transport(port)),
       );
       service.addListener(_onSigGenServiceChanged);
       _sigGenService = service;
+      _sigGenDeviceType = device;
     }
     _ensureSigGenWindowSupport();
     if (_sigGenDetector == null) {
       _sigGenDetector = SignalGeneratorDetector(
         service: _sigGenService!,
         initialPort: _sigGenPort,
+        identityToken: device == 'fy6900' ? 'FY6900' : 'JDS6600',
         onPortDetected: (port) {
           _sigGenPort = port;
           unawaited(AppPreferences.setString('siggen_port', port));
@@ -552,7 +582,9 @@ class _OsciHomePageState extends State<OsciHomePage>
     if (event is! KeyDownEvent) return false;
     if (!HardwareKeyboard.instance.isControlPressed) return false;
     if (event.logicalKey != LogicalKeyboardKey.keyJ) return false;
-    if (_signalGenerator != 'jds6600') return false;
+    if (_signalGenerator != 'jds6600' && _signalGenerator != 'fy6900') {
+      return false;
+    }
     if (_isMacroPlaying) return false;
     _ensureSigGenWindowSupport();
     unawaited(_sigGenWindowLauncher?.openOrFocus());
@@ -595,7 +627,9 @@ class _OsciHomePageState extends State<OsciHomePage>
     _sigGenWindowLauncher ??= SigGenWindowLauncher(
       backend: const WindowControllerBackend(),
       canOpen: () =>
-          _signalGenerator == 'jds6600' && _sigGenDetected && !_isMacroPlaying,
+          (_signalGenerator == 'jds6600' || _signalGenerator == 'fy6900') &&
+          _sigGenDetected &&
+          !_isMacroPlaying,
       onOpenChanged: _onSigGenWindowOpenChanged,
     );
   }
@@ -886,7 +920,7 @@ class _OsciHomePageState extends State<OsciHomePage>
               ? () => _togglePanel(ActivePanel.dataLogger)
               : null,
         ),
-        if (_signalGenerator == 'jds6600') ...[
+        if (_signalGenerator == 'jds6600' || _signalGenerator == 'fy6900') ...[
           const SizedBox(width: 16),
           OsciToolbarButton(
             label: 'Bode',
@@ -1694,9 +1728,12 @@ class _OsciHomePageState extends State<OsciHomePage>
       isUsb: _isUsb,
       signalGenerator: _signalGenerator,
       onSignalGeneratorChanged: (value) async {
+        final changed = value != _signalGenerator;
         setState(() => _signalGenerator = value);
         await AppPreferences.setString('siggen_device', value);
-        if (value != 'jds6600') {
+        if (changed) {
+          // The Bode service is bound to the service instance; stop it and
+          // return to the configuration form before the family changes.
           _stopBodeIfRunning();
           if (_activePanel == ActivePanel.bode) {
             setState(() => _activePanel = ActivePanel.none);
@@ -2073,9 +2110,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       final chartImageBytes = img.encodePng(image);
 
       final info = _sigGenService?.deviceInfo;
-      final generatorIdentity = info == null
-          ? 'JDS6600'
-          : 'JOY-IT,${info.modelName},${info.serialNumber},N/A';
+      final generatorIdentity = info?.scpiIdentity ?? 'Signal Generator';
       final deviceName = _deviceModel ?? _deviceName ?? _ipAddress;
 
       // Generate the PDF report
@@ -2363,7 +2398,10 @@ class _OsciHomePageState extends State<OsciHomePage>
       _llmModel = model ?? '';
       _saveWithParams = saveWithParams ?? false;
       _askForFilenamePrefix = askForFilenamePrefix ?? false;
-      _signalGenerator = signalGenerator == 'jds6600' ? 'jds6600' : 'none';
+      _signalGenerator =
+          signalGenerator == 'jds6600' || signalGenerator == 'fy6900'
+          ? signalGenerator!
+          : 'none';
       _sigGenPort = sigGenPort;
     });
   }

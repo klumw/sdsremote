@@ -57,6 +57,7 @@ class SigGenChannelSnapshot {
     required this.amplitudeVpp,
     required this.offsetV,
     required this.dutyPercent,
+    this.phaseDeg = 0.0,
   });
 
   /// Conservative defaults matching `Jds6600ChannelState`.
@@ -65,7 +66,8 @@ class SigGenChannelSnapshot {
       frequencyHz = 1000.0,
       amplitudeVpp = 1.0,
       offsetV = 0.0,
-      dutyPercent = 50.0;
+      dutyPercent = 50.0,
+      phaseDeg = 0.0;
 
   factory SigGenChannelSnapshot.fromChannelState(Jds6600ChannelState state) {
     return SigGenChannelSnapshot(
@@ -74,6 +76,7 @@ class SigGenChannelSnapshot {
       amplitudeVpp: state.amplitudeVpp,
       offsetV: state.offsetV,
       dutyPercent: state.dutyPercent,
+      phaseDeg: state.phaseDeg,
     );
   }
 
@@ -91,6 +94,7 @@ class SigGenChannelSnapshot {
       amplitudeVpp: _asDouble(json['amplitudeVpp'], 1.0),
       offsetV: _asDouble(json['offsetV'], 0.0),
       dutyPercent: _asDouble(json['dutyPercent'], 50.0),
+      phaseDeg: _asDouble(json['phaseDeg'], 0.0),
     );
   }
 
@@ -100,12 +104,35 @@ class SigGenChannelSnapshot {
   final double offsetV;
   final double dutyPercent;
 
+  /// Channel phase. The JDS6600 reports its global value on both channels;
+  /// the FY6900 reports independent per-channel values.
+  final double phaseDeg;
+
+  SigGenChannelSnapshot copyWith({
+    Jds6600Waveform? waveform,
+    double? frequencyHz,
+    double? amplitudeVpp,
+    double? offsetV,
+    double? dutyPercent,
+    double? phaseDeg,
+  }) {
+    return SigGenChannelSnapshot(
+      waveform: waveform ?? this.waveform,
+      frequencyHz: frequencyHz ?? this.frequencyHz,
+      amplitudeVpp: amplitudeVpp ?? this.amplitudeVpp,
+      offsetV: offsetV ?? this.offsetV,
+      dutyPercent: dutyPercent ?? this.dutyPercent,
+      phaseDeg: phaseDeg ?? this.phaseDeg,
+    );
+  }
+
   Map<String, dynamic> toJson() => {
     'waveform': waveform.name,
     'frequencyHz': frequencyHz,
     'amplitudeVpp': amplitudeVpp,
     'offsetV': offsetV,
     'dutyPercent': dutyPercent,
+    'phaseDeg': phaseDeg,
   };
 
   @override
@@ -116,11 +143,18 @@ class SigGenChannelSnapshot {
           other.frequencyHz == frequencyHz &&
           other.amplitudeVpp == amplitudeVpp &&
           other.offsetV == offsetV &&
-          other.dutyPercent == dutyPercent;
+          other.dutyPercent == dutyPercent &&
+          other.phaseDeg == phaseDeg;
 
   @override
-  int get hashCode =>
-      Object.hash(waveform, frequencyHz, amplitudeVpp, offsetV, dutyPercent);
+  int get hashCode => Object.hash(
+    waveform,
+    frequencyHz,
+    amplitudeVpp,
+    offsetV,
+    dutyPercent,
+    phaseDeg,
+  );
 }
 
 /// Confirmed generator state plus capability flags for the child window.
@@ -132,6 +166,7 @@ class SigGenGeneratorSnapshot {
     this.mutable = false,
     this.port,
     this.modelName,
+    this.family = SiggenFamily.jds6600,
     this.isLite,
     this.modelMHz,
     this.ch1 = const SigGenChannelSnapshot.defaults(),
@@ -151,6 +186,7 @@ class SigGenGeneratorSnapshot {
       mutable: json['mutable'] as bool? ?? false,
       port: json['port'] as String?,
       modelName: json['modelName'] as String?,
+      family: _asFamily(json['family']),
       isLite: json['isLite'] as bool?,
       modelMHz: (json['modelMHz'] as num?)?.toInt(),
       ch1: SigGenChannelSnapshot.fromJson(_asMap(json['ch1'])),
@@ -169,13 +205,21 @@ class SigGenGeneratorSnapshot {
   final bool mutable;
   final String? port;
   final String? modelName;
+
+  /// Device family reported by the driver identity query.
+  final SiggenFamily family;
+
   final bool? isLite;
   final int? modelMHz;
   final SigGenChannelSnapshot ch1;
   final SigGenChannelSnapshot ch2;
   final bool ch1Output;
   final bool ch2Output;
+
+  /// Legacy aggregate phase (CH2). Prefer the per-channel
+  /// [SigGenChannelSnapshot.phaseDeg] values.
   final double phaseDeg;
+
   final String? lastError;
   final DateTime? lastRefresh;
 
@@ -190,6 +234,7 @@ class SigGenGeneratorSnapshot {
     'mutable': mutable,
     'port': port,
     'modelName': modelName,
+    'family': family.name,
     'isLite': isLite,
     'modelMHz': modelMHz,
     'ch1': ch1.toJson(),
@@ -290,6 +335,15 @@ Jds6600Waveform sigGenWaveformFromArgs(Object? value) {
     if (waveform.name == name) return waveform;
   }
   throw ArgumentError.value(value, 'waveform', 'Unknown waveform');
+}
+
+SiggenFamily _asFamily(Object? value) {
+  final name = value is String ? value : '';
+  for (final family in SiggenFamily.values) {
+    if (family.name == name) return family;
+  }
+  // Snapshots from older builds default to the JDS6600 family.
+  return SiggenFamily.jds6600;
 }
 
 Map<String, dynamic> _asMap(Object? value) {
