@@ -385,15 +385,9 @@ class _OsciHomePageState extends State<OsciHomePage>
     // flutter_controller_ = nullptr (engine shutdown) → PostQuitMessage(0)
     // — the proper, fast shutdown path.
     _stopBodeIfRunning();
-    final sigGen = _sigGenService;
-    if (sigGen != null) {
-      try {
-        await sigGen.setOutput(1, false);
-      } catch (_) {}
-      try {
-        await sigGen.setOutput(2, false);
-      } catch (_) {}
-    }
+    // The generator outputs are deliberately left in their current state:
+    // shutting them off here would also switch the channels off on the next
+    // application start.
     await windowManager.setPreventClose(false);
     await windowManager.close();
   }
