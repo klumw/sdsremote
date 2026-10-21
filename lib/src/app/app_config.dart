@@ -96,8 +96,12 @@ enum KnobId {
   intensityAdjust(15),
   ch1Voltage(35),
   ch2Voltage(36),
+  ch3Voltage(37),
+  ch4Voltage(38),
   ch1Position(43),
   ch2Position(44),
+  ch3Position(45),
+  ch4Position(46),
   horizontalTime(7),
   horizontalPosition(10),
   triggerLevel(16);
@@ -139,4 +143,19 @@ const Map<String, String> buttonCommands = {
   // Channel
   'CH1': r'$$SY_FP 39,1',
   'CH2': r'$$SY_FP 40,1',
+  'CH3': r'$$SY_FP 41,1',
+  'CH4': r'$$SY_FP 42,1',
 };
+
+/// Number of analog channels for an oscilloscope model from `*IDN?`.
+///
+/// Siglent model numbers encode the channel count in the fourth digit after
+/// the `SDS` prefix: `SDS1202X-E` has two channels, `SDS1104X-E` has four.
+/// Unknown or unparsable model names keep the two-channel layout, which is
+/// the layout every other instrument falls back to.
+int channelCountForModel(String? model) {
+  if (model == null) return 2;
+  final match = RegExp(r'SDS\s*(\d{3})(\d)').firstMatch(model.toUpperCase());
+  if (match == null) return 2;
+  return match.group(2) == '4' ? 4 : 2;
+}

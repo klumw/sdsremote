@@ -13,6 +13,13 @@ class PhysicalControlPanel extends StatelessWidget {
   final Uint8List screenDump;
   final bool ch1Enabled;
   final bool ch2Enabled;
+
+  /// Number of analog channels the connected instrument provides.
+  final int channelCount;
+
+  /// Channel the shared vertical knobs act on in the four-channel layout.
+  final int selectedChannel;
+
   final ValueChanged<String> onChannelToggle;
   final ValueChanged<int>? onSoftKeyPressed;
   final VoidCallback? onMenuPressed;
@@ -30,6 +37,8 @@ class PhysicalControlPanel extends StatelessWidget {
     required this.screenDump,
     required this.ch1Enabled,
     required this.ch2Enabled,
+    this.channelCount = 2,
+    this.selectedChannel = 1,
     required this.onChannelToggle,
     this.onSoftKeyPressed,
     this.onMenuPressed,
@@ -187,15 +196,17 @@ class PhysicalControlPanel extends StatelessWidget {
                                   flex: 2,
                                   child: _buildSectionWrapper(
                                     'Vertical',
-                                    Row(
-                                      mainAxisAlignment:
-                                          MainAxisAlignment.center,
-                                      children: [
-                                        _buildChannelColumn('CH1'),
-                                        const SizedBox(width: 20),
-                                        _buildChannelColumn('CH2'),
-                                      ],
-                                    ),
+                                    channelCount >= 4
+                                        ? _buildFourChannelVerticalLayout()
+                                        : Row(
+                                            mainAxisAlignment:
+                                                MainAxisAlignment.center,
+                                            children: [
+                                              _buildChannelColumn('CH1'),
+                                              const SizedBox(width: 20),
+                                              _buildChannelColumn('CH2'),
+                                            ],
+                                          ),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
@@ -248,6 +259,12 @@ class PhysicalControlPanel extends StatelessWidget {
                                         const SizedBox(height: 8),
                                         _buildKnob(
                                           50,
+                                          onChanged: onKnobChanged != null
+                                              ? (v) => onKnobChanged!(
+                                                  KnobId.horizontalPosition,
+                                                  v,
+                                                )
+                                              : null,
                                           showCounter: false,
                                           onTap: onKnobTapped != null
                                               ? () => onKnobTapped!(
@@ -678,6 +695,144 @@ class PhysicalControlPanel extends StatelessWidget {
         ),
       ],
     );
+  }
+
+  /// Channel the shared vertical knobs act on, clamped to a valid channel.
+  int get _activeChannel =>
+      (selectedChannel >= 1 && selectedChannel <= 4) ? selectedChannel : 1;
+
+  /// Vertical controls for a four-channel instrument.
+  ///
+  /// The front panel has one scale and one position knob that act on the
+  /// selected channel, so no per-channel knobs are drawn. CH3 and CH4 sit
+  /// directly below CH1 and CH2.
+  Widget _buildFourChannelVerticalLayout() {
+    final bool canPressVertical =
+        isOnline && onVerticalButtonPressed != null && !isProcessingEvent;
+    return Column(
+      children: [
+        const Text('V <-> mV', style: TextStyle(fontSize: 10)),
+        const SizedBox(height: 8),
+        _buildKnob(
+          70,
+          showCounter: false,
+          onChanged: onKnobChanged != null
+              ? (v) => onKnobChanged!(_voltageKnobFor(_activeChannel), v)
+              : null,
+          onTap: onKnobTapped != null
+              ? () => onKnobTapped!(_voltageKnobFor(_activeChannel))
+              : null,
+        ),
+        const SizedBox(height: 15),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildOscButton(
+              'Math',
+              width: 50,
+              color: Colors.blue[900],
+              onTap: canPressVertical
+                  ? () => onVerticalButtonPressed!('Math')
+                  : null,
+            ),
+            const SizedBox(width: 20),
+            _buildOscButton(
+              'Ref',
+              width: 50,
+              color: Colors.blue[900],
+              onTap: canPressVertical
+                  ? () => onVerticalButtonPressed!('Ref')
+                  : null,
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildChannelButton('CH1'),
+            const SizedBox(width: 20),
+            _buildChannelButton('CH2'),
+          ],
+        ),
+        const SizedBox(height: 10),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            _buildChannelButton('CH3'),
+            const SizedBox(width: 20),
+            _buildChannelButton('CH4'),
+          ],
+        ),
+        const Spacer(),
+        const Text('Position', style: TextStyle(fontSize: 10)),
+        const SizedBox(height: 8),
+        _buildKnob(
+          50,
+          showCounter: false,
+          onChanged: onKnobChanged != null
+              ? (v) => onKnobChanged!(_positionKnobFor(_activeChannel), v)
+              : null,
+          onTap: onKnobTapped != null
+              ? () => onKnobTapped!(_positionKnobFor(_activeChannel))
+              : null,
+        ),
+      ],
+    );
+  }
+
+  /// Channel on/off button. The selected channel is outlined so the shared
+  /// knobs above and below are visibly bound to it.
+  Widget _buildChannelButton(String ch) {
+    final bool canToggleChannel = isOnline && !isProcessingEvent;
+    return _buildOscButton(
+      ch,
+      width: 50,
+      color: _channelColor(ch),
+      borderColor: ch == 'CH$_activeChannel' ? Colors.white : null,
+      onTap: canToggleChannel ? () => onChannelToggle(ch) : null,
+    );
+  }
+
+  static Color? _channelColor(String ch) {
+    switch (ch) {
+      case 'CH1':
+        return Colors.yellow[700];
+      case 'CH2':
+        return Colors.purple[300];
+      case 'CH3':
+        return Colors.lightBlue[300];
+      case 'CH4':
+        return Colors.green[400];
+      default:
+        return null;
+    }
+  }
+
+  static KnobId _voltageKnobFor(int channel) {
+    switch (channel) {
+      case 2:
+        return KnobId.ch2Voltage;
+      case 3:
+        return KnobId.ch3Voltage;
+      case 4:
+        return KnobId.ch4Voltage;
+      default:
+        return KnobId.ch1Voltage;
+    }
+  }
+
+  static KnobId _positionKnobFor(int channel) {
+    switch (channel) {
+      case 2:
+        return KnobId.ch2Position;
+      case 3:
+        return KnobId.ch3Position;
+      case 4:
+        return KnobId.ch4Position;
+      default:
+        return KnobId.ch1Position;
+    }
   }
 
   Widget _buildOscButton(

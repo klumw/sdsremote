@@ -87,6 +87,12 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// vendor prefix of [_deviceName]. This is what the AI searches for and what
   /// the knowledge base uses.
   String? _deviceModel;
+
+  /// Analog channel count of the detected instrument (2 or 4).
+  int _numChannels = 2;
+
+  /// Channel the shared vertical knobs act on (four-channel layout).
+  int _selectedChannel = 1;
   Vxi11Instrument? _instrument;
 
   // Bode Plot / JDS6600
@@ -811,7 +817,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       screenDump: _screenDump!,
       ch1Enabled: _ch1Enabled,
       ch2Enabled: _ch2Enabled,
-      onChannelToggle: _handleButtonPress,
+      channelCount: _numChannels,
+      selectedChannel: _selectedChannel,
+      onChannelToggle: _handleChannelButtonPress,
       onSoftKeyPressed: _handleSoftKeyPress,
       onMenuPressed: _handleMenuPress,
       onKnobChanged: _handleKnobChanged,
@@ -1759,6 +1767,8 @@ class _OsciHomePageState extends State<OsciHomePage>
             _llmModel = newModel;
             _deviceName = null;
             _deviceModel = null;
+            _numChannels = 2;
+            _selectedChannel = 1;
             _showSettings = false;
           });
           await _saveConfig();
@@ -1906,8 +1916,12 @@ class _OsciHomePageState extends State<OsciHomePage>
       // base text, so it must not be used for searching.
       final model = parts.length >= 2 ? parts[1].trim() : idn;
       if (mounted) {
-        _deviceName = name;
-        _deviceModel = model;
+        setState(() {
+          _deviceName = name;
+          _deviceModel = model;
+          _numChannels = channelCountForModel(model);
+          if (_selectedChannel > _numChannels) _selectedChannel = 1;
+        });
         windowManager.setTitle(name);
         // Tell the AI which oscilloscope it is answering for. The agent is
         // configured before the first device response, so it learns the model
@@ -2740,6 +2754,16 @@ class _OsciHomePageState extends State<OsciHomePage>
   // =========================================================================
   // Button Operations (generic handler)
   // =========================================================================
+
+  /// Channel buttons select the channel the shared vertical knobs act on and
+  /// then send the front-panel toggle command for it.
+  Future<void> _handleChannelButtonPress(String channel) async {
+    final number = int.tryParse(channel.replaceFirst('CH', ''));
+    if (number != null && number >= 1 && number <= _numChannels) {
+      setState(() => _selectedChannel = number);
+    }
+    await _handleButtonPress(channel);
+  }
 
   /// Generic handler for any button press (menu, vertical, horizontal, trigger, channel).
   /// Looks up the SCPI command from [buttonCommands] and sends it.

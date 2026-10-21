@@ -894,7 +894,7 @@ The Waveform Acquisition feature captures waveform data from the connected oscil
 
 Channel visibility can be toggled in two places:
 
-* **Control Panel** — The CH1 and CH2 buttons in the virtual front panel toggle each channel on or off.
+* **Control Panel** — The CH1 and CH2 buttons in the virtual front panel toggle each channel on or off. On four-channel instruments, CH3 and CH4 buttons appear below CH1 and CH2; the single scale (V <-> mV) and Position knobs then act on the selected channel.
 * **Device Parameters Panel** — The channel status indicators (CH1, CH2) in the sidebar also toggle channel visibility.
 
 Channel colors in the waveform display:
