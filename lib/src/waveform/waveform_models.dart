@@ -1,14 +1,38 @@
 import 'dart:typed_data';
-import 'dart:ui' show Offset;
+import 'dart:ui' show Color, Offset;
+
+/// Plot colours of CH1–CH4, shared by the waveform painter, the Device
+/// Parameters panel and the reference dialog.
+const List<Color> waveformChannelColors = [
+  Color(0xFFFFEB3B), // CH1 — yellow
+  Color(0xFFFF20FF), // CH2 — magenta
+  Color(0xFF4FC3F7), // CH3 — light blue
+  Color(0xFF66BB6A), // CH4 — green
+];
+
+/// Plot colour for a channel name (`'ch1'` … `'ch4'`).
+Color waveformChannelColor(String channel) => switch (channel) {
+  'ch1' => waveformChannelColors[0],
+  'ch2' => waveformChannelColors[1],
+  'ch3' => waveformChannelColors[2],
+  'ch4' => waveformChannelColors[3],
+  _ => const Color(0xFFFFFFFF),
+};
 
 /// Raw data directly after acquisition (before conversion)
 class WaveformRawData {
   final Uint8List? ch1Raw; // null if channel not active
   final Uint8List? ch2Raw;
+  final Uint8List? ch3Raw;
+  final Uint8List? ch4Raw;
   final double? vdivCh1;
   final double? voffsetCh1;
   final double? vdivCh2;
   final double? voffsetCh2;
+  final double? vdivCh3;
+  final double? voffsetCh3;
+  final double? vdivCh4;
+  final double? voffsetCh4;
   final double timebase; // TDIV in seconds
   final double trdl; // Trigger delay in seconds
   final double sampleRate; // SARA in Sa/s
@@ -17,10 +41,16 @@ class WaveformRawData {
   const WaveformRawData({
     this.ch1Raw,
     this.ch2Raw,
+    this.ch3Raw,
+    this.ch4Raw,
     this.vdivCh1,
     this.voffsetCh1,
     this.vdivCh2,
     this.voffsetCh2,
+    this.vdivCh3,
+    this.voffsetCh3,
+    this.vdivCh4,
+    this.voffsetCh4,
     required this.timebase,
     required this.trdl,
     required this.sampleRate,
@@ -41,6 +71,10 @@ class DeviceParams {
   final double? voffsetCh1;
   final double? vdivCh2;
   final double? voffsetCh2;
+  final double? vdivCh3;
+  final double? voffsetCh3;
+  final double? vdivCh4;
+  final double? voffsetCh4;
   final double timebase;
   final double trdl;
   final double sampleRate;
@@ -50,10 +84,34 @@ class DeviceParams {
     this.voffsetCh1,
     this.vdivCh2,
     this.voffsetCh2,
+    this.vdivCh3,
+    this.voffsetCh3,
+    this.vdivCh4,
+    this.voffsetCh4,
     required this.timebase,
     required this.trdl,
     required this.sampleRate,
   });
+
+  /// V/div of [channel] (`'ch1'` … `'ch4'`), or null when it was not
+  /// acquired.
+  double? vdivFor(String? channel) => switch (channel) {
+    'ch1' => vdivCh1,
+    'ch2' => vdivCh2,
+    'ch3' => vdivCh3,
+    'ch4' => vdivCh4,
+    _ => null,
+  };
+
+  /// Vertical offset of [channel] (`'ch1'` … `'ch4'`), or null when it was
+  /// not acquired.
+  double? voffsetFor(String? channel) => switch (channel) {
+    'ch1' => voffsetCh1,
+    'ch2' => voffsetCh2,
+    'ch3' => voffsetCh3,
+    'ch4' => voffsetCh4,
+    _ => null,
+  };
 }
 
 /// State for cursor display and positions.

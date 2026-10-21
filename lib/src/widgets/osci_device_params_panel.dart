@@ -7,6 +7,12 @@ class DeviceParametersPanel extends StatefulWidget {
   final DeviceParams params;
   final bool ch1Enabled;
   final bool ch2Enabled;
+  final bool ch3Enabled;
+  final bool ch4Enabled;
+
+  /// Analog channel count of the connected instrument (2 or 4).
+  final int channelCount;
+
   final bool isOnline;
   final bool cursorsXEnabled;
   final bool cursorsYEnabled;
@@ -29,6 +35,9 @@ class DeviceParametersPanel extends StatefulWidget {
     required this.params,
     required this.ch1Enabled,
     required this.ch2Enabled,
+    this.ch3Enabled = false,
+    this.ch4Enabled = false,
+    this.channelCount = 2,
     required this.isOnline,
     this.cursorsXEnabled = false,
     this.cursorsYEnabled = false,
@@ -76,6 +85,8 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
   Widget build(BuildContext context) {
     final ch1Enabled = widget.ch1Enabled;
     final ch2Enabled = widget.ch2Enabled;
+    final ch3Enabled = widget.ch3Enabled;
+    final ch4Enabled = widget.ch4Enabled;
     final refLabel = widget.refLabel;
     final refVisible = widget.refVisible;
     final onRefToggled = widget.onRefToggled;
@@ -121,22 +132,34 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
                 children: [
                   // Channel Status Section (channels are always enabled)
                   _buildBorderedSection(
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 4,
+                      alignment: WrapAlignment.center,
                       children: [
                         _buildChannelStatus(
                           label: "CH1",
                           enabled: ch1Enabled,
-                          activeColor: Colors.yellow,
+                          activeColor: waveformChannelColors[0],
                         ),
-                        const SizedBox(width: 4),
                         _buildChannelStatus(
                           label: "CH2",
                           enabled: ch2Enabled,
-                          activeColor: const Color(0xFFFF20FF),
+                          activeColor: waveformChannelColors[1],
                         ),
-                        if (refLabel != null) ...[
-                          const SizedBox(width: 4),
+                        if (widget.channelCount >= 4) ...[
+                          _buildChannelStatus(
+                            label: "CH3",
+                            enabled: ch3Enabled,
+                            activeColor: waveformChannelColors[2],
+                          ),
+                          _buildChannelStatus(
+                            label: "CH4",
+                            enabled: ch4Enabled,
+                            activeColor: waveformChannelColors[3],
+                          ),
+                        ],
+                        if (refLabel != null)
                           _buildChannelStatus(
                             label: refLabel,
                             enabled: refVisible,
@@ -145,7 +168,6 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
                                 ? () => onRefToggled(!refVisible)
                                 : null,
                           ),
-                        ],
                       ],
                     ),
                   ),
@@ -154,11 +176,11 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
                   _paramRow("Trig. Delay", _fmtSi(params.trdl, "s")),
                   _paramRow("Sample Rate", _fmtSi(params.sampleRate, "Sa/s")),
                   if (params.vdivCh1 != null) ...[
-                    const Divider(color: Colors.yellow, height: 24),
-                    const Text(
+                    Divider(color: waveformChannelColors[0], height: 24),
+                    Text(
                       "CH1",
                       style: TextStyle(
-                        color: Colors.yellow,
+                        color: waveformChannelColors[0],
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -167,17 +189,43 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
                     _paramRow("Offset", _fmtSi(params.voffsetCh1!, "V")),
                   ],
                   if (params.vdivCh2 != null) ...[
-                    const Divider(color: Color(0xFFFF20FF), height: 24),
-                    const Text(
+                    Divider(color: waveformChannelColors[1], height: 24),
+                    Text(
                       "CH2",
                       style: TextStyle(
-                        color: Color(0xFFFF20FF),
+                        color: waveformChannelColors[1],
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 8),
                     _paramRow("V/div", _fmtSi(params.vdivCh2!, "V")),
                     _paramRow("Offset", _fmtSi(params.voffsetCh2!, "V")),
+                  ],
+                  if (params.vdivCh3 != null) ...[
+                    Divider(color: waveformChannelColors[2], height: 24),
+                    Text(
+                      "CH3",
+                      style: TextStyle(
+                        color: waveformChannelColors[2],
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _paramRow("V/div", _fmtSi(params.vdivCh3!, "V")),
+                    _paramRow("Offset", _fmtSi(params.voffsetCh3!, "V")),
+                  ],
+                  if (params.vdivCh4 != null) ...[
+                    Divider(color: waveformChannelColors[3], height: 24),
+                    Text(
+                      "CH4",
+                      style: TextStyle(
+                        color: waveformChannelColors[3],
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _paramRow("V/div", _fmtSi(params.vdivCh4!, "V")),
+                    _paramRow("Offset", _fmtSi(params.voffsetCh4!, "V")),
                   ],
                   const SizedBox(height: 16),
                   const Divider(color: Color(0xFF475569), height: 24),

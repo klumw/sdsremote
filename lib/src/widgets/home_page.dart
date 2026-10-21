@@ -135,6 +135,8 @@ class _OsciHomePageState extends State<OsciHomePage>
   Uint8List? _screenDump;
   WaveformData? _waveformCh1;
   WaveformData? _waveformCh2;
+  WaveformData? _waveformCh3;
+  WaveformData? _waveformCh4;
   DeviceParams? _deviceParams;
   bool _waveformAcquired = false;
 
@@ -142,7 +144,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   WaveformData? _refWaveform;
   bool _refVisible = false;
   String? _refFileName;
-  String? _refChannelOrigin; // 'ch1' or 'ch2'
+  String? _refChannelOrigin; // 'ch1' … 'ch4'
 
   /// Manual alignment of the reference against the live trace. Kept next to
   /// [_refWaveform] instead of being added to its points, so it can be reset
@@ -184,6 +186,8 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   bool _ch1Enabled = true;
   bool _ch2Enabled = true;
+  bool _ch3Enabled = true;
+  bool _ch4Enabled = true;
   bool _saveWithParams = false;
   bool _askForFilenamePrefix = false;
 
@@ -434,6 +438,9 @@ class _OsciHomePageState extends State<OsciHomePage>
                         params: _deviceParams!,
                         ch1Enabled: _ch1Enabled,
                         ch2Enabled: _ch2Enabled,
+                        ch3Enabled: _ch3Enabled,
+                        ch4Enabled: _ch4Enabled,
+                        channelCount: _numChannels,
                         isOnline: _isOnline,
                         cursorsXEnabled: _cursorState.cursorsXEnabled,
                         cursorsYEnabled: _cursorState.cursorsYEnabled,
@@ -718,7 +725,28 @@ class _OsciHomePageState extends State<OsciHomePage>
     );
   }
 
+  /// First and last timestamp across all acquired channels, used to place
+  /// the cursor read-out along the visible time axis.
+  (double?, double?) _waveformTimeBounds() {
+    double? tMin;
+    double? tMax;
+    for (final data in [
+      _waveformCh1,
+      _waveformCh2,
+      _waveformCh3,
+      _waveformCh4,
+    ]) {
+      if (data == null || data.points.isEmpty) continue;
+      final first = data.points.first.$1;
+      final last = data.points.last.$1;
+      if (tMin == null || first < tMin) tMin = first;
+      if (tMax == null || last > tMax) tMax = last;
+    }
+    return (tMin, tMax);
+  }
+
   Widget _buildWaveformView() {
+    final (dataTMin, dataTMax) = _waveformTimeBounds();
     return AspectRatio(
       aspectRatio: 14 / 8,
       child: RepaintBoundary(
@@ -749,6 +777,8 @@ class _OsciHomePageState extends State<OsciHomePage>
                     painter: WaveformBasePainter(
                       ch1: _waveformCh1,
                       ch2: _waveformCh2,
+                      ch3: _waveformCh3,
+                      ch4: _waveformCh4,
                       ref: _refWaveform,
                       refVisible: _refVisible,
                       refChannelOrigin: _refChannelOrigin,
@@ -757,6 +787,8 @@ class _OsciHomePageState extends State<OsciHomePage>
                       params: _deviceParams!,
                       ch1Enabled: _ch1Enabled,
                       ch2Enabled: _ch2Enabled,
+                      ch3Enabled: _numChannels >= 4 && _ch3Enabled,
+                      ch4Enabled: _numChannels >= 4 && _ch4Enabled,
                       zoom: _zoomState,
                     ),
                     child: const SizedBox.expand(),
@@ -767,20 +799,8 @@ class _OsciHomePageState extends State<OsciHomePage>
                     cursors: _cursorState,
                     params: _deviceParams!,
                     zoom: _zoomState,
-                    dataTMin:
-                        _waveformCh1 != null && _waveformCh1!.points.isNotEmpty
-                        ? _waveformCh1!.points.first.$1
-                        : _waveformCh2 != null &&
-                              _waveformCh2!.points.isNotEmpty
-                        ? _waveformCh2!.points.first.$1
-                        : null,
-                    dataTMax:
-                        _waveformCh1 != null && _waveformCh1!.points.isNotEmpty
-                        ? _waveformCh1!.points.last.$1
-                        : _waveformCh2 != null &&
-                              _waveformCh2!.points.isNotEmpty
-                        ? _waveformCh2!.points.last.$1
-                        : null,
+                    dataTMin: dataTMin,
+                    dataTMax: dataTMax,
                   ),
                   child: const SizedBox.expand(),
                 ),
@@ -1915,11 +1935,19 @@ class _OsciHomePageState extends State<OsciHomePage>
       // name is not part of the model and does not appear in the knowledge
       // base text, so it must not be used for searching.
       final model = parts.length >= 2 ? parts[1].trim() : idn;
+      // The instrument reports its available channels directly; fall back to
+      // the model number when the query is unavailable.
+      int? chsChannels;
+      try {
+        chsChannels = channelCountFromChs(await instr.queryString('CHS?'));
+      } catch (e) {
+        AppLogger().log('CHS? query failed, using model number: $e');
+      }
       if (mounted) {
         setState(() {
           _deviceName = name;
           _deviceModel = model;
-          _numChannels = channelCountForModel(model);
+          _numChannels = chsChannels ?? channelCountForModel(model);
           if (_selectedChannel > _numChannels) _selectedChannel = 1;
         });
         windowManager.setTitle(name);
@@ -1966,6 +1994,8 @@ class _OsciHomePageState extends State<OsciHomePage>
           _screenDump = processedData;
           _waveformCh1 = null;
           _waveformCh2 = null;
+          _waveformCh3 = null;
+          _waveformCh4 = null;
           _deviceParams = null;
           _isOnline = true;
           _waveformAcquired = false;
@@ -2002,9 +2032,14 @@ class _OsciHomePageState extends State<OsciHomePage>
 
     try {
       final instr = await _getInstrument();
-      final raw = await WaveformAcquisition(
-        _ipAddress,
-      ).acquire(ch1: _ch1Enabled, ch2: _ch2Enabled, instr: instr);
+      final bool fourChannel = _numChannels >= 4;
+      final raw = await WaveformAcquisition(_ipAddress).acquire(
+        ch1: _ch1Enabled,
+        ch2: _ch2Enabled,
+        ch3: fourChannel && _ch3Enabled,
+        ch4: fourChannel && _ch4Enabled,
+        instr: instr,
+      );
 
       // Run conversion on the main thread instead of via compute() because
       // Dart's isolate serialization does not support record types
@@ -2015,7 +2050,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       setState(() {
         _waveformCh1 = result.$1;
         _waveformCh2 = result.$2;
-        _deviceParams = result.$3;
+        _waveformCh3 = result.$3;
+        _waveformCh4 = result.$4;
+        _deviceParams = result.$5;
         _screenDump = null;
         _isOnline = true;
         _waveformAcquired = true;
@@ -2063,7 +2100,10 @@ class _OsciHomePageState extends State<OsciHomePage>
       await _saveDataLoggerReport();
     } else if (_screenDump != null) {
       await _saveScreenDump();
-    } else if (_waveformCh1 != null || _waveformCh2 != null) {
+    } else if (_waveformCh1 != null ||
+        _waveformCh2 != null ||
+        _waveformCh3 != null ||
+        _waveformCh4 != null) {
       await _saveWaveform();
     }
   }
@@ -2237,9 +2277,12 @@ class _OsciHomePageState extends State<OsciHomePage>
       final csvContent = buildWaveformCsv(
         ch1: _waveformCh1,
         ch2: _waveformCh2,
+        ch3: _waveformCh3,
+        ch4: _waveformCh4,
         params: _deviceParams!,
         deviceName: _deviceName ?? _ipAddress,
         cursorState: _cursorState,
+        channelCount: _numChannels,
       );
 
       final csvDir = await AppPaths.getOrCreateWaveformCsvDir();
@@ -2898,10 +2941,15 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   void _onDeviceParamChannelToggle(String channel) {
     setState(() {
-      if (channel == 'CH1') {
-        _ch1Enabled = !_ch1Enabled;
-      } else if (channel == 'CH2') {
-        _ch2Enabled = !_ch2Enabled;
+      switch (channel) {
+        case 'CH1':
+          _ch1Enabled = !_ch1Enabled;
+        case 'CH2':
+          _ch2Enabled = !_ch2Enabled;
+        case 'CH3':
+          _ch3Enabled = !_ch3Enabled;
+        case 'CH4':
+          _ch4Enabled = !_ch4Enabled;
       }
     });
   }
@@ -2978,8 +3026,8 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   /// Opens a file selection dialog showing CSV waveform files in the
-  /// application's waveform/csv subdirectory.  When both CH1 and CH2 columns
-  /// are present the user is asked which channel to load.
+  /// application's waveform/csv subdirectory. When the file contains more
+  /// than one channel the user is asked which channel to load.
   Future<void> _loadReferenceWaveform() async {
     final selected = await _pickReferenceCsvFile();
     if (selected == null || !mounted) return;
@@ -2987,56 +3035,49 @@ class _OsciHomePageState extends State<OsciHomePage>
     try {
       final file = File(selected);
       final content = await file.readAsString();
-      final (ch1Points, ch2Points) = parseWaveformCsv(content);
-      if (ch1Points == null && ch2Points == null) {
+      final csv = parseWaveformCsv(content);
+      final channels = <String, List<(double, double)>>{
+        if (csv.ch1 != null) 'ch1': csv.ch1!,
+        if (csv.ch2 != null) 'ch2': csv.ch2!,
+        if (csv.ch3 != null) 'ch3': csv.ch3!,
+        if (csv.ch4 != null) 'ch4': csv.ch4!,
+      };
+      if (channels.isEmpty) {
         _showErrorSnackBar(
-          'Invalid waveform CSV. Expected header: Time (s),CH1 (V),CH2 (V)',
+          'Invalid waveform CSV. Expected header: '
+          'Time (s),CH1 (V),CH2 (V) or '
+          'Time (s),CH1 (V),CH2 (V),CH3 (V),CH4 (V)',
         );
         return;
       }
 
-      final bothPresent = ch1Points != null && ch2Points != null;
-
       if (!mounted) return;
 
-      final channel = switch ((ch1Points, ch2Points)) {
-        (null, null) => null,
-        (_, null) => 'ch1',
-        (null, _) => 'ch2',
-        _ when !bothPresent => null,
-        _ => await showDialog<String>(
-          context: context,
-          builder: (ctx) => SimpleDialog(
-            title: const Text('Select Channel'),
-            children: [
-              SimpleDialogOption(
-                onPressed: () => Navigator.pop(ctx, 'ch1'),
-                child: const Text(
-                  'CH1',
-                  style: TextStyle(color: Colors.yellow),
-                ),
+      final channel = channels.length == 1
+          ? channels.keys.first
+          : await showDialog<String>(
+              context: context,
+              builder: (ctx) => SimpleDialog(
+                title: const Text('Select Channel'),
+                children: [
+                  for (final entry in channels.entries)
+                    SimpleDialogOption(
+                      onPressed: () => Navigator.pop(ctx, entry.key),
+                      child: Text(
+                        entry.key.toUpperCase(),
+                        style: TextStyle(
+                          color: waveformChannelColor(entry.key),
+                        ),
+                      ),
+                    ),
+                ],
               ),
-              SimpleDialogOption(
-                onPressed: () => Navigator.pop(ctx, 'ch2'),
-                child: const Text(
-                  'CH2',
-                  style: TextStyle(color: Color(0xFFFF20FF)),
-                ),
-              ),
-            ],
-          ),
-        ),
-      };
+            );
       if (channel == null) return;
 
-      final points = channel == 'ch1' ? ch1Points! : ch2Points!;
+      final points = channels[channel]!;
 
-      final liveFirstTime =
-          _waveformCh1 != null && _waveformCh1!.points.isNotEmpty
-          ? _waveformCh1!.points.first.$1
-          : _waveformCh2 != null && _waveformCh2!.points.isNotEmpty
-          ? _waveformCh2!.points.first.$1
-          : null;
+      final (liveFirstTime, _) = _waveformTimeBounds();
       final alignedPoints = _alignReferencePoints(points, liveFirstTime);
 
       setState(() {

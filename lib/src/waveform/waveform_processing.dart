@@ -55,11 +55,12 @@ WaveformData? convertChannel({
   return WaveformData(points: downsampled);
 }
 
-/// Converts raw waveform data for both channels into [WaveformData] objects
+/// Converts raw waveform data for all channels into [WaveformData] objects
 /// and a [DeviceParams] snapshot.
-(WaveformData?, WaveformData?, DeviceParams) convertRawData(
-  WaveformRawData raw,
-) {
+///
+/// Channels that were not acquired come back as `null`.
+(WaveformData?, WaveformData?, WaveformData?, WaveformData?, DeviceParams)
+convertRawData(WaveformRawData raw) {
   final ch1 = convertChannel(
     rawData: raw.ch1Raw,
     vdiv: raw.vdivCh1,
@@ -78,16 +79,38 @@ WaveformData? convertChannel({
     sampleRate: raw.sampleRate,
     triggerPosition: raw.triggerPosition,
   );
+  final ch3 = convertChannel(
+    rawData: raw.ch3Raw,
+    vdiv: raw.vdivCh3,
+    voffset: raw.voffsetCh3,
+    trdl: raw.trdl,
+    timebase: raw.timebase,
+    sampleRate: raw.sampleRate,
+    triggerPosition: raw.triggerPosition,
+  );
+  final ch4 = convertChannel(
+    rawData: raw.ch4Raw,
+    vdiv: raw.vdivCh4,
+    voffset: raw.voffsetCh4,
+    trdl: raw.trdl,
+    timebase: raw.timebase,
+    sampleRate: raw.sampleRate,
+    triggerPosition: raw.triggerPosition,
+  );
 
   final params = DeviceParams(
     vdivCh1: raw.vdivCh1,
     voffsetCh1: raw.voffsetCh1,
     vdivCh2: raw.vdivCh2,
     voffsetCh2: raw.voffsetCh2,
+    vdivCh3: raw.vdivCh3,
+    voffsetCh3: raw.voffsetCh3,
+    vdivCh4: raw.vdivCh4,
+    voffsetCh4: raw.voffsetCh4,
     timebase: raw.timebase,
     trdl: raw.trdl,
     sampleRate: raw.sampleRate,
   );
 
-  return (ch1, ch2, params);
+  return (ch1, ch2, ch3, ch4, params);
 }

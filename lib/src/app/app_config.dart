@@ -159,3 +159,24 @@ int channelCountForModel(String? model) {
   if (match == null) return 2;
   return match.group(2) == '4' ? 4 : 2;
 }
+
+/// Number of analog channels from the instrument's `CHS?` response.
+///
+/// The response is a channel list such as `CH1,CH2,CH3,CH4`; some firmware
+/// variants answer with a bare count. Returns null when the response cannot
+/// be interpreted, so the caller can fall back to [channelCountForModel].
+int? channelCountFromChs(String? response) {
+  if (response == null) return null;
+  final trimmed = response.trim();
+  if (trimmed.isEmpty) return null;
+
+  final plain = int.tryParse(trimmed);
+  if (plain != null && plain > 0) return plain;
+
+  final channels = RegExp(
+    r'CH\s*([1-8])',
+    caseSensitive: false,
+  ).allMatches(trimmed).map((m) => int.parse(m.group(1)!)).toSet();
+  if (channels.isEmpty) return null;
+  return channels.reduce((a, b) => a > b ? a : b);
+}

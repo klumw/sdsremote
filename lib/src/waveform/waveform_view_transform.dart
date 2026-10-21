@@ -76,7 +76,7 @@ class WaveformViewTransform {
   }
 
   /// Transform for the reference overlay, which is drawn in the V/div of the
-  /// channel it was loaded from ([origin], `'ch1'` or `'ch2'`) — the same
+  /// channel it was loaded from ([origin], `'ch1'` … `'ch4'`) — the same
   /// scale [WaveformBasePainter] uses for it.
   factory WaveformViewTransform.forReference({
     required DeviceParams params,
@@ -84,13 +84,12 @@ class WaveformViewTransform {
     required Size size,
     required String? origin,
   }) {
-    final bool fromCh1 = origin == 'ch1';
     return WaveformViewTransform.forChannel(
       params: params,
       zoom: zoom,
       size: size,
-      vdiv: (fromCh1 ? params.vdivCh1 : params.vdivCh2) ?? 1.0,
-      voffset: (fromCh1 ? params.voffsetCh1 : params.voffsetCh2) ?? 0.0,
+      vdiv: params.vdivFor(origin) ?? 1.0,
+      voffset: params.voffsetFor(origin) ?? 0.0,
     );
   }
 

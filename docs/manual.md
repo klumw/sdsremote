@@ -888,14 +888,14 @@ The Waveform Acquisition feature captures waveform data from the connected oscil
 3. Click the **Acquire Waveform** button in the top toolbar. A progress indicator is shown during acquisition.
 4. After acquisition completes, the waveform chart is displayed in the main area with the **Device Parameters** panel on the right side.
 
-> **Note:** At least one channel (CH1 or CH2) must be enabled for acquisition to succeed. The oscilloscope must have a valid trigger; otherwise the acquisition may time out.
+> **Note:** At least one channel must be enabled for acquisition to succeed. The oscilloscope must have a valid trigger; otherwise the acquisition may time out.
 
 ### 8.2 Channel Selection
 
 Channel visibility can be toggled in two places:
 
 * **Control Panel** — The CH1 and CH2 buttons in the virtual front panel toggle each channel on or off. On four-channel instruments, CH3 and CH4 buttons appear below CH1 and CH2; the single scale (V <-> mV) and Position knobs then act on the selected channel.
-* **Device Parameters Panel** — The channel status indicators (CH1, CH2) in the sidebar also toggle channel visibility.
+* **Device Parameters Panel** — The channel status indicators in the sidebar (CH1, CH2 and, on four-channel instruments, CH3 and CH4) also select which channels are acquired.
 
 Channel colors in the waveform display:
 
@@ -903,6 +903,8 @@ Channel colors in the waveform display:
 |:--------|:------|
 | CH1 | Yellow |
 | CH2 | Magenta |
+| CH3 | Light blue |
+| CH4 | Green |
 | Reference | White (dashed) |
 
 ### 8.3 Device Parameters Panel
@@ -983,7 +985,7 @@ Previously saved waveform data can be loaded as a reference overlay for comparis
 
 1. Click the **Load Reference** button in the Device Parameters panel.
 2. Select a CSV file from the `waveform/csv/` directory.
-3. If the CSV contains both CH1 and CH2 data, choose which channel to load.
+3. If the CSV contains more than one channel (CH1–CH4), choose which channel to load.
 4. The reference waveform is displayed as a white dashed line over the live waveform.
 
 #### Managing References
@@ -998,7 +1000,7 @@ Click the **Save** button in the top toolbar while a waveform is displayed to ex
 
 #### PNG Export
 
-A PNG image of the current waveform display (including cursors if enabled) is saved to the `waveform/images/` subdirectory of the application working directory.
+A PNG image of the current waveform display (including all enabled channels and cursors if enabled) is saved to the `waveform/images/` subdirectory of the application working directory.
 
 #### CSV Export
 
@@ -1021,6 +1023,19 @@ A CSV file containing the raw waveform data points is saved alongside the PNG to
 Time (s),CH1 (V),CH2 (V)
 <time1>,<ch1_v1>,<ch2_v1>
 <time2>,<ch1_v2>,<ch2_v2>
+...
+```
+
+On four-channel instruments the CSV additionally contains the CH3/CH4 metadata comments and two more columns:
+
+```
+# CH3 V/div: <value> V
+# CH3 Offset: <value> V
+# CH4 V/div: <value> V
+# CH4 Offset: <value> V
+#
+Time (s),CH1 (V),CH2 (V),CH3 (V),CH4 (V)
+<time1>,<ch1_v1>,<ch2_v1>,<ch3_v1>,<ch4_v1>
 ...
 ```
 

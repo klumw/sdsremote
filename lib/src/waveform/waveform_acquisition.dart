@@ -23,6 +23,8 @@ class WaveformAcquisition {
   Future<WaveformRawData> acquire({
     bool ch1 = true,
     bool ch2 = true,
+    bool ch3 = false,
+    bool ch4 = false,
     void Function()? onConnected,
     Vxi11Instrument? instr,
   }) async {
@@ -101,6 +103,8 @@ class WaveformAcquisition {
       // Fetch only if both: selected in UI (checkbox) AND active on the instrument.
       final isCh1Active = ch1 && await _queryStatus(activeInstr, 'C1:TRACE?');
       final isCh2Active = ch2 && await _queryStatus(activeInstr, 'C2:TRACE?');
+      final isCh3Active = ch3 && await _queryStatus(activeInstr, 'C3:TRACE?');
+      final isCh4Active = ch4 && await _queryStatus(activeInstr, 'C4:TRACE?');
 
       // --- Per-channel parameters ---
       final vdivCh1 = isCh1Active
@@ -115,6 +119,18 @@ class WaveformAcquisition {
       final voffsetCh2 = isCh2Active
           ? await _queryValue(activeInstr, 'C2:OFST?')
           : null;
+      final vdivCh3 = isCh3Active
+          ? await _queryValue(activeInstr, 'C3:VDIV?')
+          : null;
+      final voffsetCh3 = isCh3Active
+          ? await _queryValue(activeInstr, 'C3:OFST?')
+          : null;
+      final vdivCh4 = isCh4Active
+          ? await _queryValue(activeInstr, 'C4:VDIV?')
+          : null;
+      final voffsetCh4 = isCh4Active
+          ? await _queryValue(activeInstr, 'C4:OFST?')
+          : null;
 
       // --- Waveform data ---
       final ch1Raw = isCh1Active
@@ -122,6 +138,12 @@ class WaveformAcquisition {
           : null;
       final ch2Raw = isCh2Active
           ? await _queryDataBlock(activeInstr, 'C2:WF? DAT2')
+          : null;
+      final ch3Raw = isCh3Active
+          ? await _queryDataBlock(activeInstr, 'C3:WF? DAT2')
+          : null;
+      final ch4Raw = isCh4Active
+          ? await _queryDataBlock(activeInstr, 'C4:WF? DAT2')
           : null;
 
       // --- Restore original trigger mode ---
@@ -140,10 +162,16 @@ class WaveformAcquisition {
       return WaveformRawData(
         ch1Raw: ch1Raw,
         ch2Raw: ch2Raw,
+        ch3Raw: ch3Raw,
+        ch4Raw: ch4Raw,
         vdivCh1: vdivCh1,
         voffsetCh1: voffsetCh1,
         vdivCh2: vdivCh2,
         voffsetCh2: voffsetCh2,
+        vdivCh3: vdivCh3,
+        voffsetCh3: voffsetCh3,
+        vdivCh4: vdivCh4,
+        voffsetCh4: voffsetCh4,
         timebase: timebase,
         trdl: trdl,
         sampleRate: sampleRate,
