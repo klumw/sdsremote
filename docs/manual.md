@@ -1222,7 +1222,7 @@ The Bode panel is not available when no generator is configured or no generator 
 | Points | Number of sweep points (2–500). |
 | Amplitude | Generator output in Vpp; limited by the model and frequency. |
 | Offset | Generator DC offset; limited by the model and frequency. |
-| Settle (ms) | Extra settling time per point; the application enforces at least three periods and 200 ms and caps the value at 5 s. |
+| Settle (ms) | Extra settling time per point; the application enforces at least three periods and 800 ms and caps the value at 5 s. |
 | Spacing | Logarithmic (default) or linear frequency spacing. |
 | Waveform | Sweep waveform (sine, square, triangle, pulse, …). |
 | Vin channel | Oscilloscope channel connected to the DUT input (default CH1). |

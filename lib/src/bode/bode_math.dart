@@ -162,11 +162,11 @@ String? validateBodeConfig(BodeConfig config, Jds6600DeviceInfo? info) {
 }
 
 /// Effective per-point settle time: configured value, at least three periods
-/// and at least 200 ms, capped at 5 s.
+/// and at least 800 ms, capped at 5 s.
 Duration effectiveSettling(BodeConfig config, double frequencyHz) {
   final configured = config.settling.inMilliseconds / 1000.0;
   final cycles = frequencyHz > 0 ? 3.0 / frequencyHz : 0.0;
-  final seconds = math.min(5.0, math.max(configured, math.max(cycles, 0.2)));
+  final seconds = math.min(5.0, math.max(configured, math.max(cycles, 0.8)));
   return Duration(milliseconds: (seconds * 1000).round());
 }
 

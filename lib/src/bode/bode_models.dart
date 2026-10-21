@@ -21,7 +21,7 @@ class BodeConfig {
     this.amplitudeVpp = 1,
     this.offsetV = 0,
     this.waveform = Jds6600Waveform.sine,
-    this.settling = const Duration(milliseconds: 500),
+    this.settling = const Duration(milliseconds: 1500),
     this.measurePhase = false,
     this.vinChannel = 1,
     this.voutChannel = 2,

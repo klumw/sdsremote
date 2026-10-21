@@ -246,13 +246,10 @@ void main() {
     });
   });
 
-  test('effective settling uses at least three periods and 200 ms', () {
+  test('effective settling uses at least three periods and 800 ms', () {
     const config = BodeConfig(settling: Duration.zero);
-    expect(
-      effectiveSettling(config, 10).inMilliseconds,
-      greaterThanOrEqualTo(300),
-    );
-    expect(effectiveSettling(config, 1000).inMilliseconds, 200);
+    expect(effectiveSettling(config, 2).inMilliseconds, 1500);
+    expect(effectiveSettling(config, 1000).inMilliseconds, 800);
     expect(
       effectiveSettling(
         const BodeConfig(settling: Duration(seconds: 1)),
