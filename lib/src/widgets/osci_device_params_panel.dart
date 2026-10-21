@@ -132,42 +132,54 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
                 children: [
                   // Channel Status Section (channels are always enabled)
                   _buildBorderedSection(
-                    Wrap(
-                      spacing: 4,
-                      runSpacing: 4,
-                      alignment: WrapAlignment.center,
+                    Column(
                       children: [
-                        _buildChannelStatus(
-                          label: "CH1",
-                          enabled: ch1Enabled,
-                          activeColor: waveformChannelColors[0],
-                        ),
-                        _buildChannelStatus(
-                          label: "CH2",
-                          enabled: ch2Enabled,
-                          activeColor: waveformChannelColors[1],
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            _buildChannelStatus(
+                              label: "CH1",
+                              enabled: ch1Enabled,
+                              activeColor: waveformChannelColors[0],
+                            ),
+                            const SizedBox(width: 4),
+                            _buildChannelStatus(
+                              label: "CH2",
+                              enabled: ch2Enabled,
+                              activeColor: waveformChannelColors[1],
+                            ),
+                            if (refLabel != null) ...[
+                              const SizedBox(width: 4),
+                              _buildChannelStatus(
+                                label: refLabel,
+                                enabled: refVisible,
+                                activeColor: Colors.white54,
+                                onTap: onRefToggled != null
+                                    ? () => onRefToggled(!refVisible)
+                                    : null,
+                              ),
+                            ],
+                          ],
                         ),
                         if (widget.channelCount >= 4) ...[
-                          _buildChannelStatus(
-                            label: "CH3",
-                            enabled: ch3Enabled,
-                            activeColor: waveformChannelColors[2],
-                          ),
-                          _buildChannelStatus(
-                            label: "CH4",
-                            enabled: ch4Enabled,
-                            activeColor: waveformChannelColors[3],
+                          const SizedBox(height: 4),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              _buildChannelStatus(
+                                label: "CH3",
+                                enabled: ch3Enabled,
+                                activeColor: waveformChannelColors[2],
+                              ),
+                              const SizedBox(width: 4),
+                              _buildChannelStatus(
+                                label: "CH4",
+                                enabled: ch4Enabled,
+                                activeColor: waveformChannelColors[3],
+                              ),
+                            ],
                           ),
                         ],
-                        if (refLabel != null)
-                          _buildChannelStatus(
-                            label: refLabel,
-                            enabled: refVisible,
-                            activeColor: Colors.white54,
-                            onTap: onRefToggled != null
-                                ? () => onRefToggled(!refVisible)
-                                : null,
-                          ),
                       ],
                     ),
                   ),
