@@ -29,7 +29,12 @@ String buildDataLoggerCsv({
   final columns = <String>['Time (s)'];
   final getters = <String, double? Function(DataLoggerPoint)>{};
 
-  void addCol(String name, double? Function(DataLoggerPoint) getter, bool enabled, String key) {
+  void addCol(
+    String name,
+    double? Function(DataLoggerPoint) getter,
+    bool enabled,
+    String key,
+  ) {
     if (enabled && !hiddenLines.contains(key)) {
       columns.add(name);
       getters[name] = getter;
@@ -46,6 +51,16 @@ String buildDataLoggerCsv({
   addCol('CH2 Rms (V)', (p) => p.ch2Rms, config.ch2RmsEnabled, 'ch2_rms');
   addCol('CH2 Duty (%)', (p) => p.ch2Duty, config.ch2DutyEnabled, 'ch2_duty');
   addCol('CH2 Freq (Hz)', (p) => p.ch2Freq, config.ch2FreqEnabled, 'ch2_freq');
+  addCol('CH3 Vpp (V)', (p) => p.ch3Vpp, config.ch3VppEnabled, 'ch3_vpp');
+  addCol('CH3 Mean (V)', (p) => p.ch3Mean, config.ch3MeanEnabled, 'ch3_mean');
+  addCol('CH3 Rms (V)', (p) => p.ch3Rms, config.ch3RmsEnabled, 'ch3_rms');
+  addCol('CH3 Duty (%)', (p) => p.ch3Duty, config.ch3DutyEnabled, 'ch3_duty');
+  addCol('CH3 Freq (Hz)', (p) => p.ch3Freq, config.ch3FreqEnabled, 'ch3_freq');
+  addCol('CH4 Vpp (V)', (p) => p.ch4Vpp, config.ch4VppEnabled, 'ch4_vpp');
+  addCol('CH4 Mean (V)', (p) => p.ch4Mean, config.ch4MeanEnabled, 'ch4_mean');
+  addCol('CH4 Rms (V)', (p) => p.ch4Rms, config.ch4RmsEnabled, 'ch4_rms');
+  addCol('CH4 Duty (%)', (p) => p.ch4Duty, config.ch4DutyEnabled, 'ch4_duty');
+  addCol('CH4 Freq (Hz)', (p) => p.ch4Freq, config.ch4FreqEnabled, 'ch4_freq');
   // Cross-channel voltage gain (CH1 signal vs. CH2 reference), in decibels.
   addCol('Gain (dB)', (p) => p.gainDb, config.gainDbEnabled, 'gain_db');
 

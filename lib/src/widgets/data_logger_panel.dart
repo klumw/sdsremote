@@ -31,6 +31,9 @@ class DataLoggerPanel extends StatefulWidget {
   /// Whether the device is currently online.
   final bool isOnline;
 
+  /// Analog channel count of the connected instrument (2 or 4).
+  final int channelCount;
+
   /// Called when the panel should be closed.
   final VoidCallback onClose;
 
@@ -70,6 +73,7 @@ class DataLoggerPanel extends StatefulWidget {
     super.key,
     required this.getInstrument,
     required this.isOnline,
+    this.channelCount = 2,
     required this.onClose,
     this.plotKey,
     this.onRunningChanged,
@@ -119,6 +123,7 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     } else {
       _config = const DataLoggerConfig();
     }
+    _config = _sanitizeConfig(_config!);
     if (widget.savedStatus != null) {
       _status = widget.savedStatus!;
     } else {
@@ -181,37 +186,35 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
   Future<void> _queryProbeDividersEarly() async {
     if (_config == null) return;
     // Only query the channels that have any measurement enabled.
-    final ch1 = _config!.ch1Enabled;
-    final ch2 = _config!.ch2Enabled;
-    if (!ch1 && !ch2) return;
+    final enabled = <int, bool>{
+      1: _config!.ch1Enabled,
+      2: _config!.ch2Enabled,
+      3: _config!.ch3Enabled,
+      4: _config!.ch4Enabled,
+    };
+    if (!enabled.values.any((value) => value)) return;
 
     try {
       final instr = await widget.getInstrument();
       if (instr == null) return;
-      double? p1, p2;
-      if (ch1) {
-        final resp = (await instr.queryString('C1:ATTN?')).trim();
+      final dividers = <int, double>{};
+      for (final entry in enabled.entries) {
+        if (!entry.value) continue;
+        final resp = (await instr.queryString('C${entry.key}:ATTN?')).trim();
         final m = RegExp(
           r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?',
         ).allMatches(resp).toList();
-        if (m.isNotEmpty) p1 = double.tryParse(m.last.group(0)!);
+        if (m.isEmpty) continue;
+        final value = double.tryParse(m.last.group(0)!);
+        if (value != null && value > 0) dividers[entry.key] = value;
       }
-      if (ch2) {
-        final resp = (await instr.queryString('C2:ATTN?')).trim();
-        final m = RegExp(
-          r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?',
-        ).allMatches(resp).toList();
-        if (m.isNotEmpty) p2 = double.tryParse(m.last.group(0)!);
-      }
-      if (p1 != null && p1 > 0 || p2 != null && p2 > 0) {
+      if (dividers.isNotEmpty) {
         setState(() {
           _config = _config!.copyWith(
-            probeDividerCh1: p1 != null && p1 > 0
-                ? p1
-                : _config!.probeDividerCh1,
-            probeDividerCh2: p2 != null && p2 > 0
-                ? p2
-                : _config!.probeDividerCh2,
+            probeDividerCh1: dividers[1] ?? _config!.probeDividerCh1,
+            probeDividerCh2: dividers[2] ?? _config!.probeDividerCh2,
+            probeDividerCh3: dividers[3] ?? _config!.probeDividerCh3,
+            probeDividerCh4: dividers[4] ?? _config!.probeDividerCh4,
           );
         });
       }
@@ -239,9 +242,28 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
 
   // ---------- Callbacks ----------
 
+  /// Clears CH3/CH4 selections when the connected instrument only has two
+  /// channels, e.g. when a saved configuration from a four-channel scope is
+  /// restored on a two-channel scope.
+  DataLoggerConfig _sanitizeConfig(DataLoggerConfig config) {
+    if (widget.channelCount >= 4) return config;
+    return config.copyWith(
+      ch3VppEnabled: false,
+      ch3MeanEnabled: false,
+      ch3RmsEnabled: false,
+      ch3DutyEnabled: false,
+      ch3FreqEnabled: false,
+      ch4VppEnabled: false,
+      ch4MeanEnabled: false,
+      ch4RmsEnabled: false,
+      ch4DutyEnabled: false,
+      ch4FreqEnabled: false,
+    );
+  }
+
   void _onConfigChanged(DataLoggerConfig config) {
     setState(() {
-      _config = config;
+      _config = _sanitizeConfig(config);
     });
   }
 
@@ -395,6 +417,26 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
                                             _config?.ch2DutyEnabled ?? false,
                                         ch2FreqEnabled:
                                             _config?.ch2FreqEnabled ?? false,
+                                        ch3VppEnabled:
+                                            _config?.ch3VppEnabled ?? false,
+                                        ch3MeanEnabled:
+                                            _config?.ch3MeanEnabled ?? false,
+                                        ch3RmsEnabled:
+                                            _config?.ch3RmsEnabled ?? false,
+                                        ch3DutyEnabled:
+                                            _config?.ch3DutyEnabled ?? false,
+                                        ch3FreqEnabled:
+                                            _config?.ch3FreqEnabled ?? false,
+                                        ch4VppEnabled:
+                                            _config?.ch4VppEnabled ?? false,
+                                        ch4MeanEnabled:
+                                            _config?.ch4MeanEnabled ?? false,
+                                        ch4RmsEnabled:
+                                            _config?.ch4RmsEnabled ?? false,
+                                        ch4DutyEnabled:
+                                            _config?.ch4DutyEnabled ?? false,
+                                        ch4FreqEnabled:
+                                            _config?.ch4FreqEnabled ?? false,
                                         gainDbEnabled:
                                             _config?.gainDbEnabled ?? false,
                                         status: _status,
@@ -451,7 +493,14 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
             ),
 
           // ---- Bottom Controls ----
-          _buildBottomControls(),
+          // The configuration form grows with the number of channels; keep it
+          // scrollable when it exceeds the available height.
+          if (_status == DataLoggerStatus.configuring)
+            Flexible(
+              child: SingleChildScrollView(child: _buildBottomControls()),
+            )
+          else
+            _buildBottomControls(),
         ],
       ),
     );
@@ -590,6 +639,106 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
         );
       }
     }
+    if (_config?.ch3VppEnabled == true) {
+      if (!_hiddenLines.contains('ch3_vpp') && nearest.ch3Vpp != null) {
+        rows.add(
+          Text(
+            'CH3 Vpp: ${nearest.ch3Vpp!.toStringAsFixed(3)}V',
+            style: const TextStyle(color: Color(0xFF4FC3F7), fontSize: 11),
+          ),
+        );
+      }
+    }
+    if (_config?.ch3MeanEnabled == true) {
+      if (!_hiddenLines.contains('ch3_mean') && nearest.ch3Mean != null) {
+        rows.add(
+          Text(
+            'CH3 Mean: ${nearest.ch3Mean!.toStringAsFixed(3)}V',
+            style: const TextStyle(color: Color(0xFF00B0FF), fontSize: 11),
+          ),
+        );
+      }
+    }
+    if (_config?.ch3RmsEnabled == true) {
+      if (!_hiddenLines.contains('ch3_rms') && nearest.ch3Rms != null) {
+        rows.add(
+          Text(
+            'CH3 Rms: ${nearest.ch3Rms!.toStringAsFixed(3)}V',
+            style: const TextStyle(color: Color(0xFF00B0FF), fontSize: 11),
+          ),
+        );
+      }
+    }
+    if (_config?.ch3DutyEnabled == true) {
+      if (!_hiddenLines.contains('ch3_duty') && nearest.ch3Duty != null) {
+        rows.add(
+          Text(
+            'CH3 Duty: ${nearest.ch3Duty!.toStringAsFixed(1)}%',
+            style: const TextStyle(color: Color(0xFF4FC3F7), fontSize: 11),
+          ),
+        );
+      }
+    }
+    if (_config?.ch3FreqEnabled == true) {
+      if (!_hiddenLines.contains('ch3_freq') && nearest.ch3Freq != null) {
+        rows.add(
+          Text(
+            'CH3 Freq: ${_fmtSi(nearest.ch3Freq!)}Hz',
+            style: const TextStyle(color: Color(0xFF4FC3F7), fontSize: 11),
+          ),
+        );
+      }
+    }
+    if (_config?.ch4VppEnabled == true) {
+      if (!_hiddenLines.contains('ch4_vpp') && nearest.ch4Vpp != null) {
+        rows.add(
+          Text(
+            'CH4 Vpp: ${nearest.ch4Vpp!.toStringAsFixed(3)}V',
+            style: const TextStyle(color: Color(0xFF66BB6A), fontSize: 11),
+          ),
+        );
+      }
+    }
+    if (_config?.ch4MeanEnabled == true) {
+      if (!_hiddenLines.contains('ch4_mean') && nearest.ch4Mean != null) {
+        rows.add(
+          Text(
+            'CH4 Mean: ${nearest.ch4Mean!.toStringAsFixed(3)}V',
+            style: const TextStyle(color: Color(0xFFFFA726), fontSize: 11),
+          ),
+        );
+      }
+    }
+    if (_config?.ch4RmsEnabled == true) {
+      if (!_hiddenLines.contains('ch4_rms') && nearest.ch4Rms != null) {
+        rows.add(
+          Text(
+            'CH4 Rms: ${nearest.ch4Rms!.toStringAsFixed(3)}V',
+            style: const TextStyle(color: Color(0xFFFFA726), fontSize: 11),
+          ),
+        );
+      }
+    }
+    if (_config?.ch4DutyEnabled == true) {
+      if (!_hiddenLines.contains('ch4_duty') && nearest.ch4Duty != null) {
+        rows.add(
+          Text(
+            'CH4 Duty: ${nearest.ch4Duty!.toStringAsFixed(1)}%',
+            style: const TextStyle(color: Color(0xFF66BB6A), fontSize: 11),
+          ),
+        );
+      }
+    }
+    if (_config?.ch4FreqEnabled == true) {
+      if (!_hiddenLines.contains('ch4_freq') && nearest.ch4Freq != null) {
+        rows.add(
+          Text(
+            'CH4 Freq: ${_fmtSi(nearest.ch4Freq!)}Hz',
+            style: const TextStyle(color: Color(0xFF66BB6A), fontSize: 11),
+          ),
+        );
+      }
+    }
     if (_config?.gainDbEnabled == true) {
       if (!_hiddenLines.contains('gain_db')) {
         // A silently missing row would hide that gain stopped being
@@ -692,6 +841,46 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     if (_config?.ch2FreqEnabled == true) {
       if (items.isNotEmpty) items.add(const SizedBox(width: 4));
       items.add(_legendChip('CH2 Freq', 'ch2_freq', const Color(0xFFFF20FF)));
+    }
+    if (_config?.ch3VppEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 8));
+      items.add(_legendChip('CH3 Vpp', 'ch3_vpp', const Color(0xFF4FC3F7)));
+    }
+    if (_config?.ch3MeanEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
+      items.add(_legendChip('CH3 Mean', 'ch3_mean', const Color(0xFF00B0FF)));
+    }
+    if (_config?.ch3RmsEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
+      items.add(_legendChip('CH3 Rms', 'ch3_rms', const Color(0xFF00B0FF)));
+    }
+    if (_config?.ch3DutyEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
+      items.add(_legendChip('CH3 Duty', 'ch3_duty', const Color(0xFF4FC3F7)));
+    }
+    if (_config?.ch3FreqEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
+      items.add(_legendChip('CH3 Freq', 'ch3_freq', const Color(0xFF4FC3F7)));
+    }
+    if (_config?.ch4VppEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 8));
+      items.add(_legendChip('CH4 Vpp', 'ch4_vpp', const Color(0xFF66BB6A)));
+    }
+    if (_config?.ch4MeanEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
+      items.add(_legendChip('CH4 Mean', 'ch4_mean', const Color(0xFFFFA726)));
+    }
+    if (_config?.ch4RmsEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
+      items.add(_legendChip('CH4 Rms', 'ch4_rms', const Color(0xFFFFA726)));
+    }
+    if (_config?.ch4DutyEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
+      items.add(_legendChip('CH4 Duty', 'ch4_duty', const Color(0xFF66BB6A)));
+    }
+    if (_config?.ch4FreqEnabled == true) {
+      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
+      items.add(_legendChip('CH4 Freq', 'ch4_freq', const Color(0xFF66BB6A)));
     }
     if (_config?.gainDbEnabled == true) {
       if (items.isNotEmpty) items.add(const SizedBox(width: 8));
@@ -816,6 +1005,7 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
                 child: DataLoggerDialog(
                   currentConfig: _config,
                   status: _status,
+                  channelCount: widget.channelCount,
                   pointCount: _points.length,
                   totalPoints: _config?.totalPoints ?? 0,
                   elapsedSeconds: _elapsedSeconds,
@@ -830,6 +1020,7 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
           : DataLoggerDialog(
               currentConfig: _config,
               status: _status,
+              channelCount: widget.channelCount,
               pointCount: _points.length,
               totalPoints: _config?.totalPoints ?? 0,
               elapsedSeconds: _elapsedSeconds,

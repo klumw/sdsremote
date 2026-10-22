@@ -1549,6 +1549,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       plotKey: _dlPlotKey,
       getInstrument: _getInstrument,
       isOnline: _isOnline,
+      channelCount: _numChannels,
       savedPoints: _savedDlPoints,
       savedConfig: _savedDlConfig,
       savedStatus: _savedDlStatus,

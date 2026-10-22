@@ -213,6 +213,96 @@ class DataLoggerReport {
         _fmtFreq(_maxValue(points.map((p) => p.ch2Freq))),
       ]);
     }
+    if (config.ch3VppEnabled) {
+      rows.add([
+        'CH3 Vpp',
+        _fmtValue(first.ch3Vpp, 'V'),
+        _fmtValue(last.ch3Vpp, 'V'),
+        _fmtValue(_minValue(points.map((p) => p.ch3Vpp)), 'V'),
+        _fmtValue(_maxValue(points.map((p) => p.ch3Vpp)), 'V'),
+      ]);
+    }
+    if (config.ch3MeanEnabled) {
+      rows.add([
+        'CH3 Mean',
+        _fmtValue(first.ch3Mean, 'V'),
+        _fmtValue(last.ch3Mean, 'V'),
+        _fmtValue(_minValue(points.map((p) => p.ch3Mean)), 'V'),
+        _fmtValue(_maxValue(points.map((p) => p.ch3Mean)), 'V'),
+      ]);
+    }
+    if (config.ch3RmsEnabled) {
+      rows.add([
+        'CH3 Rms',
+        _fmtValue(first.ch3Rms, 'V'),
+        _fmtValue(last.ch3Rms, 'V'),
+        _fmtValue(_minValue(points.map((p) => p.ch3Rms)), 'V'),
+        _fmtValue(_maxValue(points.map((p) => p.ch3Rms)), 'V'),
+      ]);
+    }
+    if (config.ch3DutyEnabled) {
+      rows.add([
+        'CH3 Duty',
+        _fmtDuty(first.ch3Duty),
+        _fmtDuty(last.ch3Duty),
+        _fmtDuty(_minValue(points.map((p) => p.ch3Duty))),
+        _fmtDuty(_maxValue(points.map((p) => p.ch3Duty))),
+      ]);
+    }
+    if (config.ch3FreqEnabled) {
+      rows.add([
+        'CH3 Freq',
+        _fmtFreq(first.ch3Freq),
+        _fmtFreq(last.ch3Freq),
+        _fmtFreq(_minValue(points.map((p) => p.ch3Freq))),
+        _fmtFreq(_maxValue(points.map((p) => p.ch3Freq))),
+      ]);
+    }
+    if (config.ch4VppEnabled) {
+      rows.add([
+        'CH4 Vpp',
+        _fmtValue(first.ch4Vpp, 'V'),
+        _fmtValue(last.ch4Vpp, 'V'),
+        _fmtValue(_minValue(points.map((p) => p.ch4Vpp)), 'V'),
+        _fmtValue(_maxValue(points.map((p) => p.ch4Vpp)), 'V'),
+      ]);
+    }
+    if (config.ch4MeanEnabled) {
+      rows.add([
+        'CH4 Mean',
+        _fmtValue(first.ch4Mean, 'V'),
+        _fmtValue(last.ch4Mean, 'V'),
+        _fmtValue(_minValue(points.map((p) => p.ch4Mean)), 'V'),
+        _fmtValue(_maxValue(points.map((p) => p.ch4Mean)), 'V'),
+      ]);
+    }
+    if (config.ch4RmsEnabled) {
+      rows.add([
+        'CH4 Rms',
+        _fmtValue(first.ch4Rms, 'V'),
+        _fmtValue(last.ch4Rms, 'V'),
+        _fmtValue(_minValue(points.map((p) => p.ch4Rms)), 'V'),
+        _fmtValue(_maxValue(points.map((p) => p.ch4Rms)), 'V'),
+      ]);
+    }
+    if (config.ch4DutyEnabled) {
+      rows.add([
+        'CH4 Duty',
+        _fmtDuty(first.ch4Duty),
+        _fmtDuty(last.ch4Duty),
+        _fmtDuty(_minValue(points.map((p) => p.ch4Duty))),
+        _fmtDuty(_maxValue(points.map((p) => p.ch4Duty))),
+      ]);
+    }
+    if (config.ch4FreqEnabled) {
+      rows.add([
+        'CH4 Freq',
+        _fmtFreq(first.ch4Freq),
+        _fmtFreq(last.ch4Freq),
+        _fmtFreq(_minValue(points.map((p) => p.ch4Freq))),
+        _fmtFreq(_maxValue(points.map((p) => p.ch4Freq))),
+      ]);
+    }
     if (config.gainDbEnabled) {
       rows.add([
         'Gain (dB)',

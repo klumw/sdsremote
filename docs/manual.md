@@ -427,16 +427,16 @@ Click the **Data Logger** button in the top toolbar to open the Data Logger pane
 
 ### 6.2 Measurable Parameters
 
-The following parameters can be logged. Vpp, Mean, Rms, Duty and Freq are available per channel; Gain (dB) is a single cross-channel measurement. Up to **5 parameters** total can be selected simultaneously:
+The following parameters can be logged. Vpp, Mean, Rms, Duty and Freq are available per channel (CH1–CH4 on four-channel instruments); Gain (dB) is a single cross-channel measurement. Up to **5 parameters** total can be selected simultaneously:
 
 | Parameter | Channels | Description |
 |:----------|:---------|:------------|
-| **Vpp** | CH1, CH2 | Peak-to-peak voltage |
-| **Mean** | CH1, CH2 | Average (mean) voltage |
-| **Rms** | CH1, CH2 | Root mean square voltage |
-| **Duty** | CH1, CH2 | Duty cycle (percentage) |
-| **Freq** | CH1, CH2 | Signal frequency |
-| **Gain (dB)** | CH1 vs. CH2 | Voltage gain from the reference channel to the signal channel |
+| **Vpp** | CH1–CH4 | Peak-to-peak voltage |
+| **Mean** | CH1–CH4 | Average (mean) voltage |
+| **Rms** | CH1–CH4 | Root mean square voltage |
+| **Duty** | CH1–CH4 | Duty cycle (percentage) |
+| **Freq** | CH1–CH4 | Signal frequency |
+| **Gain (dB)** | CH1 vs. CH2 | Voltage gain from the reference channel to the signal channel (unchanged on four-channel instruments) |
 
 On startup all voltage values are automatically scaled by the probe attenuation factor.
 
@@ -472,7 +472,7 @@ When the Data Logger panel opens in the **configuring** state, a setup dialog is
 
 #### Measurement Selection
 
-* Toggle checkboxes for each parameter on CH1 and CH2 independently.
+* Toggle checkboxes for each parameter on CH1–CH4 independently. CH3 and CH4 are offered only when a four-channel oscilloscope was detected.
 * A counter shows the number of selected parameters (maximum 5).
 * At least one parameter must be selected before starting.
 * **Gain (dB)** has a single toggle rather than one per channel, because it is derived from both channels at once. It counts as one parameter.
@@ -551,7 +551,7 @@ If the **Save CSV Data** option is enabled in Settings, a CSV file with all raw 
 
 ### 6.8 Probe Attenuation
 
-The Data Logger automatically queries the oscilloscope's probe attenuation settings before recording begins. Voltage measurements (Vpp, Mean, Rms), as well as the RMS voltages that Gain (dB) is derived from, are scaled by the probe divider factor so that reported values match the actual signal levels at the probe tip. Probe dividers are displayed in the configuration dialog after the initial query completes; when Gain (dB) is selected, both the CH1 and CH2 probe dividers are queried and shown.
+The Data Logger automatically queries the oscilloscope's probe attenuation settings before recording begins. Voltage measurements (Vpp, Mean, Rms), as well as the RMS voltages that Gain (dB) is derived from, are scaled by the probe divider factor so that reported values match the actual signal levels at the probe tip. Probe dividers are displayed in the configuration dialog after the initial query completes; the dividers of all channels with selected measurements are queried and shown. Gain (dB) always uses the CH1 and CH2 probe dividers, regardless of how many channels the instrument has.
 
 ## 7. Macro Recorder
 

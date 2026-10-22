@@ -23,6 +23,9 @@ import '../data_logger/data_logger_models.dart';
 class DataLoggerDialog extends StatefulWidget {
   final DataLoggerConfig? currentConfig;
   final DataLoggerStatus status;
+
+  /// Analog channel count of the connected instrument (2 or 4).
+  final int channelCount;
   final int pointCount;
   final int totalPoints;
   final int elapsedSeconds;
@@ -36,6 +39,7 @@ class DataLoggerDialog extends StatefulWidget {
     super.key,
     this.currentConfig,
     required this.status,
+    this.channelCount = 2,
     this.pointCount = 0,
     this.totalPoints = 0,
     this.elapsedSeconds = 0,
@@ -78,6 +82,16 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
   bool _ch2RmsEnabled = false;
   bool _ch2DutyEnabled = false;
   bool _ch2FreqEnabled = false;
+  bool _ch3VppEnabled = false;
+  bool _ch3MeanEnabled = false;
+  bool _ch3RmsEnabled = false;
+  bool _ch3DutyEnabled = false;
+  bool _ch3FreqEnabled = false;
+  bool _ch4VppEnabled = false;
+  bool _ch4MeanEnabled = false;
+  bool _ch4RmsEnabled = false;
+  bool _ch4DutyEnabled = false;
+  bool _ch4FreqEnabled = false;
   bool _gainDbEnabled = false;
   double _intervalSeconds = 10; // Slider: 10–60
   int _durationIndex = 0; // Index into _durationPresetsMinutes
@@ -98,7 +112,31 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
       _ch2RmsEnabled = widget.currentConfig!.ch2RmsEnabled;
       _ch2DutyEnabled = widget.currentConfig!.ch2DutyEnabled;
       _ch2FreqEnabled = widget.currentConfig!.ch2FreqEnabled;
+      _ch3VppEnabled = widget.currentConfig!.ch3VppEnabled;
+      _ch3MeanEnabled = widget.currentConfig!.ch3MeanEnabled;
+      _ch3RmsEnabled = widget.currentConfig!.ch3RmsEnabled;
+      _ch3DutyEnabled = widget.currentConfig!.ch3DutyEnabled;
+      _ch3FreqEnabled = widget.currentConfig!.ch3FreqEnabled;
+      _ch4VppEnabled = widget.currentConfig!.ch4VppEnabled;
+      _ch4MeanEnabled = widget.currentConfig!.ch4MeanEnabled;
+      _ch4RmsEnabled = widget.currentConfig!.ch4RmsEnabled;
+      _ch4DutyEnabled = widget.currentConfig!.ch4DutyEnabled;
+      _ch4FreqEnabled = widget.currentConfig!.ch4FreqEnabled;
       _gainDbEnabled = widget.currentConfig!.gainDbEnabled;
+      if (widget.channelCount < 4) {
+        // A configuration saved on a four-channel scope must not query CH3/CH4
+        // when it is restored on a two-channel instrument.
+        _ch3VppEnabled = false;
+        _ch3MeanEnabled = false;
+        _ch3RmsEnabled = false;
+        _ch3DutyEnabled = false;
+        _ch3FreqEnabled = false;
+        _ch4VppEnabled = false;
+        _ch4MeanEnabled = false;
+        _ch4RmsEnabled = false;
+        _ch4DutyEnabled = false;
+        _ch4FreqEnabled = false;
+      }
       _intervalSeconds = widget.currentConfig!.intervalSeconds.toDouble();
       final saved = widget.currentConfig!.durationMinutes;
       _durationIndex = _durationPresetsMinutes
@@ -126,6 +164,16 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
       (_ch2RmsEnabled ? 1 : 0) +
       (_ch2DutyEnabled ? 1 : 0) +
       (_ch2FreqEnabled ? 1 : 0) +
+      (_ch3VppEnabled ? 1 : 0) +
+      (_ch3MeanEnabled ? 1 : 0) +
+      (_ch3RmsEnabled ? 1 : 0) +
+      (_ch3DutyEnabled ? 1 : 0) +
+      (_ch3FreqEnabled ? 1 : 0) +
+      (_ch4VppEnabled ? 1 : 0) +
+      (_ch4MeanEnabled ? 1 : 0) +
+      (_ch4RmsEnabled ? 1 : 0) +
+      (_ch4DutyEnabled ? 1 : 0) +
+      (_ch4FreqEnabled ? 1 : 0) +
       (_gainDbEnabled ? 1 : 0);
 
   /// Maximum number of measurement parameters that can be selected.
@@ -148,6 +196,16 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
         ch2RmsEnabled: _ch2RmsEnabled,
         ch2DutyEnabled: _ch2DutyEnabled,
         ch2FreqEnabled: _ch2FreqEnabled,
+        ch3VppEnabled: _ch3VppEnabled,
+        ch3MeanEnabled: _ch3MeanEnabled,
+        ch3RmsEnabled: _ch3RmsEnabled,
+        ch3DutyEnabled: _ch3DutyEnabled,
+        ch3FreqEnabled: _ch3FreqEnabled,
+        ch4VppEnabled: _ch4VppEnabled,
+        ch4MeanEnabled: _ch4MeanEnabled,
+        ch4RmsEnabled: _ch4RmsEnabled,
+        ch4DutyEnabled: _ch4DutyEnabled,
+        ch4FreqEnabled: _ch4FreqEnabled,
         gainDbEnabled: _gainDbEnabled,
         intervalSeconds: _intervalSeconds.round(),
         durationMinutes: _durationMinutes,
@@ -414,6 +472,144 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                   _emitConfig();
                 }),
               ),
+              if (widget.channelCount >= 4) ...[
+                // CH3 Vpp toggle with fixed-height probe label area.
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildMeasurementToggle(
+                      label: 'CH3 Vpp',
+                      value: _ch3VppEnabled,
+                      activeColor: const Color(0xFF4FC3F7),
+                      onChanged: (v) => setState(() {
+                        _ch3VppEnabled = v;
+                        _emitConfig();
+                      }),
+                    ),
+                    SizedBox(
+                      height: 30,
+                      child:
+                          (_ch3VppEnabled ||
+                                  _ch3MeanEnabled ||
+                                  _ch3RmsEnabled) &&
+                              widget.currentConfig != null
+                          ? Padding(
+                              padding: const EdgeInsets.only(left: 4, top: 4),
+                              child: _buildProbeChip(
+                                'CH3-Probe: ${_fmtProbe(widget.currentConfig!.probeDividerCh3)}',
+                                const Color(0xFF4FC3F7),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
+                _buildMeasurementToggle(
+                  label: 'CH3 Mean',
+                  value: _ch3MeanEnabled,
+                  activeColor: const Color(0xFF00B0FF),
+                  onChanged: (v) => setState(() {
+                    _ch3MeanEnabled = v;
+                    _emitConfig();
+                  }),
+                ),
+                _buildMeasurementToggle(
+                  label: 'CH3 Rms',
+                  value: _ch3RmsEnabled,
+                  activeColor: const Color(0xFF00B0FF),
+                  onChanged: (v) => setState(() {
+                    _ch3RmsEnabled = v;
+                    _emitConfig();
+                  }),
+                ),
+                _buildMeasurementToggle(
+                  label: 'CH3 Duty',
+                  value: _ch3DutyEnabled,
+                  activeColor: const Color(0xFF4FC3F7),
+                  onChanged: (v) => setState(() {
+                    _ch3DutyEnabled = v;
+                    _emitConfig();
+                  }),
+                ),
+                _buildMeasurementToggle(
+                  label: 'CH3 Freq',
+                  value: _ch3FreqEnabled,
+                  activeColor: const Color(0xFF4FC3F7),
+                  onChanged: (v) => setState(() {
+                    _ch3FreqEnabled = v;
+                    _emitConfig();
+                  }),
+                ),
+                // CH4 Vpp toggle with fixed-height probe label area.
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildMeasurementToggle(
+                      label: 'CH4 Vpp',
+                      value: _ch4VppEnabled,
+                      activeColor: const Color(0xFF66BB6A),
+                      onChanged: (v) => setState(() {
+                        _ch4VppEnabled = v;
+                        _emitConfig();
+                      }),
+                    ),
+                    SizedBox(
+                      height: 30,
+                      child:
+                          (_ch4VppEnabled ||
+                                  _ch4MeanEnabled ||
+                                  _ch4RmsEnabled) &&
+                              widget.currentConfig != null
+                          ? Padding(
+                              padding: const EdgeInsets.only(left: 4, top: 4),
+                              child: _buildProbeChip(
+                                'CH4-Probe: ${_fmtProbe(widget.currentConfig!.probeDividerCh4)}',
+                                const Color(0xFF66BB6A),
+                              ),
+                            )
+                          : const SizedBox.shrink(),
+                    ),
+                  ],
+                ),
+                _buildMeasurementToggle(
+                  label: 'CH4 Mean',
+                  value: _ch4MeanEnabled,
+                  activeColor: const Color(0xFFFFA726),
+                  onChanged: (v) => setState(() {
+                    _ch4MeanEnabled = v;
+                    _emitConfig();
+                  }),
+                ),
+                _buildMeasurementToggle(
+                  label: 'CH4 Rms',
+                  value: _ch4RmsEnabled,
+                  activeColor: const Color(0xFFFFA726),
+                  onChanged: (v) => setState(() {
+                    _ch4RmsEnabled = v;
+                    _emitConfig();
+                  }),
+                ),
+                _buildMeasurementToggle(
+                  label: 'CH4 Duty',
+                  value: _ch4DutyEnabled,
+                  activeColor: const Color(0xFF66BB6A),
+                  onChanged: (v) => setState(() {
+                    _ch4DutyEnabled = v;
+                    _emitConfig();
+                  }),
+                ),
+                _buildMeasurementToggle(
+                  label: 'CH4 Freq',
+                  value: _ch4FreqEnabled,
+                  activeColor: const Color(0xFF66BB6A),
+                  onChanged: (v) => setState(() {
+                    _ch4FreqEnabled = v;
+                    _emitConfig();
+                  }),
+                ),
+              ],
               // Gain (dB) is a cross-channel measurement: the RMS voltage on
               // CH1 (signal) divided by the RMS voltage on CH2 (reference).
               // It therefore has no per-channel toggle of its own.
@@ -768,6 +964,24 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
         Text(
           'CH2-Probe: ${_fmtProbe(config.probeDividerCh2)}',
           style: const TextStyle(color: Color(0xFFFF20FF), fontSize: 11),
+        ),
+      );
+    }
+    if (config.ch3VppEnabled || config.ch3MeanEnabled || config.ch3RmsEnabled) {
+      if (items.isNotEmpty) items.add(const SizedBox(height: 2));
+      items.add(
+        Text(
+          'CH3-Probe: ${_fmtProbe(config.probeDividerCh3)}',
+          style: const TextStyle(color: Color(0xFF4FC3F7), fontSize: 11),
+        ),
+      );
+    }
+    if (config.ch4VppEnabled || config.ch4MeanEnabled || config.ch4RmsEnabled) {
+      if (items.isNotEmpty) items.add(const SizedBox(height: 2));
+      items.add(
+        Text(
+          'CH4-Probe: ${_fmtProbe(config.probeDividerCh4)}',
+          style: const TextStyle(color: Color(0xFF66BB6A), fontSize: 11),
         ),
       );
     }

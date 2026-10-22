@@ -1,9 +1,8 @@
 /// XY plot widget for the Data Logger.
 ///
 /// Displays voltage (left Y-axis), Frequency (right Y-axis), duty cycle and
-/// voltage gain in dB (inner-left axes) over time (X-axis) for channels 1
-/// and/or 2. Features auto-scaling for all Y-axes and a legend in the
-/// top-right corner.
+/// voltage gain in dB (inner-left axes) over time (X-axis) for channels 1–4.
+/// Features auto-scaling for all Y-axes and a legend in the top-right corner.
 library;
 
 import 'dart:math' as math;
@@ -20,6 +19,10 @@ const Color _ch1Color = Color(0xFFFFFF00); // Yellow
 const Color _ch1MeanColor = Color(0xFF00E676); // Green
 const Color _ch2Color = Color(0xFFFF20FF); // Magenta
 const Color _ch2MeanColor = Color(0xFFFF5252); // Red
+const Color _ch3Color = Color(0xFF4FC3F7); // Light blue
+const Color _ch3MeanColor = Color(0xFF00B0FF); // Blue
+const Color _ch4Color = Color(0xFF66BB6A); // Green
+const Color _ch4MeanColor = Color(0xFFFFA726); // Orange
 const Color _gainColor = Color(0xFF00E5FF); // Cyan
 const Color _gridColor = Color(0xFF1E3A5F);
 const Color _axisColor = Color(0xFF475569);
@@ -34,7 +37,7 @@ const Color _bgColor = Color(0xFF0A192F);
 ///
 /// Renders voltage (left Y-axis), Frequency (right Y-axis), duty cycle and
 /// voltage gain in dB (inner-left axes) as functions of elapsed time
-/// (X-axis). All axes auto-scale to fit the data.
+/// (X-axis) for channels 1–4. All axes auto-scale to fit the data.
 class DataLoggerPlot extends StatelessWidget {
   final List<DataLoggerPoint> points;
   final bool ch1VppEnabled;
@@ -47,6 +50,16 @@ class DataLoggerPlot extends StatelessWidget {
   final bool ch2RmsEnabled;
   final bool ch2DutyEnabled;
   final bool ch2FreqEnabled;
+  final bool ch3VppEnabled;
+  final bool ch3MeanEnabled;
+  final bool ch3RmsEnabled;
+  final bool ch3DutyEnabled;
+  final bool ch3FreqEnabled;
+  final bool ch4VppEnabled;
+  final bool ch4MeanEnabled;
+  final bool ch4RmsEnabled;
+  final bool ch4DutyEnabled;
+  final bool ch4FreqEnabled;
   final bool gainDbEnabled;
   final DataLoggerStatus status;
 
@@ -76,6 +89,16 @@ class DataLoggerPlot extends StatelessWidget {
     this.ch2RmsEnabled = false,
     this.ch2DutyEnabled = false,
     this.ch2FreqEnabled = false,
+    this.ch3VppEnabled = false,
+    this.ch3MeanEnabled = false,
+    this.ch3RmsEnabled = false,
+    this.ch3DutyEnabled = false,
+    this.ch3FreqEnabled = false,
+    this.ch4VppEnabled = false,
+    this.ch4MeanEnabled = false,
+    this.ch4RmsEnabled = false,
+    this.ch4DutyEnabled = false,
+    this.ch4FreqEnabled = false,
     this.gainDbEnabled = false,
     required this.status,
     this.totalDurationSeconds = 60,
@@ -129,6 +152,16 @@ class DataLoggerPlot extends StatelessWidget {
               ch2RmsEnabled: ch2RmsEnabled,
               ch2DutyEnabled: ch2DutyEnabled,
               ch2FreqEnabled: ch2FreqEnabled,
+              ch3VppEnabled: ch3VppEnabled,
+              ch3MeanEnabled: ch3MeanEnabled,
+              ch3RmsEnabled: ch3RmsEnabled,
+              ch3DutyEnabled: ch3DutyEnabled,
+              ch3FreqEnabled: ch3FreqEnabled,
+              ch4VppEnabled: ch4VppEnabled,
+              ch4MeanEnabled: ch4MeanEnabled,
+              ch4RmsEnabled: ch4RmsEnabled,
+              ch4DutyEnabled: ch4DutyEnabled,
+              ch4FreqEnabled: ch4FreqEnabled,
               gainDbEnabled: gainDbEnabled,
               status: status,
               totalDurationSeconds: totalDurationSeconds,
@@ -234,9 +267,35 @@ class _AxisRanges {
         if (p.ch2Rms! > maxVoltage) maxVoltage = p.ch2Rms!;
         if (p.ch2Rms! < minVoltage) minVoltage = p.ch2Rms!;
       }
+      if (p.ch3Vpp != null) {
+        if (p.ch3Vpp! > maxVoltage) maxVoltage = p.ch3Vpp!;
+        if (p.ch3Vpp! < minVoltage) minVoltage = p.ch3Vpp!;
+      }
+      if (p.ch3Mean != null) {
+        if (p.ch3Mean! > maxVoltage) maxVoltage = p.ch3Mean!;
+        if (p.ch3Mean! < minVoltage) minVoltage = p.ch3Mean!;
+      }
+      if (p.ch3Rms != null) {
+        if (p.ch3Rms! > maxVoltage) maxVoltage = p.ch3Rms!;
+        if (p.ch3Rms! < minVoltage) minVoltage = p.ch3Rms!;
+      }
+      if (p.ch4Vpp != null) {
+        if (p.ch4Vpp! > maxVoltage) maxVoltage = p.ch4Vpp!;
+        if (p.ch4Vpp! < minVoltage) minVoltage = p.ch4Vpp!;
+      }
+      if (p.ch4Mean != null) {
+        if (p.ch4Mean! > maxVoltage) maxVoltage = p.ch4Mean!;
+        if (p.ch4Mean! < minVoltage) minVoltage = p.ch4Mean!;
+      }
+      if (p.ch4Rms != null) {
+        if (p.ch4Rms! > maxVoltage) maxVoltage = p.ch4Rms!;
+        if (p.ch4Rms! < minVoltage) minVoltage = p.ch4Rms!;
+      }
       // Frequency: always positive, track only max
       if (p.ch1Freq != null && p.ch1Freq! > peakFreq) peakFreq = p.ch1Freq!;
       if (p.ch2Freq != null && p.ch2Freq! > peakFreq) peakFreq = p.ch2Freq!;
+      if (p.ch3Freq != null && p.ch3Freq! > peakFreq) peakFreq = p.ch3Freq!;
+      if (p.ch4Freq != null && p.ch4Freq! > peakFreq) peakFreq = p.ch4Freq!;
       // Duty cycle: 0-100%, track min and max
       if (p.ch1Duty != null) {
         if (p.ch1Duty! > maxDuty) maxDuty = p.ch1Duty!;
@@ -245,6 +304,14 @@ class _AxisRanges {
       if (p.ch2Duty != null) {
         if (p.ch2Duty! > maxDuty) maxDuty = p.ch2Duty!;
         if (p.ch2Duty! < minDuty) minDuty = p.ch2Duty!;
+      }
+      if (p.ch3Duty != null) {
+        if (p.ch3Duty! > maxDuty) maxDuty = p.ch3Duty!;
+        if (p.ch3Duty! < minDuty) minDuty = p.ch3Duty!;
+      }
+      if (p.ch4Duty != null) {
+        if (p.ch4Duty! > maxDuty) maxDuty = p.ch4Duty!;
+        if (p.ch4Duty! < minDuty) minDuty = p.ch4Duty!;
       }
       // Gain (dB): can be either sign, so track min and max.
       if (p.gainDb != null) {
@@ -328,6 +395,16 @@ class _DataLoggerPlotPainter extends CustomPainter {
   final bool ch2RmsEnabled;
   final bool ch2DutyEnabled;
   final bool ch2FreqEnabled;
+  final bool ch3VppEnabled;
+  final bool ch3MeanEnabled;
+  final bool ch3RmsEnabled;
+  final bool ch3DutyEnabled;
+  final bool ch3FreqEnabled;
+  final bool ch4VppEnabled;
+  final bool ch4MeanEnabled;
+  final bool ch4RmsEnabled;
+  final bool ch4DutyEnabled;
+  final bool ch4FreqEnabled;
   final bool gainDbEnabled;
   final DataLoggerStatus status;
   final double totalDurationSeconds;
@@ -345,6 +422,16 @@ class _DataLoggerPlotPainter extends CustomPainter {
     required this.ch2RmsEnabled,
     required this.ch2DutyEnabled,
     required this.ch2FreqEnabled,
+    required this.ch3VppEnabled,
+    required this.ch3MeanEnabled,
+    required this.ch3RmsEnabled,
+    required this.ch3DutyEnabled,
+    required this.ch3FreqEnabled,
+    required this.ch4VppEnabled,
+    required this.ch4MeanEnabled,
+    required this.ch4RmsEnabled,
+    required this.ch4DutyEnabled,
+    required this.ch4FreqEnabled,
     required this.gainDbEnabled,
     required this.status,
     this.totalDurationSeconds = 60,
@@ -383,9 +470,17 @@ class _DataLoggerPlotPainter extends CustomPainter {
         ch1RmsEnabled ||
         ch2VppEnabled ||
         ch2MeanEnabled ||
-        ch2RmsEnabled;
-    final freqEnabled = ch1FreqEnabled || ch2FreqEnabled;
-    final dutyEnabled = ch1DutyEnabled || ch2DutyEnabled;
+        ch2RmsEnabled ||
+        ch3VppEnabled ||
+        ch3MeanEnabled ||
+        ch3RmsEnabled ||
+        ch4VppEnabled ||
+        ch4MeanEnabled ||
+        ch4RmsEnabled;
+    final freqEnabled =
+        ch1FreqEnabled || ch2FreqEnabled || ch3FreqEnabled || ch4FreqEnabled;
+    final dutyEnabled =
+        ch1DutyEnabled || ch2DutyEnabled || ch3DutyEnabled || ch4DutyEnabled;
     final effectiveMarginLeft = vppEnabled ? _marginLeft : 10.0;
     final effectiveMarginRight = (freqEnabled || dutyEnabled)
         ? _marginRight
@@ -777,6 +872,100 @@ class _DataLoggerPlotPainter extends CustomPainter {
       }
     }
 
+    // Build line segments for CH3 measurements
+    if (ch3VppEnabled && !hiddenLines.contains('ch3_vpp')) {
+      final pts = <Offset>[];
+      for (final p in points) {
+        if (p.ch3Vpp != null) {
+          pts.add(Offset(mapTime(p.elapsedSeconds), mapVpp(p.ch3Vpp!)));
+        }
+      }
+      drawLine(pts, _ch3Color, 'CH3 Vpp', dashed: false);
+    }
+    if (ch3MeanEnabled && !hiddenLines.contains('ch3_mean')) {
+      final pts = <Offset>[];
+      for (final p in points) {
+        if (p.ch3Mean != null) {
+          pts.add(Offset(mapTime(p.elapsedSeconds), mapVpp(p.ch3Mean!)));
+        }
+      }
+      drawLine(pts, _ch3MeanColor, 'CH3 Mean', dashed: true);
+    }
+    if (ch3RmsEnabled && !hiddenLines.contains('ch3_rms')) {
+      final pts = <Offset>[];
+      for (final p in points) {
+        if (p.ch3Rms != null) {
+          pts.add(Offset(mapTime(p.elapsedSeconds), mapVpp(p.ch3Rms!)));
+        }
+      }
+      drawLine(pts, _ch3MeanColor, 'CH3 Rms', dashed: false);
+    }
+    if (ch3DutyEnabled && !hiddenLines.contains('ch3_duty')) {
+      final pts = <Offset>[];
+      for (final p in points) {
+        if (p.ch3Duty != null) {
+          pts.add(Offset(mapTime(p.elapsedSeconds), mapDuty(p.ch3Duty!)));
+        }
+      }
+      drawLine(pts, _ch3Color, 'CH3 Duty', dotted: true);
+    }
+    if (ch3FreqEnabled && !hiddenLines.contains('ch3_freq')) {
+      final pts = <Offset>[];
+      for (final p in points) {
+        if (p.ch3Freq != null) {
+          pts.add(Offset(mapTime(p.elapsedSeconds), mapFreq(p.ch3Freq!)));
+        }
+      }
+      drawLine(pts, _ch3Color, 'CH3 Freq', dashed: true);
+    }
+
+    // Build line segments for CH4 measurements
+    if (ch4VppEnabled && !hiddenLines.contains('ch4_vpp')) {
+      final pts = <Offset>[];
+      for (final p in points) {
+        if (p.ch4Vpp != null) {
+          pts.add(Offset(mapTime(p.elapsedSeconds), mapVpp(p.ch4Vpp!)));
+        }
+      }
+      drawLine(pts, _ch4Color, 'CH4 Vpp', dashed: false);
+    }
+    if (ch4MeanEnabled && !hiddenLines.contains('ch4_mean')) {
+      final pts = <Offset>[];
+      for (final p in points) {
+        if (p.ch4Mean != null) {
+          pts.add(Offset(mapTime(p.elapsedSeconds), mapVpp(p.ch4Mean!)));
+        }
+      }
+      drawLine(pts, _ch4MeanColor, 'CH4 Mean', dashed: true);
+    }
+    if (ch4RmsEnabled && !hiddenLines.contains('ch4_rms')) {
+      final pts = <Offset>[];
+      for (final p in points) {
+        if (p.ch4Rms != null) {
+          pts.add(Offset(mapTime(p.elapsedSeconds), mapVpp(p.ch4Rms!)));
+        }
+      }
+      drawLine(pts, _ch4MeanColor, 'CH4 Rms', dashed: false);
+    }
+    if (ch4DutyEnabled && !hiddenLines.contains('ch4_duty')) {
+      final pts = <Offset>[];
+      for (final p in points) {
+        if (p.ch4Duty != null) {
+          pts.add(Offset(mapTime(p.elapsedSeconds), mapDuty(p.ch4Duty!)));
+        }
+      }
+      drawLine(pts, _ch4Color, 'CH4 Duty', dotted: true);
+    }
+    if (ch4FreqEnabled && !hiddenLines.contains('ch4_freq')) {
+      final pts = <Offset>[];
+      for (final p in points) {
+        if (p.ch4Freq != null) {
+          pts.add(Offset(mapTime(p.elapsedSeconds), mapFreq(p.ch4Freq!)));
+        }
+      }
+      drawLine(pts, _ch4Color, 'CH4 Freq', dashed: true);
+    }
+
     // Cross-channel voltage gain in dB — drawn solid so it stands out as the
     // primary RF figure of merit, and in its own color.
     if (gainDbEnabled) {
@@ -784,9 +973,7 @@ class _DataLoggerPlotPainter extends CustomPainter {
         final gainPts = <Offset>[];
         for (final p in points) {
           if (p.gainDb != null) {
-            gainPts.add(
-              Offset(mapTime(p.elapsedSeconds), mapGain(p.gainDb!)),
-            );
+            gainPts.add(Offset(mapTime(p.elapsedSeconds), mapGain(p.gainDb!)));
           }
         }
         drawLine(gainPts, _gainColor, 'Gain (dB)', dashed: false);
@@ -1075,6 +1262,36 @@ class _DataLoggerPlotPainter extends CustomPainter {
     if (ch2FreqEnabled) {
       items.add(_LegendItem('CH2 Freq', _ch2Color, true));
     }
+    if (ch3VppEnabled) {
+      items.add(_LegendItem('CH3 Vpp', _ch3Color, false));
+    }
+    if (ch3MeanEnabled) {
+      items.add(_LegendItem('CH3 Mean', _ch3MeanColor, true));
+    }
+    if (ch3RmsEnabled) {
+      items.add(_LegendItem('CH3 Rms', _ch3MeanColor, false));
+    }
+    if (ch3DutyEnabled) {
+      items.add(_LegendItem('CH3 Duty', _ch3Color, false, dotted: true));
+    }
+    if (ch3FreqEnabled) {
+      items.add(_LegendItem('CH3 Freq', _ch3Color, true));
+    }
+    if (ch4VppEnabled) {
+      items.add(_LegendItem('CH4 Vpp', _ch4Color, false));
+    }
+    if (ch4MeanEnabled) {
+      items.add(_LegendItem('CH4 Mean', _ch4MeanColor, true));
+    }
+    if (ch4RmsEnabled) {
+      items.add(_LegendItem('CH4 Rms', _ch4MeanColor, false));
+    }
+    if (ch4DutyEnabled) {
+      items.add(_LegendItem('CH4 Duty', _ch4Color, false, dotted: true));
+    }
+    if (ch4FreqEnabled) {
+      items.add(_LegendItem('CH4 Freq', _ch4Color, true));
+    }
     if (gainDbEnabled) {
       items.add(_LegendItem('Gain (dB)', _gainColor, false));
     }
@@ -1162,6 +1379,16 @@ class _DataLoggerPlotPainter extends CustomPainter {
         oldDelegate.ch2RmsEnabled != ch2RmsEnabled ||
         oldDelegate.ch2DutyEnabled != ch2DutyEnabled ||
         oldDelegate.ch2FreqEnabled != ch2FreqEnabled ||
+        oldDelegate.ch3VppEnabled != ch3VppEnabled ||
+        oldDelegate.ch3MeanEnabled != ch3MeanEnabled ||
+        oldDelegate.ch3RmsEnabled != ch3RmsEnabled ||
+        oldDelegate.ch3DutyEnabled != ch3DutyEnabled ||
+        oldDelegate.ch3FreqEnabled != ch3FreqEnabled ||
+        oldDelegate.ch4VppEnabled != ch4VppEnabled ||
+        oldDelegate.ch4MeanEnabled != ch4MeanEnabled ||
+        oldDelegate.ch4RmsEnabled != ch4RmsEnabled ||
+        oldDelegate.ch4DutyEnabled != ch4DutyEnabled ||
+        oldDelegate.ch4FreqEnabled != ch4FreqEnabled ||
         oldDelegate.gainDbEnabled != gainDbEnabled ||
         oldDelegate.status != status ||
         oldDelegate.totalDurationSeconds != totalDurationSeconds ||

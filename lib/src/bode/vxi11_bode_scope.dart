@@ -15,7 +15,10 @@ import 'waveform_phase.dart';
 class Vxi11BodeScope implements BodeScope {
   Vxi11BodeScope(
     this._getInstrument, {
-    this.asetSettle = const Duration(seconds: 5),
+    // ASET changes the timebase and vertical scale. The scope keeps answering
+    // PAVA queries from the previous acquisition until a new acquisition has
+    // completed; with a slow auto-set timebase this takes longer than 5 s.
+    this.asetSettle = const Duration(seconds: 10),
   });
 
   final Future<Vxi11Instrument?> Function() _getInstrument;
@@ -80,11 +83,18 @@ class Vxi11BodeScope implements BodeScope {
       frequencyHz: frequencyHz,
       measurePhase: measurePhase,
     );
-    // The V/div applies to the scope input, before the probe attenuation.
-    final scopeVout = reading.voutRms == null
-        ? null
-        : reading.voutRms! / _attnVout;
-    if (await _autoRangeVout(scopeVout)) {
+    // The first reading after ASET can still come from the previous
+    // acquisition and therefore report a clipped, too-small Vout. Adjust the
+    // V/div as often as needed instead of only once: a single adjustment
+    // based on a clipped value can still leave the trace off-screen and the
+    // point would be recorded at the wrong level.
+    const maxRangeAdjustments = 4;
+    for (var attempt = 0; attempt < maxRangeAdjustments; attempt++) {
+      // The V/div applies to the scope input, before the probe attenuation.
+      final scopeVout = reading.voutRms == null
+          ? null
+          : reading.voutRms! / _attnVout;
+      if (!await _autoRangeVout(scopeVout)) break;
       reading = await _readOnce(
         vinChannel: vinChannel,
         voutChannel: voutChannel,
