@@ -121,6 +121,13 @@ String? validateBodeConfig(BodeConfig config, Jds6600DeviceInfo? info) {
   if (config.waveform == Jds6600Waveform.arbitrary) {
     return 'Arbitrary waveforms are not supported for a Bode sweep.';
   }
+  if (info != null &&
+      !Jds6600Waveform.selectableFor(
+        info.family,
+        channel: config.generatorChannel,
+      ).contains(config.waveform)) {
+    return 'The selected waveform is not supported by ${info.modelName}.';
+  }
   if (config.vinChannel != 1 && config.vinChannel != 2) {
     return 'Input channel must be CH1 or CH2.';
   }
@@ -143,7 +150,7 @@ String? validateBodeConfig(BodeConfig config, Jds6600DeviceInfo? info) {
     final maxFrequency = info.maxFrequencyHz(config.waveform);
     if (stop > maxFrequency) {
       return 'Stop frequency (${formatFrequencyHz(stop)}) exceeds the '
-          '${config.waveform.displayName} limit of '
+          '${config.waveform.displayNameFor(info.family)} limit of '
           '${formatFrequencyHz(maxFrequency)} for ${info.modelName}.';
     }
     try {

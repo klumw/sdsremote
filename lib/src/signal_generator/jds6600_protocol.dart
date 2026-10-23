@@ -276,8 +276,14 @@ class Jds6600Protocol {
     return values.first / 10.0;
   }
 
-  static String encodeWaveform(Jds6600Waveform waveform) =>
-      '${waveform.registerValue}';
+  static String encodeWaveform(Jds6600Waveform waveform) {
+    if (!waveform.isJds6600Shape) {
+      throw Jds6600RangeException(
+        'Waveform ${waveform.name} is only available on the FY6900',
+      );
+    }
+    return '${waveform.registerValue}';
+  }
 
   static Jds6600Waveform decodeWaveform(List<int> values) {
     if (values.length != 1) {

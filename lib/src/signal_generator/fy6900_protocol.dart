@@ -242,61 +242,34 @@ class Fy6900Protocol {
   // Waveform mapping
   // ---------------------------------------------------------------------------
 
-  /// Maps the shared waveform enum to the FY6900 index for [channel].
+  /// Maps a shared waveform to the FY6900 index for [channel].
   ///
-  /// The main and auxiliary channels use different numbering (CH2 omits the
-  /// adjustable-pulse entry). Waveforms without an exact FY6900 counterpart
-  /// map to the closest available shape.
+  /// Exact device shapes use their documented index. JDS6600-only shapes,
+  /// which older saved states and SCPI requests can still contain, fall back
+  /// to the closest FY6900 shape.
   static int waveformIndex(int channel, Jds6600Waveform waveform) {
     _checkChannel(channel);
-    if (channel == secondChannel) {
-      return switch (waveform) {
-        Jds6600Waveform.sine => 0,
-        // Rectangle is the duty-adjustable square on the FY6900.
-        Jds6600Waveform.square => rectangleWaveformIndex,
-        // CH2 has no adjustable pulse; a duty-adjustable rectangle is the
-        // closest shape.
-        Jds6600Waveform.pulse => rectangleWaveformIndex,
-        Jds6600Waveform.triangle => 6,
-        Jds6600Waveform.partialSine => 0,
-        Jds6600Waveform.cmos => 4,
-        Jds6600Waveform.dc => 5,
-        Jds6600Waveform.halfWave => 22,
-        Jds6600Waveform.fullWave => 20,
-        Jds6600Waveform.positiveLadder => 10,
-        Jds6600Waveform.negativeLadder => 11,
-        Jds6600Waveform.noise => 26,
-        Jds6600Waveform.expRise => 12,
-        Jds6600Waveform.expDecay => 13,
-        Jds6600Waveform.multiTone => 25,
-        Jds6600Waveform.sinc => 29,
-        Jds6600Waveform.lorenz => 24,
-        Jds6600Waveform.arbitrary => throw const Jds6600RangeException(
-          'Arbitrary waveform selection is not supported in stage 1',
-        ),
-      };
-    }
-    return switch (waveform) {
-      Jds6600Waveform.sine => 0,
-      // Rectangle is the duty-adjustable square on the FY6900.
-      Jds6600Waveform.square => rectangleWaveformIndex,
-      Jds6600Waveform.pulse => 5,
-      Jds6600Waveform.triangle => 7,
-      Jds6600Waveform.partialSine => 0,
-      Jds6600Waveform.cmos => 4,
-      Jds6600Waveform.dc => 6,
-      Jds6600Waveform.halfWave => 23,
-      Jds6600Waveform.fullWave => 21,
-      Jds6600Waveform.positiveLadder => 11,
-      Jds6600Waveform.negativeLadder => 12,
-      Jds6600Waveform.noise => 27,
-      Jds6600Waveform.expRise => 13,
-      Jds6600Waveform.expDecay => 14,
-      Jds6600Waveform.multiTone => 26,
-      Jds6600Waveform.sinc => 30,
-      Jds6600Waveform.lorenz => 25,
-      Jds6600Waveform.arbitrary => throw const Jds6600RangeException(
+    if (waveform == Jds6600Waveform.arbitrary) {
+      throw const Jds6600RangeException(
         'Arbitrary waveform selection is not supported in stage 1',
+      );
+    }
+    final table = channel == firstChannel ? _mainWaveforms : _auxWaveforms;
+    final index = table.indexOf(waveform);
+    if (index >= 0) return index;
+
+    return switch (waveform) {
+      Jds6600Waveform.partialSine => 0,
+      // CH2 has no adjustable pulse; rectangle is the closest shape.
+      Jds6600Waveform.pulse => rectangleWaveformIndex,
+      Jds6600Waveform.halfWave => channel == firstChannel ? 23 : 22,
+      Jds6600Waveform.fullWave => channel == firstChannel ? 21 : 20,
+      Jds6600Waveform.positiveLadder => channel == firstChannel ? 10 : 9,
+      Jds6600Waveform.negativeLadder => channel == firstChannel ? 12 : 11,
+      Jds6600Waveform.expRise => channel == firstChannel ? 13 : 12,
+      Jds6600Waveform.expDecay => channel == firstChannel ? 16 : 15,
+      _ => throw Jds6600RangeException(
+        'Waveform ${waveform.name} is not supported by the FY6900',
       ),
     };
   }
@@ -304,85 +277,91 @@ class Fy6900Protocol {
   static String encodeWaveform(int channel, Jds6600Waveform waveform) =>
       '${waveformIndex(channel, waveform)}';
 
-  /// Main-channel indices 0..36; indices 37..99 select arbitrary slots 1..64.
+  /// Main-channel preset indices 0..35 from the vendor protocol appendix.
+  ///
+  /// Indices 36..99 select arbitrary slots 1..64. The firmware reports ARB1
+  /// at index 36 (the vendor appendix lists a duplicate Impulse there), so it
+  /// is treated as [Jds6600Waveform.arbitrary] like every other ARB slot.
   static const List<Jds6600Waveform> _mainWaveforms = [
-    Jds6600Waveform.sine, // 0
-    Jds6600Waveform.square, // 1
-    Jds6600Waveform.square, // 2 rectangle
-    Jds6600Waveform.triangle, // 3 trapezoid
-    Jds6600Waveform.cmos, // 4
-    Jds6600Waveform.pulse, // 5 adjustable pulse
-    Jds6600Waveform.dc, // 6
-    Jds6600Waveform.triangle, // 7
-    Jds6600Waveform.triangle, // 8 ramp
-    Jds6600Waveform.triangle, // 9 negative ramp
-    Jds6600Waveform.positiveLadder, // 10 stair triangle
-    Jds6600Waveform.positiveLadder, // 11 stairstep
-    Jds6600Waveform.negativeLadder, // 12 negative stair
-    Jds6600Waveform.expRise, // 13 positive exponential
-    Jds6600Waveform.expDecay, // 14 negative exponential
-    Jds6600Waveform.expDecay, // 15 positive falling exponential
-    Jds6600Waveform.expDecay, // 16 negative falling exponential
-    Jds6600Waveform.expRise, // 17 positive logarithm
-    Jds6600Waveform.expDecay, // 18 negative logarithm
-    Jds6600Waveform.expDecay, // 19 positive falling logarithm
-    Jds6600Waveform.expDecay, // 20 negative falling logarithm
-    Jds6600Waveform.fullWave, // 21 positive full wave
-    Jds6600Waveform.fullWave, // 22 negative full wave
-    Jds6600Waveform.halfWave, // 23 positive half wave
-    Jds6600Waveform.halfWave, // 24 negative half wave
-    Jds6600Waveform.lorenz, // 25 Lorentz pulse
-    Jds6600Waveform.multiTone, // 26 multitone
-    Jds6600Waveform.noise, // 27 random noise
-    Jds6600Waveform.partialSine, // 28 ECG
-    Jds6600Waveform.triangle, // 29 trapezoidal pulse
-    Jds6600Waveform.sinc, // 30 sinc pulse
-    Jds6600Waveform.pulse, // 31 impulse
-    Jds6600Waveform.noise, // 32 AWGN
-    Jds6600Waveform.partialSine, // 33 AM
-    Jds6600Waveform.partialSine, // 34 FM
-    Jds6600Waveform.partialSine, // 35 chirp
-    Jds6600Waveform.pulse, // 36 impulse
+    Jds6600Waveform.sine, // 0 SINE
+    Jds6600Waveform.square, // 1 Square
+    Jds6600Waveform.rectangle, // 2 Rectangle
+    Jds6600Waveform.trapezoid, // 3 Trapezoid
+    Jds6600Waveform.cmos, // 4 CMOS
+    Jds6600Waveform.pulse, // 5 Adj-Pulse
+    Jds6600Waveform.dc, // 6 DC
+    Jds6600Waveform.triangle, // 7 TRGL
+    Jds6600Waveform.ramp, // 8 Ramp
+    Jds6600Waveform.negRamp, // 9 NegRamp
+    Jds6600Waveform.stairTriangle, // 10 Stair TRGL
+    Jds6600Waveform.stairstep, // 11 Stairstep
+    Jds6600Waveform.negStair, // 12 NegStair
+    Jds6600Waveform.posExponential, // 13 PosExponen
+    Jds6600Waveform.negExponential, // 14 NegExponen
+    Jds6600Waveform.pFallExp, // 15 P-Fall-Exp
+    Jds6600Waveform.nFallExp, // 16 N-Fall-Exp
+    Jds6600Waveform.posLogarithm, // 17 PosLogarit
+    Jds6600Waveform.negLogarithm, // 18 NegLogarit
+    Jds6600Waveform.pFallLog, // 19 P-Fall-Log
+    Jds6600Waveform.nFallLog, // 20 N-Fall-Log
+    Jds6600Waveform.pFullWave, // 21 P-Full-Wav
+    Jds6600Waveform.nFullWave, // 22 N-Full-Wav
+    Jds6600Waveform.pHalfWave, // 23 P-Half-Wav
+    Jds6600Waveform.nHalfWave, // 24 N-Half-Wav
+    Jds6600Waveform.lorenz, // 25 Lorentz-Pu
+    Jds6600Waveform.multiTone, // 26 Multitone
+    Jds6600Waveform.noise, // 27 Random-Noi
+    Jds6600Waveform.ecg, // 28 ECG
+    Jds6600Waveform.trapezoid, // 29 Trapezoid
+    Jds6600Waveform.sinc, // 30 Sinc-Pulse
+    Jds6600Waveform.impulse, // 31 Impulse
+    Jds6600Waveform.awgn, // 32 AWGN
+    Jds6600Waveform.am, // 33 AM
+    Jds6600Waveform.fm, // 34 FM
+    Jds6600Waveform.chirp, // 35 Chirp
   ];
 
-  /// Auxiliary-channel indices 0..35; indices 36..98 select arbitrary slots.
+  /// Auxiliary-channel preset indices 0..34 from the vendor protocol appendix.
+  ///
+  /// CH2 omits the adjustable-pulse entry, so every index after DC is shifted
+  /// down by one. Indices 35..98 select arbitrary slots 1..64; the firmware
+  /// reports ARB1 at index 35 (the appendix lists a duplicate Impulse there).
   static const List<Jds6600Waveform> _auxWaveforms = [
-    Jds6600Waveform.sine, // 0
-    Jds6600Waveform.square, // 1
-    Jds6600Waveform.square, // 2 rectangle
-    Jds6600Waveform.triangle, // 3 trapezoid
-    Jds6600Waveform.cmos, // 4
-    Jds6600Waveform.dc, // 5
-    Jds6600Waveform.triangle, // 6
-    Jds6600Waveform.triangle, // 7 ramp
-    Jds6600Waveform.triangle, // 8 negative ramp
-    Jds6600Waveform.positiveLadder, // 9 stair triangle
-    Jds6600Waveform.positiveLadder, // 10 stairstep
-    Jds6600Waveform.negativeLadder, // 11 negative stair
-    Jds6600Waveform.expRise, // 12 positive exponential
-    Jds6600Waveform.expDecay, // 13 negative exponential
-    Jds6600Waveform.expDecay, // 14 positive falling exponential
-    Jds6600Waveform.expDecay, // 15 negative falling exponential
-    Jds6600Waveform.expRise, // 16 positive logarithm
-    Jds6600Waveform.expDecay, // 17 negative logarithm
-    Jds6600Waveform.expDecay, // 18 positive falling logarithm
-    Jds6600Waveform.expDecay, // 19 negative falling logarithm
-    Jds6600Waveform.fullWave, // 20 positive full wave
-    Jds6600Waveform.fullWave, // 21 negative full wave
-    Jds6600Waveform.halfWave, // 22 positive half wave
-    Jds6600Waveform.halfWave, // 23 negative half wave
-    Jds6600Waveform.lorenz, // 24 Lorentz pulse
-    Jds6600Waveform.multiTone, // 25 multit
-    Jds6600Waveform.noise, // 26 random noise
-    Jds6600Waveform.partialSine, // 27 ECG
-    Jds6600Waveform.triangle, // 28 trapezoidal pulse
-    Jds6600Waveform.sinc, // 29 sinc pulse
-    Jds6600Waveform.pulse, // 30 impulse
-    Jds6600Waveform.noise, // 31 AWGN
-    Jds6600Waveform.partialSine, // 32 AM
-    Jds6600Waveform.partialSine, // 33 FM
-    Jds6600Waveform.partialSine, // 34 chirp
-    Jds6600Waveform.pulse, // 35 impulse
+    Jds6600Waveform.sine, // 0 SINE
+    Jds6600Waveform.square, // 1 Square
+    Jds6600Waveform.rectangle, // 2 Rectangle
+    Jds6600Waveform.trapezoid, // 3 Trapezoid
+    Jds6600Waveform.cmos, // 4 CMOS
+    Jds6600Waveform.dc, // 5 DC
+    Jds6600Waveform.triangle, // 6 TRGL
+    Jds6600Waveform.ramp, // 7 Ramp
+    Jds6600Waveform.negRamp, // 8 NegRamp
+    Jds6600Waveform.stairTriangle, // 9 Stair TRGL
+    Jds6600Waveform.stairstep, // 10 Stairstep
+    Jds6600Waveform.negStair, // 11 NegStair
+    Jds6600Waveform.posExponential, // 12 PosExponen
+    Jds6600Waveform.negExponential, // 13 NegExponen
+    Jds6600Waveform.pFallExp, // 14 P-Fall-Exp
+    Jds6600Waveform.nFallExp, // 15 N-Fall-Exp
+    Jds6600Waveform.posLogarithm, // 16 PosLogarit
+    Jds6600Waveform.negLogarithm, // 17 NegLogarit
+    Jds6600Waveform.pFallLog, // 18 P-Fall-Log
+    Jds6600Waveform.nFallLog, // 19 N-Fall-Log
+    Jds6600Waveform.pFullWave, // 20 P-Full-Wav
+    Jds6600Waveform.nFullWave, // 21 N-Full-Wav
+    Jds6600Waveform.pHalfWave, // 22 P-Half-Wav
+    Jds6600Waveform.nHalfWave, // 23 N-Half-Wav
+    Jds6600Waveform.lorenz, // 24 Lorentz-Pu
+    Jds6600Waveform.multiTone, // 25 Multitone
+    Jds6600Waveform.noise, // 26 Random-Noi
+    Jds6600Waveform.ecg, // 27 ECG
+    Jds6600Waveform.trapezoid, // 28 Trapezoid
+    Jds6600Waveform.sinc, // 29 Sinc-Pulse
+    Jds6600Waveform.impulse, // 30 Impulse
+    Jds6600Waveform.awgn, // 31 AWGN
+    Jds6600Waveform.am, // 32 AM
+    Jds6600Waveform.fm, // 33 FM
+    Jds6600Waveform.chirp, // 34 Chirp
   ];
 
   static Jds6600Waveform decodeWaveform(int channel, int index) {
@@ -411,7 +390,7 @@ class Fy6900Protocol {
       throw Jds6600RangeException(
         'Frequency ${hz.toStringAsFixed(6)} Hz is outside '
         '$minFrequencyHz..${max / 1e6} MHz '
-        'for ${waveform.displayName}',
+        'for ${waveform.displayNameFor(SiggenFamily.fy6900)}',
       );
     }
   }

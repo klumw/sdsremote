@@ -47,8 +47,7 @@ void main() {
     expect(await service.executeScpi('SOUR1:FREQ?'), '2500.00');
 
     await service.executeScpi('SOUR1:FUNC SQUARE');
-    // Rectangle (2) is the duty-adjustable square on the FY6900.
-    expect(transport.channel(1).waveform, 2);
+    expect(transport.channel(1).waveform, 1);
     expect(await service.executeScpi('SOUR1:FUNC?'), 'SQU');
 
     await service.executeScpi('SOUR1:VOLT 2');

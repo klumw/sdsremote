@@ -14,6 +14,7 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../signal_generator/models.dart';
 import 'bode_models.dart';
 
 /// Generates a PDF report for a completed Bode sweep.
@@ -26,12 +27,14 @@ class BodeReport {
   /// [points] are the measured frequency points.
   /// [chartImageBytes] is the raw PNG bytes of the captured Bode plot.
   /// [deviceName] and [generatorIdentity] are optional device descriptions.
+  /// [generatorFamily] selects the device-specific waveform label.
   static Future<Uint8List> generatePdf({
     required BodeConfig config,
     required List<BodePoint> points,
     required Uint8List chartImageBytes,
     String? deviceName,
     String? generatorIdentity,
+    SiggenFamily? generatorFamily,
   }) async {
     final pdf = pw.Document();
     final chartImage = pw.MemoryImage(chartImageBytes);
@@ -88,7 +91,12 @@ class BodeReport {
               1: const pw.FlexColumnWidth(3),
             },
             headers: ['Parameter', 'Value'],
-            data: _buildConfigRows(config, deviceName, generatorIdentity),
+            data: _buildConfigRows(
+              config,
+              deviceName,
+              generatorIdentity,
+              generatorFamily,
+            ),
           ),
           pw.SizedBox(height: 24),
 
@@ -125,6 +133,7 @@ class BodeReport {
     BodeConfig config,
     String? deviceName,
     String? generatorIdentity,
+    SiggenFamily? generatorFamily,
   ) {
     final rows = <List<String>>[
       ['Start Frequency', _fmtFrequency(config.startFrequencyHz)],
@@ -136,7 +145,12 @@ class BodeReport {
       ],
       ['Amplitude', '${_fmtNumber(config.amplitudeVpp)} Vpp'],
       ['Offset', '${_fmtNumber(config.offsetV)} V'],
-      ['Waveform', config.waveform.displayName],
+      [
+        'Waveform',
+        config.waveform.displayNameFor(
+          generatorFamily ?? SiggenFamily.jds6600,
+        ),
+      ],
       ['Settling Time', '${config.settling.inMilliseconds} ms'],
       ['Phase Measurement', config.measurePhase ? 'Enabled' : 'Disabled'],
       ['Vin Channel', 'CH${config.vinChannel}'],

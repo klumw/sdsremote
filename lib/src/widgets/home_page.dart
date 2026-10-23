@@ -225,7 +225,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   Timer? _refreshTimer;
   bool _refreshPending = false;
-  static const int _refreshDelayMs = 800;
+  static const int _refreshDelayMs = 1758;
 
   // UI State
   bool _showSettings = false;
@@ -2169,6 +2169,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         chartImageBytes: chartImageBytes,
         deviceName: deviceName,
         generatorIdentity: generatorIdentity,
+        generatorFamily: info?.family,
       );
 
       // Write to the Bode reports subdirectory

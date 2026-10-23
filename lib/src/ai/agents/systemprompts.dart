@@ -966,6 +966,480 @@ Query: `XYDS?`
   Query only.
 
 ───────────────────────────────────────────
+ADDITIONAL KNOWN SCPI COMMANDS (from knowledgebase.md)
+───────────────────────────────────────────
+
+**ACQ:CSW** (ACQuire:CSWeep)  
+Resets the acquisition; equivalent to the Clear Sweeps button (4-channel models only).  
+Exact command pattern: `ACQ:CSW`  
+No query.
+
+**ARWV** (ARbWaVe)  
+Sets or gets arbitrary-wave parameters of the waveform generator (4-channel models only, SAG1021I).  
+Exact command pattern: `<channel>:ARWV INDEX,<index>` or `<channel>:ARbWaVe NAME,<name>`  
+Query: `<channel>:ARWV?`
+
+**B<n>:DCCN** (Decode CAN)  
+Sets the parameters of the CAN decode bus.  
+Exact command pattern: `B<n>:DCCN <param>,<value>[,<param>,<value>[..]]`  
+No query.
+
+**B<n>:DCIC** (Decode I2C)  
+Sets the parameters of the I2C decode bus.  
+Exact command pattern: `B<n>:DCIC <param>,<value>[,<param>,<value>[,..]]`  
+No query.
+
+**B<n>:DCLN** (Decode LIN)  
+Sets the parameters of the LIN decode bus.  
+Exact command pattern: `B<n>:DCLN <param>,<value>[,<param>,<value>[,..]]`  
+No query.
+
+**B<n>:DCSP** (Decode SPI)  
+Sets the parameters of the SPI decode bus.  
+Exact command pattern: `B<n>:DCSP <param>,<value>[,<param>,<value>[,..]]`  
+No query.
+
+**B<n>:DCUT** (Decode UART)  
+Sets the parameters of the UART decode bus.  
+Exact command pattern: `B<n>:DCUT <param>,<value>[,<param>,<value>[,..]]`  
+No query.
+
+**BSWV** (BaSic_WaVe)  
+Sets or gets basic-wave parameters of the waveform generator (4-channel models only, SAG1021I).  
+Exact command pattern: `<channel>:BSWV <parameter>,<value>`  
+Query: `<channel>:BSWV?`
+
+**CRTY** (CURSOR_TYPE)  
+Selects the cursor type in manual cursor mode (X, Y, X-Y).  
+Exact command pattern: `CRTY <type>`  
+Query: `CRTY?`
+
+**CUS** (CUSTOM)  
+Sets the custom threshold for a digital channel group (4-channel models only, group H8 or L8).  
+Exact command pattern: `<group>:CUS <value>`  
+Query: `<group>:CUS?`
+
+**DCPA** (Decode common parameters)  
+Sets the common parameters of the serial decode bus.  
+Exact command pattern: `DCPA <param>,<value>[,<param>,<value>[,..]]`  
+No query.
+
+**DCST** (Decode state)  
+Turns serial decode on or off.  
+Exact command pattern: `DCST <state>` (OFF, ON)  
+Query: `DCST?`
+
+**DI:SW** (DI:SWITCH)  
+Turns the digital channels on or off (4-channel models only).  
+Exact command pattern: `DI:SW <state>` (OFF, ON)  
+Query: `DI:SW?`
+
+**EMOD** (EduMode)  
+Sets the education mode that locks Auto Setup, Measure and Cursors.  
+Exact command pattern: `EMOD <func>,<lock>` (func = AutoSetup, Measure, Cursors; lock = ON, OFF)  
+Query: `EMOD? <func>`
+
+**FFTC** (FFT_CENTER)  
+Sets the center frequency of the FFT waveform (value with unit MHz/kHz/Hz).  
+Exact command pattern: `FFTC <center>`  
+Query: `FFTC?`
+
+**FFTP** (FFT_POSITION)  
+Sets the vertical offset of the FFT waveform (-24.4*DIV to 15.6*DIV).  
+Exact command pattern: `FFTP <offset>`  
+Query: `FFTP?`
+
+**FFTT** (FFT_TDIV)  
+Returns the current horizontal scale of the FFT waveform.  
+Exact command pattern: `FFTT?`  
+Query only.
+
+**FFTU** (FFT_UNIT)  
+Sets the vertical scale type of FFT (VRMS, DBM, DBVRMS).  
+Exact command pattern: `FFTU <unit>`  
+Query: `FFTU?`
+
+**FORM:DATA** (FORMat:DATA)  
+Sets the number of significant digits of returned measurement values.  
+Exact command pattern: `FORM:DATA <mode>[,<digit>]` (SINGLE, DOUBLE, CUSTOM)  
+Query: `FORM:DATA?`
+
+**HSLST** (HISTORY_LIST)  
+Turns the history list on or off.  
+Exact command pattern: `HSLST <state>` (ON, OFF)  
+Query: `HSLST?`
+
+**HSMD** (HISTORY_MODE)  
+Turns history mode on or off.  
+Exact command pattern: `HSMD <state>` (ON, OFF)  
+Query: `HSMD?`
+
+**MEACL** (MEASURE_CLEAR)  
+Removes all user-specified measurements.  
+Exact command pattern: `MEACL`  
+No query.
+
+**MEGA** (MEASURE_GATEA)  
+Sets the position of measurement gate A.  
+Exact command pattern: `MEGA <value>`  
+No query.
+
+**MEGB** (MEASURE_GATEB)  
+Sets the position of measurement gate B.  
+Exact command pattern: `MEGB <value>`  
+No query.
+
+**MEGS** (MEASURE_GATE_SWITCH)  
+Turns the gate measurement on or off.  
+Exact command pattern: `MEGS <state>` (OFF, ON)  
+Query: `MEGS?`
+
+**MTES:MASK:LOAD** (MTESt:MASK:LOAD)  
+Recalls the Pass/Fail mask from internal or external storage (4-channel models only).  
+Exact command pattern: `MTES:MASK:LOAD <path_type>[,<path_string>]` (INTernal, EXTernal)  
+No query.
+
+**MTES:MASK:SAVE** (MTESt:MASK:SAVE)  
+Saves the Pass/Fail mask to internal or external storage (4-channel models only).  
+Exact command pattern: `MTES:MASK:SAVE <path_type>[,<path_string>]` (INTernal, EXTernal)  
+No query.
+
+**OUTP** (OUTPut)  
+Enables or disables the waveform generator output (4-channel models only, load 50 ohm or HZ).  
+Exact command pattern: `<channel>:OUTP <state>,LOAD,<load>`  
+Query: `<channel>:OUTP?`
+
+**PASTAT** (Parameter statistics)  
+Controls operation and display of measurement statistics (OFF, ON, RESET).  
+Exact command pattern: `PASTAT <state>`  
+Query: `PASTAT?`
+
+**PFBF** (PF_BUFFER)  
+Sets the Pass/Fail output mode when the test fails.  
+Exact command pattern: `PFBF <state>` (ON, OFF)  
+Query: `PFBF?`
+
+**PFEN** (PF_ENABLE)  
+Enables or disables the Pass/Fail mask test.  
+Exact command pattern: `PFEN <state>` (ON, OFF)  
+Query: `PFEN?`
+
+**PFFS** (PF_FAIL_STOP)  
+Sets the "stop on fail" function of the Pass/Fail test.  
+Exact command pattern: `PFFS <state>` (ON, OFF)  
+Query: `PFFS?`
+
+**PFOP** (PF_OPERATION)  
+Runs or stops the Pass/Fail test.  
+Exact command pattern: `PFOP <state>` (ON, OFF)  
+Query: `PFOP?`
+
+**PFSC** (PF_SOURCE)  
+Sets the measurement source for the Pass/Fail test.  
+Exact command pattern: `PFSC <trace>` (C1, C2, C3, C4)  
+Query: `PFSC?`
+
+**REFCL** (REF_CLOSE)  
+Closes the reference function.  
+Exact command pattern: `REFCL`  
+No query.
+
+**REFDS** (REF_DISPLAY)  
+Turns display of the current reference channel on or off.  
+Exact command pattern: `REFDS <state>` (ON, OFF)  
+Query: `REFDS?`
+
+**REFLA** (REF_LOCATION)  
+Selects the current reference channel.  
+Exact command pattern: `REFLA <location>` (REFA, REFB, REFC, REFD)  
+Query: `REFLA?`
+
+**REFPO** (REF_POSITION)  
+Sets the vertical offset of the current reference channel.  
+Exact command pattern: `REFPO <offset>`  
+Query: `REFPO?`
+
+**REFSA** (REF_SAVE)  
+Saves the waveform of the current source as reference waveform and displays it.  
+Exact command pattern: `REFSA`  
+No query.
+
+**REFSC** (REF_SCALE)  
+Sets the vertical scale of the current reference channel (500uV to 10V).  
+Exact command pattern: `REFSC <scale>`  
+Query: `REFSC?`
+
+**REFSR** (REF_SOURCE)  
+Sets the reference waveform source.  
+Exact command pattern: `REFSR <source>` (C1, C2, C3, C4, MATH)  
+Query: `REFSR?`
+
+**SYNC** (Waveform generator sync)  
+Sets or gets the synchronization signal of the waveform generator (4-channel models only, SAG1021I).  
+Exact command pattern: `<channel>:SYNC <state>`  
+Query: `<channel>:SYNC?`
+
+**TIM:DEL** (TIMebase:DELay)  
+Sets the time interval from the horizontal center to the trigger event.  
+Exact command pattern: `TIM:DEL <delay>`  
+Query: `TIM:DEL?`
+
+**TRA (Digital)** (TRACE)  
+Turns the display of a digital channel on or off (4-channel models only, D0-D15).  
+Exact command pattern: `<digital>:TRA <state>`  
+Query: `<digital>:TRA?`
+
+**TRCAN:BAUD** (Serial trigger CAN baud rate)  
+Sets the baud rate for the CAN trigger (CUSTOM allows 5000 to 1000000).  
+Exact command pattern: `TRCAN:BAUD <value1>[,<value2>]`  
+Query: `TRCAN:BAUD?`
+
+**TRCAN:CANH** (Serial trigger CAN source)  
+Sets source and threshold for the CANH line of the CAN trigger.  
+Exact command pattern: `TRCAN:CANH <source>[,<threshold>]`  
+Query: `TRCAN:CANH?`
+
+**TRCAN:CON** (Serial trigger CAN condition)  
+Sets the trigger condition of the CAN trigger (START, REMOTE, ID, ID_AND_DATA, ERROR).  
+Exact command pattern: `TRCAN:CON <condition>`  
+Query: `TRCAN:CON?`
+
+**TRCAN:DAT2** (Serial trigger CAN data2)  
+Sets data2 for the CAN trigger when the condition is ID_AND_DATA (0 to 256).  
+Exact command pattern: `TRCAN:DAT2 <value>`  
+Query: `TRCAN:DAT2?`
+
+**TRCAN:DATA** (Serial trigger CAN data1)  
+Sets data1 for the CAN trigger when the condition is ID_AND_DATA (0 to 256).  
+Exact command pattern: `TRCAN:DATA <value>`  
+Query: `TRCAN:DATA?`
+
+**TRCAN:ID** (Serial trigger CAN ID)  
+Sets the ID for the CAN trigger when the condition is ID or ID_AND_DATA.  
+Exact command pattern: `TRCAN:ID <value>`  
+Query: `TRCAN:ID?`
+
+**TRCAN:IDL** (Serial trigger CAN ID length)  
+Sets the ID length for the CAN trigger (11BITS, 29BITS).  
+Exact command pattern: `TRCAN:IDL <value>`  
+Query: `TRCAN:IDL?`
+
+**TRIIC:ADDR** (Serial trigger I2C address)  
+Sets the address value for the I2C trigger when the condition is 7ADDA or 10ADDA.  
+Exact command pattern: `TRIIC:ADDR <value>`  
+Query: `TRIIC:ADDR?`
+
+**TRIIC:ALEN** (Serial trigger I2C address length)  
+Sets the I2C address type (7BIT, 10BIT).  
+Exact command pattern: `TRIIC:ALEN <value>`  
+Query: `TRIIC:ALEN?`
+
+**TRIIC:CON** (Serial trigger I2C condition)  
+Sets the trigger condition of the I2C trigger (START, STOP, RESTART, NOACK, EEPROM, 7ADDA, 10ADDA, DALENTH).  
+Exact command pattern: `TRIIC:CON <condition>`  
+Query: `TRIIC:CON?`
+
+**TRIIC:DAT2** (Serial trigger I2C data2)  
+Sets data2 for the I2C trigger (0 to 256).  
+Exact command pattern: `TRIIC:DAT2 <value>`  
+Query: `TRIIC:DAT2?`
+
+**TRIIC:DATA** (Serial trigger I2C data1)  
+Sets data1 for the I2C trigger (0 to 256).  
+Exact command pattern: `TRIIC:DATA <value>`  
+Query: `TRIIC:DATA?`
+
+**TRIIC:DLEN** (Serial trigger I2C data length)  
+Sets the data length in bytes for the I2C trigger (1 to 12).  
+Exact command pattern: `TRIIC:DLEN <value>`  
+Query: `TRIIC:DLEN?`
+
+**TRIIC:QUAL** (Serial trigger I2C data qualifier)  
+Sets the I2C data qualifier (EQUAL, MORE, LESS).  
+Exact command pattern: `TRIIC:QUAL <value>`  
+Query: `TRIIC:QUAL?`
+
+**TRIIC:RW** (Serial trigger I2C read/write)  
+Sets the I2C trigger condition on the R/W bit (READ, WRITE, DONT_CARE).  
+Exact command pattern: `TRIIC:RW <value>`  
+Query: `TRIIC:RW?`
+
+**TRIIC:SCL** (Serial trigger I2C clock)  
+Sets source and threshold for the serial clock (SCL) of the I2C trigger.  
+Exact command pattern: `TRIIC:SCL <source>[,<threshold>]`  
+Query: `TRIIC:SCL?`
+
+**TRIIC:SDA** (Serial trigger I2C data)  
+Sets source and threshold for the serial data line (SDA) of the I2C trigger.  
+Exact command pattern: `TRIIC:SDA <source>[,<threshold>]`  
+Query: `TRIIC:SDA?`
+
+**TRLIN:BAUD** (Serial trigger LIN baud rate)  
+Sets the baud rate for the LIN trigger (CUSTOM allows 300 to 20000).  
+Exact command pattern: `TRLIN:BAUD <value1>[,<value2>]`  
+Query: `TRLIN:BAUD?`
+
+**TRLIN:CON** (Serial trigger LIN condition)  
+Sets the trigger condition of the LIN trigger (BREAK, ID, ID_AND_DATA, DATA_ERROR).  
+Exact command pattern: `TRLIN:CON <condition>`  
+Query: `TRLIN:CON?`
+
+**TRLIN:DAT2** (Serial trigger LIN data2)  
+Sets data2 for the LIN trigger when the condition is ID_AND_DATA (0 to 256).  
+Exact command pattern: `TRLIN:DAT2 <value>`  
+Query: `TRLIN:DAT2?`
+
+**TRLIN:DATA** (Serial trigger LIN data1)  
+Sets data1 for the LIN trigger when the condition is ID_AND_DATA (0 to 256).  
+Exact command pattern: `TRLIN:DATA <value>`  
+Query: `TRLIN:DATA?`
+
+**TRLIN:ID** (Serial trigger LIN ID)  
+Sets the ID for the LIN trigger when the condition is ID or ID_AND_DATA (0 to 64).  
+Exact command pattern: `TRLIN:ID <value>`  
+Query: `TRLIN:ID?`
+
+**TRLIN:SRC** (Serial trigger LIN source)  
+Sets source and threshold for the source of the LIN trigger.  
+Exact command pattern: `TRLIN:SRC <source>[,<threshold>]`  
+Query: `TRLIN:SRC?`
+
+**TRSPI:BIT** (Serial trigger SPI bit order)  
+Sets the bit order for the SPI trigger (MSB, LSB).  
+Exact command pattern: `TRSPI:BIT <order>`  
+Query: `TRSPI:BIT?`
+
+**TRSPI:CLK** (Serial trigger SPI clock)  
+Sets source and threshold for the serial clock of the SPI trigger.  
+Exact command pattern: `TRSPI:CLK <source>[,<threshold>]`  
+Query: `TRSPI:CLK?`
+
+**TRSPI:CLK:EDGE** (Serial trigger SPI clock edge)  
+Selects the clock edge on which SPI data is latched (RISING, FALLING).  
+Exact command pattern: `TRSPI:CLK:EDGE <edge>`  
+Query: `TRSPI:CLK:EDGE?`
+
+**TRSPI:CLK:TIM** (Serial trigger SPI clock timeout)  
+Sets the clock timeout for the SPI trigger when the CS type is TIMEOUT (100ns to 5ms).  
+Exact command pattern: `TRSPI:CLK:TIM <value>`  
+Query: `TRSPI:CLK:TIM?`
+
+**TRSPI:CS** (Serial trigger SPI CS)  
+Sets source and threshold of the CS signal when the SPI CS type is CS.  
+Exact command pattern: `TRSPI:CS <source>[,<threshold>]`  
+Query: `TRSPI:CS?`
+
+**TRSPI:CSTP** (Serial trigger SPI CS type)  
+Sets the chip-select type of the SPI trigger (CS, NCS, TIMEOUT).  
+Exact command pattern: `TRSPI:CSTP <type>`  
+Query: `TRSPI:CSTP?`
+
+**TRSPI:DATA** (Serial trigger SPI data)  
+Sets the data value of every bit for the SPI trigger (0, 1, X).  
+Exact command pattern: `TRSPI:DATA <value1>[,<value2>[,..[,<value>]]]`  
+No query.
+
+**TRSPI:DLEN** (Serial trigger SPI data length)  
+Sets the length of data for the SPI trigger (4 to 96).  
+Exact command pattern: `TRSPI:DLEN <value>`  
+Query: `TRSPI:DLEN?`
+
+**TRSPI:MISO** (Serial trigger SPI MISO)  
+Sets source and threshold for MISO of the SPI trigger.  
+Exact command pattern: `TRSPI:MISO <source>[,<threshold>]`  
+Query: `TRSPI:MISO?`
+
+**TRSPI:MOSI** (Serial trigger SPI MOSI)  
+Sets source and threshold for MOSI of the SPI trigger.  
+Exact command pattern: `TRSPI:MOSI <source>[,<threshold>]`  
+Query: `TRSPI:MOSI?`
+
+**TRSPI:NCS** (Serial trigger SPI NCS)  
+Sets source and threshold for the ~CS signal when the SPI CS type is NCS.  
+Exact command pattern: `TRSPI:NCS <source>[,<threshold>]`  
+Query: `TRSPI:NCS?`
+
+**TRSPI:TRTY** (Serial trigger SPI trigger source)  
+Sets the trigger source for the SPI trigger (MOSI, MISO).  
+Exact command pattern: `TRSPI:TRTY <source>`  
+Query: `TRSPI:TRTY?`
+
+**TRUART:BAUD** (Serial trigger UART baud rate)  
+Sets the baud rate for the UART trigger (CUSTOM allows 300 to 5000000).  
+Exact command pattern: `TRUART:BAUD <value1>[,<value2>]`  
+Query: `TRUART:BAUD?`
+
+**TRUART:BIT** (Serial trigger UART bit order)  
+Sets the bit order for the UART trigger (LSB, MSB).  
+Exact command pattern: `TRUART:BIT <value>`  
+Query: `TRUART:BIT?`
+
+**TRUART:CON** (Serial trigger UART condition)  
+Sets the trigger condition of the UART trigger (START, STOP, DATA, ERROR).  
+Exact command pattern: `TRUART:CON <condition>`  
+Query: `TRUART:CON?`
+
+**TRUART:DATA** (Serial trigger UART data)  
+Sets the data value for the UART trigger when the condition is DATA (0 to 256).  
+Exact command pattern: `TRUART:DATA <value>`  
+Query: `TRUART:DATA?`
+
+**TRUART:DLEN** (Serial trigger UART data length)  
+Sets the data length for the UART trigger (5 to 8).  
+Exact command pattern: `TRUART:DLEN <value>`  
+Query: `TRUART:DLEN?`
+
+**TRUART:PAR** (Serial trigger UART parity)  
+Sets the parity check for the UART trigger (NONE, ODD, EVEN).  
+Exact command pattern: `TRUART:PAR <value>`  
+Query: `TRUART:PAR?`
+
+**TRUART:POL** (Serial trigger UART idle polarity)  
+Sets the idle level for the UART trigger (LOW, HIGH).  
+Exact command pattern: `TRUART:POL <value>`  
+Query: `TRUART:POL?`
+
+**TRUART:QUAL** (Serial trigger UART data qualifier)  
+Sets the UART data qualifier when the condition is DATA (EQUAL, MORE, LESS).  
+Exact command pattern: `TRUART:QUAL <condition>`  
+Query: `TRUART:QUAL?`
+
+**TRUART:RX** (Serial trigger UART RX)  
+Sets source and threshold for RX of the UART trigger.  
+Exact command pattern: `TRUART:RX <source>[,<threshold>]`  
+Query: `TRUART:RX?`
+
+**TRUART:STOP** (Serial trigger UART stop bit)  
+Sets the length of the stop bit for the UART trigger (1, 1.5, 2).  
+Exact command pattern: `TRUART:STOP <value>`  
+Query: `TRUART:STOP?`
+
+**TRUART:TRTY** (Serial trigger UART trigger source)  
+Sets the trigger source for the UART trigger (RX, TX).  
+Exact command pattern: `TRUART:TRTY <source>`  
+Query: `TRUART:TRTY?`
+
+**TRUART:TX** (Serial trigger UART TX)  
+Sets source and threshold for TX of the UART trigger.  
+Exact command pattern: `TRUART:TX <source>[,<threshold>]`  
+Query: `TRUART:TX?`
+
+**TSM** (THRESHOLD_MODE)  
+Sets the threshold type for a digital channel group (4-channel models only, group H8 or L8).  
+Exact command pattern: `<group>:TSM <type>`  
+Query: `<group>:TSM?`
+
+**VERT** (VERTICAL)  
+Controls the vertical position of the slope trigger line; in TRSE it is passed as VERT,<vertical> with UP, DOWN or BOTH.  
+Exact command pattern: `VERT <vertical>`  
+No separate query; read back with `TRSE?`.
+
+**VOLTPRT** (Over voltage protection)  
+Sets or gets the over-voltage protection state of the waveform generator (4-channel models only).  
+Exact command pattern: `VOLTPRT <state>` (ON, OFF)  
+Query: `VOLTPRT?`
+
+───────────────────────────────────────────
 Special Front-Panel Functions
 ───────────────────────────────────────────
 These commands simulate physical button presses and knob actions via Ethernet.

@@ -130,8 +130,12 @@ class SigGenChannelDraft {
 }
 
 /// Whether a waveform has a meaningful duty cycle.
+///
+/// The JDS6600 adjusts duty on square and pulse; the FY6900 on rectangle.
 bool dutyAppliesTo(Jds6600Waveform waveform) =>
-    waveform == Jds6600Waveform.square || waveform == Jds6600Waveform.pulse;
+    waveform == Jds6600Waveform.square ||
+    waveform == Jds6600Waveform.pulse ||
+    waveform == Jds6600Waveform.rectangle;
 
 /// Panel controller shared by the child window UI and its tests.
 class SignalGeneratorPanelController extends ChangeNotifier {
@@ -203,9 +207,12 @@ class SignalGeneratorPanelController extends ChangeNotifier {
   /// Human-readable validation error for the selected draft, if any.
   String? get validationError => _validateDraft();
 
-  List<Jds6600Waveform> get selectableWaveforms => Jds6600Waveform.values
-      .where((waveform) => waveform != Jds6600Waveform.arbitrary)
-      .toList();
+  /// Waveforms the connected family and selected channel support.
+  List<Jds6600Waveform> get selectableWaveforms =>
+      Jds6600Waveform.selectableFor(
+        generator.family,
+        channel: selectedChannel,
+      );
 
   /// Starts listening and fetches the initial snapshot.
   Future<void> init() async {
@@ -445,6 +452,10 @@ class SignalGeneratorPanelController extends ChangeNotifier {
     }
     if (draft.phaseDeg == null) {
       return 'Phase: enter a valid number';
+    }
+    if (generator.family != SiggenFamily.fy6900 &&
+        !draft.waveform.isJds6600Shape) {
+      return 'Waveform: not supported by the connected generator';
     }
 
     final info = deviceInfo;

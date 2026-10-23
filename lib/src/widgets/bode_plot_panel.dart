@@ -404,6 +404,39 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
     );
   }
 
+  /// Waveform dropdown restricted to the connected generator family.
+  Widget _buildWaveformDropdown() {
+    final info = widget.signalGenerator.deviceInfo;
+    final family = info?.family ?? SiggenFamily.jds6600;
+    final waveforms = Jds6600Waveform.selectableFor(
+      family,
+      channel: _draft.generatorChannel,
+    );
+    // A saved config can contain a waveform the connected family does not
+    // offer; show the first supported entry instead of asserting.
+    final selected = waveforms.contains(_draft.waveform)
+        ? _draft.waveform
+        : waveforms.first;
+    return DropdownButtonFormField<Jds6600Waveform>(
+      initialValue: selected,
+      isExpanded: true,
+      dropdownColor: const Color(0xFF1E1E1E),
+      decoration: _decoration('Waveform'),
+      items: waveforms
+          .map(
+            (value) => DropdownMenuItem(
+              value: value,
+              child: Text(value.displayNameFor(family)),
+            ),
+          )
+          .toList(),
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() => _draft = _draft.copyWith(waveform: value));
+      },
+    );
+  }
+
   /// Shows the limits of the connected generator model for the current
   /// waveform. The same limits are enforced by [validateBodeConfig].
   Widget _buildModelLimits() {
@@ -418,7 +451,8 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
     final maxAmplitude = info.maxAmplitudeVpp(_draft.stopFrequencyHz);
     final maxOffset = info.maxOffsetVAt(_draft.stopFrequencyHz);
     return Text(
-      'Model ${info.modelName}: ${_draft.waveform.displayName} up to '
+      'Model ${info.modelName}: '
+      '${_draft.waveform.displayNameFor(info.family)} up to '
       '${formatFrequencyHz(maxFrequency)} · amplitude up to '
       '${_trim(maxAmplitude)} Vpp · offset ±${_trim(maxOffset)} V',
       key: const Key('bode-model-limits'),
@@ -564,27 +598,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                 ),
               ),
               const SizedBox(width: 8),
-              Expanded(
-                child: DropdownButtonFormField<Jds6600Waveform>(
-                  initialValue: _draft.waveform,
-                  isExpanded: true,
-                  dropdownColor: const Color(0xFF1E1E1E),
-                  decoration: _decoration('Waveform'),
-                  items: Jds6600Waveform.values
-                      .where((value) => value != Jds6600Waveform.arbitrary)
-                      .map(
-                        (value) => DropdownMenuItem(
-                          value: value,
-                          child: Text(value.displayName),
-                        ),
-                      )
-                      .toList(),
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => _draft = _draft.copyWith(waveform: value));
-                  },
-                ),
-              ),
+              Expanded(child: _buildWaveformDropdown()),
             ],
           ),
           const SizedBox(height: 6),

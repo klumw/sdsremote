@@ -1163,7 +1163,7 @@ Press the **Save** button in the top toolbar while the Control Panel is active t
 
 When **Settings → Signal Generator** is set to **JDS6600** or **FY6900** and the generator was detected, press **Ctrl+J** to open the signal generator window as a separate OS window. There is no toolbar button. Pressing Ctrl+J while the window is open brings it to the front.
 
-The window offers the two channel views **CH1 / CH2**: select the waveform, frequency, amplitude, DC offset, duty cycle (effective for square/pulse on the JDS6600 and square/rectangle on the FY6900) and the phase (global CH2 relative to CH1 on the JDS6600, per-channel phase on the FY6900). Numeric values can be adjusted with spinner buttons next to the fields. **Apply changes** sends only the modified values; **Refresh from device** re-reads all registers and **Use device values** discards pending edits. The output switch takes effect immediately and is independent of Apply. The confirmed device state and pending edits are displayed separately.
+The window offers the two channel views **CH1 / CH2**: select the waveform, frequency, amplitude, DC offset, duty cycle (effective for square/pulse on the JDS6600 and rectangle on the FY6900; on the FY6900 the waveform list uses the device labels such as TRGL, Adj-Pulse or Random-Noi) and the phase (global CH2 relative to CH1 on the JDS6600, per-channel phase on the FY6900). Numeric values can be adjusted with spinner buttons next to the fields. **Apply changes** sends only the modified values; **Refresh from device** re-reads all registers and **Use device values** discards pending edits. The output switch takes effect immediately and is independent of Apply. The confirmed device state and pending edits are displayed separately.
 
 Frequency and amplitude limits are derived from the model returned by the driver identity query (JDS6600-LITE/JDS6600 or FY6900-20M … FY6900-100M) and the selected waveform; offset, duty-cycle and phase ranges are derived from the same detected device family. The hint below each field shows the active limits. While a Bode sweep is running, the generator controls are read-only. Closing the main application also closes this window.
 
@@ -1215,7 +1215,7 @@ Amplitude and DC-offset limits:
 Generator-specific notes:
 
 * **JDS6600:** one global phase register (CH2 relative to CH1). Phase commands address this register regardless of the selected generator channel.
-* **FY6900:** per-channel phase; the selected generator channel is addressed. The app's **Square** waveform is mapped to the FY6900 **Rectangle** waveform, which is the duty-adjustable shape.
+* **FY6900:** per-channel phase; the selected generator channel is addressed. Waveform selection uses the FY6900's own shape list (Sine, Square, Rectangle, Trapezoid, Ramp, …). Duty cycle is adjustable on **Rectangle**; setting duty with **Square** selected switches the device to Rectangle.
 * Arbitrary waveforms cannot be used for a Bode sweep.
 * The generator outputs are switched off automatically when the sweep completes, fails or is cancelled.
 

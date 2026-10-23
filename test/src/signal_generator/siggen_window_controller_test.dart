@@ -83,6 +83,30 @@ void main() {
     expect(controller.selectableWaveforms, contains(Jds6600Waveform.sine));
   });
 
+  test('FY6900 offers its own waveform list per channel', () async {
+    final fyClient = FakeSigGenWindowClient(
+      fakeWindowState(family: SiggenFamily.fy6900, modelMHz: 60),
+    );
+    final fyController = SignalGeneratorPanelController(
+      client: fyClient,
+      refreshInterval: Duration.zero,
+    );
+    await fyController.init();
+    addTearDown(fyController.dispose);
+
+    expect(fyController.selectableWaveforms, contains(Jds6600Waveform.ramp));
+    expect(
+      fyController.selectableWaveforms,
+      isNot(contains(Jds6600Waveform.partialSine)),
+    );
+
+    fyController.selectDevice(SigGenDeviceSelection.ch2);
+    expect(
+      fyController.selectableWaveforms,
+      isNot(contains(Jds6600Waveform.pulse)),
+    );
+  });
+
   test('apply sends only changed fields', () async {
     client.calls.clear();
     controller.updateFrequencyText('2');

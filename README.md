@@ -128,7 +128,7 @@ detected, press **Ctrl+J** to open a separate OS window (there is no toolbar
 button). Pressing Ctrl+J again focuses the existing window. The window offers
 the two channel views **CH1 / CH2** with waveform, frequency (Hz/kHz/MHz),
 amplitude (Vpp), DC offset, duty cycle (effective for square/pulse on the
-JDS6600 and square/rectangle on the FY6900), phase
+JDS6600 and rectangle on the FY6900), phase
 (global CH2-vs-CH1 on the JDS6600, per-channel phase on the FY6900) and an
 immediate
 output on/off switch. Other values are applied explicitly with **Apply

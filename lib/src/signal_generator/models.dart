@@ -8,16 +8,34 @@ library;
 /// Families used to derive frequency limits from the device manual.
 enum Jds6600WaveformFamily { sine, square, triangle, pulse, other, arbitrary }
 
-/// Predefined JDS6600 waveforms and their register/SCPI representations.
+/// Predefined waveforms of both supported generator families.
 ///
-/// Register values 101-160 select arbitrary-waveform slots. Stage 1 exposes
-/// only the predefined waveforms and treats an arb slot as [arbitrary]; the
-/// actual waveform data upload is a later stage.
+/// The enum name predates FY6900 support and is kept so the existing Bode and
+/// signal-generator code keeps compiling. [displayNameFor] returns the name
+/// shown by the connected device: the FY6900 uses its own abbreviations
+/// (for example `TRGL`, `Adj-Pulse`, `Random-Noi`).
+///
+/// JDS6600 register values 101-160 select arbitrary-waveform slots. Stage 1
+/// exposes only the predefined waveforms and treats an arb slot as
+/// [arbitrary]; the actual waveform data upload is a later stage. Entries with
+/// a negative [registerValue] exist only on the FY6900.
 enum Jds6600Waveform {
   sine(0, 'SIN', 'Sine', Jds6600WaveformFamily.sine),
   square(1, 'SQU', 'Square', Jds6600WaveformFamily.square),
-  pulse(2, 'PULS', 'Pulse', Jds6600WaveformFamily.pulse),
-  triangle(3, 'TRI', 'Triangle', Jds6600WaveformFamily.triangle),
+  pulse(
+    2,
+    'PULS',
+    'Pulse',
+    Jds6600WaveformFamily.pulse,
+    fy6900Name: 'Adj-Pulse',
+  ),
+  triangle(
+    3,
+    'TRI',
+    'Triangle',
+    Jds6600WaveformFamily.triangle,
+    fy6900Name: 'TRGL',
+  ),
   partialSine(4, 'PSIN', 'Partial sine', Jds6600WaveformFamily.other),
   cmos(5, 'CMOS', 'CMOS', Jds6600WaveformFamily.other),
   dc(6, 'DC', 'DC', Jds6600WaveformFamily.other),
@@ -25,25 +43,165 @@ enum Jds6600Waveform {
   fullWave(8, 'FULL', 'Full wave', Jds6600WaveformFamily.other),
   positiveLadder(9, 'POSL', 'Pos. ladder', Jds6600WaveformFamily.other),
   negativeLadder(10, 'NEGL', 'Neg. ladder', Jds6600WaveformFamily.other),
-  noise(11, 'NOIS', 'Noise', Jds6600WaveformFamily.other),
+  noise(
+    11,
+    'NOIS',
+    'Noise',
+    Jds6600WaveformFamily.other,
+    fy6900Name: 'Random-Noi',
+  ),
   expRise(12, 'ERIS', 'Exp. rise', Jds6600WaveformFamily.other),
   expDecay(13, 'EDEC', 'Exp. decay', Jds6600WaveformFamily.other),
-  multiTone(14, 'MTON', 'Multi tone', Jds6600WaveformFamily.other),
-  sinc(15, 'SINC', 'Sinc', Jds6600WaveformFamily.other),
-  lorenz(16, 'LOR', 'Lorenz', Jds6600WaveformFamily.other),
+  multiTone(
+    14,
+    'MTON',
+    'Multi tone',
+    Jds6600WaveformFamily.other,
+    fy6900Name: 'Multitone',
+  ),
+  sinc(
+    15,
+    'SINC',
+    'Sinc',
+    Jds6600WaveformFamily.other,
+    fy6900Name: 'Sinc-Pulse',
+  ),
+  lorenz(
+    16,
+    'LOR',
+    'Lorenz',
+    Jds6600WaveformFamily.other,
+    fy6900Name: 'Lorentz-Pu',
+  ),
+
+  // FY6900-only shapes in the order of the vendor protocol appendix.
+  // -1 marks them as not encodable in the JDS6600 register map.
+  rectangle(-1, 'RECT', 'Rectangle', Jds6600WaveformFamily.square),
+  trapezoid(-1, 'TRAP', 'Trapezoid', Jds6600WaveformFamily.triangle),
+  stairTriangle(-1, 'STRG', 'Stair TRGL', Jds6600WaveformFamily.other),
+  stairstep(-1, 'STPS', 'Stairstep', Jds6600WaveformFamily.other),
+  negStair(-1, 'NSTP', 'NegStair', Jds6600WaveformFamily.other),
+  ramp(-1, 'RAMP', 'Ramp', Jds6600WaveformFamily.triangle),
+  negRamp(-1, 'NRMP', 'NegRamp', Jds6600WaveformFamily.triangle),
+  posExponential(-1, 'PEXP', 'PosExponen', Jds6600WaveformFamily.other),
+  negExponential(-1, 'NEXP', 'NegExponen', Jds6600WaveformFamily.other),
+  pFallExp(-1, 'PFEX', 'P-Fall-Exp', Jds6600WaveformFamily.other),
+  nFallExp(-1, 'NFEX', 'N-Fall-Exp', Jds6600WaveformFamily.other),
+  posLogarithm(-1, 'PLOG', 'PosLogarit', Jds6600WaveformFamily.other),
+  negLogarithm(-1, 'NLOG', 'NegLogarit', Jds6600WaveformFamily.other),
+  pFallLog(-1, 'PFLO', 'P-Fall-Log', Jds6600WaveformFamily.other),
+  nFallLog(-1, 'NFLO', 'N-Fall-Log', Jds6600WaveformFamily.other),
+  pFullWave(-1, 'PFUL', 'P-Full-Wav', Jds6600WaveformFamily.other),
+  nFullWave(-1, 'NFUL', 'N-Full-Wav', Jds6600WaveformFamily.other),
+  pHalfWave(-1, 'PHAL', 'P-Half-Wav', Jds6600WaveformFamily.other),
+  nHalfWave(-1, 'NHAL', 'N-Half-Wav', Jds6600WaveformFamily.other),
+  ecg(-1, 'ECG', 'ECG', Jds6600WaveformFamily.other),
+  impulse(-1, 'IMPU', 'Impulse', Jds6600WaveformFamily.pulse),
+  awgn(-1, 'AWGN', 'AWGN', Jds6600WaveformFamily.other),
+  am(-1, 'AM', 'AM', Jds6600WaveformFamily.other),
+  fm(-1, 'FM', 'FM', Jds6600WaveformFamily.other),
+  chirp(-1, 'CHIR', 'Chirp', Jds6600WaveformFamily.other),
+
   arbitrary(101, 'ARB', 'Arbitrary', Jds6600WaveformFamily.arbitrary);
 
   const Jds6600Waveform(
     this.registerValue,
     this.scpiMnemonic,
     this.displayName,
-    this.family,
-  );
+    this.family, {
+    this.fy6900Name,
+  });
 
   final int registerValue;
   final String scpiMnemonic;
   final String displayName;
   final Jds6600WaveformFamily family;
+
+  /// Exact name shown by the FY6900, when it differs from [displayName].
+  final String? fy6900Name;
+
+  /// True when the shape exists in the JDS6600 register map.
+  bool get isJds6600Shape => registerValue >= 0;
+
+  /// Name to display for the connected generator family.
+  String displayNameFor(SiggenFamily family) =>
+      family == SiggenFamily.fy6900 ? (fy6900Name ?? displayName) : displayName;
+
+  /// Selectable JDS6600 waveforms in menu order.
+  static const List<Jds6600Waveform> jds6600Selectable = [
+    sine,
+    square,
+    pulse,
+    triangle,
+    partialSine,
+    cmos,
+    dc,
+    halfWave,
+    fullWave,
+    positiveLadder,
+    negativeLadder,
+    noise,
+    expRise,
+    expDecay,
+    multiTone,
+    sinc,
+    lorenz,
+  ];
+
+  /// Selectable FY6900 waveforms in device order.
+  ///
+  /// The protocol maps two indices each to Trapezoid and Impulse; those shapes
+  /// are listed once here.
+  static const List<Jds6600Waveform> fy6900Selectable = [
+    sine,
+    square,
+    rectangle,
+    trapezoid,
+    cmos,
+    pulse,
+    dc,
+    triangle,
+    ramp,
+    negRamp,
+    stairTriangle,
+    stairstep,
+    negStair,
+    posExponential,
+    negExponential,
+    pFallExp,
+    nFallExp,
+    posLogarithm,
+    negLogarithm,
+    pFallLog,
+    nFallLog,
+    pFullWave,
+    nFullWave,
+    pHalfWave,
+    nHalfWave,
+    lorenz,
+    multiTone,
+    noise,
+    ecg,
+    sinc,
+    impulse,
+    awgn,
+    am,
+    fm,
+    chirp,
+  ];
+
+  /// CH2 has no Adj-Pulse entry in the FY6900 protocol.
+  static final List<Jds6600Waveform> fy6900AuxSelectable =
+      List.unmodifiable(fy6900Selectable.where((waveform) => waveform != pulse));
+
+  /// Waveforms the panel offers for [family] and [channel].
+  static List<Jds6600Waveform> selectableFor(
+    SiggenFamily family, {
+    int? channel,
+  }) {
+    if (family != SiggenFamily.fy6900) return jds6600Selectable;
+    return channel == 2 ? fy6900AuxSelectable : fy6900Selectable;
+  }
 
   /// Resolves a register value read from the device.
   ///
@@ -75,6 +233,12 @@ enum Jds6600Waveform {
         return triangle;
       case 'NOISE':
         return noise;
+      case 'RECTANGLE':
+        return rectangle;
+      case 'TRAPEZOID':
+        return trapezoid;
+      case 'RAMP':
+        return ramp;
     }
     return null;
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sdsremote/src/signal_generator/models.dart';
 import 'package:sdsremote/src/signal_generator/siggen_window_controller.dart';
+import 'package:sdsremote/src/signal_generator/siggen_window_protocol.dart';
 import 'package:sdsremote/src/widgets/signal_generator_panel.dart';
 import 'package:sdsremote/src/widgets/signal_generator_window.dart';
 
@@ -93,6 +94,44 @@ void main() {
     expect(find.text('Phase (CH2 vs CH1)'), findsOneWidget);
     expect(find.text('APPLY CHANGES'), findsOneWidget);
     expect(find.text('USE DEVICE VALUES'), findsNothing);
+  });
+
+  testWidgets('unsupported device waveform is shown as Unknown', (
+    tester,
+  ) async {
+    final client = FakeSigGenWindowClient(
+      fakeWindowState(
+        ch1: const SigGenChannelSnapshot.defaults().copyWith(
+          waveform: Jds6600Waveform.arbitrary,
+        ),
+      ),
+    );
+    final controller = await _pumpPanel(tester, client: client);
+
+    expect(controller.draft.waveform, Jds6600Waveform.arbitrary);
+    expect(find.text('Unknown'), findsOneWidget);
+    expect(find.textContaining('(Unknown)'), findsOneWidget);
+    expect(find.textContaining('Arbitrary'), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('FY6900 shows the device waveform name', (tester) async {
+    final client = FakeSigGenWindowClient(
+      fakeWindowState(
+        family: SiggenFamily.fy6900,
+        modelMHz: 60,
+        ch1: const SigGenChannelSnapshot.defaults().copyWith(
+          waveform: Jds6600Waveform.ramp,
+        ),
+      ),
+    );
+    final controller = await _pumpPanel(tester, client: client);
+
+    expect(controller.draft.waveform, Jds6600Waveform.ramp);
+    expect(find.text('Ramp'), findsOneWidget);
+    expect(find.textContaining('(Ramp)'), findsOneWidget);
+    expect(find.textContaining('(Triangle)'), findsNothing);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('CH2 also exposes duty and phase', (tester) async {

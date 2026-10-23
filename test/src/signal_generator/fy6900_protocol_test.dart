@@ -121,26 +121,121 @@ void main() {
   group('waveform mapping', () {
     test('main and auxiliary channels use different indices', () {
       expect(Fy6900Protocol.waveformIndex(1, Jds6600Waveform.sine), 0);
-      // Rectangle (2) is the duty-adjustable square on the FY6900.
-      expect(Fy6900Protocol.waveformIndex(1, Jds6600Waveform.square), 2);
-      expect(Fy6900Protocol.waveformIndex(2, Jds6600Waveform.square), 2);
+      expect(Fy6900Protocol.waveformIndex(1, Jds6600Waveform.square), 1);
+      expect(Fy6900Protocol.waveformIndex(2, Jds6600Waveform.square), 1);
+      expect(Fy6900Protocol.waveformIndex(1, Jds6600Waveform.rectangle), 2);
+      expect(Fy6900Protocol.waveformIndex(1, Jds6600Waveform.trapezoid), 3);
       expect(Fy6900Protocol.waveformIndex(1, Jds6600Waveform.pulse), 5);
       expect(Fy6900Protocol.waveformIndex(1, Jds6600Waveform.dc), 6);
       expect(Fy6900Protocol.waveformIndex(1, Jds6600Waveform.triangle), 7);
+      expect(Fy6900Protocol.waveformIndex(1, Jds6600Waveform.ramp), 8);
+      expect(Fy6900Protocol.waveformIndex(1, Jds6600Waveform.ecg), 28);
+      expect(Fy6900Protocol.waveformIndex(1, Jds6600Waveform.chirp), 35);
       expect(Fy6900Protocol.waveformIndex(2, Jds6600Waveform.dc), 5);
       expect(Fy6900Protocol.waveformIndex(2, Jds6600Waveform.triangle), 6);
+      expect(Fy6900Protocol.waveformIndex(2, Jds6600Waveform.ramp), 7);
+      expect(Fy6900Protocol.waveformIndex(2, Jds6600Waveform.chirp), 34);
       // CH2 has no adjustable pulse; a duty-adjustable rectangle is closest.
       expect(Fy6900Protocol.waveformIndex(2, Jds6600Waveform.pulse), 2);
     });
 
     test('decodes device indices back to shared waveforms', () {
       expect(Fy6900Protocol.decodeWaveform(1, 1), Jds6600Waveform.square);
-      expect(Fy6900Protocol.decodeWaveform(1, 2), Jds6600Waveform.square);
-      expect(Fy6900Protocol.decodeWaveform(2, 2), Jds6600Waveform.square);
+      expect(Fy6900Protocol.decodeWaveform(1, 2), Jds6600Waveform.rectangle);
+      expect(Fy6900Protocol.decodeWaveform(2, 2), Jds6600Waveform.rectangle);
+      expect(Fy6900Protocol.decodeWaveform(1, 3), Jds6600Waveform.trapezoid);
       expect(Fy6900Protocol.decodeWaveform(1, 6), Jds6600Waveform.dc);
       expect(Fy6900Protocol.decodeWaveform(2, 6), Jds6600Waveform.triangle);
+      expect(Fy6900Protocol.decodeWaveform(1, 8), Jds6600Waveform.ramp);
+      expect(Fy6900Protocol.decodeWaveform(1, 28), Jds6600Waveform.ecg);
+      expect(Fy6900Protocol.decodeWaveform(1, 29), Jds6600Waveform.trapezoid);
+      expect(Fy6900Protocol.decodeWaveform(1, 33), Jds6600Waveform.am);
+      expect(Fy6900Protocol.decodeWaveform(1, 36), Jds6600Waveform.arbitrary);
       expect(Fy6900Protocol.decodeWaveform(1, 37), Jds6600Waveform.arbitrary);
+      expect(Fy6900Protocol.decodeWaveform(2, 35), Jds6600Waveform.arbitrary);
       expect(Fy6900Protocol.decodeWaveform(2, 36), Jds6600Waveform.arbitrary);
+    });
+
+    test('every preset index maps back to its own waveform', () {
+      for (var index = 0; index <= 36; index++) {
+        final waveform = Fy6900Protocol.decodeWaveform(1, index);
+        if (index >= 36) {
+          expect(waveform, Jds6600Waveform.arbitrary);
+          continue;
+        }
+        final encoded = Fy6900Protocol.waveformIndex(1, waveform);
+        if (index == 29) {
+          expect(waveform, Jds6600Waveform.trapezoid);
+          expect(encoded, 3, reason: 'Trapezoid appears twice');
+        } else {
+          expect(encoded, index, reason: 'CH1 index $index');
+        }
+      }
+      for (var index = 0; index <= 35; index++) {
+        final waveform = Fy6900Protocol.decodeWaveform(2, index);
+        if (index >= 35) {
+          expect(waveform, Jds6600Waveform.arbitrary);
+          continue;
+        }
+        final encoded = Fy6900Protocol.waveformIndex(2, waveform);
+        if (index == 28) {
+          expect(waveform, Jds6600Waveform.trapezoid);
+          expect(encoded, 3, reason: 'Trapezoid appears twice');
+        } else {
+          expect(encoded, index, reason: 'CH2 index $index');
+        }
+      }
+    });
+
+    test('ARB1 is treated like every other arbitrary slot', () {
+      expect(Fy6900Protocol.decodeWaveform(1, 36), Jds6600Waveform.arbitrary);
+      expect(Fy6900Protocol.decodeWaveform(2, 35), Jds6600Waveform.arbitrary);
+    });
+
+    test('display names follow the FY6900 device labels', () {
+      expect(
+        Jds6600Waveform.triangle.displayNameFor(SiggenFamily.fy6900),
+        'TRGL',
+      );
+      expect(
+        Jds6600Waveform.pulse.displayNameFor(SiggenFamily.fy6900),
+        'Adj-Pulse',
+      );
+      expect(
+        Jds6600Waveform.noise.displayNameFor(SiggenFamily.fy6900),
+        'Random-Noi',
+      );
+      expect(
+        Jds6600Waveform.ramp.displayNameFor(SiggenFamily.fy6900),
+        'Ramp',
+      );
+      expect(Jds6600Waveform.ecg.displayNameFor(SiggenFamily.fy6900), 'ECG');
+      expect(
+        Jds6600Waveform.triangle.displayNameFor(SiggenFamily.jds6600),
+        'Triangle',
+      );
+    });
+
+    test('offers family-specific waveform lists', () {
+      final fy = Jds6600Waveform.selectableFor(SiggenFamily.fy6900);
+      expect(
+        fy,
+        containsAll([
+          Jds6600Waveform.rectangle,
+          Jds6600Waveform.ramp,
+          Jds6600Waveform.ecg,
+          Jds6600Waveform.chirp,
+        ]),
+      );
+      expect(fy, isNot(contains(Jds6600Waveform.partialSine)));
+      expect(
+        Jds6600Waveform.selectableFor(SiggenFamily.fy6900, channel: 2),
+        isNot(contains(Jds6600Waveform.pulse)),
+      );
+
+      final jds = Jds6600Waveform.selectableFor(SiggenFamily.jds6600);
+      expect(jds, contains(Jds6600Waveform.partialSine));
+      expect(jds, isNot(contains(Jds6600Waveform.ramp)));
     });
 
     test('arbitrary waveform selection is rejected', () {

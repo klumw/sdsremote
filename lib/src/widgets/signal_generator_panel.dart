@@ -446,6 +446,8 @@ class _SignalGeneratorPanelState extends State<SignalGeneratorPanel> {
   }
 
   Widget _buildWaveformField(bool enabled, SigGenChannelDraft draft) {
+    final selectable = _controller.selectableWaveforms;
+    final supported = selectable.contains(draft.waveform);
     return DropdownButtonFormField<Jds6600Waveform>(
       // Recreate when the value is changed externally (refresh/revert).
       key: ValueKey(
@@ -455,14 +457,23 @@ class _SignalGeneratorPanelState extends State<SignalGeneratorPanel> {
       isExpanded: true,
       dropdownColor: const Color(0xFF1E1E1E),
       decoration: _decoration('Waveform'),
-      items: _controller.selectableWaveforms
-          .map(
-            (waveform) => DropdownMenuItem(
-              value: waveform,
-              child: Text(waveform.displayName),
+      items: [
+        // A device waveform the panel cannot select (for example an
+        // arbitrary waveform) is shown as Unknown instead of a blank field.
+        if (!supported)
+          DropdownMenuItem(
+            value: draft.waveform,
+            enabled: false,
+            child: const Text('Unknown'),
+          ),
+        for (final waveform in selectable)
+          DropdownMenuItem(
+            value: waveform,
+            child: Text(
+              waveform.displayNameFor(_controller.generator.family),
             ),
-          )
-          .toList(),
+          ),
+      ],
       onChanged: enabled
           ? (value) {
               if (value != null) _controller.updateWaveform(value);
@@ -792,12 +803,18 @@ class _SignalGeneratorPanelState extends State<SignalGeneratorPanel> {
     );
   }
 
+  /// Panel label for a waveform; unsupported device waveforms read as Unknown.
+  String _waveformLabel(Jds6600Waveform waveform) =>
+      _controller.selectableWaveforms.contains(waveform)
+          ? waveform.displayNameFor(_controller.generator.family)
+          : 'Unknown';
+
   String _frequencyHint(SigGenChannelDraft draft) {
     final info = _controller.deviceInfo;
     final max = info.maxFrequencyHz(draft.waveform);
     return 'Range: ${_fmtNumber(info.limits.minFrequencyHz)} Hz … '
         '${formatMeasurementValue(max, 'Hz')} '
-        '(${draft.waveform.displayName})';
+        '(${_waveformLabel(draft.waveform)})';
   }
 
   String _amplitudeHint(SigGenChannelDraft draft) {
@@ -848,7 +865,7 @@ class _SignalGeneratorPanelState extends State<SignalGeneratorPanel> {
   String _confirmedSummary(int channel) {
     final confirmed = _controller.generator.channel(channel);
     final parts = [
-      confirmed.waveform.displayName,
+      _waveformLabel(confirmed.waveform),
       formatMeasurementValue(confirmed.frequencyHz, 'Hz'),
       '${_fmtNumber(confirmed.amplitudeVpp)} Vpp',
       '${_fmtNumber(confirmed.offsetV)} V offset',
