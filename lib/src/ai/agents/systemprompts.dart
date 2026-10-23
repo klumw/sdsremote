@@ -414,7 +414,7 @@ Exact command pattern: `AVGA <time>`
 Query: `AVGA?`
 
 **BWL** (BANDWIDTH_LIMIT)  
-Turns bandwidth filter on/off.  
+Turns bandwidth filter on/off. mode ON = 20 MHz, mode OFF = full bandwidth. 
 Exact command pattern: `BWL <channel>,<mode>[,<channel>,<mode>…]`  
 Query: `BWL?`
 
@@ -454,7 +454,7 @@ Exact command pattern: `COUN <state>`
 Query: `COUN?`
 
 **CPL** (COUPLING)  
-Sets channel coupling & impedance.  
+Sets channel coupling & impedance. A1M = AC 1M, D1M = DC 1M, GND = GND.  
 Exact command pattern: `C<n>:CPL <coupling>`  
 Query: `C<n>:CPL?`
 
@@ -864,7 +864,7 @@ Exact command pattern: `TMPL?`
 Query only.
 
 **TRA** (TRACE)  
-Displays/hides a trace.  
+Displays/hides a trace. After sending TRA ON, always query if Channel is really on, if not repeat the command.  
 Exact command pattern: `<trace>:TRA <mode>`   (trace = C1..C4|TA..TD)  
 Query: `<trace>:TRA?`
 
