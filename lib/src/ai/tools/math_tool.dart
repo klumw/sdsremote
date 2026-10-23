@@ -67,7 +67,8 @@ final Map<String, MathOperation> mathOperations = {
     name: 'divide',
     signature: 'a, b',
     summary: 'a / b (operand order preserved, b must not be zero)',
-    run: (args) => _ok('divide', mathDivide(args.number('a'), args.number('b'))),
+    run: (args) =>
+        _ok('divide', mathDivide(args.number('a'), args.number('b'))),
   ),
   'int_divide': MathOperation(
     name: 'int_divide',
@@ -81,7 +82,8 @@ final Map<String, MathOperation> mathOperations = {
     signature: 'a, b',
     summary:
         'Euclidean modulo; the result is always non-negative and below |b|',
-    run: (args) => _ok('modulo', mathModulo(args.number('a'), args.number('b'))),
+    run: (args) =>
+        _ok('modulo', mathModulo(args.number('a'), args.number('b'))),
   ),
   'negate': MathOperation(
     name: 'negate',
@@ -282,21 +284,15 @@ final Map<String, MathOperation> mathOperations = {
     name: 'deg_to_rad',
     signature: 'a',
     summary: 'converts an angle from degrees to radians',
-    run: (args) => _ok(
-      'deg_to_rad',
-      toRadians(args.number('a'), 'deg'),
-      unit: 'rad',
-    ),
+    run: (args) =>
+        _ok('deg_to_rad', toRadians(args.number('a'), 'deg'), unit: 'rad'),
   ),
   'rad_to_deg': MathOperation(
     name: 'rad_to_deg',
     signature: 'a',
     summary: 'converts an angle from radians to degrees',
-    run: (args) => _ok(
-      'rad_to_deg',
-      fromRadians(args.number('a'), 'deg'),
-      unit: 'deg',
-    ),
+    run: (args) =>
+        _ok('rad_to_deg', fromRadians(args.number('a'), 'deg'), unit: 'deg'),
   ),
 
   // ---- Units ----
@@ -351,7 +347,8 @@ final Map<String, MathOperation> mathOperations = {
   'peak_negative': MathOperation(
     name: 'peak_negative',
     signature: 'values, reference',
-    summary: 'v_min - reference, in V (negative below the reference); '
+    summary:
+        'v_min - reference, in V (negative below the reference); '
         'reference defaults to 0',
     run: (args) => _ok(
       'peak_negative',
@@ -642,19 +639,22 @@ Tool<Map<String, dynamic>> createMathTool({String agentName = 'unknown'}) {
         'operation': {
           'type': 'string',
           'enum': mathToolOperations,
-          'description': 'The calculation to perform. See the operation '
+          'description':
+              'The calculation to perform. See the operation '
               'catalogue in the tool description for the arguments, result '
               'unit and formula of each entry.',
         },
         'a': {
           'type': 'number',
-          'description': 'First number or operand. Its meaning depends on the '
+          'description':
+              'First number or operand. Its meaning depends on the '
               'operation — see the catalogue (e.g. for "divide" it is the '
               'numerator, for "period_from_frequency" the frequency in Hz).',
         },
         'b': {
           'type': 'number',
-          'description': 'Second number or operand (e.g. the denominator of '
+          'description':
+              'Second number or operand (e.g. the denominator of '
               '"divide", the base of "log", the exponent of "power").',
         },
         'c': {
@@ -664,51 +664,60 @@ Tool<Map<String, dynamic>> createMathTool({String agentName = 'unknown'}) {
         'values': {
           'type': 'array',
           'items': {'type': 'number'},
-          'description': 'Sampled measurement data, in volts for the voltage '
+          'description':
+              'Sampled measurement data, in volts for the voltage '
               'operations. Required by the operations that take "values" — '
               'see the catalogue.',
         },
         'signal': {
           'type': 'number',
-          'description': 'The measured voltage on the signal channel (CH1), in '
+          'description':
+              'The measured voltage on the signal channel (CH2), in '
               'volts. Used by "gain_db" only.',
         },
         'reference': {
           'type': 'number',
-          'description': 'Either the reference voltage of "gain_db" (CH2), '
+          'description':
+              'Either the reference voltage of "gain_db" (CH1), '
               'which must be greater than zero, or the reference level the '
               'peak operations measure against, which defaults to 0 V.',
         },
         'angle_unit': {
           'type': 'string',
           'enum': ['rad', 'deg'],
-          'description': 'Angle unit for the trigonometric operations. '
+          'description':
+              'Angle unit for the trigonometric operations. '
               'Defaults to "rad"; degrees are never assumed silently.',
         },
         'from_unit': {
           'type': 'string',
-          'description': 'Source unit of "convert_units", e.g. "mV". Known '
+          'description':
+              'Source unit of "convert_units", e.g. "mV". Known '
               'units: V, mV, uV, A, mA, uA, s, ms, us, ns, Hz, kHz, MHz, GHz, '
               'ohm, kohm, Mohm, W, mW, uW, J, rad, deg, %.',
         },
         'to_unit': {
           'type': 'string',
-          'description': 'Target unit of "convert_units". Must have the same '
+          'description':
+              'Target unit of "convert_units". Must have the same '
               'dimension as from_unit, otherwise the conversion is rejected.',
         },
         'sample_interval': {
           'type': 'number',
-          'description': 'Time between two consecutive samples in seconds. '
+          'description':
+              'Time between two consecutive samples in seconds. '
               'Required by "rise_time" and "fall_time".',
         },
         'low_percent': {
           'type': 'number',
-          'description': 'Lower threshold as a percentage of the waveform '
+          'description':
+              'Lower threshold as a percentage of the waveform '
               'range for "rise_time" and "fall_time". Defaults to 10.',
         },
         'high_percent': {
           'type': 'number',
-          'description': 'Upper threshold as a percentage of the waveform '
+          'description':
+              'Upper threshold as a percentage of the waveform '
               'range for "rise_time" and "fall_time". Defaults to 90.',
         },
       },
@@ -745,11 +754,15 @@ Map<String, dynamic> _run(
   try {
     return operation.run(args);
   } on MathException catch (e) {
-    return {'error': '${operation.name}: ${e.message}', 'operation': operation.name};
+    return {
+      'error': '${operation.name}: ${e.message}',
+      'operation': operation.name,
+    };
   } catch (e) {
-    AppLogger(agentName: agentName, toolName: 'math_tool').log(
-      'Unexpected failure in ${operation.name}: $e',
-    );
+    AppLogger(
+      agentName: agentName,
+      toolName: 'math_tool',
+    ).log('Unexpected failure in ${operation.name}: $e');
     return {
       'error': '${operation.name}: the calculation failed unexpectedly',
       'operation': operation.name,
@@ -863,9 +876,7 @@ class MathArgs {
   double _finiteOrThrow(String name, Object? value) {
     final parsed = _asDouble(value);
     if (parsed == null) {
-      throw MathException(
-        '"$name" must be a number (got ${_describe(value)})',
-      );
+      throw MathException('"$name" must be a number (got ${_describe(value)})');
     }
     if (parsed.isNaN) {
       throw MathException('"$name" is not a number (NaN)');
@@ -879,11 +890,15 @@ class MathArgs {
   /// A required, non-empty array of finite numbers.
   List<double> samples(String name) {
     if (!raw.containsKey(name) || raw[name] == null) {
-      throw MathException('missing required argument "$name" (an array of numbers)');
+      throw MathException(
+        'missing required argument "$name" (an array of numbers)',
+      );
     }
     final value = raw[name];
     if (value is! List) {
-      throw MathException('"$name" must be an array of numbers (got ${_describe(value)})');
+      throw MathException(
+        '"$name" must be an array of numbers (got ${_describe(value)})',
+      );
     }
     if (value.isEmpty) {
       throw MathException('"$name" must contain at least one sample');
@@ -927,7 +942,9 @@ class MathArgs {
       throw MathException('missing required argument "$name"');
     }
     if (value is! String || value.trim().isEmpty) {
-      throw MathException('"$name" must be a non-empty string (got ${_describe(value)})');
+      throw MathException(
+        '"$name" must be a non-empty string (got ${_describe(value)})',
+      );
     }
     return value.trim();
   }

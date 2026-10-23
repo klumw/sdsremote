@@ -1363,7 +1363,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       instrument: _playbackInstrument,
       onError: _showMacroError,
       isCancelled: () => _macroPlaybackCancelled,
-      delay: (seconds) => Future.delayed(Duration(seconds: seconds)),
+      delay: (duration) => Future.delayed(duration),
     );
 
     final success = await evaluator.evaluateSource(source);
@@ -1724,6 +1724,15 @@ class _OsciHomePageState extends State<OsciHomePage>
         '(timeout: 15s, isUsb: $_isUsb)',
       );
       await instr.writeProfileData(xml, timeout: const Duration(seconds: 15));
+      // The upload is acknowledged immediately, but the scope stops answering
+      // for roughly 10-15 seconds while it applies the profile. Wait for it,
+      // otherwise the screen dump refresh below times out with VXI-11 error 15
+      // and the app marks the instrument offline.
+      await instr.queryStringRetryOnBusy(
+        '*OPC?',
+        timeout: const Duration(seconds: 15),
+        readTimeout: const Duration(seconds: 10),
+      );
 
       AppLogger().log('Profile "$fileName" loaded successfully.');
       _showInfoSnackBar('Profile "$fileName" loaded.');

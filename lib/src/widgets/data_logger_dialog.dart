@@ -611,7 +611,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                 ),
               ],
               // Gain (dB) is a cross-channel measurement: the RMS voltage on
-              // CH1 (signal) divided by the RMS voltage on CH2 (reference).
+              // CH2 (signal) divided by the RMS voltage on CH1 (reference).
               // It therefore has no per-channel toggle of its own.
               _buildMeasurementToggle(
                 label: 'Gain (dB)',

@@ -2127,13 +2127,13 @@ Note that this is a VOLTAGE gain, not a power gain. A power gain in dB would add
 
 The SDS1000X-E has no dedicated single-value gain parameter in its measurement menu. To read a gain in dB, measure both channels with the same parameter type and calculate the ratio:
 
-1. Connect the DUT input to CH2 (reference channel) and the DUT output to CH1 (signal channel).
+1. Connect the DUT input to CH1 (reference channel) and the DUT output to CH2 (signal channel).
 2. Use the same probe attenuation on both channels, or account for the difference. The oscilloscope displays the voltage present at its input; a 10X probe has already divided the signal by 10.
 3. Press Measure → Add Measurement and add the Rms parameter for CH1 and for CH2. The Source softkey selects the channel. Use the same parameter on both channels so that the ratio is meaningful, e.g. Rms on CH1 and Rms on CH2.
-4. Read both values and calculate gain (dB) = 20 × log10(CH1 Rms / CH2 Rms).
-   Example: CH1 Rms = 2 V, CH2 Rms = 1 V → 20 × log10(2) = +6.02 dB.
-   Example: CH1 Rms = 500 mV, CH2 Rms = 100 mV → 20 × log10(5) = +13.98 dB.
-   Example: CH1 Rms = 10 mV, CH2 Rms = 100 mV → 20 × log10(0.1) = -20.00 dB.
+4. Read both values and calculate gain (dB) = 20 × log10(CH2 Rms / CH1 Rms).
+   Example: CH1 Rms = 1 V, CH2 Rms = 2 V → 20 × log10(2) = +6.02 dB.
+   Example: CH1 Rms = 100 mV, CH2 Rms = 500 mV → 20 × log10(5) = +13.98 dB.
+   Example: CH1 Rms = 100 mV, CH2 Rms = 10 mV → 20 × log10(0.1) = -20.00 dB.
 5. If a measurement displays "****", the parameter does not match the measure condition. Adjust the channel vertical scale and the trigger, then read the value again.
 
 Related functions of the oscilloscope:
@@ -2144,7 +2144,7 @@ Related functions of the oscilloscope:
 
 For exact help, use the Help function in sdsremote:
 
-- The Data Logger of sdsremote records a Gain (dB) measurement, so the ratio does not have to be calculated by hand. It queries the RMS voltage on CH1 (signal) and on CH2 (reference) at the configured interval and logs 20 × log10(CH1 / CH2), scaled by the probe attenuation of each channel. See the Data Logger section of the sdsremote help.
+- The Data Logger of sdsremote records a Gain (dB) measurement, so the ratio does not have to be calculated by hand. It queries the RMS voltage on CH1 (reference) and on CH2 (signal) at the configured interval and logs 20 × log10(CH2 / CH1), scaled by the probe attenuation of each channel. See the Data Logger section of the sdsremote help.
 - In the AI chat you can simply ask to "measure the gain". The instrument agent measures both channels and returns the gain in dB together with the way it was measured.
 - Press the Help button in sdsremote and search for "Gain (dB)".
 

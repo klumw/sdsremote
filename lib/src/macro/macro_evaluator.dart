@@ -19,7 +19,7 @@ class MacroEvaluator {
 
   final void Function(String message) onError;
   final bool Function() isCancelled;
-  final Future<void> Function(int seconds) delay;
+  final Future<void> Function(Duration duration) delay;
   final void Function(String message) onLog;
 
   final Map<String, String> _vars = {};
@@ -35,8 +35,8 @@ class MacroEvaluator {
     this.onLog = _defaultLog,
   });
 
-  static Future<void> _defaultDelay(int seconds) =>
-      Future.delayed(Duration(seconds: seconds));
+  static Future<void> _defaultDelay(Duration duration) =>
+      Future.delayed(duration);
 
   static void _defaultLog(String message) => AppLogger().log(message);
 
@@ -146,7 +146,8 @@ class MacroEvaluator {
           return seconds;
         }();
         onLog('Macro playback: wait(${variableName ?? duration} s)');
-        await delay(duration.toInt().clamp(0, 3600));
+        final clamped = duration.clamp(0.0, 3600.0);
+        await delay(Duration(milliseconds: (clamped * 1000).round()));
       case ScpiStmt(:final command, :final variableName, :final concatString):
         await _ensureDevice();
         final resolved = concatString != null
@@ -318,8 +319,10 @@ class MacroEvaluator {
 
       // ── Scpi ──────────────────────────────────────────────────────
       case ScpiExpr():
-        _error('scpi() cannot be used as an expression value '
-            '(it returns no value)');
+        _error(
+          'scpi() cannot be used as an expression value '
+          '(it returns no value)',
+        );
 
       // ── Unary minus ───────────────────────────────────────────────
       case UnaryMinusExpr(:final operand):
@@ -385,9 +388,10 @@ class MacroEvaluator {
           '+' => l + r,
           '-' => l - r,
           '*' => l * r,
-          '/' => r == 0
-              ? _error('Division by zero in arithmetic expression')
-              : l / r,
+          '/' =>
+            r == 0
+                ? _error('Division by zero in arithmetic expression')
+                : l / r,
           _ => _error('Unknown arithmetic operator "$op"'),
         };
       }(),
@@ -497,13 +501,20 @@ class MacroEvaluator {
     if (!await file.exists()) {
       _error('loadProfile("$path"): file not found');
     }
+    await _ensureDevice();
     final xml = await file.readAsString();
-    await instrument!.writeProfileData(
-      xml,
-      timeout: const Duration(seconds: 15),
+    // The upload itself is acknowledged immediately, but the instrument then
+    // stops answering SCPI queries for roughly 10-15 seconds while it applies
+    // the profile. Its VXI-11 server returns error 15 (I/O timeout) for a
+    // read issued during that window, so the *OPC? read is retried until the
+    // instrument is responsive again.
+    const profileTimeout = Duration(seconds: 30);
+    await instrument!.writeProfileData(xml, timeout: profileTimeout);
+    await instrument!.queryStringRetryOnBusy(
+      '*OPC?',
+      timeout: profileTimeout,
+      readTimeout: const Duration(seconds: 10),
     );
-    await instrument!.writeString('*OPC?');
-    await instrument!.readString();
   }
 
   Future<void> _evalPrint(List<PrintItem> items) async {
@@ -596,7 +607,12 @@ class MacroEvaluator {
     }
   }
 
-  Future<void> _doDelay() => delay(1);
+  /// Small settle pause after a statement.
+  ///
+  /// This used to be a full second per statement, which dominated playback
+  /// time on macros with many commands. Longer settling is best expressed
+  /// explicitly with the `wait()` statement.
+  Future<void> _doDelay() => delay(const Duration(milliseconds: 50));
 
   Future<void> _drainEchoes() async {
     if (_echoesDrained || instrument == null) return;

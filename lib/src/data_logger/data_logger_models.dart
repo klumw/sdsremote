@@ -13,9 +13,9 @@ import 'dart:math' as math;
 /// Voltage gain in decibels between two voltage measurements.
 ///
 /// Computes `20 * log10(signalVoltage / referenceVoltage)`, where
-/// [signalVoltage] is the voltage on the signal channel (C1) and
-/// [referenceVoltage] is the voltage on the reference channel (C2).
-/// A positive result means the signal channel carries the larger voltage.
+/// [signalVoltage] is the measured signal (the DUT output) and
+/// [referenceVoltage] is the reference (the DUT input). A positive result
+/// means the signal carries the larger voltage.
 ///
 /// Both voltages must be the same measurement type and already scaled by
 /// their respective probe attenuation factors, so that the ratio reflects
@@ -53,6 +53,16 @@ double? computeMeasuredGainDb(double? signalVoltage, double? referenceVoltage) {
   }
   return computeGainDb(signalVoltage, referenceVoltage);
 }
+
+/// Gain in dB for a Data Logger sample, using the Data Logger's channel
+/// convention: CH1 is the reference (DUT input) and CH2 the signal (DUT
+/// output).
+///
+/// This matches the Bode plot's default of Vin on CH1 and Vout on CH2, and
+/// means a smaller CH2 voltage relative to CH1 lowers the gain. The noise
+/// floor of [computeMeasuredGainDb] applies to both voltages.
+double? computeDataLoggerGainDb(double? ch1Voltage, double? ch2Voltage) =>
+    computeMeasuredGainDb(ch2Voltage, ch1Voltage);
 
 /// Formats a logged gain for display in the cursor popup: the value with its
 /// unit, or `invalid` when the sample carries no gain.
@@ -164,10 +174,10 @@ class DataLoggerConfig {
   /// Whether CH4 frequency is measured.
   final bool ch4FreqEnabled;
 
-  /// Whether the voltage gain between CH1 (signal) and CH2 (reference) is
+  /// Whether the voltage gain between CH1 (reference) and CH2 (signal) is
   /// measured in decibels. Unlike the per-channel measurements above, this is
   /// a derived cross-channel measurement: it queries the RMS voltage on both
-  /// channels and records `20 * log10(C1 / C2)`.
+  /// channels and records `20 * log10(C2 / C1)`.
   final bool gainDbEnabled;
 
   final int intervalSeconds;

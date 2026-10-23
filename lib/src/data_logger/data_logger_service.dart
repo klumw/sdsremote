@@ -2,8 +2,8 @@
 ///
 /// Manages a periodic timer that queries the oscilloscope for voltage, duty
 /// cycle and frequency measurements on the selected channels via SCPI
-/// commands, plus the voltage gain in dB between CH1 and CH2, and emits
-/// [DataLoggerPoint] objects on a broadcast stream.
+/// commands, plus the voltage gain in dB from CH1 (reference) to CH2
+/// (signal), and emits [DataLoggerPoint] objects on a broadcast stream.
 ///
 /// SCPI queries use async I/O which yields to the Dart event loop during
 /// network waits, keeping UI animations responsive.
@@ -365,25 +365,26 @@ class DataLoggerService {
         if (_hasStopped) return;
       }
 
-      // Gain (dB): voltage gain between CH1 (signal) and CH2 (reference).
-      // Both channels are measured with the same parameter (RMS) so the ratio
-      // reflects the true voltage gain of the device under test. Each voltage
-      // is scaled by its own probe divider, so differing probe attenuations on
-      // the two channels cancel out correctly instead of biasing the result.
-      // The noise floor is applied to the scaled voltages, i.e. to what is
-      // actually present at the probe tips.
+      // Gain (dB): voltage gain from CH1 (reference, DUT input) to CH2
+      // (signal, DUT output), i.e. 20*log10(CH2/CH1). Both channels are
+      // measured with the same parameter (RMS) so the ratio reflects the true
+      // voltage gain of the device under test. Each voltage is scaled by its
+      // own probe divider, so differing probe attenuations on the two channels
+      // cancel out correctly instead of biasing the result. The noise floor is
+      // applied to the scaled voltages, i.e. to what is actually present at the
+      // probe tips.
       if (cfg.gainDbEnabled) {
-        double? signalVoltage = await _queryPava(instr, 'C1:PAVA? RMS');
+        double? ch1Voltage = await _queryPava(instr, 'C1:PAVA? RMS');
         if (_hasStopped) return;
-        double? referenceVoltage = await _queryPava(instr, 'C2:PAVA? RMS');
+        double? ch2Voltage = await _queryPava(instr, 'C2:PAVA? RMS');
         if (_hasStopped) return;
 
-        if (signalVoltage != null) signalVoltage *= _probeDividerCh1;
-        if (referenceVoltage != null) referenceVoltage *= _probeDividerCh2;
+        if (ch1Voltage != null) ch1Voltage *= _probeDividerCh1;
+        if (ch2Voltage != null) ch2Voltage *= _probeDividerCh2;
 
-        gainDb = computeMeasuredGainDb(signalVoltage, referenceVoltage);
+        gainDb = computeDataLoggerGainDb(ch1Voltage, ch2Voltage);
         AppLogger(agentName: 'DataLogger', toolName: '_doSample').log(
-          'Gain (dB): C1 RMS=$signalVoltage, C2 RMS=$referenceVoltage '
+          'Gain (dB): C1 reference RMS=$ch1Voltage, C2 signal RMS=$ch2Voltage '
           '=> ${gainDb == null ? 'invalid (RMS below $gainMinRmsVolts V)' : '$gainDb dB'}',
         );
       }

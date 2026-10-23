@@ -436,7 +436,7 @@ The following parameters can be logged. Vpp, Mean, Rms, Duty and Freq are availa
 | **Rms** | CH1–CH4 | Root mean square voltage |
 | **Duty** | CH1–CH4 | Duty cycle (percentage) |
 | **Freq** | CH1–CH4 | Signal frequency |
-| **Gain (dB)** | CH1 vs. CH2 | Voltage gain from the reference channel to the signal channel (unchanged on four-channel instruments) |
+| **Gain (dB)** | CH1 vs. CH2 | Voltage gain from the reference channel (CH1) to the signal channel (CH2) (unchanged on four-channel instruments) |
 
 On startup all voltage values are automatically scaled by the probe attenuation factor.
 
@@ -444,21 +444,21 @@ On startup all voltage values are automatically scaled by the probe attenuation 
 
 Measures the voltage gain between two channels and records it as a decibel value:
 
-`gain = 20 × log10( V_CH1 / V_CH2 )`
+`gain = 20 × log10( V_CH2 / V_CH1 )`
 
-* **CH1 (signal)** — the signal under test, typically the RF amplifier output.
-* **CH2 (reference)** — the reference signal, typically the RF amplifier input.
+* **CH1 (reference)** — the reference signal, typically the DUT input.
+* **CH2 (signal)** — the signal under test, typically the DUT output.
 * Both channels are measured as **RMS** voltage.
-* A positive result means CH1 carries the larger measured voltage; a negative result means it carries the smaller one.
+* A positive result means CH2 carries the larger measured voltage; a negative result means it carries the smaller one.
 
-| CH1 (signal) | CH2 (reference) | Gain |
+| CH1 (reference) | CH2 (signal) | Gain |
 |---:|---:|---:|
 | 1.0 V | 1.0 V | 0.00 dB |
-| 2.0 V | 1.0 V | +6.02 dB |
-| 0.5 V | 1.0 V | -6.02 dB |
-| 500 mV | 100 mV | +13.98 dB |
-| 10 mV | 100 mV | -20.00 dB |
-| 5 mV | 100 mV | no value (below the noise floor) |
+| 1.0 V | 2.0 V | +6.02 dB |
+| 1.0 V | 0.5 V | -6.02 dB |
+| 100 mV | 500 mV | +13.98 dB |
+| 100 mV | 10 mV | -20.00 dB |
+| 100 mV | 5 mV | no value (below the noise floor) |
 
 Each voltage is scaled by its own probe divider before the ratio is taken, so differing probe attenuation on the two channels is handled correctly rather than biasing the result. If either voltage cannot be measured, or it falls below the noise floor described below, no gain value is recorded for that sample.
 

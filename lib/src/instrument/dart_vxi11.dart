@@ -116,11 +116,9 @@ class _AsyncMutex {
 
   Future<T> protect<T>(Future<T> Function() criticalSection) {
     final completer = Completer<void>();
-    final next = _last
-        .then((_) => criticalSection())
-        .whenComplete(() {
-          if (!completer.isCompleted) completer.complete();
-        });
+    final next = _last.then((_) => criticalSection()).whenComplete(() {
+      if (!completer.isCompleted) completer.complete();
+    });
     _last = completer.future;
     return next;
   }
@@ -637,11 +635,44 @@ class Vxi11Instrument {
     int maxLen = 256,
     Duration? timeout,
     Duration? readTimeout,
-  }) =>
-      _opLock.protect(() async {
-        await _writeString(cmd, timeout: timeout);
-        return _readString(maxLen: maxLen, readTimeout: readTimeout);
-      });
+  }) => _opLock.protect(() async {
+    await _writeString(cmd, timeout: timeout);
+    return _readString(maxLen: maxLen, readTimeout: readTimeout);
+  });
+
+  /// Writes [cmd] and reads its response, retrying the read when the
+  /// instrument reports a VXI-11 I/O timeout (error 15) because it is still
+  /// busy — for example while it applies a profile uploaded with
+  /// [writeProfileData].
+  ///
+  /// The query is written only once. A DEVICE_READ that times out returns no
+  /// data and leaves the instrument's response queued, so the retries repeat
+  /// the read rather than resending the command. Without this, the first
+  /// read after a profile upload fails after roughly 10 seconds although the
+  /// instrument finishes the upload a moment later.
+  Future<String> queryStringRetryOnBusy(
+    String cmd, {
+    int maxLen = 256,
+    Duration? timeout,
+    Duration? readTimeout,
+    int maxAttempts = 6,
+    Duration retryDelay = const Duration(seconds: 2),
+  }) => _opLock.protect(() async {
+    await _writeString(cmd, timeout: timeout);
+    for (var attempt = 1; ; attempt++) {
+      try {
+        return await _readString(maxLen: maxLen, readTimeout: readTimeout);
+      } on StateError {
+        final busy = _lastError.contains('VXI-11 error 15');
+        if (!busy || attempt >= maxAttempts) rethrow;
+        AppLogger().log(
+          'VXI-11: DEVICE_READ timed out while the instrument is busy '
+          '(attempt $attempt/$maxAttempts); retrying the read',
+        );
+        await Future<void>.delayed(retryDelay);
+      }
+    }
+  });
 
   Future<String> _readString({int maxLen = 256, Duration? readTimeout}) async {
     final readTimeoutMs = readTimeout?.inMilliseconds ?? _timeoutMs;

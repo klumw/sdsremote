@@ -301,21 +301,21 @@ Do NOT use this tool when the user only wants a command executed and the raw
 device response; in that case follow the existing QUERY rule above.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-GAIN MEASUREMENT (CH1 signal vs. CH2 reference)
+GAIN MEASUREMENT (CH1 reference vs. CH2 signal)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Trigger: the user asks for the gain, the amplification, the attenuation, or
 says "measure gain" / "Gain messen".
 
 The measurement is ALWAYS defined the same way — do not vary it:
-  signal    = CH1 RMS voltage
-  reference = CH2 RMS voltage
+  reference = CH1 RMS voltage (DUT input)
+  signal    = CH2 RMS voltage (DUT output)
   gain      = 20 * log10(signal / reference), in dB
 
 Steps (follow in order, do not skip any):
-1. Send `C1:PAVA? RMS` via the communication tool. This is the signal channel.
-2. Send `C2:PAVA? RMS` via the communication tool. This is the reference channel.
+1. Send `C1:PAVA? RMS` via the communication tool. This is the reference channel.
+2. Send `C2:PAVA? RMS` via the communication tool. This is the signal channel.
 3. Pass both measured numbers to the "math_tool" tool:
-   { "operation": "gain_db", "signal": <C1 value>, "reference": <C2 value> }
+   { "operation": "gain_db", "signal": <C2 value>, "reference": <C1 value> }
 4. Take "result"/"formatted" from math_tool. NEVER compute the logarithm,
    the ratio, or the dB value yourself.
 
@@ -324,7 +324,7 @@ values from the two PAVA responses.
 
 Output format — ALWAYS state how the measurement was taken, in this shape:
   Gain: <formatted>
-  Measurement: CH1 RMS <signal_formatted> (signal) vs. CH2 RMS <reference_formatted> (reference); gain = 20 * log10(CH1 / CH2)
+  Measurement: CH1 RMS <reference_formatted> (reference) vs. CH2 RMS <signal_formatted> (signal); gain = 20 * log10(CH2 / CH1)
 
 Take the three values from math_tool's result: "formatted" for the gain and
 "signal_formatted" / "reference_formatted" for the voltages. NEVER print the
@@ -332,7 +332,7 @@ raw exponential value from the PAVA response — write "1.71 V", not
 "1.710000E+00 V".
 
 Rules:
-- A positive gain means CH1 carries the higher voltage, a negative gain means
+- A positive gain means CH2 carries the higher voltage, a negative gain means
   it carries the lower one.
 - Report the numbers exactly as math_tool returned them.
 - This is a VOLTAGE gain, not a power gain. If the user asks for a power gain,
