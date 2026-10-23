@@ -227,6 +227,10 @@ class _OsciHomePageState extends State<OsciHomePage>
   bool _refreshPending = false;
   static const int _refreshDelayMs = 1758;
 
+  Timer? _autoCaptureTimer;
+  bool _autoCaptureEnabled = false;
+  static const Duration _autoCaptureInterval = Duration(seconds: 10);
+
   // UI State
   bool _showSettings = false;
   ActivePanel _activePanel = ActivePanel.none;
@@ -326,6 +330,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     if (server != null) unawaited(server.dispose());
     _pingTimer?.cancel();
     _refreshTimer?.cancel();
+    _autoCaptureTimer?.cancel();
     _closeInstrument();
     _sigGenDetector?.dispose();
     _sigGenDetector = null;
@@ -848,6 +853,8 @@ class _OsciHomePageState extends State<OsciHomePage>
       onVerticalButtonPressed: _handleButtonPress,
       onHorizontalButtonPressed: _handleButtonPress,
       onTriggerButtonPressed: _handleButtonPress,
+      autoCaptureEnabled: _autoCaptureEnabled,
+      onAutoCaptureChanged: _setAutoCaptureEnabled,
     );
   }
 
@@ -1598,6 +1605,8 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   void _togglePanel(ActivePanel panel) {
+    // Leaving the Control Panel stops its periodic screen capture.
+    if (panel != ActivePanel.none) _stopAutoCapture();
     // Stop the Data Logger immediately when switching away from it
     if (_activePanel == ActivePanel.dataLogger &&
         panel != ActivePanel.dataLogger) {
@@ -2024,6 +2033,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     // Stop the Data Logger immediately when switching away from it
     _stopDataLoggerIfRunning();
     _stopBodeIfRunning();
+    _stopAutoCapture();
 
     setState(() {
       _isAcquiringWaveform = true;
@@ -2660,6 +2670,41 @@ class _OsciHomePageState extends State<OsciHomePage>
         _acquireScreenDump(keepPanels: true);
       }
     });
+  }
+
+  /// Starts or stops the periodic screen capture requested by the toggle at
+  /// the bottom right of the Control Panel. While enabled, a fresh screen
+  /// dump is fetched every [_autoCaptureInterval].
+  void _setAutoCaptureEnabled(bool enabled) {
+    _autoCaptureTimer?.cancel();
+    _autoCaptureTimer = null;
+    setState(() => _autoCaptureEnabled = enabled);
+    if (!enabled) return;
+
+    _autoCaptureTimer = Timer.periodic(_autoCaptureInterval, (_) {
+      if (!mounted ||
+          !_isOnline ||
+          _isAcquiring ||
+          _isAcquiringWaveform ||
+          _bodeIsRunning ||
+          _screenDump == null ||
+          _activePanel != ActivePanel.none) {
+        return;
+      }
+      _acquireScreenDump(keepPanels: true);
+    });
+  }
+
+  /// Stops the periodic screen capture and resets the toggle to "off".
+  void _stopAutoCapture() {
+    if (_autoCaptureTimer == null && !_autoCaptureEnabled) return;
+    _autoCaptureTimer?.cancel();
+    _autoCaptureTimer = null;
+    if (mounted) {
+      setState(() => _autoCaptureEnabled = false);
+    } else {
+      _autoCaptureEnabled = false;
+    }
   }
 
   /// Sends a SCPI command to the instrument and returns true if successful.

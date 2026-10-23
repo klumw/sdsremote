@@ -30,6 +30,12 @@ class PhysicalControlPanel extends StatelessWidget {
   final ValueChanged<String>? onHorizontalButtonPressed;
   final ValueChanged<String>? onTriggerButtonPressed;
 
+  /// Whether the periodic screen capture (every 10 seconds) is enabled.
+  final bool autoCaptureEnabled;
+
+  /// Called when the automatic screen capture toggle is pressed.
+  final ValueChanged<bool>? onAutoCaptureChanged;
+
   const PhysicalControlPanel({
     super.key,
     required this.isOnline,
@@ -48,7 +54,14 @@ class PhysicalControlPanel extends StatelessWidget {
     this.onVerticalButtonPressed,
     this.onHorizontalButtonPressed,
     this.onTriggerButtonPressed,
+    this.autoCaptureEnabled = false,
+    this.onAutoCaptureChanged,
   });
+
+  /// Input is locked while a SCPI event is being processed or while the
+  /// automatic screen capture is enabled. The auto-capture toggle itself
+  /// stays operable so it can be switched off again.
+  bool get _inputLocked => isProcessingEvent || autoCaptureEnabled;
 
   @override
   Widget build(BuildContext context) {
@@ -144,227 +157,248 @@ class PhysicalControlPanel extends StatelessWidget {
                       ),
                     ),
                     padding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          // Top Section: Intensity and Main Buttons
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              _buildKnobSection(
-                                'Intensity\nAdjust',
-                                60,
-                                onChanged: onKnobChanged != null
-                                    ? (v) => onKnobChanged!(
-                                        KnobId.intensityAdjust,
-                                        v,
-                                      )
-                                    : null,
-                                showCounter: false,
-                                onTap: onKnobTapped != null
-                                    ? () =>
-                                          onKnobTapped!(KnobId.intensityAdjust)
-                                    : null,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(flex: 4, child: _buildMenuGrid()),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                flex: 1,
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxWidth: 100,
-                                  ),
-                                  child: _buildVerticalButtonGroup([
-                                    'History',
-                                    'Decode',
-                                    'Run/Stop',
-                                    'Auto\nSetup',
-                                  ]),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          // Control Sections Row
-                          IntrinsicHeight(
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                    child: Column(
+                      children: [
+                        Expanded(
+                          child: SingleChildScrollView(
+                            child: Column(
                               children: [
-                                // Vertical Section
-                                Expanded(
-                                  flex: 2,
-                                  child: _buildSectionWrapper(
-                                    'Vertical',
-                                    channelCount >= 4
-                                        ? _buildFourChannelVerticalLayout()
-                                        : Row(
-                                            mainAxisAlignment:
-                                                MainAxisAlignment.center,
+                                // Top Section: Intensity and Main Buttons
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildKnobSection(
+                                      'Intensity\nAdjust',
+                                      60,
+                                      onChanged: onKnobChanged != null
+                                          ? (v) => onKnobChanged!(
+                                              KnobId.intensityAdjust,
+                                              v,
+                                            )
+                                          : null,
+                                      showCounter: false,
+                                      onTap: onKnobTapped != null
+                                          ? () => onKnobTapped!(
+                                              KnobId.intensityAdjust,
+                                            )
+                                          : null,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(flex: 4, child: _buildMenuGrid()),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      flex: 1,
+                                      child: ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          maxWidth: 100,
+                                        ),
+                                        child: _buildVerticalButtonGroup([
+                                          'History',
+                                          'Decode',
+                                          'Run/Stop',
+                                          'Auto\nSetup',
+                                        ]),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 10),
+                                // Control Sections Row
+                                IntrinsicHeight(
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.stretch,
+                                    children: [
+                                      // Vertical Section
+                                      Expanded(
+                                        flex: 2,
+                                        child: _buildSectionWrapper(
+                                          'Vertical',
+                                          channelCount >= 4
+                                              ? _buildFourChannelVerticalLayout()
+                                              : Row(
+                                                  mainAxisAlignment:
+                                                      MainAxisAlignment.center,
+                                                  children: [
+                                                    _buildChannelColumn('CH1'),
+                                                    const SizedBox(width: 20),
+                                                    _buildChannelColumn('CH2'),
+                                                  ],
+                                                ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 8),
+                                      // Horizontal Section
+                                      Expanded(
+                                        flex: 1,
+                                        child: _buildSectionWrapper(
+                                          'Horizontal',
+                                          Column(
                                             children: [
-                                              _buildChannelColumn('CH1'),
-                                              const SizedBox(width: 20),
-                                              _buildChannelColumn('CH2'),
+                                              const Text(
+                                                's <-> ns',
+                                                style: TextStyle(fontSize: 10),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              _buildKnob(
+                                                70,
+                                                onChanged: onKnobChanged != null
+                                                    ? (v) => onKnobChanged!(
+                                                        KnobId.horizontalTime,
+                                                        v,
+                                                      )
+                                                    : null,
+                                                showCounter: false,
+                                                onTap: onKnobTapped != null
+                                                    ? () => onKnobTapped!(
+                                                        KnobId.horizontalTime,
+                                                      )
+                                                    : null,
+                                              ),
+                                              const SizedBox(height: 25),
+                                              _buildOscButton(
+                                                'Roll',
+                                                onTap:
+                                                    (isOnline &&
+                                                        onHorizontalButtonPressed !=
+                                                            null &&
+                                                        !_inputLocked)
+                                                    ? () =>
+                                                          onHorizontalButtonPressed!(
+                                                            'Roll',
+                                                          )
+                                                    : null,
+                                              ),
+                                              const Spacer(),
+                                              const Text(
+                                                'Position',
+                                                style: TextStyle(fontSize: 10),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              _buildKnob(
+                                                50,
+                                                onChanged: onKnobChanged != null
+                                                    ? (v) => onKnobChanged!(
+                                                        KnobId
+                                                            .horizontalPosition,
+                                                        v,
+                                                      )
+                                                    : null,
+                                                showCounter: false,
+                                                onTap: onKnobTapped != null
+                                                    ? () => onKnobTapped!(
+                                                        KnobId
+                                                            .horizontalPosition,
+                                                      )
+                                                    : null,
+                                              ),
                                             ],
                                           ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                // Horizontal Section
-                                Expanded(
-                                  flex: 1,
-                                  child: _buildSectionWrapper(
-                                    'Horizontal',
-                                    Column(
-                                      children: [
-                                        const Text(
-                                          's <-> ns',
-                                          style: TextStyle(fontSize: 10),
                                         ),
-                                        const SizedBox(height: 8),
-                                        _buildKnob(
-                                          70,
-                                          onChanged: onKnobChanged != null
-                                              ? (v) => onKnobChanged!(
-                                                  KnobId.horizontalTime,
-                                                  v,
-                                                )
-                                              : null,
-                                          showCounter: false,
-                                          onTap: onKnobTapped != null
-                                              ? () => onKnobTapped!(
-                                                  KnobId.horizontalTime,
-                                                )
-                                              : null,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      // Trigger Section
+                                      Expanded(
+                                        flex: 1,
+                                        child: _buildSectionWrapper(
+                                          'Trigger',
+                                          Column(
+                                            children: [
+                                              _buildOscButton(
+                                                'Setup',
+                                                onTap:
+                                                    (isOnline &&
+                                                        onTriggerButtonPressed !=
+                                                            null &&
+                                                        !_inputLocked)
+                                                    ? () =>
+                                                          onTriggerButtonPressed!(
+                                                            'Setup',
+                                                          )
+                                                    : null,
+                                              ),
+                                              const SizedBox(height: 10),
+                                              _buildOscButton(
+                                                'Auto',
+                                                onTap:
+                                                    (isOnline &&
+                                                        onTriggerButtonPressed !=
+                                                            null &&
+                                                        !_inputLocked)
+                                                    ? () =>
+                                                          onTriggerButtonPressed!(
+                                                            'Auto',
+                                                          )
+                                                    : null,
+                                              ),
+                                              const SizedBox(height: 10),
+                                              _buildOscButton(
+                                                'Normal',
+                                                onTap:
+                                                    (isOnline &&
+                                                        onTriggerButtonPressed !=
+                                                            null &&
+                                                        !_inputLocked)
+                                                    ? () =>
+                                                          onTriggerButtonPressed!(
+                                                            'Normal',
+                                                          )
+                                                    : null,
+                                              ),
+                                              const SizedBox(height: 10),
+                                              _buildOscButton(
+                                                'Single',
+                                                onTap:
+                                                    (isOnline &&
+                                                        onTriggerButtonPressed !=
+                                                            null &&
+                                                        !_inputLocked)
+                                                    ? () =>
+                                                          onTriggerButtonPressed!(
+                                                            'Single',
+                                                          )
+                                                    : null,
+                                              ),
+                                              const Spacer(),
+                                              const Text(
+                                                'Level',
+                                                style: TextStyle(fontSize: 10),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              _buildKnob(
+                                                50,
+                                                onChanged: onKnobChanged != null
+                                                    ? (v) => onKnobChanged!(
+                                                        KnobId.triggerLevel,
+                                                        v,
+                                                      )
+                                                    : null,
+                                                showCounter: false,
+                                                onTap: onKnobTapped != null
+                                                    ? () => onKnobTapped!(
+                                                        KnobId.triggerLevel,
+                                                      )
+                                                    : null,
+                                              ),
+                                            ],
+                                          ),
                                         ),
-                                        const SizedBox(height: 25),
-                                        _buildOscButton(
-                                          'Roll',
-                                          onTap:
-                                              (isOnline &&
-                                                  onHorizontalButtonPressed !=
-                                                      null &&
-                                                  !isProcessingEvent)
-                                              ? () =>
-                                                    onHorizontalButtonPressed!(
-                                                      'Roll',
-                                                    )
-                                              : null,
-                                        ),
-                                        const Spacer(),
-                                        const Text(
-                                          'Position',
-                                          style: TextStyle(fontSize: 10),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        _buildKnob(
-                                          50,
-                                          onChanged: onKnobChanged != null
-                                              ? (v) => onKnobChanged!(
-                                                  KnobId.horizontalPosition,
-                                                  v,
-                                                )
-                                              : null,
-                                          showCounter: false,
-                                          onTap: onKnobTapped != null
-                                              ? () => onKnobTapped!(
-                                                  KnobId.horizontalPosition,
-                                                )
-                                              : null,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 8),
-                                // Trigger Section
-                                Expanded(
-                                  flex: 1,
-                                  child: _buildSectionWrapper(
-                                    'Trigger',
-                                    Column(
-                                      children: [
-                                        _buildOscButton(
-                                          'Setup',
-                                          onTap:
-                                              (isOnline &&
-                                                  onTriggerButtonPressed !=
-                                                      null &&
-                                                  !isProcessingEvent)
-                                              ? () => onTriggerButtonPressed!(
-                                                  'Setup',
-                                                )
-                                              : null,
-                                        ),
-                                        const SizedBox(height: 10),
-                                        _buildOscButton(
-                                          'Auto',
-                                          onTap:
-                                              (isOnline &&
-                                                  onTriggerButtonPressed !=
-                                                      null &&
-                                                  !isProcessingEvent)
-                                              ? () => onTriggerButtonPressed!(
-                                                  'Auto',
-                                                )
-                                              : null,
-                                        ),
-                                        const SizedBox(height: 10),
-                                        _buildOscButton(
-                                          'Normal',
-                                          onTap:
-                                              (isOnline &&
-                                                  onTriggerButtonPressed !=
-                                                      null &&
-                                                  !isProcessingEvent)
-                                              ? () => onTriggerButtonPressed!(
-                                                  'Normal',
-                                                )
-                                              : null,
-                                        ),
-                                        const SizedBox(height: 10),
-                                        _buildOscButton(
-                                          'Single',
-                                          onTap:
-                                              (isOnline &&
-                                                  onTriggerButtonPressed !=
-                                                      null &&
-                                                  !isProcessingEvent)
-                                              ? () => onTriggerButtonPressed!(
-                                                  'Single',
-                                                )
-                                              : null,
-                                        ),
-                                        const Spacer(),
-                                        const Text(
-                                          'Level',
-                                          style: TextStyle(fontSize: 10),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        _buildKnob(
-                                          50,
-                                          onChanged: onKnobChanged != null
-                                              ? (v) => onKnobChanged!(
-                                                  KnobId.triggerLevel,
-                                                  v,
-                                                )
-                                              : null,
-                                          showCounter: false,
-                                          onTap: onKnobTapped != null
-                                              ? () => onKnobTapped!(
-                                                  KnobId.triggerLevel,
-                                                )
-                                              : null,
-                                        ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               ],
                             ),
                           ),
-                        ],
-                      ),
+                        ),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: Padding(
+                            padding: const EdgeInsets.only(top: 4),
+                            child: _buildAutoCaptureToggle(),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -409,8 +443,7 @@ class PhysicalControlPanel extends StatelessWidget {
   }
 
   Widget _buildRoundMenuButton() {
-    final bool canPress =
-        isOnline && onMenuPressed != null && !isProcessingEvent;
+    final bool canPress = isOnline && onMenuPressed != null && !_inputLocked;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -460,7 +493,7 @@ class PhysicalControlPanel extends StatelessWidget {
         isOnline &&
         buttonNumber != null &&
         onSoftKeyPressed != null &&
-        !isProcessingEvent;
+        !_inputLocked;
 
     return Expanded(
       flex: flex,
@@ -471,7 +504,7 @@ class PhysicalControlPanel extends StatelessWidget {
           height: double.infinity,
           onTap: canPress ? () => onSoftKeyPressed!(buttonNumber) : null,
           borderColor: isOnline ? Colors.white : Colors.white10,
-          lowContrast: !isOnline || isProcessingEvent,
+          lowContrast: !isOnline || _inputLocked,
         ),
       ),
     );
@@ -511,7 +544,7 @@ class PhysicalControlPanel extends StatelessWidget {
     bool showCounter = true,
     VoidCallback? onTap,
   }) {
-    final bool isDisabled = isProcessingEvent || !enabled;
+    final bool isDisabled = _inputLocked || !enabled;
     return KnobWithDisplay(
       size: size,
       enabled: !isDisabled,
@@ -523,7 +556,7 @@ class PhysicalControlPanel extends StatelessWidget {
 
   Widget _buildMenuGrid() {
     final bool canPress =
-        isOnline && onMenuButtonPressed != null && !isProcessingEvent;
+        isOnline && onMenuButtonPressed != null && !_inputLocked;
     return Column(
       children: [
         Container(
@@ -593,7 +626,7 @@ class PhysicalControlPanel extends StatelessWidget {
 
   Widget _buildVerticalButtonGroup(List<String> labels) {
     final bool canPress =
-        isOnline && onVerticalButtonPressed != null && !isProcessingEvent;
+        isOnline && onVerticalButtonPressed != null && !_inputLocked;
     return _buildBorderedSectionWithoutTitle(
       Column(
         children: [
@@ -618,9 +651,9 @@ class PhysicalControlPanel extends StatelessWidget {
 
   Widget _buildChannelColumn(String ch) {
     final bool canPressVertical =
-        isOnline && onVerticalButtonPressed != null && !isProcessingEvent;
+        isOnline && onVerticalButtonPressed != null && !_inputLocked;
     // Channel toggle is always allowed when online
-    final bool canToggleChannel = isOnline && !isProcessingEvent;
+    final bool canToggleChannel = isOnline && !_inputLocked;
     return Column(
       children: [
         // Top Knob Section
@@ -708,7 +741,7 @@ class PhysicalControlPanel extends StatelessWidget {
   /// directly below CH1 and CH2.
   Widget _buildFourChannelVerticalLayout() {
     final bool canPressVertical =
-        isOnline && onVerticalButtonPressed != null && !isProcessingEvent;
+        isOnline && onVerticalButtonPressed != null && !_inputLocked;
     return Column(
       children: [
         const Text('V <-> mV', style: TextStyle(fontSize: 10)),
@@ -784,7 +817,7 @@ class PhysicalControlPanel extends StatelessWidget {
   /// Channel on/off button. The selected channel is outlined so the shared
   /// knobs above and below are visibly bound to it.
   Widget _buildChannelButton(String ch) {
-    final bool canToggleChannel = isOnline && !isProcessingEvent;
+    final bool canToggleChannel = isOnline && !_inputLocked;
     return _buildOscButton(
       ch,
       width: 50,
@@ -890,6 +923,59 @@ class PhysicalControlPanel extends StatelessWidget {
                     ? Colors.white38
                     : (useBlackText ? Colors.black : Colors.white),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Toggle for the periodic screen capture. The label reflects the current
+  /// state so the switch reads "off" when disabled and "on" when enabled.
+  Widget _buildAutoCaptureToggle() {
+    final bool enabled = autoCaptureEnabled;
+    final Color accent = enabled
+        ? const Color(0xFF22C55E)
+        : const Color(0xFF94A3B8);
+
+    return Tooltip(
+      message: 'Automatic screen capture every 10 seconds',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onAutoCaptureChanged == null
+              ? null
+              : () => onAutoCaptureChanged!(!enabled),
+          borderRadius: BorderRadius.circular(4),
+          child: Ink(
+            height: 30,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF334155),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: accent, width: 0.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  offset: const Offset(1, 1),
+                  blurRadius: 2,
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.camera_alt_outlined, size: 16, color: accent),
+                const SizedBox(width: 6),
+                Text(
+                  enabled ? 'on' : 'off',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: accent,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
