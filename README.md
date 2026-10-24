@@ -1,4 +1,4 @@
-# SDS-Remote - New version 0.3.0 available"
+# SDS-Remote - New version 0.3.0 available
 The new version is out, now with better support for 4-channel oscilloscopes, Bode plot support for non Siglent Signalt Generators and much more!  
 
 **SDS-Remote** is a remote control interface and help center for Siglent SDS 1000X-E series oscilloscopes. It provides a modern graphical user interface (GUI) for instrument control, waveform acquisition, screen capture, data logging, and interaction through an integrated AI-powered chat interface. SDS-Remote runs on **Linux** and **Windows**.  For a quick overview, watch the [introductory video](https://youtu.be/sbQIYpyg1p4).
