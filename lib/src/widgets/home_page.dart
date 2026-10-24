@@ -1740,17 +1740,16 @@ class _OsciHomePageState extends State<OsciHomePage>
       );
       await instr.writeProfileData(xml, timeout: const Duration(seconds: 15));
       // The upload is acknowledged immediately, but the scope stops answering
-      // for roughly 10-15 seconds while it applies the profile. On VXI-11 the
-      // read reports error 15; on USB it reports a libusb bulk-read timeout
-      // (-7). Retry both until the instrument responds again.
+      // while it applies the profile. VXI-11 reports error 15 and is retried;
+      // USB uses one long read instead, because a retried Bulk-IN request has
+      // a new bTag and a late response would fail with "bTag mismatch".
       final isUsb = _isUsb || Vxi11Instrument.isUsbMode;
       await instr.queryStringRetryOnBusy(
         '*OPC?',
         timeout: const Duration(seconds: 15),
         readTimeout: isUsb
-            ? const Duration(seconds: 5)
+            ? const Duration(seconds: 40)
             : const Duration(seconds: 10),
-        retryWindow: isUsb ? const Duration(seconds: 40) : null,
       );
 
       AppLogger().log('Profile "$fileName" loaded successfully.');

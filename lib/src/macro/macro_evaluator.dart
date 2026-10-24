@@ -510,8 +510,9 @@ class MacroEvaluator {
     final xml = await file.readAsString();
     // The upload itself is acknowledged immediately, but the instrument then
     // stops answering SCPI queries while it applies the profile. VXI-11
-    // reports error 15; USB reports a libusb bulk-read timeout (-7). Retry
-    // both until the instrument is responsive again.
+    // reports error 15 and is retried; USB uses one long read instead, because
+    // a retried Bulk-IN request has a new bTag and a late response would fail
+    // with "bTag mismatch".
     const profileTimeout = Duration(seconds: 30);
     await instrument!.writeProfileData(xml, timeout: profileTimeout);
     final isUsb = Vxi11Instrument.isUsbMode;
@@ -519,9 +520,8 @@ class MacroEvaluator {
       '*OPC?',
       timeout: profileTimeout,
       readTimeout: isUsb
-          ? const Duration(seconds: 5)
+          ? const Duration(seconds: 40)
           : const Duration(seconds: 10),
-      retryWindow: isUsb ? const Duration(seconds: 40) : null,
     );
   }
 
