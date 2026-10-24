@@ -246,7 +246,7 @@ Choose the instructions for your target platform.
 
 #### 3.3.1 USB Support on Windows
 
-For USB support on Windows, place `libusb.dll` from the [libusb project](https://github.com/libusb/libusb) in the same directory as the SDS-Remote executable.
+For USB support on Windows, place the **x64** `libusb-1.0.dll` from the [libusb project](https://github.com/libusb/libusb) in the same directory as the SDS-Remote executable. (The application also accepts the older file name `libusb.dll` as a fallback.)
 
 Multiple DLL versions are available in the download package. Select the DLL located under `/VS2025/MS64-hotplug`.
 
@@ -258,6 +258,13 @@ Next, verify or install the WinUSB driver for your device:
 4. Select your device and install the WinUSB driver if it is not already installed.
 
 > Note: If you are using a VISA-based application in parallel, it may no longer detect the device after switching to the WinUSB driver.
+
+If the oscilloscope is still not detected:
+
+- Set **Settings → Connection Mode** to **USB (USBTMC)**.
+- In Device Manager, the Siglent device must use the **WinUSB** driver (not `usbtmc.sys`). Re-run Zadig with **Replace Driver** if needed, and select the device's USBTMC interface.
+- Use the oscilloscope's USB **Device** port, not the USB host port for flash drives.
+- Check `%TEMP%\sds\logging\sds.log` for `USBTMC Windows` messages.
 
 #### 3.3.2 USB Support on Linux
 

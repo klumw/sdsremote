@@ -192,7 +192,21 @@ class LibusbBindings {
         return DynamicLibrary.open('libusb-1.0.so');
       }
     } else if (Platform.isWindows) {
-      return DynamicLibrary.open('libusb-1.0.dll');
+      // The official libusb release names the DLL libusb-1.0.dll, while some
+      // setup instructions refer to libusb.dll. Accept both so a correctly
+      // copied x64 build is found either way.
+      try {
+        return DynamicLibrary.open('libusb-1.0.dll');
+      } catch (_) {
+        try {
+          return DynamicLibrary.open('libusb.dll');
+        } catch (_) {
+          throw ArgumentError(
+            'Could not load libusb on Windows. Place the x64 '
+            'libusb-1.0.dll (or libusb.dll) next to sdsremote.exe.',
+          );
+        }
+      }
     } else if (Platform.isMacOS) {
       return DynamicLibrary.open('libusb-1.0.dylib');
     }

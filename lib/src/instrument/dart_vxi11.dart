@@ -315,6 +315,28 @@ class Vxi11ErrorMessages {
   }
 }
 
+/// Parses Windows PnP device IDs for a supported Siglent USB oscilloscope.
+///
+/// Handles device-level IDs (`USB\VID_F4EC&PID_EE38\serial`) as well as
+/// composite/interface IDs (`...&MI_00\...`). The serial number is not needed
+/// by the USBTMC library, which opens the device by VID and PID, so the
+/// returned VISA address omits it.
+String? parseWindowsSiglentUsbAddress(String output) {
+  final regex = RegExp(
+    r'VID_([0-9A-Fa-f]{4})&PID_([0-9A-Fa-f]{4})',
+    caseSensitive: false,
+  );
+  const knownVids = {'f4ec', 'f4ed'};
+  for (final match in regex.allMatches(output)) {
+    final vid = match.group(1)!.toLowerCase();
+    if (knownVids.contains(vid)) {
+      final pid = match.group(2)!.toLowerCase();
+      return 'USB0::0x$vid::0x$pid::INSTR';
+    }
+  }
+  return null;
+}
+
 /// High-level VXI-11 instrument client.
 ///
 /// Usage:
@@ -1302,54 +1324,51 @@ class Vxi11Instrument {
       }
     } else if (Platform.isWindows) {
       try {
-        // Attempt using wmic first
-        final wmicResult = await Process.run('wmic', [
-          'path',
-          'Win32_PnPEntity',
-          'where',
-          'PNPDeviceID like \'USB\\\\VID_%\' and Status=\'OK\'',
-          'get',
-          'PNPDeviceID',
-        ]);
-
-        var output = wmicResult.stdout as String;
-        if (wmicResult.exitCode != 0 ||
-            output.trim().isEmpty ||
-            !output.contains('VID_')) {
-          // Fallback to powershell if wmic is not available/returns empty
+        // PowerShell first: wmic was removed in Windows 11 24H2. List the
+        // present PnP ids and let Dart filter for the supported VIDs.
+        var output = '';
+        try {
           final psResult = await Process.run('powershell', [
+            '-NoProfile',
+            '-NonInteractive',
             '-Command',
-            'Get-CimInstance Win32_PnPEntity -Filter "DeviceID like \'USB\\\\\\VID_%\'" | Where-Object { \$_.Status -eq \'OK\' } | Select-Object -ExpandProperty DeviceID',
+            r"Get-CimInstance Win32_PnPEntity | Where-Object { $_.Status -eq 'OK' } | Select-Object -ExpandProperty PNPDeviceID",
           ]);
-          output = psResult.stdout as String;
+          if (psResult.exitCode == 0) {
+            output = psResult.stdout as String;
+          }
+        } catch (e) {
+          AppLogger().warning(
+            'USBTMC Windows: PowerShell device query failed: $e',
+          );
         }
 
-        final regex = RegExp(
-          r'VID_([0-9A-Fa-f]{4})&PID_([0-9A-Fa-f]{4})\\([^\s]+)',
-          caseSensitive: false,
-        );
-        final matches = regex.allMatches(output);
-
-        for (final match in matches) {
-          final vid = match.group(1)!.toLowerCase();
-          final pid = match.group(2)!.toLowerCase();
-          final serial = match.group(3)!.trim();
-
-          final knownVids = {'f4ec', 'f4ed'};
-          if (knownVids.contains(vid)) {
-            var cleanSerial = serial;
-            final ampersandIndex = serial.indexOf('&');
-            if (ampersandIndex >= 0) {
-              cleanSerial = serial.substring(0, ampersandIndex);
+        if (!output.contains('VID_')) {
+          // Older Windows installations still provide wmic.
+          try {
+            final wmicResult = await Process.run('wmic', [
+              'path',
+              'Win32_PnPEntity',
+              'where',
+              "Status='OK'",
+              'get',
+              'PNPDeviceID',
+            ]);
+            if (wmicResult.exitCode == 0) {
+              output = wmicResult.stdout as String;
             }
-
-            final address = 'USB0::0x$vid::0x$pid::$cleanSerial::INSTR';
-            return address;
+          } catch (e) {
+            AppLogger().warning('USBTMC Windows: wmic device query failed: $e');
           }
         }
 
-        // No known oscilloscope VID matched — do NOT fall back to arbitrary USB devices
-        // (e.g. mouse, keyboard) to avoid falsely reporting isOnline=true for non-USBTMC hardware.
+        final address = parseWindowsSiglentUsbAddress(output);
+        if (address != null) return address;
+
+        AppLogger().warning(
+          'USBTMC Windows: no Siglent USB device found '
+          '(expected VID f4ec or f4ed).',
+        );
       } catch (e) {
         AppLogger().error('USBTMC Windows live device detection failed: $e');
       }
