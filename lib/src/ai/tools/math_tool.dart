@@ -840,7 +840,7 @@ Map<String, dynamic> _run(
     AppLogger(
       agentName: agentName,
       toolName: 'math_tool',
-    ).log('Unexpected failure in ${operation.name}: $e');
+    ).error('Unexpected failure in ${operation.name}: $e');
     return {
       'error': '${operation.name}: the calculation failed unexpectedly',
       'operation': operation.name,

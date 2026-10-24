@@ -259,7 +259,7 @@ class Vxi11BodeScope implements BodeScope {
       AppLogger(
         agentName: 'Bode',
         toolName: 'mead',
-      ).log('MEAD setup failed: $e');
+      ).error('MEAD setup failed: $e');
     }
   }
 
@@ -280,7 +280,7 @@ class Vxi11BodeScope implements BodeScope {
       AppLogger(
         agentName: 'Bode',
         toolName: 'prime',
-      ).log('Priming measurement failed: $e');
+      ).error('Priming measurement failed: $e');
     }
   }
 
@@ -346,7 +346,7 @@ class Vxi11BodeScope implements BodeScope {
       AppLogger(
         agentName: 'Bode',
         toolName: 'range',
-      ).log('V/div change failed: $e');
+      ).error('V/div change failed: $e');
       return false;
     }
   }

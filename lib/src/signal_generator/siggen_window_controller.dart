@@ -8,6 +8,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/logger.dart';
 import 'fy6900_protocol.dart';
 import 'jds6600_protocol.dart';
 import 'models.dart';
@@ -209,10 +210,7 @@ class SignalGeneratorPanelController extends ChangeNotifier {
 
   /// Waveforms the connected family and selected channel support.
   List<Jds6600Waveform> get selectableWaveforms =>
-      Jds6600Waveform.selectableFor(
-        generator.family,
-        channel: selectedChannel,
-      );
+      Jds6600Waveform.selectableFor(generator.family, channel: selectedChannel);
 
   /// Starts listening and fetches the initial snapshot.
   Future<void> init() async {
@@ -530,7 +528,9 @@ class SignalGeneratorPanelController extends ChangeNotifier {
     _state = result.state;
     if (syncDrafts) _syncDraftsFromConfirmed(force: false);
     if (!result.ok) {
-      _message = result.error ?? 'Command failed';
+      final message = result.error ?? 'Command failed';
+      AppLogger(agentName: 'SigGen', toolName: 'command').error(message);
+      _message = message;
       _messageIsError = true;
     }
   }
@@ -543,6 +543,9 @@ class SignalGeneratorPanelController extends ChangeNotifier {
   }
 
   void _setMessage(String message, {required bool error}) {
+    if (error) {
+      AppLogger(agentName: 'SigGen', toolName: 'ui').error(message);
+    }
     _message = message;
     _messageIsError = error;
     notifyListeners();

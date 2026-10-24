@@ -328,6 +328,19 @@ class Vxi11ErrorMessages {
 class Vxi11Instrument {
   static bool isUsbMode = false;
 
+  /// Exact error shown when a profile upload is attempted over USB.
+  ///
+  /// Applies to every supported oscilloscope: the USB bulk endpoint is
+  /// misconfigured for profile transfers, so the load is aborted instead of
+  /// sending a partial or corrupted setup.
+  static const String usbProfileLoadError =
+      'USB driver bulk endpoint misconfiguration';
+
+  /// True when a USB profile upload must be rejected: USB mode is active and
+  /// the app runs on Linux, where the bulk endpoint is misconfigured. On
+  /// Windows, USB profile uploads work and are not blocked.
+  static bool get usbProfileLoadBlocked => isUsbMode && Platform.isLinux;
+
   /// Shared USB connection — only ONE UsbtmcContext/Device is opened per
   /// process. All Vxi11Instrument instances in USB mode share this connection,
   /// preventing LIBUSB_ERROR_BUSY from concurrent open attempts.
@@ -403,7 +416,7 @@ class Vxi11Instrument {
         _ownsUsbShare = true;
         return 0;
       } catch (e) {
-        AppLogger().log('USB: Failed to connect via USBTMC: $e');
+        AppLogger().error('USB: Failed to connect via USBTMC: $e');
         // Tear down only what THIS attempt built up.
         //
         // The previous version closed whatever context happened to be in
@@ -457,7 +470,7 @@ class Vxi11Instrument {
         xid: _xidCounter++,
       );
     } catch (e) {
-      AppLogger().log('VXI-11: GETPORT RPC call failed: $e');
+      AppLogger().error('VXI-11: GETPORT RPC call failed: $e');
       await pmRpc.close();
       rethrow;
     }
@@ -592,18 +605,25 @@ class Vxi11Instrument {
 
   /// Sends profile data (e.g. XML configuration) to the instrument.
   ///
-  /// For USB (USBTMC) mode, this uses [UsbtmcDevice.profileWrite] which sends
-  /// the entire payload in a single USB bulk transfer — required because the
-  /// instrument firmware expects the complete XML block atomically and does
-  /// not correctly reassemble multi-transfer DEV_DEP_MSG_OUT messages.
+  /// On Linux, USB (USBTMC) profile uploads are rejected with
+  /// [usbProfileLoadError]: the bulk endpoint is misconfigured on all supported
+  /// oscilloscopes. On Windows the payload is sent in a single USB bulk
+  /// transfer via [UsbtmcDevice.profileWrite], which the firmware requires for
+  /// an atomic XML block.
   ///
-  /// For VXI-11 (TCP) mode, this delegates to [writeString] which sends the
-  /// data via the standard DEVICE_WRITE RPC.
+  /// VXI-11 (TCP) mode delegates to [writeString], which sends the data via the
+  /// standard DEVICE_WRITE RPC.
   Future<void> writeProfileData(String data, {Duration? timeout}) =>
       _opLock.protect(() => _writeProfileData(data, timeout: timeout));
 
   Future<void> _writeProfileData(String data, {Duration? timeout}) async {
     if (isUsbMode) {
+      if (usbProfileLoadBlocked) {
+        // Abort before touching the device: a partial profile would leave the
+        // oscilloscope in an undefined state.
+        _lastError = usbProfileLoadError;
+        throw StateError(_lastError);
+      }
       if (_sharedUsbDevice == null) {
         _lastError = 'USB connection not open';
         throw StateError(_lastError);
@@ -1278,7 +1298,7 @@ class Vxi11Instrument {
           }
         }
       } catch (e) {
-        AppLogger().log('USBTMC Linux live device detection failed: $e');
+        AppLogger().error('USBTMC Linux live device detection failed: $e');
       }
     } else if (Platform.isWindows) {
       try {
@@ -1331,7 +1351,7 @@ class Vxi11Instrument {
         // No known oscilloscope VID matched — do NOT fall back to arbitrary USB devices
         // (e.g. mouse, keyboard) to avoid falsely reporting isOnline=true for non-USBTMC hardware.
       } catch (e) {
-        AppLogger().log('USBTMC Windows live device detection failed: $e');
+        AppLogger().error('USBTMC Windows live device detection failed: $e');
       }
     }
     return null;

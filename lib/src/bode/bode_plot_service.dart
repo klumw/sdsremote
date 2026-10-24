@@ -63,13 +63,22 @@ class BodePlotService extends ChangeNotifier {
 
     final validation = validateBodeConfig(config, signalGenerator.deviceInfo);
     if (validation != null) {
+      AppLogger(
+        agentName: 'Bode',
+        toolName: 'validate',
+      ).error('Sweep rejected: $validation');
       _errorMessage = validation;
       _status = BodeStatus.error;
       _notify();
       return;
     }
     if (!signalGenerator.isConnected) {
-      _errorMessage = 'Signal generator is not connected.';
+      const message = 'Signal generator is not connected.';
+      AppLogger(
+        agentName: 'Bode',
+        toolName: 'validate',
+      ).error('Sweep rejected: $message');
+      _errorMessage = message;
       _status = BodeStatus.error;
       _notify();
       return;
@@ -92,7 +101,7 @@ class BodePlotService extends ChangeNotifier {
     } catch (e) {
       _errorMessage = e.toString();
       _status = BodeStatus.error;
-      AppLogger(agentName: 'Bode', toolName: 'run').log('Sweep failed: $e');
+      AppLogger(agentName: 'Bode', toolName: 'run').error('Sweep failed: $e');
     } finally {
       await _safeGeneratorState();
       try {
@@ -101,7 +110,7 @@ class BodePlotService extends ChangeNotifier {
         AppLogger(
           agentName: 'Bode',
           toolName: 'restore',
-        ).log('Scope restore failed: $e');
+        ).error('Scope restore failed: $e');
       }
       _currentFrequencyHz = null;
       _running = false;

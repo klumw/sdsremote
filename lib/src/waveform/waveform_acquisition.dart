@@ -54,7 +54,7 @@ class WaveformAcquisition {
             ? rawResponse.substring(lastSpace + 1).trim()
             : rawResponse;
       } catch (e) {
-        AppLogger().log('Failed to query trigger mode: $e');
+        AppLogger().error('Failed to query trigger mode: $e');
       }
       if (originalTriggerMode != null &&
           originalTriggerMode.isNotEmpty &&
@@ -62,7 +62,7 @@ class WaveformAcquisition {
         try {
           await activeInstr.writeString('TRMD STOP');
         } catch (e) {
-          AppLogger().log('Failed to stop trigger: $e');
+          AppLogger().error('Failed to stop trigger: $e');
         }
       }
 
@@ -82,7 +82,7 @@ class WaveformAcquisition {
       try {
         await activeInstr.writeString('WFSU SP,7,NP,$transferPoints,FP,0');
       } catch (e) {
-        AppLogger().log('WFSU setup failed: $e');
+        AppLogger().error('WFSU setup failed: $e');
       }
 
       // --- Trigger position in acquisition memory ---
@@ -155,7 +155,7 @@ class WaveformAcquisition {
         try {
           await activeInstr.writeString('TRMD $originalTriggerMode');
         } catch (e) {
-          AppLogger().log('Failed to restore trigger mode: $e');
+          AppLogger().error('Failed to restore trigger mode: $e');
         }
       }
 

@@ -131,11 +131,16 @@ class AppLogger {
   String _formatLevelName(Level level) {
     if (level == traceLevel) return 'TRACE';
     if (level == Level.FINE) return 'DEBUG';
+    if (level == Level.SEVERE) return 'ERROR';
     return level.name;
   }
 
   Future<void> log(String message) async => _writeLine(Level.INFO, message);
   Future<void> info(String message) async => _writeLine(Level.INFO, message);
+
+  /// Logs at ERROR level (the logging package's [Level.SEVERE]).
+  Future<void> error(String message) async => _writeLine(Level.SEVERE, message);
+
   Future<void> debug(String message) async => _writeLine(Level.FINE, message);
   Future<void> trace(String message) async => _writeLine(traceLevel, message);
   Future<void> warning(String message) async =>

@@ -88,7 +88,7 @@ class Jds6600Driver implements SiggenDriver {
       AppLogger(
         agentName: 'SigGen',
         toolName: 'readState',
-      ).log('Multi-register read failed, falling back: $e');
+      ).warning('Multi-register read failed, falling back: $e');
       values = await _readStateIndividually();
     }
     return _decodeState(values);
@@ -183,7 +183,7 @@ class Jds6600Driver implements SiggenDriver {
       );
       readback = Jds6600Protocol.decodeFrequency(values);
       if ((readback - hz).abs() <= 0.05) return;
-      AppLogger(agentName: 'SigGen', toolName: 'setFrequency').log(
+      AppLogger(agentName: 'SigGen', toolName: 'setFrequency').warning(
         'Frequency readback mismatch on CH$channel: requested $hz Hz, '
         'got $readback Hz (attempt $attempt/2)',
       );

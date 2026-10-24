@@ -208,6 +208,11 @@ class MacroEvaluator {
         await _evalAssert(resolvedText, condition);
         await _doDelay();
       case LoadProfileStmt(:final path, :final concatString):
+        // Profile uploads over USB are rejected on Linux for every
+        // oscilloscope; Windows supports them.
+        if (Vxi11Instrument.usbProfileLoadBlocked) {
+          _error(Vxi11Instrument.usbProfileLoadError);
+        }
         await _ensureDevice();
         final resolved = concatString != null
             ? _resolveConcatString(concatString)

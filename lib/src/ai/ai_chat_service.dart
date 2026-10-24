@@ -75,7 +75,7 @@ class AiChatService {
       );
       logger.debug('SUCCESS: FrontendAgent created, agent=${_agent != null}');
     } catch (e) {
-      logger.debug('FAILURE: FrontendAgent constructor threw: $e');
+      logger.error('FAILURE: FrontendAgent constructor threw: $e');
       // _agent remains null — caller should handle this.
     }
   }
@@ -95,6 +95,10 @@ class AiChatService {
     );
     if (_isDisposed) throw Exception('Service is disposed');
     if (_agent == null) {
+      AppLogger(
+        agentName: 'AiChatService',
+        toolName: 'sendMessageStream',
+      ).error('AI agent not configured; API keys missing');
       yield 'Error: AI agent not configured. Please configure API keys in Settings.';
       return;
     }
@@ -107,7 +111,7 @@ class AiChatService {
       AppLogger(
         agentName: 'AiChatService',
         toolName: 'sendMessageStream',
-      ).debug('Error during AI streaming: $e');
+      ).error('Error during AI streaming: $e');
       yield 'Error: AI request failed ($e)';
     }
   }

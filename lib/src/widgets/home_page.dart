@@ -598,6 +598,11 @@ class _OsciHomePageState extends State<OsciHomePage>
       return false;
     }
     if (_isMacroPlaying) return false;
+    // A closed generator window stays hidden in the multi-window backend.
+    // Without this gate openOrFocus would show that stale window again after
+    // the generator has been unplugged (detector reports it as no longer
+    // present), even though canOpen() is false.
+    if (!_sigGenDetected) return false;
     _ensureSigGenWindowSupport();
     unawaited(_sigGenWindowLauncher?.openOrFocus());
     return true;
@@ -632,7 +637,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         AppLogger(
           agentName: 'SigGen',
           toolName: 'window',
-        ).log('Signal generator bridge registration failed: $error');
+        ).error('Signal generator bridge registration failed: $error');
       }),
     );
 
@@ -1300,7 +1305,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         _macroFiles = files;
       });
     } catch (e) {
-      AppLogger().log('Error loading macro files: $e');
+      AppLogger().error('Error loading macro files: $e');
     }
   }
 
@@ -1417,7 +1422,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       _macroStatus = 0; // show error icon immediately
     }
     _macroStatusMessage = message;
-    AppLogger().log('Macro error: $message');
+    AppLogger().error('Macro error: $message');
     if (mounted) {
       setState(() {});
       _showErrorSnackBar(message);
@@ -1461,7 +1466,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         });
         _showInfoSnackBar('Macro "$_loadedMacroFileName" saved.');
       } catch (e) {
-        AppLogger().log('Save macro error: $e');
+        AppLogger().error('Save macro error: $e');
         _showErrorSnackBar('Save macro failed: $e');
       }
       return;
@@ -1485,7 +1490,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       });
       _showInfoSnackBar('Macro "$name" saved.');
     } catch (e) {
-      AppLogger().log('Save macro error: $e');
+      AppLogger().error('Save macro error: $e');
       _showErrorSnackBar('Save macro failed: $e');
     }
   }
@@ -1509,7 +1514,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         _showMacroEditor = true;
       });
     } catch (e) {
-      AppLogger().log('Load macro error: $e');
+      AppLogger().error('Load macro error: $e');
       _showErrorSnackBar('Load macro failed: $e');
     }
   }
@@ -1523,7 +1528,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       }
       _loadMacroFiles();
     } catch (e) {
-      AppLogger().log('Delete macro error: $e');
+      AppLogger().error('Delete macro error: $e');
     }
   }
 
@@ -1663,7 +1668,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         _profileFiles = files;
       });
     } catch (e) {
-      AppLogger().log('Error loading profile files: $e');
+      AppLogger().error('Error loading profile files: $e');
     }
   }
 
@@ -1690,13 +1695,23 @@ class _OsciHomePageState extends State<OsciHomePage>
       AppLogger().log('Profile "$name" saved successfully.');
       _showInfoSnackBar('Profile "$name" saved.');
     } catch (e) {
-      AppLogger().log('Save profile error: $e');
-      AppLogger().log('Popup: Save profile failed: $e');
+      AppLogger().error('Save profile error: $e');
+      AppLogger().error('Popup: Save profile failed: $e');
       _showErrorSnackBar('Save profile failed: $e');
     }
   }
 
   Future<void> _loadProfile(String fileName) async {
+    // Loading a profile over USB is not supported on Linux for any
+    // oscilloscope: the USB bulk endpoint is misconfigured. Windows supports
+    // it, so only abort on Linux.
+    if (Platform.isLinux && (_isUsb || Vxi11Instrument.isUsbMode)) {
+      final message = Vxi11Instrument.usbProfileLoadError;
+      AppLogger().error('LoadProfile aborted: $message');
+      _showErrorSnackBar(message);
+      return;
+    }
+
     // Capture profile load during macro recording
     if (_isMacroRecording) {
       final fullPath = '${AppPaths.profilesDirectory.path}/$fileName';
@@ -1739,8 +1754,8 @@ class _OsciHomePageState extends State<OsciHomePage>
       // Refresh screen dump after loading profile
       _scheduleRefresh();
     } catch (e) {
-      AppLogger().log('Load profile error: $e');
-      AppLogger().log('Popup: Load profile failed: $e');
+      AppLogger().error('Load profile error: $e');
+      AppLogger().error('Popup: Load profile failed: $e');
       _showErrorSnackBar('Load profile failed: $e');
     }
   }
@@ -1754,7 +1769,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       }
       _loadProfileFiles();
     } catch (e) {
-      AppLogger().log('Delete profile error: $e');
+      AppLogger().error('Delete profile error: $e');
     }
   }
 
@@ -1960,7 +1975,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       try {
         chsChannels = channelCountFromChs(await instr.queryString('CHS?'));
       } catch (e) {
-        AppLogger().log('CHS? query failed, using model number: $e');
+        AppLogger().warning('CHS? query failed, using model number: $e');
       }
       if (mounted) {
         setState(() {
@@ -2022,7 +2037,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       }
     } catch (e) {
       if (mounted) {
-        AppLogger().log('Acquire display error: $e');
+        AppLogger().error('Acquire display error: $e');
         // If it's a connection error, close the instrument so we retry next time
         _closeInstrument();
       }
@@ -2082,9 +2097,9 @@ class _OsciHomePageState extends State<OsciHomePage>
         _zoomState = const ZoomState();
       });
     } catch (e) {
-      AppLogger().log('Acquire waveform error: $e');
+      AppLogger().error('Acquire waveform error: $e');
       final reason = e is AcquisitionException ? e.reason : e.toString();
-      AppLogger().log('Popup: Waveform error: $reason');
+      AppLogger().error('Popup: Waveform error: $reason');
       _showErrorSnackBar('Waveform error: $reason');
     } finally {
       if (mounted) {
@@ -2637,7 +2652,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       // reader hunting in the wrong layer (a USB claim failure used to be
       // reported as a VXI-11 failure).
       final transport = Vxi11Instrument.isUsbMode ? 'USB (USBTMC)' : 'VXI-11';
-      AppLogger().log('Failed to open $transport connection: $e');
+      AppLogger().error('Failed to open $transport connection: $e');
       setState(() => _isOnline = false);
       return null;
     }
@@ -2653,7 +2668,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         // this must not block application shutdown for more than 1 s.
         await instr.close().timeout(const Duration(seconds: 1));
       } catch (e) {
-        AppLogger().log('Error closing instrument: $e');
+        AppLogger().error('Error closing instrument: $e');
       }
     }
   }
@@ -2727,7 +2742,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
 
     if (!_isOnline) {
-      AppLogger().log('Popup: Device is offline');
+      AppLogger().error('Popup: Device is offline');
       _showErrorSnackBar('Device is offline');
       return false;
     }
@@ -2739,9 +2754,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       await instr.writeString(command);
       return true;
     } catch (e) {
-      AppLogger().log('Send command error: $e');
+      AppLogger().error('Send command error: $e');
       _closeInstrument(); // Connection might be bad
-      AppLogger().log('Popup: Failed to send command: $e');
+      AppLogger().error('Popup: Failed to send command: $e');
       _showErrorSnackBar('Failed to send command: $e');
       return false;
     }
@@ -2755,6 +2770,9 @@ class _OsciHomePageState extends State<OsciHomePage>
     String message, {
     Duration duration = const Duration(seconds: 5),
   }) {
+    // Every error that is shown to the user must also be in the log at ERROR
+    // level, even when the widget is no longer mounted.
+    AppLogger().error('UI error: $message');
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -2806,7 +2824,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       }
     } catch (e) {
       final ctx = errorContext ?? command;
-      AppLogger().log('$ctx handler error: $e');
+      AppLogger().error('$ctx handler error: $e');
       if (mounted) {
         _showErrorSnackBar('Error processing $ctx: $e');
       }

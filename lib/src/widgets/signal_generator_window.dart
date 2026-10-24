@@ -61,7 +61,7 @@ class _SignalGeneratorWindowAppState extends State<SignalGeneratorWindowApp>
       AppLogger(
         agentName: 'SigGen',
         toolName: 'window',
-      ).log('Could not hide signal generator window: $error');
+      ).error('Could not hide signal generator window: $error');
     }
   }
 
@@ -73,7 +73,7 @@ class _SignalGeneratorWindowAppState extends State<SignalGeneratorWindowApp>
       log.log('Signal generator panel: init complete');
     } catch (error) {
       // Show the window anyway; the periodic pull retries the snapshot.
-      log.log('Signal generator panel: init failed: $error');
+      log.error('Signal generator panel: init failed: $error');
     }
     if (!mounted) return;
     setState(() {});

@@ -183,7 +183,7 @@ class DataLoggerService {
         AppLogger(
           agentName: 'DataLogger',
           toolName: '_doSample',
-        ).log('Instrument not available, skipping sample');
+        ).warning('Instrument not available, skipping sample');
         return;
       }
 
@@ -469,7 +469,7 @@ class DataLoggerService {
       AppLogger(
         agentName: 'DataLogger',
         toolName: '_doSample',
-      ).log('Sample error: $e');
+      ).error('Sample error: $e');
     }
   }
 
@@ -545,7 +545,7 @@ class DataLoggerService {
         AppLogger(
           agentName: 'DataLogger',
           toolName: '_primeMeasurements',
-        ).log('Priming measurement failed: $command → $e');
+        ).error('Priming measurement failed: $command → $e');
       }
     }
   }
@@ -564,14 +564,14 @@ class DataLoggerService {
         AppLogger(
           agentName: 'DataLogger',
           toolName: '_queryDouble',
-        ).log('No numeric value in response: $cmd → "$rawResponse"');
+        ).warning('No numeric value in response: $cmd → "$rawResponse"');
       }
       return value;
     } catch (e) {
       AppLogger(
         agentName: 'DataLogger',
         toolName: '_queryDouble',
-      ).log('SCPI query failed: $cmd → $e');
+      ).error('SCPI query failed: $cmd → $e');
       return null;
     }
   }
@@ -621,14 +621,14 @@ class DataLoggerService {
         AppLogger(
           agentName: 'DataLogger',
           toolName: '_queryPava',
-        ).log('No measurement value in response: $cmd → "$rawResponse"');
+        ).warning('No measurement value in response: $cmd → "$rawResponse"');
       }
       return value;
     } catch (e) {
       AppLogger(
         agentName: 'DataLogger',
         toolName: '_queryPava',
-      ).log('PAVA query failed: $cmd → $e');
+      ).error('PAVA query failed: $cmd → $e');
       return null;
     }
   }

@@ -145,7 +145,7 @@ class SignalGeneratorService extends ChangeNotifier
         AppLogger(
           agentName: 'SigGen',
           toolName: 'disconnect',
-        ).log('Error closing serial port: $e');
+        ).error('Error closing serial port: $e');
       }
     }
   }
@@ -412,7 +412,7 @@ class SignalGeneratorService extends ChangeNotifier
         AppLogger(
           agentName: 'SigGen',
           toolName: 'poll',
-        ).log('Poll failed ($_pollFailures): $e');
+        ).warning('Poll failed ($_pollFailures): $e');
         // A closed/unusable transport means the device is gone; do not wait
         // for further timeouts before reporting the disconnection.
         final driverGone = e is Jds6600DisconnectedException;

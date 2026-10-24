@@ -46,7 +46,7 @@ class NewsNotificationService {
         return SdsNotification.fromJson(json);
       }
     } catch (e) {
-      AppLogger().log('Failed to fetch news notification: $e');
+      AppLogger().warning('Failed to fetch news notification: $e');
     }
     return null;
   }

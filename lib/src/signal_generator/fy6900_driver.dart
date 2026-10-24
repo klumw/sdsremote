@@ -130,7 +130,7 @@ class Fy6900Driver implements SiggenDriver {
       } on Jds6600TimeoutException {
         if (attempt == formats.length - 1) rethrow;
       }
-      AppLogger(agentName: 'SigGen', toolName: 'setFrequency').log(
+      AppLogger(agentName: 'SigGen', toolName: 'setFrequency').warning(
         'FY6900 frequency readback mismatch on CH$channel: requested '
         '${hz.toStringAsFixed(6)} Hz, got ${readback.toStringAsFixed(6)} Hz '
         '(format ${attempt + 1}/${formats.length})',

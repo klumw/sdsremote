@@ -162,7 +162,7 @@ class _HelpWindowState extends State<HelpWindow> {
       );
       await minLoadTime;
     } catch (e) {
-      log.log('Manual load FAILED after ${sw.elapsedMilliseconds} ms: $e');
+      log.error('Manual load FAILED after ${sw.elapsedMilliseconds} ms: $e');
       _manualContent = 'Error loading manual: $e';
     }
     if (mounted) setState(() => _isLoading = false);
