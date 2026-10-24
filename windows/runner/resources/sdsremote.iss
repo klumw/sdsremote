@@ -3,7 +3,7 @@
 ; Non-commercial use only
 
 #define MyAppName "SDS-Remote"
-#define MyAppVersion "0.2.6"
+#define MyAppVersion "0.3.0"
 #define MyAppPublisher "W.Klum"
 #define MyAppURL "https://github.com/klumw/sdsremote"
 #define MyAppExeName "sdsremote.exe"
@@ -47,20 +47,11 @@ Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
-Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\{#MyAppExeName}"; DestDir: "{app}"; Flags: ignoreversion
-Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\flutter_windows.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\libusb-1.0.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\flutter_libserialport_plugin.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\serialport.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\msvcp140.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\msvcp140_1.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\msvcp140_2.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\screen_retriever_windows_plugin.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\url_launcher_windows_plugin.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\vcruntime140.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\vcruntime140_1.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\window_manager_plugin.dll"; DestDir: "{app}"; Flags: ignoreversion
-Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\data\*"; DestDir: "{app}\data"; Flags: ignoreversion recursesubdirs createallsubdirs
+; Copy the complete Flutter release bundle. All plugin DLLs (for example
+; desktop_multi_window_plugin.dll) must sit next to sdsremote.exe, and the
+; data folder must be shipped as well. Listing files individually caused
+; desktop_multi_window_plugin.dll to be missing from the installer.
+Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
