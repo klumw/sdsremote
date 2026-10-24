@@ -268,8 +268,13 @@ class LibusbContext implements UsbContext {
     final handle =
         _bindings.libusb_open_device_with_vid_pid(_ctx, vendorId, productId);
     if (handle == nullptr) {
+      final windowsHint = Platform.isWindows
+          ? ' On Windows, bind the WinUSB driver to this exact VID/PID '
+              '(Zadig); a WinUSB binding for another oscilloscope model '
+              'does not apply.'
+          : '';
       throw Exception(
-          'Failed to open USB device with VID 0x${vendorId.toRadixString(16)} and PID 0x${productId.toRadixString(16)}. Please check physical connection and USB permissions.');
+          'Failed to open USB device with VID 0x${vendorId.toRadixString(16)} and PID 0x${productId.toRadixString(16)}. Please check physical connection and USB permissions.$windowsHint');
     }
 
     // Enable auto-detach on THIS handle before claiming. libusb disables

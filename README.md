@@ -263,6 +263,7 @@ If the oscilloscope is still not detected:
 
 - Set **Settings → Connection Mode** to **USB (USBTMC)**.
 - In Device Manager, the Siglent device must use the **WinUSB** driver (not `usbtmc.sys`). Re-run Zadig with **Replace Driver** if needed, and select the device's USBTMC interface.
+- The WinUSB binding is **per device (VID/PID)**: installing it for one Siglent model does not cover another. Run Zadig separately for each model — SDS1104X-E `f4ec:ee38`, SDS1202X-E `f4ed:ee3a` — and pick the matching device when both are connected.
 - Use the oscilloscope's USB **Device** port, not the USB host port for flash drives.
 - Check `%TEMP%\sds\logging\sds.log` for `USBTMC Windows` messages.
 

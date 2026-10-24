@@ -509,16 +509,19 @@ class MacroEvaluator {
     await _ensureDevice();
     final xml = await file.readAsString();
     // The upload itself is acknowledged immediately, but the instrument then
-    // stops answering SCPI queries for roughly 10-15 seconds while it applies
-    // the profile. Its VXI-11 server returns error 15 (I/O timeout) for a
-    // read issued during that window, so the *OPC? read is retried until the
-    // instrument is responsive again.
+    // stops answering SCPI queries while it applies the profile. VXI-11
+    // reports error 15; USB reports a libusb bulk-read timeout (-7). Retry
+    // both until the instrument is responsive again.
     const profileTimeout = Duration(seconds: 30);
     await instrument!.writeProfileData(xml, timeout: profileTimeout);
+    final isUsb = Vxi11Instrument.isUsbMode;
     await instrument!.queryStringRetryOnBusy(
       '*OPC?',
       timeout: profileTimeout,
-      readTimeout: const Duration(seconds: 10),
+      readTimeout: isUsb
+          ? const Duration(seconds: 5)
+          : const Duration(seconds: 10),
+      retryWindow: isUsb ? const Duration(seconds: 40) : null,
     );
   }
 

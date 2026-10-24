@@ -683,32 +683,41 @@ class Vxi11Instrument {
   });
 
   /// Writes [cmd] and reads its response, retrying the read when the
-  /// instrument reports a VXI-11 I/O timeout (error 15) because it is still
-  /// busy — for example while it applies a profile uploaded with
-  /// [writeProfileData].
+  /// instrument is still busy — for example while it applies a profile
+  /// uploaded with [writeProfileData].
   ///
-  /// The query is written only once. A DEVICE_READ that times out returns no
-  /// data and leaves the instrument's response queued, so the retries repeat
-  /// the read rather than resending the command. Without this, the first
-  /// read after a profile upload fails after roughly 10 seconds although the
-  /// instrument finishes the upload a moment later.
+  /// VXI-11 reports this as DEVICE_READ error 15; USB reports it as a libusb
+  /// bulk-read timeout (-7). The query is written only once. A timed-out read
+  /// returns no data and leaves the instrument's response queued, so the
+  /// retries repeat the read rather than resending the command.
+  ///
+  /// [retryWindow] optionally limits the total retry time (for example after a
+  /// slow USB profile upload); without it the loop is bounded by
+  /// [maxAttempts] and [readTimeout].
   Future<String> queryStringRetryOnBusy(
     String cmd, {
     int maxLen = 256,
     Duration? timeout,
     Duration? readTimeout,
+    Duration? retryWindow,
     int maxAttempts = 6,
     Duration retryDelay = const Duration(seconds: 2),
   }) => _opLock.protect(() async {
     await _writeString(cmd, timeout: timeout);
+    final deadline = retryWindow == null
+        ? null
+        : DateTime.now().add(retryWindow);
     for (var attempt = 1; ; attempt++) {
       try {
         return await _readString(maxLen: maxLen, readTimeout: readTimeout);
-      } on StateError {
-        final busy = _lastError.contains('VXI-11 error 15');
-        if (!busy || attempt >= maxAttempts) rethrow;
-        AppLogger().log(
-          'VXI-11: DEVICE_READ timed out while the instrument is busy '
+      } catch (e) {
+        final usbTimeout = isUsbMode && _isUsbBulkReadTimeout(e);
+        final vxi11Busy = !isUsbMode && _lastError.contains('VXI-11 error 15');
+        if (!(usbTimeout || vxi11Busy) || attempt >= maxAttempts) rethrow;
+        if (deadline != null && !DateTime.now().isBefore(deadline)) rethrow;
+        final reason = usbTimeout ? 'USB bulk read' : 'VXI-11 DEVICE_READ';
+        AppLogger().warning(
+          '$reason timed out while the instrument is busy '
           '(attempt $attempt/$maxAttempts); retrying the read',
         );
         await Future<void>.delayed(retryDelay);
@@ -723,12 +732,17 @@ class Vxi11Instrument {
         _lastError = 'USB connection not open';
         throw StateError(_lastError);
       }
-      final bytes = await _sharedUsbDevice!.doRead(
-        maxLen,
-        useTermChar: true,
-        timeout: Duration(milliseconds: readTimeoutMs),
-      );
-      return utf8.decode(bytes).trim();
+      try {
+        final bytes = await _sharedUsbDevice!.doRead(
+          maxLen,
+          useTermChar: true,
+          timeout: Duration(milliseconds: readTimeoutMs),
+        );
+        return utf8.decode(bytes).trim();
+      } catch (e) {
+        _lastError = e.toString();
+        rethrow;
+      }
     }
 
     if (_linkId == null) {
@@ -1375,4 +1389,11 @@ class Vxi11Instrument {
     }
     return null;
   }
+}
+
+/// True when [error] is the libusb bulk-read timeout (-7) raised while an
+/// instrument is busy applying a profile.
+bool _isUsbBulkReadTimeout(Object error) {
+  final text = error.toString().toUpperCase();
+  return text.contains('LIBUSB BULK READ ERROR') && text.contains('TIMEOUT');
 }

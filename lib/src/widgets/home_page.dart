@@ -1740,13 +1740,17 @@ class _OsciHomePageState extends State<OsciHomePage>
       );
       await instr.writeProfileData(xml, timeout: const Duration(seconds: 15));
       // The upload is acknowledged immediately, but the scope stops answering
-      // for roughly 10-15 seconds while it applies the profile. Wait for it,
-      // otherwise the screen dump refresh below times out with VXI-11 error 15
-      // and the app marks the instrument offline.
+      // for roughly 10-15 seconds while it applies the profile. On VXI-11 the
+      // read reports error 15; on USB it reports a libusb bulk-read timeout
+      // (-7). Retry both until the instrument responds again.
+      final isUsb = _isUsb || Vxi11Instrument.isUsbMode;
       await instr.queryStringRetryOnBusy(
         '*OPC?',
         timeout: const Duration(seconds: 15),
-        readTimeout: const Duration(seconds: 10),
+        readTimeout: isUsb
+            ? const Duration(seconds: 5)
+            : const Duration(seconds: 10),
+        retryWindow: isUsb ? const Duration(seconds: 40) : null,
       );
 
       AppLogger().log('Profile "$fileName" loaded successfully.');
