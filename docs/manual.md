@@ -196,6 +196,18 @@ Select the signal generator used by the Bode Plot and the signal generator windo
 
 The selection is persisted as `siggen_device` and restored on the next launch. When a generator is selected, the application scans the serial ports, identifies it via `*IDN?` and enables the **Bode** button and the signal generator window (Ctrl+J). The detected model supplies the frequency, amplitude and offset limits; see the Bode Plot chapter ([section 10](#10-bode-plot)).
 
+### 3.8 Network Connection
+
+Basic connection setup for network mode. Skip steps 1–3 if USB is selected in **Connection Mode**.
+
+1. Connect the oscilloscope to the same network as the host computer.
+2. Obtain the oscilloscope's IP address.
+3. In **Settings**, enter the IP address in the **IP Address** field (see section 3.3).
+4. Click **SAVE CONFIGURATION**.
+5. Verify that the status bar shows your device as `ONLINE`.
+
+For USB (USBTMC), select that connection mode instead and connect the USB cable; the device is auto-detected.
+
 ---
 
 ## 4. AI System
@@ -1283,19 +1295,7 @@ The **Save** action in the top toolbar captures the Bode plot and writes a PDF r
 
 ---
 
-## 11. Getting Started
-
-### Basic Connection Setup for Network Mode
-
-*Skip steps 1-3 if you have selected USB in Connection Mode settings*
-
-1. Connect the oscilloscope to the network.
-2. Obtain its IP address.
-3. In **Settings** enter the IP address.
-4. Save configuration.
-5. Verify that the status bar shows your device as `ONLINE`.
-
-### Application Directory
+## 11. Application Directory
 
 The application directory stores captured images, CSV exports, and device profile files.
 The directory is OS specific:
