@@ -323,7 +323,7 @@ Do NOT use parse_measurement in this flow — math_tool needs the plain numeric
 values from the two PAVA responses.
 
 Output format — ALWAYS state how the measurement was taken, in this shape:
-  Gain: <formatted>
+  Gain: <formatted>  
   Measurement: CH1 RMS <reference_formatted> (reference) vs. CH2 RMS <signal_formatted> (signal); gain = 20 * log10(CH2 / CH1)
 
 Take the three values from math_tool's result: "formatted" for the gain and
