@@ -697,25 +697,30 @@ class _HelpWindowState extends State<HelpWindow> {
           const SizedBox(height: 6),
           LayoutBuilder(
             builder: (context, constraints) {
-              // Spread the chapters over up to three columns, so a wide window
-              // shows the whole list in a few rows instead of pushing the
-              // manual off the screen.
+              // Spread the chapters over up to three columns. Fill each column
+              // from top to bottom before moving to the next one, so chapter 2
+              // appears directly under chapter 1 instead of beside it.
               const spacing = 24.0;
-              final columns = (constraints.maxWidth / 300)
+              final maxColumns = (constraints.maxWidth / 300)
                   .floor()
                   .clamp(1, 3)
                   .toInt();
-              final entryWidth =
-                  (constraints.maxWidth - spacing * (columns - 1)) / columns;
-              return Wrap(
-                spacing: spacing,
-                runSpacing: 2,
+              final columns = chaptersByColumn(_chapters, maxColumns);
+              return Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  for (final chapter in _chapters)
-                    SizedBox(
-                      width: entryWidth,
-                      child: _buildContentsEntry(chapter),
+                  for (var column = 0; column < columns.length; column++) ...[
+                    if (column > 0) const SizedBox(width: spacing),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (final chapter in columns[column])
+                            _buildContentsEntry(chapter),
+                        ],
+                      ),
                     ),
+                  ],
                 ],
               );
             },
@@ -1161,6 +1166,28 @@ List<HelpChapter> extractMainChapters(String content) {
     }
   }
   return chapters;
+}
+
+/// Distributes [chapters] over at most [columns] columns in reading order.
+///
+/// Each column is filled from top to bottom before the next one starts, so
+/// chapter 2 lands directly under chapter 1. The column count is capped at the
+/// number of chapters, which keeps a short list from leaving empty columns.
+List<List<HelpChapter>> chaptersByColumn(
+  List<HelpChapter> chapters,
+  int columns,
+) {
+  if (chapters.isEmpty) return <List<HelpChapter>>[];
+  final count = columns.clamp(1, chapters.length).toInt();
+  final rows = (chapters.length + count - 1) ~/ count;
+  return <List<HelpChapter>>[
+    for (var column = 0; column < count; column++)
+      <HelpChapter>[
+        for (var row = 0; row < rows; row++)
+          if (column * rows + row < chapters.length)
+            chapters[column * rows + row],
+      ],
+  ];
 }
 
 /// Renders the anchors injected by [AnchorHeadingSyntax] as zero-sized widgets
