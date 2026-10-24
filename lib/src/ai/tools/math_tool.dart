@@ -551,16 +551,57 @@ final Map<String, MathOperation> mathOperations = {
         'must be greater than zero',
     run: (args) => _gainDb(args.raw),
   ),
+  'gain_dbm': MathOperation(
+    name: 'gain_dbm',
+    signature: 'signal, signal_resistance',
+    summary:
+        'absolute signal power level in dBm from the RMS voltage at CH2 and '
+        'the resistance at CH2, 10 * log10((signal^2 / signal_resistance) / '
+        '1 mW); both values must be greater than zero',
+    run: (args) => _gainDbm(args.raw),
+  ),
   'power_gain_db': MathOperation(
     name: 'power_gain_db',
     signature: 'a (p_out), b (p_in)',
-    summary: '10 * log10(a / b) in dB; both powers must be positive',
+    summary:
+        '10 * log10(a / b) in dB from two powers in watts; both powers must '
+        'be positive (for voltages and resistances use '
+        'power_gain_from_voltages_db)',
     run: (args) => _ok(
       'power_gain_db',
       powerGainDb(args.number('a'), args.number('b')),
       unit: 'dB',
       formula: '10 * log10(p_out / p_in)',
     ),
+  ),
+  'power_gain_from_voltages_db': MathOperation(
+    name: 'power_gain_from_voltages_db',
+    signature: 'signal, reference, signal_resistance, reference_resistance',
+    summary:
+        'power gain in dB from RMS voltages and the resistance at each point, '
+        '10 * log10((signal^2 / signal_resistance) / (reference^2 / '
+        'reference_resistance)); all four values must be greater than zero',
+    run: (args) => _powerGainDb(args.raw),
+  ),
+
+  // ---- Electrical power and current ----
+  'power_from_voltage_resistance': MathOperation(
+    name: 'power_from_voltage_resistance',
+    signature: 'signal, signal_resistance',
+    summary:
+        'electrical power in W from an RMS voltage and the resistance at the '
+        'measurement point, signal^2 / signal_resistance; both values must be '
+        'greater than zero',
+    run: (args) => _powerFromVoltageResistance(args.raw),
+  ),
+  'current_from_voltage_resistance': MathOperation(
+    name: 'current_from_voltage_resistance',
+    signature: 'signal, signal_resistance',
+    summary:
+        'current in A from an RMS voltage and the resistance at the '
+        'measurement point, signal / signal_resistance; both values must be '
+        'greater than zero',
+    run: (args) => _currentFromVoltageResistance(args.raw),
   ),
   'phase_shift_deg': MathOperation(
     name: 'phase_shift_deg',
@@ -609,6 +650,20 @@ String get mathOperationCatalogue =>
 /// `reference`) and its result shape are unchanged from the first version of
 /// this tool.
 ///
+/// The `power_gain_from_voltages_db` operation converts both RMS voltages to
+/// power with `P = V^2 / R` before delegating to [powerGainDb]; it therefore
+/// requires the resistance at each measurement point instead of assuming a
+/// value.
+///
+/// The `gain_dbm` operation expresses the signal power computed from its RMS
+/// voltage and the signal resistance as an absolute level in dBm (reference
+/// 1 mW), again delegating the logarithm to [powerGainDb].
+///
+/// The `power_from_voltage_resistance` and
+/// `current_from_voltage_resistance` operations apply `P = V^2 / R` and
+/// `I = V / R` to the measured signal voltage and its resistance; both reject
+/// a missing resistance instead of assuming a value.
+///
 /// Success response:
 /// ```json
 /// { "operation": "...", "result": 1.5, "unit": "V",
@@ -628,8 +683,11 @@ Tool<Map<String, dynamic>> createMathTool({String agentName = 'unknown'}) {
         'trigonometry, rounding, aggregates and unit conversion, plus '
         'oscilloscope quantities (peak, peak-to-peak, amplitude, mean, RMS, '
         'AC RMS, crest and form factor, period, frequency, duty cycle, pulse '
-        'width, rise and fall time, phase shift, voltage gain in dB and power '
-        'gain in dB). Pass the measured numbers, never a value you derived '
+        'width, rise and fall time, phase shift, voltage gain in dB, absolute '
+        'power in dBm from an RMS voltage and a resistance, electrical power '
+        'in W and current in A from a voltage and a resistance, and power gain '
+        'in dB from two powers or from RMS voltages with the resistance at '
+        'each point). Pass the measured numbers, never a value you derived '
         'yourself. Returns the result with its unit and the formula used; '
         'invalid input returns a structured error.\n\n'
         'Operations:\n$mathOperationCatalogue',
@@ -672,15 +730,35 @@ Tool<Map<String, dynamic>> createMathTool({String agentName = 'unknown'}) {
         'signal': {
           'type': 'number',
           'description':
-              'The measured voltage on the signal channel (CH2), in '
-              'volts. Used by "gain_db" only.',
+              'The measured voltage on the measurement channel, in volts '
+              '(signal channel, default CH2). Used by the gain, power and '
+              'current operations.',
         },
         'reference': {
           'type': 'number',
           'description':
-              'Either the reference voltage of "gain_db" (CH1), '
-              'which must be greater than zero, or the reference level the '
-              'peak operations measure against, which defaults to 0 V.',
+              'Either the reference voltage of "gain_db" and '
+              '"power_gain_from_voltages_db" (CH1), which must be greater '
+              'than zero, or the reference level the peak operations measure '
+              'against, which defaults to 0 V.',
+        },
+        'signal_resistance': {
+          'type': 'number',
+          'description':
+              'Resistance at the measurement channel in ohms (signal channel, '
+              'default CH2), used by "gain_dbm", '
+              '"power_from_voltage_resistance", '
+              '"current_from_voltage_resistance" and '
+              '"power_gain_from_voltages_db". Must be greater than zero and '
+              'must come from the user when not stated.',
+        },
+        'reference_resistance': {
+          'type': 'number',
+          'description':
+              'Resistance at the reference channel (CH1) in ohms, used by '
+              '"power_gain_from_voltages_db" to convert the RMS voltage to '
+              'power. Must be greater than zero and must come from the user '
+              'when not stated.',
         },
         'angle_unit': {
           'type': 'string',
@@ -839,6 +917,292 @@ Map<String, dynamic> _gainDb(Map<String, dynamic> args) {
     'unit': 'dB',
     'formatted': '${gain.toStringAsFixed(2)} dB',
     'formula': '20 * log10(signal / reference)',
+  };
+}
+
+/// `gain_dbm` — absolute signal power level in dBm from the signal RMS voltage
+/// and the resistance at the signal channel.
+///
+/// dBm is an absolute level referenced to 1 mW, not a ratio between channels:
+/// the voltage is converted to power with `P = V^2 / R` and then expressed as
+/// `10 * log10(P / 1 mW)`. Only the signal resistance is needed; there is no
+/// reference channel. When it is missing the result says so, so the agent can
+/// ask the user instead of assuming 50 ohm.
+Map<String, dynamic> _gainDbm(Map<String, dynamic> args) {
+  final signal = _asDouble(args['signal']);
+  final signalResistance = _asDouble(args['signal_resistance']);
+
+  if (signal == null) {
+    return {
+      'error': 'gain_dbm requires a numeric "signal" voltage in volts',
+      'operation': 'gain_dbm',
+      'signal': args['signal'],
+    };
+  }
+
+  if (args['signal_resistance'] == null) {
+    return {
+      'error':
+          'gain in dBm requires the resistance at the signal channel; '
+          'missing signal_resistance (in ohms). Ask the user for the '
+          'resistance at CH2 instead of assuming a value.',
+      'operation': 'gain_dbm',
+      'missing': ['signal_resistance'],
+      'signal': signal,
+    };
+  }
+
+  if (signalResistance == null) {
+    return {
+      'error': 'gain_dbm requires a numeric "signal_resistance" in ohms',
+      'operation': 'gain_dbm',
+      'signal_resistance': args['signal_resistance'],
+    };
+  }
+
+  if (signal <= 0) {
+    return {
+      'error':
+          'Gain in dBm is undefined: the signal voltage must be greater than '
+          'zero (got signal=$signal)',
+      'operation': 'gain_dbm',
+      'signal': signal,
+    };
+  }
+
+  if (signalResistance <= 0) {
+    return {
+      'error':
+          'Gain in dBm is undefined: the signal resistance must be greater '
+          'than zero (got signal_resistance=$signalResistance)',
+      'operation': 'gain_dbm',
+      'signal_resistance': signalResistance,
+    };
+  }
+
+  final signalPower = signal * signal / signalResistance;
+  // 1 mW is the dBm reference, so the shared 10 * log10(ratio) arithmetic
+  // gives the absolute level directly.
+  final level = powerGainDb(signalPower, 0.001);
+
+  return {
+    'operation': 'gain_dbm',
+    'signal': signal,
+    'signal_resistance': signalResistance,
+    // Formatted like the rest of the app so the agent can report the
+    // measurement without echoing the raw exponential form from PAVA.
+    'signal_formatted': formatMathResult(signal, 'V'),
+    'signal_resistance_formatted': formatMathResult(signalResistance, 'ohm'),
+    'signal_power': signalPower,
+    'result': level,
+    'unit': 'dBm',
+    'formatted': '${level.toStringAsFixed(2)} dBm',
+    'formula': '10 * log10((signal^2 / signal_resistance) / 1 mW)',
+  };
+}
+
+/// `power_gain_from_voltages_db` — power gain in decibels from the RMS
+/// voltages and the resistance at each measurement point.
+///
+/// Both channels are converted to power with `P = V^2 / R`; the gain is
+/// `10 * log10(P_signal / P_reference)`, computed by the shared [powerGainDb].
+/// The resistances are the real (resistive) parts of the load at CH2 and CH1,
+/// in ohms, and are required: a voltage alone cannot be converted to power.
+/// When either resistance is missing the result says so, so the agent can ask
+/// the user instead of assuming 50 ohm or equal values.
+Map<String, dynamic> _powerGainDb(Map<String, dynamic> args) {
+  final signal = _asDouble(args['signal']);
+  final reference = _asDouble(args['reference']);
+  final signalResistance = _asDouble(args['signal_resistance']);
+  final referenceResistance = _asDouble(args['reference_resistance']);
+
+  if (signal == null || reference == null) {
+    return {
+      'error':
+          'power_gain_from_voltages_db requires numeric "signal" and '
+          '"reference" voltages in volts',
+      'operation': 'power_gain_from_voltages_db',
+      'signal': args['signal'],
+      'reference': args['reference'],
+    };
+  }
+
+  final missing = <String>[
+    if (args['signal_resistance'] == null) 'signal_resistance',
+    if (args['reference_resistance'] == null) 'reference_resistance',
+  ];
+  if (missing.isNotEmpty) {
+    final channels = <String>[
+      if (missing.contains('signal_resistance')) 'CH2',
+      if (missing.contains('reference_resistance')) 'CH1',
+    ];
+    return {
+      'error':
+          'power gain requires the resistance at both measurement points; '
+          'missing ${missing.join(' and ')} (in ohms). Ask the user for the '
+          'resistance at ${channels.join(' and ')} instead of assuming a '
+          'value.',
+      'operation': 'power_gain_from_voltages_db',
+      'missing': missing,
+      'signal': signal,
+      'reference': reference,
+    };
+  }
+
+  if (signalResistance == null || referenceResistance == null) {
+    final invalidResistances = <String>[
+      if (signalResistance == null) 'signal_resistance',
+      if (referenceResistance == null) 'reference_resistance',
+    ];
+    return {
+      'error':
+          'power gain requires numeric resistances in ohms (got invalid '
+          '${invalidResistances.join(' and ')})',
+      'operation': 'power_gain_from_voltages_db',
+      'signal_resistance': args['signal_resistance'],
+      'reference_resistance': args['reference_resistance'],
+    };
+  }
+
+  if (signal <= 0 || reference <= 0) {
+    return {
+      'error':
+          'Power gain is undefined: both voltages must be greater than zero '
+          '(got signal=$signal, reference=$reference)',
+      'operation': 'power_gain_from_voltages_db',
+      'signal': signal,
+      'reference': reference,
+    };
+  }
+
+  if (signalResistance <= 0 || referenceResistance <= 0) {
+    return {
+      'error':
+          'Power gain is undefined: both resistances must be greater than '
+          'zero (got signal_resistance=$signalResistance, '
+          'reference_resistance=$referenceResistance)',
+      'operation': 'power_gain_from_voltages_db',
+      'signal_resistance': signalResistance,
+      'reference_resistance': referenceResistance,
+    };
+  }
+
+  final signalPower = signal * signal / signalResistance;
+  final referencePower = reference * reference / referenceResistance;
+  final gain = powerGainDb(signalPower, referencePower);
+
+  return {
+    'operation': 'power_gain_from_voltages_db',
+    'signal': signal,
+    'reference': reference,
+    'signal_resistance': signalResistance,
+    'reference_resistance': referenceResistance,
+    // Formatted like the rest of the app so the agent can report the
+    // measurement without echoing the raw exponential form from PAVA.
+    'signal_formatted': formatMathResult(signal, 'V'),
+    'reference_formatted': formatMathResult(reference, 'V'),
+    'signal_resistance_formatted': formatMathResult(signalResistance, 'ohm'),
+    'reference_resistance_formatted': formatMathResult(
+      referenceResistance,
+      'ohm',
+    ),
+    'signal_power': signalPower,
+    'reference_power': referencePower,
+    'power_ratio': signalPower / referencePower,
+    'result': gain,
+    'unit': 'dB',
+    'formatted': '${gain.toStringAsFixed(2)} dB',
+    'formula':
+        '10 * log10((signal^2 / signal_resistance) / '
+        '(reference^2 / reference_resistance))',
+  };
+}
+
+/// Validates the `signal` voltage and `signal_resistance` shared by the
+/// electrical power and current operations.
+///
+/// Throws [MathException] with a message the agent can act on. A missing
+/// resistance explicitly asks the user for it instead of assuming a value.
+({double voltage, double resistance}) _voltageAndResistance(
+  Map<String, dynamic> args,
+  String operation,
+) {
+  final voltage = _asDouble(args['signal']);
+  final resistance = _asDouble(args['signal_resistance']);
+
+  if (voltage == null) {
+    throw MathException(
+      '$operation requires a numeric "signal" voltage in volts',
+    );
+  }
+  if (args['signal_resistance'] == null) {
+    throw MathException(
+      '$operation requires the resistance at the measurement point; missing '
+      'signal_resistance (in ohms). Ask the user for the resistance instead '
+      'of assuming a value.',
+    );
+  }
+  if (resistance == null) {
+    throw MathException(
+      '$operation requires a numeric "signal_resistance" in ohms',
+    );
+  }
+  if (voltage <= 0) {
+    throw MathException(
+      '$operation requires a voltage greater than zero (got $voltage)',
+    );
+  }
+  if (resistance <= 0) {
+    throw MathException(
+      '$operation requires a resistance greater than zero (got $resistance)',
+    );
+  }
+
+  return (voltage: voltage, resistance: resistance);
+}
+
+/// `power_from_voltage_resistance` — electrical power from the signal RMS
+/// voltage and the resistance at the measurement point.
+///
+/// `P = V^2 / R`. The resistance is required: a voltage alone cannot be
+/// converted to power.
+Map<String, dynamic> _powerFromVoltageResistance(Map<String, dynamic> args) {
+  final input = _voltageAndResistance(args, 'power_from_voltage_resistance');
+  final power = input.voltage * input.voltage / input.resistance;
+
+  return {
+    'operation': 'power_from_voltage_resistance',
+    'signal': input.voltage,
+    'signal_resistance': input.resistance,
+    // Formatted like the rest of the app so the agent can report the
+    // measurement without echoing the raw exponential form from PAVA.
+    'signal_formatted': formatMathResult(input.voltage, 'V'),
+    'signal_resistance_formatted': formatMathResult(input.resistance, 'ohm'),
+    'result': power,
+    'unit': 'W',
+    'formatted': formatMathResult(power, 'W'),
+    'formula': 'signal^2 / signal_resistance',
+  };
+}
+
+/// `current_from_voltage_resistance` — current from the signal RMS voltage and
+/// the resistance at the measurement point.
+///
+/// `I = V / R`. The resistance is required.
+Map<String, dynamic> _currentFromVoltageResistance(Map<String, dynamic> args) {
+  final input = _voltageAndResistance(args, 'current_from_voltage_resistance');
+  final current = input.voltage / input.resistance;
+
+  return {
+    'operation': 'current_from_voltage_resistance',
+    'signal': input.voltage,
+    'signal_resistance': input.resistance,
+    'signal_formatted': formatMathResult(input.voltage, 'V'),
+    'signal_resistance_formatted': formatMathResult(input.resistance, 'ohm'),
+    'result': current,
+    'unit': 'A',
+    'formatted': formatMathResult(current, 'A'),
+    'formula': 'signal / signal_resistance',
   };
 }
 

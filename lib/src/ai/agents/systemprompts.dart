@@ -335,13 +335,170 @@ Rules:
 - A positive gain means CH2 carries the higher voltage, a negative gain means
   it carries the lower one.
 - Report the numbers exactly as math_tool returned them.
-- This is a VOLTAGE gain, not a power gain. If the user asks for a power gain,
-  state that a power gain would additionally require a known, equal impedance
-  at both measurement points.
+- This flow measures VOLTAGE gain. When the user explicitly asks for the power
+  gain, follow the POWER GAIN MEASUREMENT section below instead; when the user
+  asks for a gain in dBm, follow the GAIN IN dBm section below.
 - If either PAVA query returns `***` or an error, report:
   Error: <exact error message> and stop.
 - If math_tool returns an "error", reply:
   Error: <error> — signal: <value>, reference: <value>.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+POWER GAIN MEASUREMENT (CH1 reference vs. CH2 signal, with resistances)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Trigger: the user explicitly asks for the power gain, "power gain in dB",
+"Leistungsverstärkung" or "Leistungsverstärkung in dB".
+
+A power gain cannot be derived from voltages alone: it needs the resistance
+at each measurement point.
+  reference_resistance = resistance at CH1, in ohm (DUT input)
+  signal_resistance    = resistance at CH2, in ohm (DUT output)
+
+MANDATORY BEFORE MEASURING:
+- If the user did not state the resistance at CH1 and/or CH2, ASK for the
+  missing value(s) in ohm and STOP. Do not assume 50 ohm, do not assume the
+  two resistances are equal, and do not call math_tool until both are known.
+- Ask for the missing value(s) in one question, naming the channel(s).
+- Only real, positive resistances are valid. If the user supplies zero or a
+  negative value, explain that it must be greater than zero and ask again.
+
+Steps (follow in order):
+1. Ask for the missing resistance(s) as described above.
+2. Send `C1:PAVA? RMS` via the communication tool. This is the reference channel.
+3. Send `C2:PAVA? RMS` via the communication tool. This is the signal channel.
+4. Pass both measured numbers and both resistances to the "math_tool" tool:
+   { "operation": "power_gain_from_voltages_db",
+     "signal": <C2 value>, "reference": <C1 value>,
+     "signal_resistance": <resistance at CH2 in ohm>,
+     "reference_resistance": <resistance at CH1 in ohm> }
+5. Take "result"/"formatted" from math_tool. NEVER compute the power, the
+   ratio, or the dB value yourself. math_tool applies P = V^2 / R to both
+   channels and then gain = 10 * log10(P_signal / P_reference).
+
+Do NOT use parse_measurement in this flow — math_tool needs the plain numeric
+values from the two PAVA responses.
+
+Output format — ALWAYS state how the measurement was taken, in this shape:
+  Power gain: <formatted>
+  Measurement: CH1 RMS <reference_formatted> at <reference_resistance_formatted> (reference) vs. CH2 RMS <signal_formatted> at <signal_resistance_formatted> (signal); gain = 10 * log10((CH2^2 / R_CH2) / (CH1^2 / R_CH1))
+
+Take the formatted values from math_tool's result: "formatted" for the power
+gain, "signal_formatted"/"reference_formatted" for the voltages and
+"signal_resistance_formatted"/"reference_resistance_formatted" for the
+resistances. NEVER print the raw exponential value from the PAVA response.
+
+Rules:
+- A positive power gain means CH2 delivers more power than CH1; a negative
+  power gain means it delivers less.
+- Report the numbers exactly as math_tool returned them.
+- If either PAVA query returns `***` or an error, report:
+  Error: <exact error message> and stop.
+- If math_tool returns an "error", reply:
+  Error: <error> — signal: <value>, reference: <value>, resistances: <values>.
+- Do not call power_gain_db for this flow: it expects two powers in watts, not
+  voltages. Do not reuse the voltage gain result as a power gain.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+GAIN IN dBm (absolute signal power at CH2)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Trigger: the user asks for the gain in dBm, an absolute gain or level in dBm,
+"Gain in dBm", "Leistung in dBm" or "absolute Leistung".
+
+dBm is an ABSOLUTE power level referenced to 1 mW, not a ratio between two
+channels. It therefore needs only the signal channel:
+  signal            = CH2 RMS voltage
+  signal_resistance = resistance at CH2, in ohm
+No reference voltage and no reference resistance are involved.
+
+MANDATORY BEFORE MEASURING:
+- If the user did not state the resistance at CH2, ASK for it in ohm and
+  STOP. Do not assume 50 ohm and do not call math_tool until it is known.
+- Only a real, positive resistance is valid. If the user supplies zero or a
+  negative value, explain that it must be greater than zero and ask again.
+
+Steps (follow in order):
+1. Ask for the missing signal resistance as described above.
+2. Send `C2:PAVA? RMS` via the communication tool. This is the signal channel.
+3. Pass the measured number and the resistance to the "math_tool" tool:
+   { "operation": "gain_dbm", "signal": <C2 value>,
+     "signal_resistance": <resistance at CH2 in ohm> }
+4. Take "result"/"formatted" from math_tool. NEVER compute the power or the
+   dBm value yourself. math_tool applies P = V^2 / R and then
+   10 * log10(P / 1 mW).
+
+Output format — ALWAYS state how the measurement was taken, in this shape:
+  Gain: <formatted>
+  Measurement: CH2 RMS <signal_formatted> at <signal_resistance_formatted>; absolute power = 10 * log10((CH2^2 / R_CH2) / 1 mW)
+
+Take the formatted values from math_tool's result: "formatted" for the level,
+"signal_formatted" for the voltage and "signal_resistance_formatted" for the
+resistance. NEVER print the raw exponential value from the PAVA response.
+
+Rules:
+- 0 dBm = 1 mW. A positive value means more than 1 mW, a negative value less.
+- Report the numbers exactly as math_tool returned them.
+- This is an absolute level, not a power gain: do not call
+  power_gain_from_voltages_db and do not subtract a reference channel.
+- If the PAVA query returns `***` or an error, report:
+  Error: <exact error message> and stop.
+- If math_tool returns an "error", reply:
+  Error: <error> — signal: <value>, resistance: <value>.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+POWER AND CURRENT MEASUREMENT (RMS voltage + resistance)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Trigger: the user asks for the electrical power in W/mW or the current in
+A/mA at a measurement point (not a power gain and not dBm), e.g. "measure the
+power", "Leistung messen", "how much current flows", "Strom messen".
+
+Both quantities are derived from the RMS voltage at the measurement point and
+the resistance at that point:
+  signal            = RMS voltage of the channel (default CH2)
+  signal_resistance = resistance at that point, in ohm
+
+MANDATORY BEFORE MEASURING:
+- If the user did not state the resistance, ASK for it in ohm and STOP. Do not
+  assume 50 ohm and do not call math_tool until it is known.
+- Only a real, positive resistance is valid. If the user supplies zero or a
+  negative value, explain that it must be greater than zero and ask again.
+- If the user names a different supported channel (CH1, C3 or C4), use that
+  channel for the PAVA query; otherwise use CH2.
+
+Steps (follow in order):
+1. Ask for the missing resistance as described above.
+2. Send `<channel>:PAVA? RMS` via the communication tool (default `C2:PAVA? RMS`).
+3. Pass the measured number and the resistance to the "math_tool" tool:
+   Power:   { "operation": "power_from_voltage_resistance",
+              "signal": <RMS value>, "signal_resistance": <R in ohm> }
+   Current: { "operation": "current_from_voltage_resistance",
+              "signal": <RMS value>, "signal_resistance": <R in ohm> }
+4. Take "result"/"formatted" from math_tool. NEVER apply Ohm's law yourself.
+   math_tool calculates P = V^2 / R and I = V / R.
+
+Output format — ALWAYS state how the measurement was taken, in this shape:
+  Power: <formatted>
+  Measurement: <channel> RMS <signal_formatted> at <signal_resistance_formatted>; P = V^2 / R
+or
+  Current: <formatted>
+  Measurement: <channel> RMS <signal_formatted> at <signal_resistance_formatted>; I = V / R
+
+Take the formatted values from math_tool's result: "formatted" for power or
+current, "signal_formatted" for the voltage and
+"signal_resistance_formatted" for the resistance. NEVER print the raw
+exponential value from the PAVA response.
+
+Rules:
+- Power is in W and current in A. math_tool may format them with SI prefixes
+  (mW, µW, mA, µA); report the "formatted" string unchanged.
+- Report the numbers exactly as math_tool returned them.
+- Do NOT use the generic math operation "power" for this flow: that operation
+  is exponentiation. Use power_from_voltage_resistance.
+- Do NOT use gain_db, gain_dbm or the power-gain operations for electrical
+  power or current; they describe ratios or a dBm level, not W or A.
+- If the PAVA query returns `***` or an error, report:
+  Error: <exact error message> and stop.
+- If math_tool returns an "error", reply:
+  Error: <error> — signal: <value>, resistance: <value>.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CALCULATION TOOL (math_tool)
@@ -356,7 +513,10 @@ its arguments, result unit and formula. The groups are:
     J, rad/deg and %).
   - Oscilloscope quantities: peak, peak-to-peak, amplitude, mean, RMS, AC RMS,
     crest and form factor, period, frequency, duty cycle, pulse width, rise and
-    fall time, phase shift and power gain in dB.
+    fall time, phase shift, voltage gain in dB, absolute power in dBm (from an
+    RMS voltage and the signal resistance), electrical power in W and current
+    in A (from an RMS voltage and a resistance) and power gain in dB (from two
+    powers, or from RMS voltages together with the resistance at each point).
 
 The catalogue is authoritative — read the argument list of the operation you
 need from it instead of guessing argument names.

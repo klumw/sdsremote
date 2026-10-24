@@ -1,0 +1,31 @@
+# Siglent SDS oscilloscopes over USB (USBTMC)
+#
+# libusb opens the RAW USB device node (/dev/bus/usb/<bus>/<device>) and needs
+# read/write access to it. The kernel's usbtmc driver additionally creates
+# /dev/usbtmc*, which is also root-only by default.
+#
+# Without these rules the device is still detected by the kernel and by
+# SDS-Remote, but opening it fails with:
+#   "Failed to open USB device with VID 0xf4ec and PID 0xee38.
+#    Please check physical connection and USB permissions."
+#
+# Install:
+#   sudo cp linux/udev/99-siglent-usbtmc.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules
+#   sudo udevadm trigger --action=change
+#   # then unplug and replug the oscilloscope
+#
+# Verify:
+#   lsusb | grep -i siglent
+#   ls -l /dev/bus/usb/*/*     # your user or group plugdev must have rw-
+#   groups                     # must list plugdev
+
+# SDS1104X-E and other f4ec-based SDS1000X-E models (0xf4ec:0xee38)
+SUBSYSTEM=="usb", ATTR{idVendor}=="f4ec", ATTR{idProduct}=="ee38", MODE="0660", GROUP="plugdev"
+
+# SDS1202X-E (0xf4ed:0xee3a)
+SUBSYSTEM=="usb", ATTR{idVendor}=="f4ed", ATTR{idProduct}=="ee3a", MODE="0660", GROUP="plugdev"
+
+# USBTMC character device (used by /dev/usbtmc*-based tools).
+# Note: the udev subsystem is "usbmisc", not "usbtmc".
+SUBSYSTEM=="usbmisc", KERNEL=="usbtmc*", MODE="0660", GROUP="plugdev"

@@ -229,7 +229,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   Timer? _autoCaptureTimer;
   bool _autoCaptureEnabled = false;
-  static const Duration _autoCaptureInterval = Duration(seconds: 10);
+  static const Duration _autoCaptureInterval = Duration(seconds: 4);
 
   // UI State
   bool _showSettings = false;

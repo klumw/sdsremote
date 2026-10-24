@@ -30,7 +30,7 @@ class PhysicalControlPanel extends StatelessWidget {
   final ValueChanged<String>? onHorizontalButtonPressed;
   final ValueChanged<String>? onTriggerButtonPressed;
 
-  /// Whether the periodic screen capture (every 10 seconds) is enabled.
+  /// Whether the periodic screen capture (every 4 seconds) is enabled.
   final bool autoCaptureEnabled;
 
   /// Called when the automatic screen capture toggle is pressed.
@@ -939,7 +939,7 @@ class PhysicalControlPanel extends StatelessWidget {
         : const Color(0xFF94A3B8);
 
     return Tooltip(
-      message: 'Automatic screen capture every 10 seconds',
+      message: 'Automatic screen capture every 4 seconds',
       child: Material(
         color: Colors.transparent,
         child: InkWell(

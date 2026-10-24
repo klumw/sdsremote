@@ -261,6 +261,33 @@ Next, verify or install the WinUSB driver for your device:
 
 #### 3.3.2 USB Support on Linux
 
+USB access is implemented with libusb, which opens the raw USB device node
+(`/dev/bus/usb/<bus>/<device>`). That node is root-only by default, so a udev
+rule is required; otherwise the device is detected but opening it fails with
+`Failed to open USB device ... Please check physical connection and USB
+permissions`.
+
+Install the bundled rule and re-trigger udev:
+
+```bash
+sudo cp linux/udev/99-siglent-usbtmc.rules /etc/udev/rules.d/
+sudo udevadm control --reload-rules
+sudo udevadm trigger --action=change
+# unplug and replug the oscilloscope
+```
+
+Verify that the device is present and writable for your user/group:
+
+```bash
+lsusb | grep -i siglent        # e.g. f4ec:ee38 for the SDS1104X-E
+ls -l /dev/bus/usb/*/*         # your user or group plugdev must have rw-
+groups                         # must list plugdev
+```
+
+The rule covers the SDS1104X-E (`f4ec:ee38`), the SDS1202X-E (`f4ed:ee3a`) and
+`/dev/usbtmc*` via the `usbmisc` subsystem. For other models, add a rule with
+their `idVendor`/`idProduct` from `lsusb`.
+
 Some Siglent USB firmware versions are not fully USB compliant. Perform the following compatibility check:
 
 1. Connect your device to a USB port.

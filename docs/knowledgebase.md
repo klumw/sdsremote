@@ -2113,7 +2113,7 @@ Select Phase.
 Configure the measurement sources to compare CH1 and CH2.
 Read the resulting phase value from the measurement display.
 
-## Gain Measurement in dB (gain, gain measurement, decibel, dB, amplification, attenuation, voltage gain, DUT, Rms, CH1, CH2, channel ratio) [2+4-channel]
+## Gain Measurement in dB (gain, gain measurement, decibel, dB, amplification, attenuation, voltage gain, DUT, Rms, CH1, CH2, channel ratio, AI chat, sdsremote, Instrument Agent) [2+4-channel]
 
 How to measure the gain in dB: measure the RMS voltage on both channels and take the ratio.
 
@@ -2123,7 +2123,9 @@ gain (dB) = 20 × log10(V_signal / V_reference)
 
 A positive result means the signal channel carries the higher voltage (amplification), a negative result means it carries the lower one (attenuation). The ratio is independent of the absolute level.
 
-Note that this is a VOLTAGE gain, not a power gain. A power gain in dB would additionally require the impedance at both measurement points to be known and equal.
+Note that this is a VOLTAGE gain, not a power gain. A power gain in dB additionally requires the resistance at both measurement points; see "Power Gain Measurement in dB" below. An absolute power level in dBm needs only the resistance at the signal channel; see "Absolute Power Measurement in dBm" below.
+
+The guided measurement procedures for voltage gain, power gain and dBm are available ONLY in the AI chat. The oscilloscope itself has no dedicated single-value gain or dBm measurement parameter. Outside the AI chat, measure the RMS values and calculate the ratio manually as described here; the Data Logger can log a Gain (dB) series independently.
 
 The SDS1000X-E has no dedicated single-value gain parameter in its measurement menu. To read a gain in dB, measure both channels with the same parameter type and calculate the ratio:
 
@@ -2145,8 +2147,51 @@ Related functions of the oscilloscope:
 For exact help, use the Help function in sdsremote:
 
 - The Data Logger of sdsremote records a Gain (dB) measurement, so the ratio does not have to be calculated by hand. It queries the RMS voltage on CH1 (reference) and on CH2 (signal) at the configured interval and logs 20 × log10(CH2 / CH1), scaled by the probe attenuation of each channel. See the Data Logger section of the sdsremote help.
-- In the AI chat you can simply ask to "measure the gain". The instrument agent measures both channels and returns the gain in dB together with the way it was measured.
+- In the AI chat you can simply ask to "measure the gain". The Instrument Agent measures both channels and returns the gain in dB together with the way it was measured. The same chat covers power gain and dBm.
 - Press the Help button in sdsremote and search for "Gain (dB)".
+
+## Power Gain Measurement in dB (power gain, power gain measurement, power, gain, dB, decibel, ratio, voltage, resistance, impedance, ohm, DUT, input, output, CH1, CH2, AI chat, sdsremote, Instrument Agent) [2+4-channel]
+
+Power gain compares the power at the DUT output (CH2, signal) with the power at the DUT input (CH1, reference). It is a relative value in dB, not an absolute power level.
+
+For a voltage measured across a resistance, the power is P = V_Rms^2 / R. The power gain is:
+
+power gain (dB) = 10 × log10(P_signal / P_reference) = 10 × log10((V_CH2^2 / R_signal) / (V_CH1^2 / R_reference))
+
+Inputs required:
+- CH1: RMS voltage (reference, DUT input) and the resistance R_reference at CH1 in ohm.
+- CH2: RMS voltage (signal, DUT output) and the resistance R_signal at CH2 in ohm.
+
+Both resistances must be real and greater than zero. If the user does not state one or both resistances, the AI chat asks for the missing value(s); it never assumes 50 ohm and never assumes both resistances are equal.
+
+Example: CH1 = 1 V RMS at 50 ohm = 20 mW, CH2 = 2 V RMS at 50 ohm = 80 mW → 10 × log10(4) = +6.02 dB.
+Example with different resistances: CH1 = 1 V RMS at 50 ohm = 20 mW, CH2 = 2 V RMS at 100 ohm = 40 mW → 10 × log10(2) = +3.01 dB.
+
+This function is available ONLY in the AI chat.
+
+## Absolute Power Measurement in dBm (dBm, dBm measurement, absolute power, power level, milliwatt, 1 mW, CH2, signal, voltage, resistance, ohm, AI chat, sdsremote, Instrument Agent) [2+4-channel]
+
+dBm is an absolute power level referenced to 1 mW:
+
+level (dBm) = 10 × log10(P / 1 mW)
+
+From an RMS voltage across a resistance R, P = V_Rms^2 / R, therefore:
+
+level (dBm) = 10 × log10((V_Rms^2 / R) / 1 mW)
+
+Inputs required:
+- CH2 RMS voltage (signal channel).
+- Resistance R_signal at CH2 in ohm.
+
+Only the signal channel and its resistance are needed; no reference channel and no reference resistance are involved. The resistance must be real and greater than zero. If it is missing, the AI chat asks for it in ohm; it never assumes 50 ohm.
+
+Examples:
+- 1 V RMS at 50 ohm → 0.02 W = 20 mW → 10 × log10(20) = +13.01 dBm.
+- 0.5 V RMS at 50 ohm → 0.005 W = 5 mW → 10 × log10(5) = +6.99 dBm.
+
+0 dBm = 1 mW; positive values are above 1 mW, negative values below. dBm is an absolute level, not a gain: for a ratio between input and output use power gain (dB) instead.
+
+This function is available ONLY in the AI chat.
 
 ## Display (display type, color, persistence, grid, intensity, brightness, transparence) [2+4-channel]
 
