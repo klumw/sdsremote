@@ -648,7 +648,7 @@ The debug bar below the editor header controls execution:
 
 **Current line** — the statement being executed is highlighted in the gutter and in the editor, and the editor scrolls it into view. The status line names the statement.
 
-**Variables** — after each step a watch panel lists the current macro variables (`name = value`). It remains visible until the next session starts or the macro is edited.
+**Variables** — after each step a watch panel to the left of the editor lists the current macro variables (`name = value`). It remains visible until the next session starts or the macro is edited.
 
 A debug session keeps the instrument connection and all macro variables alive between clicks. Starting a full playback, editing the macro, closing the editor, or leaving the Macro Recorder panel ends it. Stepping works on statements, not physical source lines: a compound statement is followed by the statements in its body.
 
@@ -661,6 +661,8 @@ The assistant works directly on the macro that is open in the editor:
 * It reads the complete editor content before answering or changing anything.
 * It writes the complete updated macro back into the editor — no copy/paste is required.
 * It validates changes with the same parser and linter that underline errors in the editor.
+* It knows the authorized SCPI command reference — the same shared list used by the instrument agent — so it selects exact command strings instead of inventing them.
+* It uses the shared deterministic `math_tool` for arithmetic, unit conversion (V/mV, Hz/kHz/MHz, s/ms/µs, …) and readable SI formatting. The tool is available to the assistant only; macros themselves cannot call it.
 * Its system prompt contains the complete macro language reference, including `if`/`else` (no `else if`), `while` with the 100-iteration limit, `break`/`continue`, `assert`, `fail`, string concatenation, expressions and operator precedence.
 
 Changes are applied immediately and are marked as unsaved. `Ctrl` + `Z` in the editor restores the previous version. Press the AI button again to close the chat panel.

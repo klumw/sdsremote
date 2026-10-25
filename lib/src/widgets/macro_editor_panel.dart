@@ -984,59 +984,67 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   double _debugLineTop(int line) =>
       _editorContentTop + (line - 1) * _editorLineHeight - _scrollOffset;
 
+  /// Watch panel shown to the left of the editor while a debug session has
+  /// variables. It fills the available height and scrolls independently, so
+  /// large variable sets do not reduce the editor's height.
   Widget _buildVariablesPanel(Map<String, String> variables) {
     final entries = variables.entries.toList()
       ..sort((a, b) => a.key.compareTo(b.key));
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-      child: Container(
-        constraints: const BoxConstraints(maxHeight: 120),
-        decoration: BoxDecoration(
-          color: const Color(0xFF0D0D0D),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: const Color(0xFF475569)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              child: Text(
-                'Variables (${entries.length})',
-                style: const TextStyle(
-                  color: Colors.cyanAccent,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
+      padding: const EdgeInsets.fromLTRB(16, 16, 0, 16),
+      child: SizedBox(
+        width: 220,
+        child: Container(
+          key: const ValueKey('macro-variables-panel'),
+          decoration: BoxDecoration(
+            color: const Color(0xFF0D0D0D),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: const Color(0xFF475569)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                child: Text(
+                  'Variables (${entries.length})',
+                  style: const TextStyle(
+                    color: Colors.cyanAccent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
-            ),
-            Flexible(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    for (final entry in entries)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 3),
-                        child: Text(
-                          '${entry.key} = ${entry.value}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 11,
-                            fontFamily: 'monospace',
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (final entry in entries)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 3),
+                          child: Text(
+                            '${entry.key} = ${entry.value}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 11,
+                              fontFamily: 'monospace',
+                            ),
                           ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -1326,12 +1334,12 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                if (widget.debugVariables.isNotEmpty)
+                  _buildVariablesPanel(widget.debugVariables),
                 Expanded(
                   child: Column(
                     children: [
                       _buildDebugBar(),
-                      if (widget.debugVariables.isNotEmpty)
-                        _buildVariablesPanel(widget.debugVariables),
                       // Editable text area with line numbers
                       Expanded(
                         child: Container(

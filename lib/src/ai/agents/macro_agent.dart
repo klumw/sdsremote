@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../tools/macro_tools.dart';
+import '../tools/math_tool.dart';
 import 'systemprompts.dart';
 
 /// A user-facing agent that edits the macro currently open in the Macro
@@ -13,6 +14,8 @@ import 'systemprompts.dart';
 /// - `read_macro` — returns the complete editor content.
 /// - `write_macro` — replaces the complete editor content.
 /// - `validate_macro` — lints the editor content or a candidate version.
+/// - `math_tool` — deterministic arithmetic, unit conversion and readable
+///   value formatting.
 ///
 /// The complete macro language reference is part of
 /// [macroAgentSystemPrompt], so the model does not need a documentation tool.
@@ -74,6 +77,7 @@ class MacroAgent {
              readMacro: readMacro,
              agentName: 'MacroAgent',
            ),
+           createMathTool(agentName: 'MacroAgent'),
          ],
        ) {
     _history.add(ChatMessage.system(macroAgentSystemPrompt));
