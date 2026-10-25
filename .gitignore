@@ -65,6 +65,10 @@ plans/
 /build/
 /coverage/
 
+# Distribution/release artifacts (flutter_distributor output)
+/dist/
+*.deb
+
 # Symbolication related
 app.*.symbols
 
