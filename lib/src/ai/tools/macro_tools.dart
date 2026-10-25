@@ -1,0 +1,172 @@
+import 'package:dartantic_ai/dartantic_ai.dart';
+
+import '../../core/logger.dart';
+import '../../macro/macro_linter.dart';
+
+/// Reads the macro currently open in the editor.
+typedef MacroReader = String Function();
+
+/// Replaces the macro currently open in the editor.
+///
+/// Returns `true` when the content was applied. The editor implementation
+/// returns `false` when it has already been disposed.
+typedef MacroWriter = bool Function(String content);
+
+/// Runs the macro linter and converts its errors into agent-friendly maps.
+///
+/// The linter reports both syntax errors and semantic problems (undefined
+/// variables, non-numeric relational comparisons, …). Line numbers are 1-based.
+List<Map<String, dynamic>> _lintErrors(String content) {
+  return [
+    for (final error in lintMacro(content))
+      {'line': error.line, 'message': error.message},
+  ];
+}
+
+/// Number of lines in [text]. Matches the editor's gutter counting: an empty
+/// document has one (empty) line, and a trailing newline opens another line.
+int _lineCount(String text) => text.split('\n').length;
+
+/// Creates the tool that lets the macro agent read the editor content.
+///
+/// The [readMacro] callback is captured so the tool always returns the current
+/// editor text, not a snapshot taken when the agent was created.
+Tool<Map<String, dynamic>> createReadMacroTool({
+  required MacroReader readMacro,
+  String? Function()? macroFileName,
+  String agentName = 'unknown',
+}) {
+  return Tool<Map<String, dynamic>>(
+    name: 'read_macro',
+    description:
+        'Return the complete content of the macro currently open in the Macro '
+        'Editor, together with its line count and file name (if it has been '
+        'saved). Call this before changing the macro and whenever you need to '
+        're-check the current state.',
+    inputSchema: Schema.fromMap({
+      'type': 'object',
+      'properties': <String, dynamic>{},
+    }),
+    onCall: (args) async {
+      final content = readMacro();
+      final fileName = macroFileName?.call();
+      final result = <String, dynamic>{
+        'content': content,
+        'line_count': _lineCount(content),
+        'file_name': (fileName == null || fileName.isEmpty) ? null : fileName,
+      };
+      AppLogger(agentName: agentName, toolName: 'read_macro').logToolCall(
+        input: const {},
+        output: {
+          'line_count': result['line_count'],
+          'file_name': result['file_name'],
+        },
+      );
+      return result;
+    },
+  );
+}
+
+/// Creates the tool that lets the macro agent replace the editor content.
+///
+/// The agent must send the complete file, never a fragment: the editor content
+/// is replaced as a whole. Any lint errors in the new content are returned so
+/// the model can fix them in a follow-up call.
+Tool<Map<String, dynamic>> createWriteMacroTool({
+  required MacroWriter writeMacro,
+  String agentName = 'unknown',
+}) {
+  return Tool<Map<String, dynamic>>(
+    name: 'write_macro',
+    description:
+        'Replace the COMPLETE content of the macro currently open in the '
+        'Macro Editor with the given content. Send the whole file, never a '
+        'fragment or a diff. The editor updates immediately and the macro is '
+        'marked as modified. Returns whether the write was applied and the '
+        'lint errors (with line numbers) found in the new content. If errors '
+        'are returned, fix them and call write_macro again.',
+    inputSchema: Schema.fromMap({
+      'type': 'object',
+      'properties': {
+        'content': {
+          'type': 'string',
+          'description':
+              'The complete new macro file content, including the existing '
+              'connect() line and all commands that should be kept.',
+        },
+      },
+      'required': ['content'],
+    }),
+    onCall: (args) async {
+      final content = args['content'] as String? ?? '';
+      final applied = writeMacro(content);
+      final errors = _lintErrors(content);
+      final result = <String, dynamic>{
+        'applied': applied,
+        'line_count': _lineCount(content),
+        'valid': errors.isEmpty,
+        'errors': errors,
+      };
+      AppLogger(agentName: agentName, toolName: 'write_macro').logToolCall(
+        input: {'content_length': content.length},
+        output: {
+          'applied': applied,
+          'line_count': result['line_count'],
+          'valid': result['valid'],
+          'error_count': errors.length,
+        },
+      );
+      return result;
+    },
+  );
+}
+
+/// Creates the tool that lints macro source without changing the editor.
+///
+/// With no `content` argument it validates the macro currently open in the
+/// editor; with `content` it validates a candidate version before writing it.
+Tool<Map<String, dynamic>> createValidateMacroTool({
+  required MacroReader readMacro,
+  String agentName = 'unknown',
+}) {
+  return Tool<Map<String, dynamic>>(
+    name: 'validate_macro',
+    description:
+        'Parse and lint macro source and return syntax or semantic errors with '
+        '1-based line numbers. Omit "content" to validate the macro currently '
+        'open in the editor, or pass "content" to check a candidate version '
+        'before writing it.',
+    inputSchema: Schema.fromMap({
+      'type': 'object',
+      'properties': {
+        'content': {
+          'type': 'string',
+          'description':
+              'Optional macro source to validate. When omitted, the macro '
+              'currently open in the editor is validated.',
+        },
+      },
+    }),
+    onCall: (args) async {
+      final supplied = args['content'];
+      final checksCurrentContent = supplied is! String;
+      final content = checksCurrentContent ? readMacro() : supplied;
+      final errors = _lintErrors(content);
+      final result = <String, dynamic>{
+        'valid': errors.isEmpty,
+        'errors': errors,
+        'checked_current_content': checksCurrentContent,
+        'line_count': _lineCount(content),
+      };
+      AppLogger(agentName: agentName, toolName: 'validate_macro').logToolCall(
+        input: {'content_length': content.length},
+        output: {
+          'valid': result['valid'],
+          'error_count': errors.length,
+          'checked_current_content': checksCurrentContent,
+        },
+      );
+      return result;
+    },
+  );
+}

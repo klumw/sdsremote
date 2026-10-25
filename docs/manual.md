@@ -631,6 +631,19 @@ Clicking the **Edit** button or the **Load** button on a file opens the Macro Ed
 | `Ctrl` + `Home` | Jump to document start |
 | `Ctrl` + `End` | Jump to document end |
 
+#### AI Macro Assistant
+
+The **AI** button in the editor header (sparkle icon) opens a chat panel to the right of the editor. The button is enabled only when an AI provider, API token and model are configured in the settings (section 4).
+
+The assistant works directly on the macro that is open in the editor:
+
+* It reads the complete editor content before answering or changing anything.
+* It writes the complete updated macro back into the editor — no copy/paste is required.
+* It validates changes with the same parser and linter that underline errors in the editor.
+* Its system prompt contains the complete macro language reference, including `if`/`else` (no `else if`), `while` with the 100-iteration limit, `break`/`continue`, `assert`, `fail`, string concatenation, expressions and operator precedence.
+
+Changes are applied immediately and are marked as unsaved. `Ctrl` + `Z` in the editor restores the previous version. Press the AI button again to close the chat panel.
+
 ### 7.3 Recording a Macro
 
 1. Ensure the oscilloscope is connected and online.

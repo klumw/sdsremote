@@ -30,6 +30,7 @@ import '../waveform/waveform_models.dart';
 import '../waveform/waveform_painter.dart';
 import '../waveform/waveform_view_transform.dart';
 import '../ai/ai_chat_service.dart';
+import '../ai/ai_settings.dart';
 import '../core/logger.dart';
 import 'osci_physical_panel.dart';
 import 'osci_chat_window.dart';
@@ -126,6 +127,21 @@ class _OsciHomePageState extends State<OsciHomePage>
       _aiProvider.isNotEmpty &&
       _aiApiToken.trim().length >= 8 &&
       _llmModel.trim().isNotEmpty;
+
+  /// AI settings for the Macro Editor's assistant, or null when the AI is not
+  /// configured.
+  ///
+  /// The main chat is configured separately through [AiChatService]; the
+  /// macro editor gets the same provider, token and model so both AI features
+  /// follow the values from the settings panel.
+  AiSettings? get _macroAiSettings {
+    if (!_isAiEnabled) return null;
+    return AiSettings.fromProviderConfig(
+      providerName: _aiProvider,
+      apiToken: _aiApiToken,
+      modelName: _llmModel,
+    );
+  }
 
   // Acquisition
   bool _isAcquiring = false;
@@ -1176,7 +1192,6 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   Widget _buildChatWindow() {
     return ChatWindow(
-      aiChatService: _aiChatService,
       chatMessages: _chatMessages,
       isChatting: _isChatting,
       isInitialized: _aiChatService.isInitialized,
@@ -1248,6 +1263,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         initialContent: _currentMacroContent,
         loadedFileName: _loadedMacroFileName,
         isModified: _isMacroModified,
+        aiSettings: _macroAiSettings,
         errorMessage: _macroHadPlaybackError ? _macroStatusMessage : null,
         onContentChanged: (content) {
           _currentMacroContent = content;

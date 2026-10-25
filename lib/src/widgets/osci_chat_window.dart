@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-import '../ai/ai_chat_service.dart';
-
 /// Regular expression to match bare URLs (http, https, ftp).
 ///
 /// Uses a negative lookbehind `(?<!...)` to skip URLs already wrapped in
@@ -76,19 +74,25 @@ class _StreamingIndicatorState extends State<_StreamingIndicator>
 
 /// A chat window widget for interacting with the AI assistant.
 class ChatWindow extends StatefulWidget {
-  final AiChatService aiChatService;
   final List<Map<String, String>> chatMessages;
   final bool isChatting;
   final bool isInitialized;
   final ValueChanged<String> onSendMessage;
 
+  /// Placeholder shown in the input field.
+  final String hintText;
+
+  /// Optional hint shown in the message area while the chat is empty.
+  final String? emptyStateText;
+
   const ChatWindow({
     super.key,
-    required this.aiChatService,
     required this.chatMessages,
     required this.isChatting,
     required this.isInitialized,
     required this.onSendMessage,
+    this.hintText = 'Ask about the oscilloscope or give a command...',
+    this.emptyStateText,
   });
 
   @override
@@ -186,32 +190,46 @@ class _ChatWindowState extends State<ChatWindow> {
         children: [
           // Chat history
           Expanded(
-            child: ListView.builder(
-              controller: _chatScrollController,
-              padding: const EdgeInsets.all(16),
-              itemCount: widget.chatMessages.length,
-              itemBuilder: (context, index) {
-                final msg = widget.chatMessages[index];
-                final isUser = msg['role'] == 'user';
-                return Align(
-                  alignment: isUser
-                      ? Alignment.centerRight
-                      : Alignment.centerLeft,
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(vertical: 4),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 10,
+            child: widget.chatMessages.isEmpty && widget.emptyStateText != null
+                ? Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        widget.emptyStateText!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Colors.white38,
+                          fontSize: 14,
+                        ),
+                      ),
                     ),
-                    decoration: BoxDecoration(
-                      color: isUser ? Colors.cyan[800] : Colors.grey[800],
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: _buildMessageContent(msg, index, isUser),
+                  )
+                : ListView.builder(
+                    controller: _chatScrollController,
+                    padding: const EdgeInsets.all(16),
+                    itemCount: widget.chatMessages.length,
+                    itemBuilder: (context, index) {
+                      final msg = widget.chatMessages[index];
+                      final isUser = msg['role'] == 'user';
+                      return Align(
+                        alignment: isUser
+                            ? Alignment.centerRight
+                            : Alignment.centerLeft,
+                        child: Container(
+                          margin: const EdgeInsets.symmetric(vertical: 4),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: isUser ? Colors.cyan[800] : Colors.grey[800],
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: _buildMessageContent(msg, index, isUser),
+                        ),
+                      );
+                    },
                   ),
-                );
-              },
-            ),
           ),
           // Input area
           Container(
@@ -247,8 +265,7 @@ class _ChatWindowState extends State<ChatWindow> {
                       controller: _chatController,
                       focusNode: _chatFocusNode,
                       decoration: InputDecoration(
-                        hintText:
-                            'Ask about the oscilloscope or give a command...',
+                        hintText: widget.hintText,
                         hintStyle: const TextStyle(
                           color: Colors.white38,
                           fontSize: 14,

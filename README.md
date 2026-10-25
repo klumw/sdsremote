@@ -46,6 +46,16 @@ producing a wrong value.
 
 ![AI Chat Interface](docs/sdsremote_ai.png)
 
+### AI Macro Assistant
+
+The Macro Editor has its own AI agent. It reads the macro currently open in
+the editor, writes a complete updated version back, and validates the result
+with the macro parser — no copy/paste is required. The assistant knows the
+complete macro language (including `if`/`else`, `while`, `break`/`continue`,
+`assert`, `fail`, string concatenation and operator precedence). It is
+available from the AI button in the editor header whenever the AI settings are
+configured; see section 7.2 of the manual for details.
+
 ### Device Profile Management
 
 Save and restore oscilloscope configurations using local `.lss` profile files.
@@ -403,6 +413,7 @@ The AI code is split into agents and tools:
 
 - `lib/src/ai/agents/` — agent classes and system prompts:
   - `frontend_agent.dart` — user-facing agent that delegates to specialized sub-agents.
+  - `macro_agent.dart` — Macro Editor assistant that reads, writes and validates the open macro.
   - `instrument_agent.dart` — SCPI/VXI-11 instrument control agent.
   - `search_agent.dart` — knowledgebase search agent.
   - `max_tool_calls_handler.dart` — shared max-tool-call mixin used by agents.
@@ -413,6 +424,7 @@ The AI code is split into agents and tools:
   - `scpi_agent_tool.dart` — wraps the instrument agent as a `scpi_instrument_agent` tool.
   - `search_agent_tool.dart` — wraps the search agent as a `search_agent` tool.
   - `knowledgebase_search_tool.dart` — knowledgebase chunk search tool (`knowledgebase_search`).
+  - `macro_tools.dart` — Macro Editor tools `read_macro`, `write_macro`, `validate_macro`.
 
 ### Widget Code Layout
 
@@ -435,8 +447,8 @@ Non-widget, domain-specific support code is grouped into subfolders under
 
 ### Domain Code Layout
 
-- `lib/src/ai/` — AI agents (`agents/`), tools (`tools/`), and the chat service
-  (`ai_chat_service.dart`).
+- `lib/src/ai/` — AI agents (`agents/`), tools (`tools/`), and the chat services
+  (`ai_chat_service.dart`, `macro_ai_service.dart`).
 - `lib/src/app/` — application configuration and environment:
   `app_config.dart`, `app_paths.dart`, `app_preferences.dart`, `app_theme.dart`.
 - `lib/src/core/` — cross-cutting utilities: `logger.dart`.

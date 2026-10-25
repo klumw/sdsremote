@@ -3,8 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../ai/ai_settings.dart';
+import '../ai/macro_ai_service.dart';
 import '../macro/macro_lint_controller.dart';
 import '../macro/macro_linter.dart';
+import 'osci_chat_window.dart';
 
 /// A simple multi-line text editor for editing macro file content.
 ///
@@ -27,6 +30,12 @@ class MacroEditorPanel extends StatefulWidget {
   /// header, spanning the full panel width.
   final String? errorMessage;
 
+  /// AI settings for the macro assistant.
+  ///
+  /// Null when no AI provider, token and model are configured; the AI button
+  /// in the header is then disabled.
+  final AiSettings? aiSettings;
+
   /// Called whenever the user modifies the text content.
   final ValueChanged<String> onContentChanged;
 
@@ -43,6 +52,7 @@ class MacroEditorPanel extends StatefulWidget {
     this.loadedFileName,
     this.isModified = false,
     this.errorMessage,
+    this.aiSettings,
     required this.onContentChanged,
     required this.onClose,
     this.onSave,
@@ -61,6 +71,19 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   int _lineCount = 1;
   Timer? _lintDebounce;
   Set<int> _errorLines = {};
+
+  /// AI assistant state.
+  MacroAiService? _macroAiService;
+  bool _showMacroChat = false;
+  final List<Map<String, String>> _macroChatMessages = [];
+  bool _isMacroChatting = false;
+
+  /// Focus node of the editor's text field.
+  ///
+  /// The global hardware-key handler must only act while this field has
+  /// focus; otherwise shortcuts such as Ctrl+X would edit the macro while the
+  /// user types in the AI chat.
+  final FocusNode _editorFocusNode = FocusNode();
 
   static const Duration _lintDelay = Duration(milliseconds: 300);
 
@@ -112,8 +135,9 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
       textDirection: TextDirection.ltr,
     );
     sample.layout();
-    _gutterBaselineOffset =
-        sample.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+    _gutterBaselineOffset = sample.computeDistanceToActualBaseline(
+      TextBaseline.alphabetic,
+    );
 
     // Defer the initial lint pass to after the first frame so that the
     // onContentChanged callback (which may call setState on a parent widget)
@@ -128,12 +152,17 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     // before EditableText's internal shortcut (DeleteForwardCharacterIntent
     // on Linux) consumes it.
     HardwareKeyboard.instance.addHandler(_hardwareKeyHandler);
+
+    // Create the macro AI agent when the AI is already configured.
+    _configureMacroAiService();
   }
 
   @override
   void dispose() {
     _lintDebounce?.cancel();
     HardwareKeyboard.instance.removeHandler(_hardwareKeyHandler);
+    _macroAiService?.dispose();
+    _editorFocusNode.dispose();
     _controller.removeListener(_onTextChanged);
     _controller.removeListener(_onLintRequired);
     _controller.dispose();
@@ -144,6 +173,12 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
 
   bool _hardwareKeyHandler(KeyEvent event) {
     if (event is! KeyDownEvent) return false;
+
+    // The handler is global. Only act while the editor itself has focus so
+    // that shortcuts typed in the AI chat (Ctrl+X, Ctrl+D, …) do not modify
+    // the macro behind the chat.
+    if (!_editorFocusNode.hasFocus) return false;
+
     final ctrl = HardwareKeyboard.instance.isControlPressed;
     if (!ctrl) return false;
 
@@ -218,6 +253,15 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
       _lastNotifiedText = widget.initialContent;
       _controller.text = widget.initialContent;
       _updateLineCount();
+    }
+
+    // Reconfigure the macro agent when the AI settings change while the
+    // editor is open (e.g. after saving the settings dialog).
+    if (widget.aiSettings != oldWidget.aiSettings) {
+      _configureMacroAiService();
+      if (widget.aiSettings == null) {
+        _showMacroChat = false;
+      }
     }
   }
 
@@ -764,14 +808,135 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
         : 0.0;
   }
 
+  // ── AI assistant ─────────────────────────────────────────────────────
+
+  /// Whether the AI assistant is configured and its agent was created.
+  bool get _isAiAvailable =>
+      widget.aiSettings?.isConfigured == true && _macroAiService != null;
+
+  /// Creates (or recreates) the macro agent with the current AI settings.
+  ///
+  /// The agent's tools capture the editor controller, so the model always
+  /// reads and writes the live editor content rather than a snapshot.
+  void _configureMacroAiService() {
+    _macroAiService?.dispose();
+    _macroAiService = null;
+
+    final settings = widget.aiSettings;
+    if (settings == null || !settings.isConfigured) return;
+
+    final service = MacroAiService();
+    service.configure(
+      apiKey: settings.apiKeyName,
+      apiToken: settings.apiToken,
+      model: settings.model,
+      readMacro: () => mounted ? _controller.text : '',
+      writeMacro: _applyAiMacroEdit,
+      macroFileName: () => widget.loadedFileName,
+    );
+    _macroAiService = service;
+  }
+
+  /// Applies a complete macro written by the AI assistant.
+  ///
+  /// Uses the programmatic-edit path so Ctrl+Z restores the previous version
+  /// and the parent is notified about the modification.
+  bool _applyAiMacroEdit(String content) {
+    if (!mounted) return false;
+    _applyProgrammaticEdit(
+      TextEditingValue(
+        text: content,
+        selection: TextSelection.collapsed(offset: content.length),
+      ),
+    );
+    return true;
+  }
+
+  /// Opens or closes the AI chat panel next to the editor.
+  void _toggleMacroChat() {
+    if (!_isAiAvailable) return;
+    setState(() => _showMacroChat = !_showMacroChat);
+
+    if (!_showMacroChat) {
+      // Give the focus back to the editor so its keyboard shortcuts work
+      // immediately after closing the chat.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _editorFocusNode.requestFocus();
+      });
+    }
+  }
+
+  /// Sends a message to the macro agent and streams its answer into the chat.
+  Future<void> _onMacroChatSend(String text) async {
+    final service = _macroAiService;
+    final trimmed = text.trim();
+    if (service == null || !service.isInitialized) return;
+    if (trimmed.isEmpty || _isMacroChatting) return;
+
+    setState(() {
+      _macroChatMessages.add({'role': 'user', 'content': trimmed});
+      _isMacroChatting = true;
+      // Placeholder for the streamed AI response.
+      _macroChatMessages.add({'role': 'ai', 'content': ''});
+    });
+
+    final aiMsgIndex = _macroChatMessages.length - 1;
+    var hasReceivedChunk = false;
+
+    try {
+      await for (final chunk in service.sendMessageStream(text: trimmed)) {
+        hasReceivedChunk = true;
+        if (!mounted) return;
+        setState(() {
+          _macroChatMessages[aiMsgIndex]['content'] =
+              _macroChatMessages[aiMsgIndex]['content']! + chunk;
+        });
+      }
+
+      if (!hasReceivedChunk && mounted) {
+        setState(() {
+          _macroChatMessages[aiMsgIndex]['content'] =
+              'No response from AI-Server';
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _macroChatMessages[aiMsgIndex]['content'] =
+              'Error: Failed to connect to AI server ($e)';
+        });
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isMacroChatting = false);
+      }
+    }
+  }
+
+  Widget _buildMacroChatWindow() {
+    return ChatWindow(
+      chatMessages: _macroChatMessages,
+      isChatting: _isMacroChatting,
+      isInitialized: _macroAiService?.isInitialized ?? false,
+      onSendMessage: _onMacroChatSend,
+      hintText: 'Ask the macro assistant...',
+      emptyStateText:
+          'Ask me to create or change the macro.\n'
+          'I can read and edit the macro in this editor.',
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Calculate gutter width based on digit count (min 32, add 8 per extra
     // digit beyond 2).
     final gutterWidth = 32.0 + (_lineCount.toString().length - 1) * 8.0;
+    final showChat = _showMacroChat && _isAiAvailable;
 
     return Container(
-      width: 900,
+      // The AI chat needs room next to the 900 px editor column. The extra
+      // width keeps the editor itself at its usual size.
+      width: showChat ? 1328 : 900,
       decoration: BoxDecoration(
         color: const Color(0xFF0A192F),
         border: Border.all(color: const Color(0xFF475569)),
@@ -819,15 +984,42 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                     ),
                   ],
                 ),
-                IconButton(
-                  icon: const Icon(
-                    Icons.close,
-                    color: Colors.white70,
-                    size: 20,
-                  ),
-                  onPressed: widget.onClose,
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // AI Macro Assistant toggle. Disabled until the AI
+                    // provider, token and model are configured.
+                    IconButton(
+                      icon: Icon(
+                        Icons.auto_awesome,
+                        color: _isAiAvailable
+                            ? (_showMacroChat
+                                  ? Colors.cyanAccent
+                                  : Colors.white70)
+                            : Colors.white24,
+                        size: 20,
+                      ),
+                      tooltip: _isAiAvailable
+                          ? (_showMacroChat
+                                ? 'Close AI Macro Assistant'
+                                : 'AI Macro Assistant')
+                          : 'Configure AI settings first',
+                      onPressed: _isAiAvailable ? _toggleMacroChat : null,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                    const SizedBox(width: 12),
+                    IconButton(
+                      icon: const Icon(
+                        Icons.close,
+                        color: Colors.white70,
+                        size: 20,
+                      ),
+                      onPressed: widget.onClose,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -848,107 +1040,140 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
               ),
             ),
 
-          // Editable text area with line numbers
           Expanded(
-            child: Container(
-              margin: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0D0D0D),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.cyanAccent, width: 1.0),
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(7),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // ── Line number gutter ────────────────────────────
-                    // Rendered via CustomPaint that uses the SAME scroll
-                    // offset and line-height formula as the TextField,
-                    // guaranteeing pixel-perfect alignment at any depth.
-                    Container(
-                      width: gutterWidth,
-                      color: const Color(0xFF080808),
-                      child: ClipRect(
-                        child: CustomPaint(
-                          painter: _GutterPainter(
-                            lineCount: _lineCount,
-                            errorLines: _errorLines,
-                            lineMetrics: _lineMetrics,
-                            gutterBaselineOffset: _gutterBaselineOffset,
-                            topPadding: 12.0,
-                            scrollOffset: _scrollOffset,
-                            normalStyle: _gutterNormalStyle,
-                            errorStyle: _gutterErrorStyle,
-                            gutterWidth: gutterWidth,
-                            rightPadding: 8.0,
-                          ),
-                          size: Size.infinite,
-                        ),
-                      ),
-                    ),
-                    // Vertical divider
-                    Container(width: 1, color: const Color(0xFF2A3A5A)),
-                    // ── Text field ────────────────────────────────────
-                    Expanded(
-                      child: Focus(
-                        onKeyEvent: _onKeyEvent,
-                        child: TextField(
-                          controller: _controller,
-                          scrollController: _editorScrollController,
-                          maxLines: null,
-                          minLines: null,
-                          textAlignVertical: TextAlignVertical.top,
-                          style: _editorTextStyle,
-                          decoration: const InputDecoration(
-                            hintText: 'Enter macro commands...',
-                            hintStyle: TextStyle(
-                              color: Colors.white24,
-                              fontSize: 13,
-                            ),
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.only(
-                              left: 8,
-                              top: 18,
-                              right: 12,
-                              bottom: 12,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: Column(
+                    children: [
+                      // Editable text area with line numbers
+                      Expanded(
+                        child: Container(
+                          margin: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0D0D0D),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: Colors.cyanAccent,
+                              width: 1.0,
                             ),
                           ),
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(7),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                // ── Line number gutter ──────────────
+                                // Rendered via CustomPaint that uses the SAME
+                                // scroll offset and line-height formula as
+                                // the TextField, guaranteeing pixel-perfect
+                                // alignment at any depth.
+                                Container(
+                                  width: gutterWidth,
+                                  color: const Color(0xFF080808),
+                                  child: ClipRect(
+                                    child: CustomPaint(
+                                      painter: _GutterPainter(
+                                        lineCount: _lineCount,
+                                        errorLines: _errorLines,
+                                        lineMetrics: _lineMetrics,
+                                        gutterBaselineOffset:
+                                            _gutterBaselineOffset,
+                                        topPadding: 12.0,
+                                        scrollOffset: _scrollOffset,
+                                        normalStyle: _gutterNormalStyle,
+                                        errorStyle: _gutterErrorStyle,
+                                        gutterWidth: gutterWidth,
+                                        rightPadding: 8.0,
+                                      ),
+                                      size: Size.infinite,
+                                    ),
+                                  ),
+                                ),
+                                // Vertical divider
+                                Container(
+                                  width: 1,
+                                  color: const Color(0xFF2A3A5A),
+                                ),
+                                // ── Text field ──────────────────────
+                                Expanded(
+                                  child: Focus(
+                                    onKeyEvent: _onKeyEvent,
+                                    child: TextField(
+                                      controller: _controller,
+                                      focusNode: _editorFocusNode,
+                                      scrollController: _editorScrollController,
+                                      maxLines: null,
+                                      minLines: null,
+                                      textAlignVertical: TextAlignVertical.top,
+                                      style: _editorTextStyle,
+                                      decoration: const InputDecoration(
+                                        hintText: 'Enter macro commands...',
+                                        hintStyle: TextStyle(
+                                          color: Colors.white24,
+                                          fontSize: 13,
+                                        ),
+                                        border: InputBorder.none,
+                                        contentPadding: EdgeInsets.only(
+                                          left: 8,
+                                          top: 18,
+                                          right: 12,
+                                          bottom: 12,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
 
-          // Close button at bottom
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-            child: Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFF0A192F),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.cyanAccent, width: 1.0),
-              ),
-              child: ElevatedButton.icon(
-                onPressed: widget.onClose,
-                icon: const Icon(Icons.close, size: 18),
-                label: const Text("Close"),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.cyan[800],
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 12,
-                    horizontal: 30,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
+                      // Close button at bottom
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0A192F),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: Colors.cyanAccent,
+                              width: 1.0,
+                            ),
+                          ),
+                          child: ElevatedButton.icon(
+                            onPressed: widget.onClose,
+                            icon: const Icon(Icons.close, size: 18),
+                            label: const Text("Close"),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.cyan[800],
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 12,
+                                horizontal: 30,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              ),
+                // AI chat panel, to the right of the editor.
+                if (showChat) ...[
+                  const SizedBox(width: 12),
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(0, 16, 16, 16),
+                    child: SizedBox(width: 400, child: _buildMacroChatWindow()),
+                  ),
+                ],
+              ],
             ),
           ),
         ],
@@ -1008,10 +1233,14 @@ class _GutterPainter extends CustomPainter {
     const double approxLineHeight = 19.5;
     final double visibleTop = scrollOffset - topPadding;
     final double visibleBottom = visibleTop + size.height;
-    final int firstVisible =
-        (visibleTop / approxLineHeight).floor().clamp(0, lineCount - 1);
-    final int lastVisible =
-        (visibleBottom / approxLineHeight).ceil().clamp(0, lineCount - 1);
+    final int firstVisible = (visibleTop / approxLineHeight).floor().clamp(
+      0,
+      lineCount - 1,
+    );
+    final int lastVisible = (visibleBottom / approxLineHeight).ceil().clamp(
+      0,
+      lineCount - 1,
+    );
     final int lastMetric = metrics.length - 1;
 
     final double textAreaWidth = gutterWidth - rightPadding;
@@ -1022,7 +1251,8 @@ class _GutterPainter extends CustomPainter {
       // Align the gutter text's alphabetic baseline with the editor's
       // text baseline.  [LineMetrics.baseline] is the baseline position
       // relative to the paragraph top (content-padding top in the editor).
-      final double y = topPadding +
+      final double y =
+          topPadding +
           metrics[metricIdx].baseline -
           scrollOffset -
           gutterBaselineOffset;
