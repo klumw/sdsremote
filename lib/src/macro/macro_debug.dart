@@ -1,5 +1,30 @@
 import 'macro_ast.dart';
 
+/// Whether [line] has a breakpoint that is currently enabled.
+///
+/// Breakpoints can be disabled from the gutter context menu. Disabled
+/// breakpoints stay visible but must not pause the debugger.
+bool isMacroBreakpointActive({
+  required int? line,
+  required Set<int> breakpoints,
+  required Set<int> inactiveBreakpoints,
+}) =>
+    line != null &&
+    breakpoints.contains(line) &&
+    !inactiveBreakpoints.contains(line);
+
+/// Whether at least one breakpoint is enabled.
+bool hasActiveMacroBreakpoint({
+  required Set<int> breakpoints,
+  required Set<int> inactiveBreakpoints,
+}) => breakpoints.any((line) => !inactiveBreakpoints.contains(line));
+
+/// Whether at least one breakpoint is disabled.
+bool hasInactiveMacroBreakpoint({
+  required Set<int> breakpoints,
+  required Set<int> inactiveBreakpoints,
+}) => breakpoints.any(inactiveBreakpoints.contains);
+
 /// Returns a short, human-readable description of [statement] for the Macro
 /// Editor's debug status line.
 ///

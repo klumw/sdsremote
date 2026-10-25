@@ -263,6 +263,10 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// Breakpoints set in the Macro Editor (1-based source lines).
   Set<int> _macroBreakpoints = <int>{};
 
+  /// Breakpoints that are currently disabled. Disabled breakpoints stay
+  /// visible in the gutter but do not pause the debugger.
+  Set<int> _macroInactiveBreakpoints = <int>{};
+
   /// Source line of the statement currently highlighted in the editor.
   int? _macroDebugCurrentLine;
 
@@ -1323,8 +1327,48 @@ class _OsciHomePageState extends State<OsciHomePage>
         debugVariables: _macroDebugVariables,
         printController: _macroPrintController,
         breakpoints: _macroBreakpoints,
+        inactiveBreakpoints: _macroInactiveBreakpoints,
         onBreakpointsChanged: (breakpoints) {
-          setState(() => _macroBreakpoints = breakpoints);
+          setState(() {
+            final added = breakpoints.difference(_macroBreakpoints);
+            _macroBreakpoints = breakpoints;
+            // A newly created breakpoint is always active; removed lines no
+            // longer belong to the inactive set.
+            _macroInactiveBreakpoints.removeAll(added);
+            _macroInactiveBreakpoints.removeWhere(
+              (line) => !breakpoints.contains(line),
+            );
+          });
+        },
+        onDeleteBreakpoint: (line) {
+          setState(() {
+            _macroBreakpoints.remove(line);
+            _macroInactiveBreakpoints.remove(line);
+          });
+        },
+        onSetBreakpointEnabled: (line, enabled) {
+          setState(() {
+            if (enabled) {
+              _macroInactiveBreakpoints.remove(line);
+            } else {
+              _macroInactiveBreakpoints.add(line);
+            }
+          });
+        },
+        onSetAllBreakpointsEnabled: (enabled) {
+          setState(() {
+            if (enabled) {
+              _macroInactiveBreakpoints.clear();
+            } else {
+              _macroInactiveBreakpoints = Set<int>.of(_macroBreakpoints);
+            }
+          });
+        },
+        onDeleteAllBreakpoints: () {
+          setState(() {
+            _macroBreakpoints.clear();
+            _macroInactiveBreakpoints.clear();
+          });
         },
         onPlay: _onMacroEditorPlay,
         onStep: _onMacroEditorStep,
@@ -1408,6 +1452,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     unawaited(_stopMacroDebugSession());
     _macroDebugStatus = null;
     _macroBreakpoints = <int>{};
+    _macroInactiveBreakpoints = <int>{};
     _macroDebugCurrentLine = null;
     _macroDebugVariables = <String, String>{};
     _macroPrintController.clear();
@@ -1653,12 +1698,20 @@ class _OsciHomePageState extends State<OsciHomePage>
     _macroDebugVariables = session.variables;
 
     final line = session.currentLine;
-    final hitBreakpoint = line != null && _macroBreakpoints.contains(line);
+    final hitBreakpoint = isMacroBreakpointActive(
+      line: line,
+      breakpoints: _macroBreakpoints,
+      inactiveBreakpoints: _macroInactiveBreakpoints,
+    );
 
     // Continue mode: skip statements until the next breakpoint. The current
     // line is still updated so the editor highlights what is executing.
     if (session.runToBreakpoint && !hitBreakpoint) {
-      _macroDebugStatus = _macroBreakpoints.isEmpty
+      _macroDebugStatus =
+          !hasActiveMacroBreakpoint(
+            breakpoints: _macroBreakpoints,
+            inactiveBreakpoints: _macroInactiveBreakpoints,
+          )
           ? 'Running to end…'
           : line == null
           ? 'Running…'
@@ -1746,10 +1799,14 @@ class _OsciHomePageState extends State<OsciHomePage>
       final session = await _startMacroDebugSession();
       if (session == null || !mounted) return;
 
-      // The first gate is paused before statement 1. If it sits on a
+      // The first gate is paused before statement 1. If it sits on an active
       // breakpoint, stop there instead of executing it.
       final line = session.currentLine;
-      if (line != null && _macroBreakpoints.contains(line)) {
+      if (isMacroBreakpointActive(
+        line: line,
+        breakpoints: _macroBreakpoints,
+        inactiveBreakpoints: _macroInactiveBreakpoints,
+      )) {
         _macroDebugStatus =
             'Paused at breakpoint · Step ${session.step}: '
             '${session.statement}';
@@ -1877,6 +1934,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       unawaited(_stopMacroDebugSession());
       _macroDebugStatus = null;
       _macroBreakpoints = <int>{};
+      _macroInactiveBreakpoints = <int>{};
       _macroDebugCurrentLine = null;
       _macroDebugVariables = <String, String>{};
       _macroPrintController.clear();

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../ai/ai_settings.dart';
 import '../ai/macro_chat_controller.dart';
+import '../macro/macro_debug.dart';
 import '../macro/macro_lint_controller.dart';
 import '../macro/macro_linter.dart';
 import '../macro/macro_print_controller.dart';
@@ -77,8 +78,26 @@ class MacroEditorPanel extends StatefulWidget {
   /// Breakpoint lines (1-based) set in this editor.
   final Set<int> breakpoints;
 
+  /// Breakpoints that are currently disabled.
+  ///
+  /// Disabled breakpoints remain visible in the gutter (drawn hollow) but do
+  /// not pause the debugger.
+  final Set<int> inactiveBreakpoints;
+
   /// Called when the user toggles a breakpoint in the gutter.
   final ValueChanged<Set<int>>? onBreakpointsChanged;
+
+  /// Deletes the breakpoint on [line] (gutter context menu).
+  final ValueChanged<int>? onDeleteBreakpoint;
+
+  /// Enables or disables the breakpoint on [line] (gutter context menu).
+  final void Function(int line, bool enabled)? onSetBreakpointEnabled;
+
+  /// Enables or disables every breakpoint (gutter context menu).
+  final ValueChanged<bool>? onSetAllBreakpointsEnabled;
+
+  /// Deletes every breakpoint (gutter context menu).
+  final VoidCallback? onDeleteAllBreakpoints;
 
   /// Starts a full playback of the current editor content.
   final VoidCallback? onPlay;
@@ -119,7 +138,12 @@ class MacroEditorPanel extends StatefulWidget {
     this.debugVariables = const <String, String>{},
     this.printController,
     this.breakpoints = const <int>{},
+    this.inactiveBreakpoints = const <int>{},
     this.onBreakpointsChanged,
+    this.onDeleteBreakpoint,
+    this.onSetBreakpointEnabled,
+    this.onSetAllBreakpointsEnabled,
+    this.onDeleteAllBreakpoints,
     this.onPlay,
     this.onStep,
     this.onContinue,
@@ -1001,6 +1025,103 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     onChanged(next);
   }
 
+  /// Shows the breakpoint context menu at a secondary (right) click.
+  ///
+  /// The menu is only opened when the click lands on an existing breakpoint.
+  Future<void> _showBreakpointMenu(TapDownDetails details) async {
+    final line = _lineAtGutterOffset(details.localPosition.dy);
+    if (line == null || !widget.breakpoints.contains(line)) return;
+
+    final isEnabled = !widget.inactiveBreakpoints.contains(line);
+    final hasActive = hasActiveMacroBreakpoint(
+      breakpoints: widget.breakpoints,
+      inactiveBreakpoints: widget.inactiveBreakpoints,
+    );
+    final hasInactive = hasInactiveMacroBreakpoint(
+      breakpoints: widget.breakpoints,
+      inactiveBreakpoints: widget.inactiveBreakpoints,
+    );
+
+    final overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+    final position = RelativeRect.fromRect(
+      Rect.fromPoints(details.globalPosition, details.globalPosition),
+      Offset.zero & overlay.size,
+    );
+
+    final action = await showMenu<_BreakpointMenuAction>(
+      context: context,
+      position: position,
+      constraints: const BoxConstraints(minWidth: 260, maxWidth: 340),
+      items: [
+        PopupMenuItem<_BreakpointMenuAction>(
+          value: _BreakpointMenuAction.deleteOne,
+          enabled: widget.onDeleteBreakpoint != null,
+          child: _breakpointMenuItem(Icons.delete_outline, 'Delete Breakpoint'),
+        ),
+        PopupMenuItem<_BreakpointMenuAction>(
+          value: _BreakpointMenuAction.toggleOne,
+          enabled: widget.onSetBreakpointEnabled != null,
+          child: _breakpointMenuItem(
+            isEnabled ? Icons.pause_circle_outline : Icons.play_circle_outline,
+            isEnabled ? 'Deactivate Breakpoint' : 'Activate Breakpoint',
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<_BreakpointMenuAction>(
+          value: _BreakpointMenuAction.activateAll,
+          enabled: hasInactive && widget.onSetAllBreakpointsEnabled != null,
+          child: _breakpointMenuItem(
+            Icons.play_circle_outline,
+            'Activate All Breakpoints',
+          ),
+        ),
+        PopupMenuItem<_BreakpointMenuAction>(
+          value: _BreakpointMenuAction.deactivateAll,
+          enabled: hasActive && widget.onSetAllBreakpointsEnabled != null,
+          child: _breakpointMenuItem(
+            Icons.pause_circle_outline,
+            'Deactivate All Breakpoints',
+          ),
+        ),
+        const PopupMenuDivider(),
+        PopupMenuItem<_BreakpointMenuAction>(
+          value: _BreakpointMenuAction.deleteAll,
+          enabled: widget.onDeleteAllBreakpoints != null,
+          child: _breakpointMenuItem(
+            Icons.delete_sweep,
+            'Delete All Breakpoints',
+          ),
+        ),
+      ],
+    );
+
+    if (!mounted || action == null) return;
+    switch (action) {
+      case _BreakpointMenuAction.deleteOne:
+        widget.onDeleteBreakpoint?.call(line);
+      case _BreakpointMenuAction.toggleOne:
+        widget.onSetBreakpointEnabled?.call(line, !isEnabled);
+      case _BreakpointMenuAction.activateAll:
+        widget.onSetAllBreakpointsEnabled?.call(true);
+      case _BreakpointMenuAction.deactivateAll:
+        widget.onSetAllBreakpointsEnabled?.call(false);
+      case _BreakpointMenuAction.deleteAll:
+        widget.onDeleteAllBreakpoints?.call();
+    }
+  }
+
+  Widget _breakpointMenuItem(IconData icon, String label) {
+    return Row(
+      children: [
+        Icon(icon, size: 16),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+      ],
+    );
+  }
+
   /// Scrolls the editor so the current debug line is visible.
   void _scrollToDebugLine(int line) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1091,10 +1212,9 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                       for (final entry in entries)
                         Padding(
                           padding: const EdgeInsets.only(bottom: 3),
-                          child: Text(
+                          child: SelectableText(
                             '${entry.key} = ${entry.value}',
                             maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                               color: Colors.white,
                               fontSize: 11,
@@ -1521,6 +1641,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                                   onTapDown: (details) => _toggleBreakpointAt(
                                     details.localPosition.dy,
                                   ),
+                                  onSecondaryTapDown: _showBreakpointMenu,
                                   child: Container(
                                     width: gutterWidth,
                                     color: const Color(0xFF080808),
@@ -1539,6 +1660,8 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                                           gutterWidth: gutterWidth,
                                           rightPadding: 8.0,
                                           breakpoints: widget.breakpoints,
+                                          inactiveBreakpoints:
+                                              widget.inactiveBreakpoints,
                                           currentLine: widget.debugCurrentLine,
                                         ),
                                         size: Size.infinite,
@@ -1669,6 +1792,15 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
 // Gutter painter
 // ============================================================================
 
+/// Actions offered by the breakpoint context menu.
+enum _BreakpointMenuAction {
+  deleteOne,
+  toggleOne,
+  activateAll,
+  deactivateAll,
+  deleteAll,
+}
+
 /// Paints line numbers in the editor gutter.
 ///
 /// Uses [TextPainter] with the same [TextStyle] as the editor so that line
@@ -1693,6 +1825,7 @@ class _GutterPainter extends CustomPainter {
   final double gutterWidth;
   final double rightPadding;
   final Set<int> breakpoints;
+  final Set<int> inactiveBreakpoints;
   final int? currentLine;
 
   _GutterPainter({
@@ -1707,6 +1840,7 @@ class _GutterPainter extends CustomPainter {
     required this.gutterWidth,
     required this.rightPadding,
     required this.breakpoints,
+    required this.inactiveBreakpoints,
     required this.currentLine,
   });
 
@@ -1735,6 +1869,10 @@ class _GutterPainter extends CustomPainter {
     final currentLinePaint = Paint()
       ..color = Colors.cyanAccent.withValues(alpha: 0.12);
     final breakpointPaint = Paint()..color = Colors.redAccent;
+    final inactiveBreakpointPaint = Paint()
+      ..color = Colors.white38
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
 
     for (int i = firstVisible; i <= lastVisible; i++) {
       final int metricIdx = i.clamp(0, lastMetric);
@@ -1761,7 +1899,14 @@ class _GutterPainter extends CustomPainter {
         );
       }
       if (breakpoints.contains(i + 1)) {
-        canvas.drawCircle(Offset(6, y + lineHeight / 2), 4, breakpointPaint);
+        final center = Offset(6, y + lineHeight / 2);
+        canvas.drawCircle(
+          center,
+          4,
+          inactiveBreakpoints.contains(i + 1)
+              ? inactiveBreakpointPaint
+              : breakpointPaint,
+        );
       }
 
       final bool isError = errorLines.contains(i + 1);
@@ -1787,6 +1932,7 @@ class _GutterPainter extends CustomPainter {
         lineMetrics != oldDelegate.lineMetrics ||
         gutterWidth != oldDelegate.gutterWidth ||
         breakpoints != oldDelegate.breakpoints ||
+        inactiveBreakpoints != oldDelegate.inactiveBreakpoints ||
         currentLine != oldDelegate.currentLine;
   }
 }

@@ -648,11 +648,11 @@ The debug bar below the editor header controls execution:
 * **Continue** — enabled only while the macro is paused; runs until the next breakpoint (or to the end).
 * **Stop** — cancels a running playback or debug session.
 
-**Breakpoints** — click a line number in the gutter to toggle a breakpoint (red dot). Breakpoints bind to executable statement lines; blank lines and comment-only lines are ignored.
+**Breakpoints** — click a line number in the gutter to toggle a breakpoint (red dot). Breakpoints bind to executable statement lines; blank lines and comment-only lines are ignored. Right-click an existing breakpoint for a context menu: delete it, enable or disable it, enable or disable all breakpoints, or delete all breakpoints. Disabled breakpoints are drawn hollow and do not pause execution.
 
 **Current line** — the statement being executed is highlighted in the gutter and in the editor, and the editor scrolls it into view. The status line names the statement.
 
-**Variables** — after each step a watch panel to the left of the editor lists the current macro variables (`name = value`). The sidebar is split into two equal halves: variables in the upper half and the print output below. It remains visible until the next session starts or the macro is edited.
+**Variables** — after each step a watch panel to the left of the editor lists the current macro variables (`name = value`). The values are selectable and can be copied. The sidebar is split into two equal halves: variables in the upper half and the print output below. It remains visible until the next session starts or the macro is edited.
 
 A debug session keeps the instrument connection and all macro variables alive between clicks. Starting a full playback, editing the macro, closing the editor, or leaving the Macro Recorder panel ends it. Stepping works on statements, not physical source lines: a compound statement is followed by the statements in its body.
 
