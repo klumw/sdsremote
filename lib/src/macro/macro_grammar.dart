@@ -120,7 +120,31 @@ class MacroGrammarDefinition extends GrammarDefinition {
           // accurate; const constructor calls would share one instance.
           .map((_) => Comment());
 
-  // ── connect("ip") | connect(usb) ────────────────────────────────────
+  // ── Device selector ─────────────────────────────────────────────────
+  //
+  // `SIG` addresses the signal generator configured in the settings; the
+  // one-argument forms keep addressing the oscilloscope:
+  //
+  //   connect(SIG, usb)   scpi(SIG, "…")   query(SIG, "…")
+  //
+  // The selector is only recognized together with its trailing comma, so a
+  // variable named `sig` still works in the one-argument forms.
+
+  /// Matches the `SIG` selector (case-insensitive) and its trailing comma.
+  Parser<String> deviceSelector() =>
+      (_ciKeyword(macroSignalGeneratorDevice) & char(',').trim()).map(
+        (_) => macroSignalGeneratorDevice,
+      );
+
+  /// Adds an optional device selector to [target].
+  Parser<_DeviceArg> _withDeviceSelector(Parser<_DeviceArg> target) => [
+    (ref0(deviceSelector) & target).map(
+      (r) => (r[1] as _DeviceArg).withDevice(r[0] as String),
+    ),
+    target,
+  ].toChoiceParser();
+
+  // ── connect("ip") | connect(usb) | connect(SIG, usb) ───────────────
 
   /// Builds a case-insensitive parser for [word].
   Parser<String> _ciKeyword(String word) {
@@ -143,20 +167,36 @@ class MacroGrammarDefinition extends GrammarDefinition {
   Parser<ConnectStmt> connectStmt() =>
       (_ciKeyword('connect').trim() &
               char('(').trim() &
-              (ref0(concatExpr) |
-                  ref0(stringLiteral).map((s) => (s, false)) |
-                  string('usb').map((_) => (null, false)) |
-                  ref0(identifier).map((s) => (s, true))) &
+              ref0(_connectArgs) &
               char(')'))
           .map((r) {
-            final arg = r[2];
-            if (arg is ConcatString) {
-              return ConnectStmt(null, concatString: arg);
+            final arg = r[2] as _DeviceArg;
+            if (arg.concatString != null) {
+              return ConnectStmt(
+                null,
+                device: arg.device,
+                concatString: arg.concatString,
+              );
             }
-            final (argStr, isVar) = arg as (String?, bool);
-            if (argStr == null && !isVar) return const ConnectStmt(null); // usb
-            return ConnectStmt(argStr, isVariable: isVar);
+            if (arg.text == null) {
+              return ConnectStmt(null, device: arg.device); // usb
+            }
+            return ConnectStmt(
+              arg.text,
+              device: arg.device,
+              isVariable: arg.isVariable,
+            );
           });
+
+  Parser<_DeviceArg> _connectArgs() =>
+      _withDeviceSelector(ref0(_connectTarget));
+
+  Parser<_DeviceArg> _connectTarget() => [
+    ref0(concatExpr).map((c) => _DeviceArg(concatString: c)),
+    ref0(stringLiteral).map((s) => _DeviceArg(text: s)),
+    string('usb').map((_) => const _DeviceArg()),
+    ref0(identifier).map((s) => _DeviceArg(text: s, isVariable: true)),
+  ].toChoiceParser();
 
   // ── wait(seconds) | wait(varName) ──────────────────────────────────
 
@@ -171,38 +211,51 @@ class MacroGrammarDefinition extends GrammarDefinition {
           });
 
   // ── scpi("CMD") | scpi(varName) | scpi("str" + var + "str") ───────
+  // ── scpi(SIG, <same argument forms>) ──────────────────────────────
 
   Parser<ScpiStmt> scpiStmt() =>
-      (string('scpi(').trim() &
-              (ref0(concatExpr) |
-                  ref0(stringLiteral).map((s) => (s, false)) |
-                  ref0(identifier).map((s) => (s, true))) &
-              char(')'))
-          .map((r) {
-            final arg = r[1];
-            if (arg is ConcatString) return ScpiStmt('', concatString: arg);
-            final (argStr, isVar) = arg as (String, bool);
-            return isVar
-                ? ScpiStmt(argStr, variableName: argStr)
-                : ScpiStmt(argStr);
-          });
+      (string('scpi(').trim() & ref0(_textArgs) & char(')')).map((r) {
+        final arg = r[1] as _DeviceArg;
+        if (arg.concatString != null) {
+          return ScpiStmt(
+            '',
+            device: arg.device,
+            concatString: arg.concatString,
+          );
+        }
+        final text = arg.text!;
+        return arg.isVariable
+            ? ScpiStmt(text, device: arg.device, variableName: text)
+            : ScpiStmt(text, device: arg.device);
+      });
+
+  /// A text argument with an optional `SIG` selector.
+  Parser<_DeviceArg> _textArgs() => _withDeviceSelector(ref0(_textTarget));
+
+  Parser<_DeviceArg> _textTarget() => [
+    ref0(concatExpr).map((c) => _DeviceArg(concatString: c)),
+    ref0(stringLiteral).map((s) => _DeviceArg(text: s)),
+    ref0(identifier).map((s) => _DeviceArg(text: s, isVariable: true)),
+  ].toChoiceParser();
 
   // ── query("CMD") | query(varName) | query("str" + var + "str") ─────
+  // ── query(SIG, <same argument forms>) ─────────────────────────────
 
   Parser<QueryStmt> queryStmt() =>
-      (string('query(').trim() &
-              (ref0(concatExpr) |
-                  ref0(stringLiteral).map((s) => (s, false)) |
-                  ref0(identifier).map((s) => (s, true))) &
-              char(')'))
-          .map((r) {
-            final arg = r[1];
-            if (arg is ConcatString) return QueryStmt('', concatString: arg);
-            final (argStr, isVar) = arg as (String, bool);
-            return isVar
-                ? QueryStmt(argStr, variableName: argStr)
-                : QueryStmt(argStr);
-          });
+      (string('query(').trim() & ref0(_textArgs) & char(')')).map((r) {
+        final arg = r[1] as _DeviceArg;
+        if (arg.concatString != null) {
+          return QueryStmt(
+            '',
+            device: arg.device,
+            concatString: arg.concatString,
+          );
+        }
+        final text = arg.text!;
+        return arg.isVariable
+            ? QueryStmt(text, device: arg.device, variableName: text)
+            : QueryStmt(text, device: arg.device);
+      });
 
   // ── <var> = <expr> ──────────────────────────────────────────────────
   //
@@ -233,19 +286,20 @@ class MacroGrammarDefinition extends GrammarDefinition {
   Parser<PrintItem> _textItem() => ref0(stringLiteral).map((s) => TextItem(s));
 
   Parser<PrintItem> _queryItem() =>
-      (string('query(').trim() &
-              (ref0(concatExpr) |
-                  ref0(stringLiteral).map((s) => (s, false)) |
-                  ref0(identifier).map((s) => (s, true))) &
-              char(')'))
-          .map((r) {
-            final arg = r[1];
-            if (arg is ConcatString) return QueryItem('', concatString: arg);
-            final (argStr, isVar) = arg as (String, bool);
-            return isVar
-                ? QueryItem(argStr, variableName: argStr)
-                : QueryItem(argStr);
-          });
+      (string('query(').trim() & ref0(_textArgs) & char(')')).map((r) {
+        final arg = r[1] as _DeviceArg;
+        if (arg.concatString != null) {
+          return QueryItem(
+            '',
+            device: arg.device,
+            concatString: arg.concatString,
+          );
+        }
+        final text = arg.text!;
+        return arg.isVariable
+            ? QueryItem(text, device: arg.device, variableName: text)
+            : QueryItem(text, device: arg.device);
+      });
 
   Parser<PrintItem> _variableItem() =>
       ref0(identifier).map((s) => VariableItem(s));
@@ -437,29 +491,37 @@ class MacroGrammarDefinition extends GrammarDefinition {
   // ── Inline query() and scpi() in expression context ─────────────────
 
   Parser<Expr> _queryExpr() =>
-      (string('query(').trim() &
-              (ref0(concatExpr) |
-                  ref0(stringLiteral).map((s) => (s, false)) |
-                  ref0(identifier).map((s) => (s, true))) &
-              char(')'))
-          .map((r) {
-            final arg = r[1];
-            if (arg is ConcatString) return QueryExpr('', concatString: arg);
-            final (argStr, isVar) = arg as (String, bool);
-            return isVar
-                ? QueryExpr(argStr, variableName: argStr)
-                : QueryExpr(argStr);
-          });
+      (string('query(').trim() & ref0(_textArgs) & char(')')).map((r) {
+        final arg = r[1] as _DeviceArg;
+        if (arg.concatString != null) {
+          return QueryExpr(
+            '',
+            device: arg.device,
+            concatString: arg.concatString,
+          );
+        }
+        final text = arg.text!;
+        return arg.isVariable
+            ? QueryExpr(text, device: arg.device, variableName: text)
+            : QueryExpr(text, device: arg.device);
+      });
 
   Parser<Expr> _scpiExpr() =>
-      (string('scpi(').trim() &
-              (ref0(stringLiteral).map((s) => (s, false)) |
-                  ref0(identifier).map((s) => (s, true))) &
-              char(')'))
-          .map((r) {
-            final (arg, isVar) = r[1] as (String, bool);
-            return isVar ? ScpiExpr(arg, variableName: arg) : ScpiExpr(arg);
-          });
+      (string('scpi(').trim() & ref0(_plainArgs) & char(')')).map((r) {
+        final arg = r[1] as _DeviceArg;
+        final text = arg.text!;
+        return arg.isVariable
+            ? ScpiExpr(text, device: arg.device, variableName: text)
+            : ScpiExpr(text, device: arg.device);
+      });
+
+  /// A literal/variable argument with an optional `SIG` selector.
+  Parser<_DeviceArg> _plainArgs() => _withDeviceSelector(ref0(_plainTarget));
+
+  Parser<_DeviceArg> _plainTarget() => [
+    ref0(stringLiteral).map((s) => _DeviceArg(text: s)),
+    ref0(identifier).map((s) => _DeviceArg(text: s, isVariable: true)),
+  ].toChoiceParser();
 
   // ── Boolean literals ────────────────────────────────────────────────
 
@@ -527,6 +589,32 @@ class MacroGrammarDefinition extends GrammarDefinition {
 }
 
 // ── Helper ───────────────────────────────────────────────────────────────
+
+/// One command argument plus its optional device selector.
+class _DeviceArg {
+  const _DeviceArg({
+    this.device,
+    this.text,
+    this.isVariable = false,
+    this.concatString,
+  });
+
+  /// Device selector (`SIG`), or `null` for the oscilloscope.
+  final String? device;
+
+  /// Literal text or variable name; `null` for the bare `usb` keyword.
+  final String? text;
+
+  final bool isVariable;
+  final ConcatString? concatString;
+
+  _DeviceArg withDevice(String value) => _DeviceArg(
+    device: value,
+    text: text,
+    isVariable: isVariable,
+    concatString: concatString,
+  );
+}
 
 /// Builds a left-associative binary expression chain from the initial
 /// left operand and a list of `(operator, rightOperand)` pairs.

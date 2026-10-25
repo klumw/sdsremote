@@ -33,28 +33,43 @@ bool hasInactiveMacroBreakpoint({
 /// status bar.
 String describeMacroStatement(Statement statement) {
   return switch (statement) {
-    ConnectStmt(:final ip, :final isVariable, :final concatString) =>
+    ConnectStmt(
+      :final ip,
+      :final isVariable,
+      :final concatString,
+      :final device,
+    ) =>
       concatString != null
-          ? 'connect(<expression>)'
+          ? 'connect(${_devicePrefix(device)}<expression>)'
           : ip == null
-          ? 'connect(usb)'
+          ? 'connect(${_devicePrefix(device)}usb)'
           : isVariable
-          ? 'connect($ip)'
-          : 'connect("$ip")',
+          ? 'connect(${_devicePrefix(device)}$ip)'
+          : 'connect(${_devicePrefix(device)}"$ip")',
     WaitStmt(:final seconds, :final variableName) =>
       variableName != null ? 'wait($variableName)' : 'wait($seconds)',
-    ScpiStmt(:final command, :final variableName, :final concatString) =>
+    ScpiStmt(
+      :final command,
+      :final variableName,
+      :final concatString,
+      :final device,
+    ) =>
       concatString != null
-          ? 'scpi(<expression>)'
+          ? 'scpi(${_devicePrefix(device)}<expression>)'
           : variableName != null
-          ? 'scpi($variableName)'
-          : 'scpi("$command")',
-    QueryStmt(:final command, :final variableName, :final concatString) =>
+          ? 'scpi(${_devicePrefix(device)}$variableName)'
+          : 'scpi(${_devicePrefix(device)}"$command")',
+    QueryStmt(
+      :final command,
+      :final variableName,
+      :final concatString,
+      :final device,
+    ) =>
       concatString != null
-          ? 'query(<expression>)'
+          ? 'query(${_devicePrefix(device)}<expression>)'
           : variableName != null
-          ? 'query($variableName)'
-          : 'query("$command")',
+          ? 'query(${_devicePrefix(device)}$variableName)'
+          : 'query(${_devicePrefix(device)}"$command")',
     AssignStmt(:final varName) => '$varName = <expression>',
     PrintStmt() => 'print(...)',
     AssertStmt(:final text, :final concatText) =>
@@ -72,3 +87,6 @@ String describeMacroStatement(Statement statement) {
     Comment() => '# comment',
   };
 }
+
+/// Comma-separated device selector for a description, or an empty string.
+String _devicePrefix(String? device) => device == null ? '' : '$device, ';

@@ -7,6 +7,7 @@ import '../instrument/dart_vxi11.dart';
 import 'macro_ast.dart';
 import 'macro_grammar.dart';
 import 'macro_print_formatter.dart';
+import 'macro_siggen.dart';
 
 /// Evaluates a macro [Program] by walking its AST and executing commands
 /// against a VXI-11 instrument.
@@ -22,6 +23,15 @@ class MacroEvaluator {
   final bool Function() isCancelled;
   final Future<void> Function(Duration duration) delay;
   final void Function(String message) onLog;
+
+  /// Opens the signal generator addressed by `connect(SIG, usb)`.
+  ///
+  /// The host application injects the connector; without one the `SIG`
+  /// commands report that signal generator support is unavailable.
+  final MacroSiggenConnector _siggenConnector;
+
+  /// Signal-generator session opened by `connect(SIG, usb)`.
+  MacroSiggenSession? _siggen;
 
   /// Called with the formatted output of each executed `print()` statement.
   ///
@@ -68,7 +78,8 @@ class MacroEvaluator {
     this.onLog = _defaultLog,
     this.onPrint,
     this.onBeforeStatement,
-  });
+    MacroSiggenConnector? siggenConnector,
+  }) : _siggenConnector = siggenConnector ?? unavailableMacroSiggenConnector;
 
   static Future<void> _defaultDelay(Duration duration) =>
       Future.delayed(duration);
@@ -138,10 +149,23 @@ class MacroEvaluator {
     return true;
   }
 
-  /// Close the instrument connection.
+  /// Close the oscilloscope and signal-generator connections.
   Future<void> close() async {
     await instrument?.close();
     instrument = null;
+    await _closeSiggen();
+  }
+
+  /// Closes the signal-generator session without failing the macro.
+  Future<void> _closeSiggen() async {
+    final session = _siggen;
+    _siggen = null;
+    if (session == null) return;
+    try {
+      await session.close();
+    } catch (e) {
+      onLog('Macro playback: closing the signal generator failed: $e');
+    }
   }
 
   // ── Statement evaluation ───────────────────────────────────────────
@@ -179,12 +203,16 @@ class MacroEvaluator {
             ? _resolveConcatString(concatMessage)
             : message;
         _error(resolved);
-      case ConnectStmt(:final ip, :final isVariable, :final concatString):
+      case ConnectStmt(
+        :final ip,
+        :final isVariable,
+        :final concatString,
+        :final device,
+      ):
         if (concatString != null) {
-          final resolved = _resolveConcatString(concatString);
-          await _evalConnect(resolved);
+          await _evalConnect(device, _resolveConcatString(concatString));
         } else {
-          await _evalConnect(ip, isVariable: isVariable);
+          await _evalConnect(device, ip, isVariable: isVariable);
         }
         await _doDelay();
       case WaitStmt(:final seconds, :final variableName):
@@ -205,45 +233,75 @@ class MacroEvaluator {
         onLog('Macro playback: wait(${variableName ?? duration} s)');
         final clamped = duration.clamp(0.0, 3600.0);
         await delay(Duration(milliseconds: (clamped * 1000).round()));
-      case ScpiStmt(:final command, :final variableName, :final concatString):
-        await _ensureDevice();
-        final resolved = concatString != null
-            ? _resolveConcatString(concatString)
-            : variableName != null
-            ? _resolveVar(variableName)
-            : command;
-        if (concatString == null &&
-            variableName != null &&
-            double.tryParse(resolved) != null) {
-          _error(
-            'Variable "$variableName" has value "$resolved" which is a '
-            'number, not a valid SCPI command string',
+      case ScpiStmt(
+        :final command,
+        :final variableName,
+        :final concatString,
+        :final device,
+      ):
+        if (device == macroSignalGeneratorDevice) {
+          final session = _requireSiggen();
+          final resolved = _resolveScpiText(
+            command: command,
+            variableName: variableName,
+            concatString: concatString,
+            kind: 'command',
           );
+          onLog('Macro playback: scpi(SIG, "$resolved")');
+          final response = await session.execute(resolved);
+          if (response != null) {
+            onLog('Macro query response: $response');
+          }
+        } else {
+          await _ensureDevice();
+          final resolved = _resolveScpiText(
+            command: command,
+            variableName: variableName,
+            concatString: concatString,
+            kind: 'command',
+          );
+          onLog('Macro playback: scpi("$resolved")');
+          await instrument!.writeString(resolved);
         }
-        onLog('Macro playback: scpi("$resolved")');
-        await instrument!.writeString(resolved);
         await _doDelay();
-      case QueryStmt(:final command, :final variableName, :final concatString):
-        await _ensureDevice();
-        await _drainEchoes();
-        final resolved = concatString != null
-            ? _resolveConcatString(concatString)
-            : variableName != null
-            ? _resolveVar(variableName)
-            : command;
-        if (concatString == null &&
-            variableName != null &&
-            double.tryParse(resolved) != null) {
-          _error(
-            'Variable "$variableName" has value "$resolved" which is a '
-            'number, not a valid SCPI query string',
+      case QueryStmt(
+        :final command,
+        :final variableName,
+        :final concatString,
+        :final device,
+      ):
+        if (device == macroSignalGeneratorDevice) {
+          final session = _requireSiggen();
+          final resolved = _resolveScpiText(
+            command: command,
+            variableName: variableName,
+            concatString: concatString,
+            kind: 'query',
           );
+          onLog('Macro playback: query(SIG, "$resolved")');
+          final response = await session.execute(resolved);
+          if (response == null) {
+            _error(
+              'query(SIG, "$resolved") returned no response; '
+              'use scpi(SIG, ...) for set commands',
+            );
+          }
+          onLog('Macro query response: $response');
+        } else {
+          await _ensureDevice();
+          await _drainEchoes();
+          final resolved = _resolveScpiText(
+            command: command,
+            variableName: variableName,
+            concatString: concatString,
+            kind: 'query',
+          );
+          onLog('Macro playback: query("$resolved")');
+          await instrument!.writeString(resolved);
+          final raw = await instrument!.readString();
+          final response = _cleanQueryResponse(raw, resolved);
+          onLog('Macro query response: $response');
         }
-        onLog('Macro playback: query("$resolved")');
-        await instrument!.writeString(resolved);
-        final raw = await instrument!.readString();
-        final response = _cleanQueryResponse(raw, resolved);
-        onLog('Macro query response: $response');
         await _doDelay();
       case AssignStmt(:final varName, :final value):
         // Resolve the unit before the assignment overwrites the variable; a
@@ -293,7 +351,18 @@ class MacroEvaluator {
 
   // ── Command implementations ────────────────────────────────────────
 
-  Future<void> _evalConnect(String? ip, {bool isVariable = false}) async {
+  Future<void> _evalConnect(
+    String? device,
+    String? ip, {
+    bool isVariable = false,
+  }) async {
+    if (device == macroSignalGeneratorDevice) {
+      if (ip != null) {
+        _error('connect(SIG, ...) only supports usb: use connect(SIG, usb)');
+      }
+      await _connectSignalGenerator();
+      return;
+    }
     await instrument?.close();
     if (ip == null) {
       onLog('Macro playback: connect via USB (USBTMC)');
@@ -307,6 +376,56 @@ class MacroEvaluator {
     Vxi11Instrument.isUsbMode = false;
     instrument = Vxi11Instrument(resolved, sourceLabel: 'macroPlay');
     await instrument!.open(timeoutSeconds: 5.0);
+  }
+
+  /// Opens the signal generator configured in the settings.
+  Future<void> _connectSignalGenerator() async {
+    onLog('Macro playback: connect(SIG, usb)');
+    await _closeSiggen();
+    try {
+      _siggen = await _siggenConnector();
+    } on MacroSiggenException {
+      rethrow;
+    } catch (e) {
+      throw MacroSiggenException('Signal generator connection failed: $e');
+    }
+  }
+
+  /// Returns the signal-generator session, or stops the macro if
+  /// `connect(SIG, usb)` has not run yet.
+  MacroSiggenSession _requireSiggen() {
+    final session = _siggen;
+    if (session == null) {
+      _error(
+        'No signal generator connected. '
+        'Add connect(SIG, usb) at the start of the macro.',
+      );
+    }
+    return session;
+  }
+
+  /// Resolves a `scpi()` / `query()` argument and rejects numeric variables,
+  /// which are never valid SCPI text.
+  String _resolveScpiText({
+    required String command,
+    required String? variableName,
+    required ConcatString? concatString,
+    required String kind,
+  }) {
+    final resolved = concatString != null
+        ? _resolveConcatString(concatString)
+        : variableName != null
+        ? _resolveVar(variableName)
+        : command;
+    if (concatString == null &&
+        variableName != null &&
+        double.tryParse(resolved) != null) {
+      _error(
+        'Variable "$variableName" has value "$resolved" which is a '
+        'number, not a valid SCPI $kind string',
+      );
+    }
+    return resolved;
   }
 
   String _resolveVar(String name) {
@@ -366,22 +485,37 @@ class MacroEvaluator {
         return varValue;
 
       // ── Query ─────────────────────────────────────────────────────
-      case QueryExpr(:final command, :final variableName, :final concatString):
+      case QueryExpr(
+        :final command,
+        :final variableName,
+        :final concatString,
+        :final device,
+      ):
+        if (device == macroSignalGeneratorDevice) {
+          final session = _requireSiggen();
+          final cmd = _resolveScpiText(
+            command: command,
+            variableName: variableName,
+            concatString: concatString,
+            kind: 'query',
+          );
+          final response = await session.execute(cmd);
+          if (response == null) {
+            _error(
+              'query(SIG, "$cmd") returned no response; '
+              'use scpi(SIG, ...) for set commands',
+            );
+          }
+          return response;
+        }
         await _ensureDevice();
         await _drainEchoes();
-        final cmd = concatString != null
-            ? _resolveConcatString(concatString)
-            : variableName != null
-            ? _resolveVar(variableName)
-            : command;
-        if (concatString == null &&
-            variableName != null &&
-            double.tryParse(cmd) != null) {
-          _error(
-            'Variable "$variableName" has value "$cmd" which is a '
-            'number, not a valid SCPI query string',
-          );
-        }
+        final cmd = _resolveScpiText(
+          command: command,
+          variableName: variableName,
+          concatString: concatString,
+          kind: 'query',
+        );
         await instrument!.writeString(cmd);
         final raw = await instrument!.readString();
         final response = _cleanQueryResponse(raw, cmd);
@@ -548,16 +682,26 @@ class MacroEvaluator {
   /// Handle `assert("text", scpi("CMD"))` — success if the command
   /// executes without error.
   Future<void> _evalAssertScpi(String text, ScpiExpr scpi) async {
-    await _ensureDevice();
-    final resolved = scpi.variableName != null
-        ? _resolveVar(scpi.variableName!)
-        : scpi.command;
-    if (scpi.variableName != null && double.tryParse(resolved) != null) {
-      _error(
-        'Variable "${scpi.variableName}" has value "$resolved" which is a '
-        'number, not a valid SCPI command string',
+    if (scpi.device == macroSignalGeneratorDevice) {
+      final session = _requireSiggen();
+      final resolved = _resolveScpiText(
+        command: scpi.command,
+        variableName: scpi.variableName,
+        concatString: null,
+        kind: 'command',
       );
+      onLog('Macro assert-scpi: "$text" scpi(SIG, "$resolved")');
+      await session.execute(resolved);
+      onLog('Macro assert: $text: scpi(SIG, "$resolved") → OK');
+      return;
     }
+    await _ensureDevice();
+    final resolved = _resolveScpiText(
+      command: scpi.command,
+      variableName: scpi.variableName,
+      concatString: null,
+      kind: 'command',
+    );
     onLog('Macro assert-scpi: "$text" scpi("$resolved")');
     await instrument!.writeString(resolved);
     onLog('Macro assert: $text: scpi("$resolved") → OK');
@@ -609,22 +753,40 @@ class MacroEvaluator {
         final value = _vars[name];
         if (value == null) _error('Variable "$name" is undefined in print()');
         return prettyPrintMacroValue(value, unit: _varUnits[name]);
-      case QueryItem(:final command, :final variableName, :final concatString):
-        await _ensureDevice();
-        await _drainEchoes();
-        final resolved = concatString != null
-            ? _resolveConcatString(concatString)
-            : variableName != null
-            ? _resolveVar(variableName)
-            : command;
-        if (concatString == null &&
-            variableName != null &&
-            double.tryParse(resolved) != null) {
-          _error(
-            'Variable "$variableName" has value "$resolved" which is a '
-            'number, not a valid SCPI query string',
+      case QueryItem(
+        :final command,
+        :final variableName,
+        :final concatString,
+        :final device,
+      ):
+        if (device == macroSignalGeneratorDevice) {
+          final session = _requireSiggen();
+          final resolved = _resolveScpiText(
+            command: command,
+            variableName: variableName,
+            concatString: concatString,
+            kind: 'query',
+          );
+          final response = await session.execute(resolved);
+          if (response == null) {
+            _error(
+              'query(SIG, "$resolved") returned no response; '
+              'use scpi(SIG, ...) for set commands',
+            );
+          }
+          return prettyPrintMacroValue(
+            response,
+            unit: inferMacroUnit(resolved),
           );
         }
+        await _ensureDevice();
+        await _drainEchoes();
+        final resolved = _resolveScpiText(
+          command: command,
+          variableName: variableName,
+          concatString: concatString,
+          kind: 'query',
+        );
         await instrument!.writeString(resolved);
         final raw = await instrument!.readString();
         final response = _cleanQueryResponse(raw, resolved);

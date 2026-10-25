@@ -713,6 +713,12 @@ connect(usb)
 ```
 Connects to the oscilloscope via USBTMC (USB) instead of network. The device is auto-detected — no IP address is needed. When recording a macro while the application is in USB connection mode, `connect(usb)` is automatically inserted instead of `connect("IP")`.
 
+```
+connect(SIG, usb)
+```
+
+Connects to the signal generator selected in **Settings → Signal Generator** (JDS6600 or FY6900). The generator type is read from the settings and the device is auto-detected on the USB serial ports. Playback stops with an error when no type is configured or no matching generator is reachable. A macro may contain one oscilloscope `connect` and one `connect(SIG, usb)`; both connections are independent.
+
 #### 7.5.2 SCPI Commands
 
 ```
@@ -734,6 +740,13 @@ myVar=query("C1:VDIV?")
 Sends a SCPI query and stores the cleaned response in a variable named `myVar`. Variable names may contain alphanumeric characters and underscores (`[a-zA-Z0-9_]+`). Variables persist for the duration of the playback session and can be used in conditions and `print` statements.
 
 > **Note:** The oscilloscope echoes every command back. The macro engine automatically drains these echoes before queries to prevent buffer overflows. Query responses are cleaned by stripping the command echo and trailing unit suffixes (e.g. `V`, `mV`, `%`).
+
+```
+scpi(SIG, "SOUR1:FREQ 1KHZ")
+query(SIG, "SOUR1:FREQ?")
+```
+
+The `SIG` selector sends the command to the signal generator connected with `connect(SIG, usb)` instead of the oscilloscope. These commands use the same SCPI driver as the signal generator window and the Bode plot, so only headers defined by that driver are accepted; an undefined header stops playback with a SCPI error (e.g. `-113`). `query(SIG, …)` returns the driver's response and can be used everywhere `query(…)` is allowed: as a statement, in assignments, in `print()`, and in conditions. Use `scpi(SIG, …)` for set commands and `query(SIG, …)` for queries.
 
 #### 7.5.3 Timing
 

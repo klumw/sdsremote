@@ -1778,13 +1778,16 @@ calculations that depend on query() results at runtime.
 ### connect
 - connect("192.168.1.100") opens a VXI-11 connection to the oscilloscope.
 - connect(usb) opens a USBTMC connection; the device is auto-detected.
-- Exactly one connect() statement belongs in a macro, normally as the first line. Any scpi(), query(), loadProfile(), or assert(..., scpi(...)) before connect() fails with "No device connected".
+- connect(SIG, usb) opens the signal generator selected in Settings → Signal Generator (JDS6600 or FY6900) over its USB serial port. It fails when no generator type is configured or no matching device is found.
+- Normally one oscilloscope connect() belongs in a macro, as the first line. A separate connect(SIG, usb) may be added for the generator; the two connections are independent.
+- Any scpi(), query(), loadProfile(), or assert(..., scpi(...)) for the oscilloscope before its connect() fails with "No device connected"; scpi(SIG, ...) or query(SIG, ...) before connect(SIG, usb) fails with "No signal generator connected".
 - The argument may be a string literal, a variable, or a concatenation such as "192.168." + subnet.
 
 ### scpi and query
 - scpi("C1:TRA ON") sends a command and reads no response.
 - query("C1:VDIV?") sends a query, reads the response, and logs it.
 - value = query("C1:VDIV?") stores the cleaned response in a variable.
+- scpi(SIG, "SOUR1:FREQ 1KHZ") and query(SIG, "SOUR1:FREQ?") address the configured signal generator. They use the generator's SCPI driver, so only headers that driver defines are accepted; an undefined header stops playback with a SCPI error (for example -113).
 - value = <expression> stores any expression result.
 - Arguments may be string literals, variables, or concatenations such as "C" + ch + ":VDIV?".
 - Use query() for commands ending in ? and scpi() for all other commands.

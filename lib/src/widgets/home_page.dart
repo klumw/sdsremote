@@ -68,6 +68,8 @@ import '../macro/macro_debug.dart';
 import 'macro_recorder_panel.dart';
 import 'macro_editor_panel.dart';
 import '../macro/macro_evaluator.dart';
+import '../macro/macro_siggen.dart';
+import '../macro/macro_siggen_app.dart';
 import '../ai/tools/vxi11_tool.dart' show onScpiCommandSent;
 
 class OsciHomePage extends StatefulWidget {
@@ -1519,12 +1521,10 @@ class _OsciHomePageState extends State<OsciHomePage>
       isCancelled: () => _macroPlaybackCancelled,
       delay: (duration) => Future.delayed(duration),
       onPrint: _macroPrintController.add,
+      siggenConnector: _connectMacroSignalGenerator,
     );
 
     final success = await evaluator.evaluateSource(source);
-
-    // Keep the instrument reference updated
-    _playbackInstrument = evaluator.instrument;
 
     // Set macro status for the header icon
     if (mounted) {
@@ -1539,8 +1539,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       });
     }
 
-    // Clean up the dedicated macro playback connection.
-    await _playbackInstrument?.close();
+    // Clean up the dedicated macro playback connections (oscilloscope and
+    // signal generator).
+    await evaluator.close();
     _playbackInstrument = null;
 
     AppLogger().log(
@@ -1563,6 +1564,14 @@ class _OsciHomePageState extends State<OsciHomePage>
       }
     }
   }
+
+  /// Opens the signal generator configured in the settings for a macro's
+  /// `connect(SIG, usb)` statement.
+  ///
+  /// The application's service is reused when available so macro playback and
+  /// the signal generator window never open the same serial port twice.
+  Future<MacroSiggenSession> _connectMacroSignalGenerator() =>
+      AppMacroSiggenConnector(service: _sigGenService).connect();
 
   /// Shows an error snackbar and logs the error.
   /// Also sets [_macroHadPlaybackError] if called during active playback.
@@ -1618,6 +1627,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       onPrint: _macroPrintController.add,
       onBeforeStatement: (statement) =>
           _onDebugBeforeStatement(session, statement),
+      siggenConnector: _connectMacroSignalGenerator,
     );
     session = _MacroDebugSession(evaluator);
 

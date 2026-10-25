@@ -368,6 +368,14 @@ class SignalGeneratorService extends ChangeNotifier
   @override
   ScpiError? popError() => _errors.isEmpty ? null : _errors.removeFirst();
 
+  /// Removes and returns the most recently queued SCPI error.
+  ///
+  /// Unlike [popError], which returns the oldest entry, this leaves errors
+  /// queued by other callers untouched. Macro playback uses it to attribute
+  /// exactly the error produced by one `scpi(SIG, …)` / `query(SIG, …)`
+  /// command.
+  ScpiError? takeLastError() => _errors.isEmpty ? null : _errors.removeLast();
+
   @override
   void clearErrors() => _errors.clear();
 

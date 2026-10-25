@@ -16,6 +16,12 @@
 /// ```
 library;
 
+/// Device selector of the signal generator in the two-argument command forms
+/// `connect(SIG, usb)`, `scpi(SIG, …)` and `query(SIG, …)`.
+///
+/// Commands without a selector keep addressing the oscilloscope.
+const String macroSignalGeneratorDevice = 'SIG';
+
 // ── Top-level program ───────────────────────────────────────────────────
 
 /// The root node containing all statements in a macro program.
@@ -35,8 +41,8 @@ class Comment extends Statement {
   const Comment();
 }
 
-/// `connect("ip")` or `connect(usb)` or `connect(varName)` or
-/// `connect("ip" + var + "suffix")`.
+/// `connect("ip")`, `connect(usb)`, `connect(varName)`,
+/// `connect("ip" + var + "suffix")` or `connect(SIG, usb)`.
 class ConnectStmt extends Statement {
   /// The IP address string, or `null` for USB mode.
   final String? ip;
@@ -48,7 +54,17 @@ class ConnectStmt extends Statement {
   /// must be resolved at evaluation time. Overrides [ip] / [isVariable].
   final ConcatString? concatString;
 
-  const ConnectStmt(this.ip, {this.isVariable = false, this.concatString});
+  /// Device selector from the two-argument form, or `null` for the
+  /// oscilloscope. [macroSignalGeneratorDevice] addresses the signal
+  /// generator configured in the settings.
+  final String? device;
+
+  const ConnectStmt(
+    this.ip, {
+    this.isVariable = false,
+    this.concatString,
+    this.device,
+  });
 }
 
 /// `wait(seconds)` or `wait(varName)`
@@ -61,8 +77,8 @@ class WaitStmt extends Statement {
   const WaitStmt(this.seconds, {this.variableName});
 }
 
-/// `scpi("CMD")` or `scpi(varName)` or `scpi("prefix" + var + "suffix")` —
-/// send a raw SCPI command.
+/// `scpi("CMD")`, `scpi(varName)`, `scpi("prefix" + var + "suffix")` or
+/// `scpi(SIG, …)` — send a raw SCPI command.
 class ScpiStmt extends Statement {
   final String command;
 
@@ -74,11 +90,20 @@ class ScpiStmt extends Statement {
   /// must be resolved at evaluation time. Overrides [command] / [variableName].
   final ConcatString? concatString;
 
-  const ScpiStmt(this.command, {this.variableName, this.concatString});
+  /// Device selector, or `null` for the oscilloscope. See
+  /// [macroSignalGeneratorDevice].
+  final String? device;
+
+  const ScpiStmt(
+    this.command, {
+    this.variableName,
+    this.concatString,
+    this.device,
+  });
 }
 
-/// `query("CMD")` or `query(varName)` or `query("prefix" + var + "suffix")` —
-/// send a SCPI query and read the response.
+/// `query("CMD")`, `query(varName)`, `query("prefix" + var + "suffix")` or
+/// `query(SIG, …)` — send a SCPI query and read the response.
 class QueryStmt extends Statement {
   final String command;
 
@@ -90,7 +115,16 @@ class QueryStmt extends Statement {
   /// must be resolved at evaluation time. Overrides [command] / [variableName].
   final ConcatString? concatString;
 
-  const QueryStmt(this.command, {this.variableName, this.concatString});
+  /// Device selector, or `null` for the oscilloscope. See
+  /// [macroSignalGeneratorDevice].
+  final String? device;
+
+  const QueryStmt(
+    this.command, {
+    this.variableName,
+    this.concatString,
+    this.device,
+  });
 }
 
 /// `<var> = <expr>` — evaluate an expression and store the result.
@@ -155,7 +189,7 @@ class VariableItem extends PrintItem {
 }
 
 /// An inline SCPI query in a print statement, e.g. `query("C1:TRA?")`,
-/// `query(varName)`, or `query("prefix" + var + "suffix")`.
+/// `query(varName)`, `query("prefix" + var + "suffix")` or `query(SIG, …)`.
 class QueryItem extends PrintItem {
   final String command;
 
@@ -167,7 +201,16 @@ class QueryItem extends PrintItem {
   /// must be resolved at evaluation time. Overrides [command] / [variableName].
   final ConcatString? concatString;
 
-  const QueryItem(this.command, {this.variableName, this.concatString});
+  /// Device selector, or `null` for the oscilloscope. See
+  /// [macroSignalGeneratorDevice].
+  final String? device;
+
+  const QueryItem(
+    this.command, {
+    this.variableName,
+    this.concatString,
+    this.device,
+  });
 }
 
 /// `print(<item> + <item> + ...)` — log concatenated text, variables,
@@ -195,11 +238,7 @@ class AssertStmt extends Statement {
   /// executes without error.  When it is anything else, truthiness is checked.
   final Expr condition;
 
-  const AssertStmt(
-    this.text,
-    this.condition, {
-    this.concatText,
-  });
+  const AssertStmt(this.text, this.condition, {this.concatText});
 }
 
 /// `loadProfile("path")` or `loadProfile("prefix" + var + "suffix")` —
@@ -318,8 +357,8 @@ class Variable extends Expr {
 
 // ── Inline SCPI operations ──────────────────────────────────────────────
 
-/// An inline SCPI query: `query("CMD")`, `query(varName)`, or
-/// `query("prefix" + var + "suffix")`.
+/// An inline SCPI query: `query("CMD")`, `query(varName)`,
+/// `query("prefix" + var + "suffix")` or `query(SIG, …)`.
 ///
 /// Evaluates to the instrument's response string.  In arithmetic context
 /// the response is parsed as a number.
@@ -334,10 +373,20 @@ class QueryExpr extends Expr {
   /// must be resolved at evaluation time. Overrides [command] / [variableName].
   final ConcatString? concatString;
 
-  const QueryExpr(this.command, {this.variableName, this.concatString});
+  /// Device selector, or `null` for the oscilloscope. See
+  /// [macroSignalGeneratorDevice].
+  final String? device;
+
+  const QueryExpr(
+    this.command, {
+    this.variableName,
+    this.concatString,
+    this.device,
+  });
 }
 
-/// An inline SCPI command: `scpi("CMD")` or `scpi(varName)`.
+/// An inline SCPI command: `scpi("CMD")`, `scpi(varName)` or
+/// `scpi(SIG, …)`.
 ///
 /// Produces no value; only valid in `assert()` as a success check.
 class ScpiExpr extends Expr {
@@ -347,7 +396,11 @@ class ScpiExpr extends Expr {
   /// SCPI command string, resolved at evaluation time.
   final String? variableName;
 
-  const ScpiExpr(this.command, {this.variableName});
+  /// Device selector, or `null` for the oscilloscope. See
+  /// [macroSignalGeneratorDevice].
+  final String? device;
+
+  const ScpiExpr(this.command, {this.variableName, this.device});
 }
 
 // ── Unary operations ────────────────────────────────────────────────────

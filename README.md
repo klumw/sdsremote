@@ -156,7 +156,7 @@ is running, and the child window closes together with the main application.
 
 ### Macro Recorder
 
-Record, edit and play back SCPI command sequences to automate repetitive measurement and configuration tasks. Supports variables, conditionals (`if`/`else`), loops (`while`), assertions, and both network (`connect("IP")`) and USB (`connect(usb)`) connections.
+Record, edit and play back SCPI command sequences to automate repetitive measurement and configuration tasks. Supports variables, conditionals (`if`/`else`), loops (`while`), assertions, and both network (`connect("IP")`) and USB (`connect(usb)`) connections. A macro can additionally address the configured signal generator over USB with `connect(SIG, usb)`, `scpi(SIG, …)` and `query(SIG, …)`.
 
 > ⚠️ USB connection support in macros is experimental.
 
@@ -476,7 +476,9 @@ Non-widget, domain-specific support code is grouped into subfolders under
   `bode_report.dart`.
 - `lib/src/macro/` — Macro language and recorder logic: `macro_ast.dart`,
   `macro_evaluator.dart`, `macro_grammar.dart`, `macro_lint_controller.dart`,
-  `macro_lint_error.dart`, `macro_linter.dart`, `macro_recorder_models.dart`.
+  `macro_lint_error.dart`, `macro_linter.dart`, `macro_recorder_models.dart`,
+  and the signal-generator connection seam `macro_siggen.dart` /
+  `macro_siggen_app.dart`.
 - `lib/src/waveform/` — Waveform models, conversion, acquisition, and rendering:
   `waveform_models.dart`, `waveform_converter.dart`, `waveform_acquisition.dart`,
   `waveform_painter.dart`, `cursor_geometry.dart`, plus the CSV/processing
