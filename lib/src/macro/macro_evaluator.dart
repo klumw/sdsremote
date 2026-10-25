@@ -6,6 +6,7 @@ import '../core/logger.dart';
 import '../instrument/dart_vxi11.dart';
 import 'macro_ast.dart';
 import 'macro_grammar.dart';
+import 'macro_print_formatter.dart';
 
 /// Evaluates a macro [Program] by walking its AST and executing commands
 /// against a VXI-11 instrument.
@@ -38,6 +39,10 @@ class MacroEvaluator {
   final Future<void> Function(Statement statement)? onBeforeStatement;
 
   final Map<String, String> _vars = {};
+
+  /// Display unit (`Hz` or `V`) of variables assigned from a recognized SCPI
+  /// measurement query. Used by `print()` to show readable values.
+  final Map<String, String> _varUnits = <String, String>{};
 
   /// 1-based source line of each parsed statement, used by the debugger for
   /// breakpoints and current-line highlighting.
@@ -116,6 +121,7 @@ class MacroEvaluator {
   /// Evaluate a previously parsed [Program].
   Future<bool> evaluate(Program program) async {
     _vars.clear();
+    _varUnits.clear();
     _echoesDrained = false;
     _breakRequested = false;
     _continueRequested = false;
@@ -240,6 +246,9 @@ class MacroEvaluator {
         onLog('Macro query response: $response');
         await _doDelay();
       case AssignStmt(:final varName, :final value):
+        // Resolve the unit before the assignment overwrites the variable; a
+        // query may use the target variable as its command.
+        final unit = _unitForAssignment(value);
         final result = await _evalExpr(value);
         final stored = switch (result) {
           double d => d.toStringAsFixed(4),
@@ -247,6 +256,11 @@ class MacroEvaluator {
           _ => result.toString(),
         };
         _vars[varName] = stored;
+        if (unit != null) {
+          _varUnits[varName] = unit;
+        } else {
+          _varUnits.remove(varName);
+        }
         onLog('Macro variable: $varName=$stored');
         await _doDelay();
       case PrintStmt(:final items):
@@ -581,7 +595,8 @@ class MacroEvaluator {
     for (final item in items) {
       buf.write(await _resolvePrintItem(item));
     }
-    final text = buf.toString();
+    // Normalize units, value labels and any remaining scientific notation.
+    final text = prettyPrintMacroText(buf.toString());
     onPrint?.call(text);
     onLog('Macro print: $text');
   }
@@ -593,7 +608,7 @@ class MacroEvaluator {
       case VariableItem(:final name):
         final value = _vars[name];
         if (value == null) _error('Variable "$name" is undefined in print()');
-        return value;
+        return prettyPrintMacroValue(value, unit: _varUnits[name]);
       case QueryItem(:final command, :final variableName, :final concatString):
         await _ensureDevice();
         await _drainEchoes();
@@ -612,8 +627,26 @@ class MacroEvaluator {
         }
         await instrument!.writeString(resolved);
         final raw = await instrument!.readString();
-        return _cleanQueryResponse(raw, resolved);
+        final response = _cleanQueryResponse(raw, resolved);
+        return prettyPrintMacroValue(response, unit: inferMacroUnit(resolved));
     }
+  }
+
+  /// Returns the display unit of [expr] when it is a measurement query with a
+  /// recognizable unit, or copies a variable that has one.
+  String? _unitForAssignment(Expr expr) {
+    if (expr is Variable) return _varUnits[expr.name];
+    if (expr is! QueryExpr) return null;
+
+    final String command;
+    if (expr.concatString != null) {
+      command = _resolveConcatString(expr.concatString!);
+    } else if (expr.variableName != null) {
+      command = _resolveVar(expr.variableName!);
+    } else {
+      command = expr.command;
+    }
+    return inferMacroUnit(command);
   }
 
   Future<void> _evalIf(

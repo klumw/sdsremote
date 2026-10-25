@@ -7,6 +7,7 @@ import '../ai/ai_settings.dart';
 import '../ai/macro_chat_controller.dart';
 import '../macro/macro_lint_controller.dart';
 import '../macro/macro_linter.dart';
+import '../macro/macro_print_controller.dart';
 import 'osci_chat_window.dart';
 
 /// A simple multi-line text editor for editing macro file content.
@@ -67,6 +68,12 @@ class MacroEditorPanel extends StatefulWidget {
   /// Variable values after the most recent step, shown in the watch panel.
   final Map<String, String> debugVariables;
 
+  /// Output of `print()` statements from the current playback.
+  ///
+  /// The left sidebar shows the variables in its upper half and these messages
+  /// in its lower half. When null, the lower half shows its empty state.
+  final MacroPrintController? printController;
+
   /// Breakpoint lines (1-based) set in this editor.
   final Set<int> breakpoints;
 
@@ -110,6 +117,7 @@ class MacroEditorPanel extends StatefulWidget {
     this.debugStatus,
     this.debugCurrentLine,
     this.debugVariables = const <String, String>{},
+    this.printController,
     this.breakpoints = const <int>{},
     this.onBreakpointsChanged,
     this.onPlay,
@@ -128,6 +136,7 @@ class MacroEditorPanel extends StatefulWidget {
 class _MacroEditorPanelState extends State<MacroEditorPanel> {
   late final MacroLintController _controller;
   final ScrollController _editorScrollController = ScrollController();
+  final ScrollController _printScrollController = ScrollController();
   bool _inProgrammaticEdit = false;
   String _lastNotifiedText = '';
   TextEditingValue _lastKnownValue = TextEditingValue.empty;
@@ -230,6 +239,29 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     // create the agent when the AI is already configured.
     _initMacroChat();
     _chat.addListener(_onMacroChatChanged);
+
+    // Keep the lower half of the output sidebar in sync with print output.
+    widget.printController?.addListener(_onPrintOutputChanged);
+    WidgetsBinding.instance.addPostFrameCallback((_) => _scrollPrintToBottom());
+  }
+
+  void _onPrintOutputChanged() {
+    if (!mounted) return;
+    setState(() {});
+    _scrollPrintToBottom();
+  }
+
+  /// Scrolls the print output to its newest message after the next frame.
+  void _scrollPrintToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_printScrollController.hasClients) return;
+      final extent = _printScrollController.position.maxScrollExtent;
+      _printScrollController.animateTo(
+        extent,
+        duration: const Duration(milliseconds: 150),
+        curve: Curves.easeOut,
+      );
+    });
   }
 
   /// Creates the owned controller (if any), registers the editor callbacks
@@ -260,6 +292,8 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     _chat.detachEditor();
     _ownedChatController?.dispose();
     _ownedChatController = null;
+    widget.printController?.removeListener(_onPrintOutputChanged);
+    _printScrollController.dispose();
     _editorFocusNode.dispose();
     _controller.removeListener(_onTextChanged);
     _controller.removeListener(_onLintRequired);
@@ -367,6 +401,12 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
       // open (e.g. after saving the settings dialog). The controller keeps
       // the agent and its history when the settings are unchanged.
       _chat.configure(widget.aiSettings);
+    }
+
+    if (widget.printController != oldWidget.printController) {
+      oldWidget.printController?.removeListener(_onPrintOutputChanged);
+      widget.printController?.addListener(_onPrintOutputChanged);
+      _scrollPrintToBottom();
     }
 
     if (widget.debugCurrentLine != oldWidget.debugCurrentLine &&
@@ -984,44 +1024,67 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   double _debugLineTop(int line) =>
       _editorContentTop + (line - 1) * _editorLineHeight - _scrollOffset;
 
-  /// Watch panel shown to the left of the editor while a debug session has
-  /// variables. It fills the available height and scrolls independently, so
-  /// large variable sets do not reduce the editor's height.
-  Widget _buildVariablesPanel(Map<String, String> variables) {
-    final entries = variables.entries.toList()
-      ..sort((a, b) => a.key.compareTo(b.key));
-
+  /// Left sidebar shown while the debugger has variables or print output
+  /// exists. It is split into two equally sized halves: variables on top and
+  /// print output below.
+  Widget _buildOutputSidebar(Map<String, String> variables) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 16, 0, 16),
       child: SizedBox(
         width: 220,
         child: Container(
-          key: const ValueKey('macro-variables-panel'),
+          key: const ValueKey('macro-output-sidebar'),
           decoration: BoxDecoration(
             color: const Color(0xFF0D0D0D),
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: const Color(0xFF475569)),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(7),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(child: _buildVariablesSection(variables)),
+                const Divider(
+                  height: 1,
+                  thickness: 1,
+                  color: Color(0xFF2A3A5A),
                 ),
-                child: Text(
-                  'Variables (${entries.length})',
-                  style: const TextStyle(
-                    color: Colors.cyanAccent,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+                Expanded(child: _buildPrintOutputSection()),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildVariablesSection(Map<String, String> variables) {
+    final entries = variables.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+
+    return Column(
+      key: const ValueKey('macro-variables-section'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildSidebarHeader(
+          icon: Icons.data_object,
+          title: 'Variables (${entries.length})',
+        ),
+        Expanded(
+          child: entries.isEmpty
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(10),
+                    child: Text(
+                      'No variables yet.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white38, fontSize: 11),
+                    ),
                   ),
-                ),
-              ),
-              Expanded(
-                child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                )
+              : SingleChildScrollView(
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -1042,10 +1105,99 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                     ],
                   ),
                 ),
-              ),
-            ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildPrintOutputSection() {
+    final controller = widget.printController;
+    final messages = controller?.messages ?? const <String>[];
+
+    return Column(
+      key: const ValueKey('macro-print-section'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _buildSidebarHeader(
+          icon: Icons.terminal,
+          title: 'Print Output',
+          trailing: IconButton(
+            icon: const Icon(
+              Icons.delete_sweep,
+              color: Colors.white54,
+              size: 15,
+            ),
+            tooltip: 'Clear print output',
+            onPressed: controller != null && controller.hasMessages
+                ? controller.clear
+                : null,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
           ),
         ),
+        Expanded(
+          child: messages.isEmpty
+              ? const Center(
+                  child: Padding(
+                    padding: EdgeInsets.all(10),
+                    child: Text(
+                      'No print output yet.',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white38, fontSize: 11),
+                    ),
+                  ),
+                )
+              : ListView.builder(
+                  controller: _printScrollController,
+                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+                  itemCount: messages.length,
+                  itemBuilder: (context, index) {
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 4),
+                      child: SelectableText(
+                        messages[index],
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 11,
+                          fontFamily: 'monospace',
+                          height: 1.4,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSidebarHeader({
+    required IconData icon,
+    required String title,
+    Widget? trailing,
+  }) {
+    return Container(
+      height: 30,
+      padding: const EdgeInsets.symmetric(horizontal: 10),
+      color: const Color(0xFF172A45),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.cyanAccent, size: 14),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              title,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          ?trailing,
+        ],
       ),
     );
   }
@@ -1334,8 +1486,9 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (widget.debugVariables.isNotEmpty)
-                  _buildVariablesPanel(widget.debugVariables),
+                if (widget.debugVariables.isNotEmpty ||
+                    (widget.printController?.hasMessages ?? false))
+                  _buildOutputSidebar(widget.debugVariables),
                 Expanded(
                   child: Column(
                     children: [

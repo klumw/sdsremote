@@ -13,6 +13,7 @@ import 'package:image/image.dart' as img;
 import '../app/app_config.dart';
 import '../app/app_theme.dart';
 import '../app/app_preferences.dart';
+import '../app/window_state.dart';
 import '../waveform/cursor_geometry.dart';
 import 'osci_toolbar_button.dart';
 import 'reference_file_picker_dialog.dart';
@@ -460,6 +461,8 @@ class _OsciHomePageState extends State<OsciHomePage>
     // flutter_controller_ = nullptr (engine shutdown) → PostQuitMessage(0)
     // — the proper, fast shutdown path.
     _stopBodeIfRunning();
+    // Remember the window geometry for the next launch.
+    await WindowStateStore.save();
     // The generator outputs are deliberately left in their current state:
     // shutting them off here would also switch the channels off on the next
     // application start.
@@ -1318,6 +1321,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         debugStatus: _macroDebugStatus,
         debugCurrentLine: _macroDebugCurrentLine,
         debugVariables: _macroDebugVariables,
+        printController: _macroPrintController,
         breakpoints: _macroBreakpoints,
         onBreakpointsChanged: (breakpoints) {
           setState(() => _macroBreakpoints = breakpoints);

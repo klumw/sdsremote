@@ -8,6 +8,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'src/app/app_theme.dart';
+import 'src/app/window_state.dart';
 import 'src/core/logger.dart';
 import 'src/signal_generator/siggen_window_client.dart';
 import 'src/signal_generator/siggen_window_protocol.dart';
@@ -68,14 +69,29 @@ void main(List<String> args) async {
     return;
   }
 
-  const windowOptions = WindowOptions(
-    size: Size(1400, 900),
-    minimumSize: Size(1400, 900),
+  // Restore the size and position saved when the application last closed.
+  // The position is dropped when it would no longer be visible on a connected
+  // display; the window is then centered.
+  final windowGeometry = await WindowStateStore.load();
+  final windowOptions = WindowOptions(
+    size: windowGeometry.size,
+    minimumSize: WindowGeometry.minimumSize,
     title: 'SDS-Remote',
-    center: true,
+    center: windowGeometry.position == null,
   );
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
     await windowManager.show();
+    final position = windowGeometry.position;
+    if (position != null) {
+      try {
+        await windowManager.setPosition(position);
+      } catch (error) {
+        AppLogger(
+          agentName: 'WindowState',
+          toolName: 'restore',
+        ).log('Could not restore window position: $error');
+      }
+    }
     await windowManager.focus();
   });
 

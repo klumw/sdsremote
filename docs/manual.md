@@ -184,6 +184,8 @@ Click the **SAVE CONFIGURATION** button to persist all settings. The application
 
 The status bar updates to reflect the new connection state. If `ONLINE` is shown, the oscilloscope is reachable and ready for operation.
 
+The main window's size and position are saved automatically when the application closes and restored on the next launch. If the saved position is no longer visible on a connected display (for example after disconnecting a monitor), the window opens centered instead.
+
 > **Note:** The API token is stored in plain text in the preferences file (`preferences/preferences.json`) within the application directory. Ensure appropriate file system permissions if working in a shared environment.
 
 ### 3.7 Signal Generator
@@ -605,7 +607,9 @@ The Macro Recorder panel is opened by clicking the **Macro Recorder** button in 
 
 **Print Output**
 
-As soon as a `print()` statement produces output during playback, a **Print Output** panel appears on the left of the panel, next to the macro file list. It lists the messages of the current playback, scrolls to the newest line, and can be cleared with the icon in its header. The panel is hidden while it contains no messages. Starting a new playback, recording a new macro, or loading another macro clears the output.
+As soon as a `print()` statement produces output during playback, a **Print Output** panel appears on the left of the panel, next to the macro file list. It lists the messages of the current playback, scrolls to the newest line, and can be cleared with the icon in its header. The panel is hidden while it contains no messages. Starting a new playback, recording a new macro, or loading another macro clears the output. While the Macro Editor is open, the same messages also appear in the lower half of its left output sidebar.
+
+Printed values are formatted for readability: frequencies use Hz, kHz or MHz, voltages use mV or V, and scientific notation (for example `8.000000E+3`) is never shown. The unit is taken from the SCPI query that produced the value when it is known; otherwise the label before the value (such as `Frequency:` or `Vpp:`) selects it.
 
 ### 7.2 Macro Editor
 
@@ -648,7 +652,7 @@ The debug bar below the editor header controls execution:
 
 **Current line** — the statement being executed is highlighted in the gutter and in the editor, and the editor scrolls it into view. The status line names the statement.
 
-**Variables** — after each step a watch panel to the left of the editor lists the current macro variables (`name = value`). It remains visible until the next session starts or the macro is edited.
+**Variables** — after each step a watch panel to the left of the editor lists the current macro variables (`name = value`). The sidebar is split into two equal halves: variables in the upper half and the print output below. It remains visible until the next session starts or the macro is edited.
 
 A debug session keeps the instrument connection and all macro variables alive between clicks. Starting a full playback, editing the macro, closing the editor, or leaving the Macro Recorder panel ends it. Stepping works on statements, not physical source lines: a compound statement is followed by the statements in its body.
 
