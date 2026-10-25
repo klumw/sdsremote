@@ -5,6 +5,10 @@ import 'dart:typed_data';
 import 'package:usbtmc_dart/usbtmc_dart.dart';
 import '../core/logger.dart';
 
+/// Invoked when the shared USB connection has been invalidated because a
+/// transfer failed fatally or the device disappeared.
+typedef UsbConnectionLostCallback = void Function();
+
 /// XDR encoding/decoding helper.
 /// All integers are big-endian 4-byte values.
 /// Opaque data is length-prefixed and padded to 4-byte boundaries.
@@ -350,6 +354,15 @@ String? parseWindowsSiglentUsbAddress(String output) {
 class Vxi11Instrument {
   static bool isUsbMode = false;
 
+  /// Called after [invalidateUsbConnection] has closed the shared USB
+  /// connection. The UI uses this to drop its cached instrument and mark the
+  /// device offline, so a replug can reconnect without an app restart.
+  static UsbConnectionLostCallback? onUsbConnectionLost;
+
+  /// Tracks an in-flight invalidation so concurrent opens wait for the old
+  /// handle to be closed instead of racing with it.
+  static Future<void>? _usbInvalidationInFlight;
+
   /// Exact error shown when a profile upload is attempted over USB.
   ///
   /// Applies to every supported oscilloscope: the USB bulk endpoint is
@@ -369,6 +382,61 @@ class Vxi11Instrument {
   static UsbtmcContext? _sharedUsbContext;
   static UsbtmcDevice? _sharedUsbDevice;
   static int _usbRefCount = 0;
+
+  /// Whether a shared USB device or context is currently held.
+  static bool get hasSharedUsbConnection =>
+      _sharedUsbDevice != null || _sharedUsbContext != null;
+
+  /// Whether [error] means the USB connection can no longer be used.
+  ///
+  /// IO_ERROR, NO_DEVICE, and PIPE leave the libusb handle dead; TIMEOUT and
+  /// other errors are treated as transient.
+  static bool isFatalUsbError(Object error) =>
+      error is UsbTransferException && error.isConnectionLost;
+
+  /// Closes and forgets the shared USB connection after a fatal transfer
+  /// error or when the device has disappeared.
+  ///
+  /// Safe to call repeatedly and when no connection is open. The
+  /// [onUsbConnectionLost] callback is invoked once per call so the UI can
+  /// drop its cached instrument and reconnect after a replug.
+  static Future<void> invalidateUsbConnection() {
+    return _usbInvalidationInFlight ??= _invalidateUsbConnection().whenComplete(
+      () {
+        _usbInvalidationInFlight = null;
+      },
+    );
+  }
+
+  static Future<void> _invalidateUsbConnection() async {
+    final device = _sharedUsbDevice;
+    final context = _sharedUsbContext;
+    _sharedUsbDevice = null;
+    _sharedUsbContext = null;
+    _usbRefCount = 0;
+
+    if (device != null) {
+      try {
+        await device.close();
+      } catch (_) {}
+    }
+    if (context != null) {
+      try {
+        await context.close();
+      } catch (_) {}
+    }
+
+    AppLogger().warning(
+      'USB: shared connection invalidated '
+      '(device=${device != null}, context=${context != null})',
+    );
+    try {
+      onUsbConnectionLost?.call();
+    } catch (e) {
+      // Never let a UI callback failure mask the original transfer error.
+      AppLogger().error('USB: connection-lost callback failed: $e');
+    }
+  }
 
   /// Per-instance flag: true if this instance contributed to the shared
   /// USB connection (incremented refcount in open).
@@ -398,6 +466,24 @@ class Vxi11Instrument {
   /// Returns the most recent error message.
   String lastError() => _lastError;
 
+  /// Runs a USB operation and invalidates the shared connection when the
+  /// failure means the device is gone or the pipe is broken.
+  ///
+  /// The original error is always rethrown so callers can report it. The
+  /// invalidation itself is awaited, which guarantees that no later open()
+  /// can reuse the dead handle.
+  Future<T> _runUsb<T>(Future<T> Function() operation) async {
+    try {
+      return await operation();
+    } catch (e) {
+      if (isFatalUsbError(e)) {
+        _lastError = e.toString();
+        await invalidateUsbConnection();
+      }
+      rethrow;
+    }
+  }
+
   /// Opens portmapper + VXI-11 connections and creates a link.
   Future<int> open({double timeoutSeconds = 10.0}) async {
     _timeoutMs = (timeoutSeconds * 1000).round();
@@ -405,6 +491,14 @@ class Vxi11Instrument {
 
     if (isUsbMode) {
       AppLogger().log('USB: ${src}Opening connection via USBTMC...');
+
+      // A fatal transfer error may still be tearing down the old handle.
+      // Wait for that to finish so we never claim or write on a handle that
+      // is being closed.
+      final pendingInvalidation = _usbInvalidationInFlight;
+      if (pendingInvalidation != null) {
+        await pendingInvalidation;
+      }
 
       // Use a shared singleton USB connection: only one UsbtmcContext/Device
       // per process.  Subsequent open() calls reuse the existing connection,
@@ -577,9 +671,11 @@ class Vxi11Instrument {
         _lastError = 'USB connection not open';
         throw StateError(_lastError);
       }
-      await _sharedUsbDevice!.command(
-        cmd,
-        timeout: timeout ?? Duration(milliseconds: _timeoutMs),
+      await _runUsb(
+        () => _sharedUsbDevice!.command(
+          cmd,
+          timeout: timeout ?? Duration(milliseconds: _timeoutMs),
+        ),
       );
       return;
     }
@@ -653,9 +749,11 @@ class Vxi11Instrument {
       // Send the profile data as-is, without any modifications.
       final payload = Uint8List.fromList(utf8.encode(data));
 
-      await _sharedUsbDevice!.profileWrite(
-        payload,
-        timeout: timeout ?? Duration(milliseconds: _timeoutMs),
+      await _runUsb(
+        () => _sharedUsbDevice!.profileWrite(
+          payload,
+          timeout: timeout ?? Duration(milliseconds: _timeoutMs),
+        ),
       );
       return;
     }
@@ -723,10 +821,12 @@ class Vxi11Instrument {
         throw StateError(_lastError);
       }
       try {
-        final bytes = await _sharedUsbDevice!.doRead(
-          maxLen,
-          useTermChar: true,
-          timeout: Duration(milliseconds: readTimeoutMs),
+        final bytes = await _runUsb(
+          () => _sharedUsbDevice!.doRead(
+            maxLen,
+            useTermChar: true,
+            timeout: Duration(milliseconds: readTimeoutMs),
+          ),
         );
         return utf8.decode(bytes).trim();
       } catch (e) {
@@ -788,10 +888,12 @@ class Vxi11Instrument {
         _lastError = 'USB connection not open';
         throw StateError(_lastError);
       }
-      final bytes = await _sharedUsbDevice!.doRead(
-        16 * 1024 * 1024,
-        useTermChar: false,
-        timeout: Duration(milliseconds: _timeoutMs),
+      final bytes = await _runUsb(
+        () => _sharedUsbDevice!.doRead(
+          16 * 1024 * 1024,
+          useTermChar: false,
+          timeout: Duration(milliseconds: _timeoutMs),
+        ),
       );
       return stripIeeeHeader(bytes);
     }
@@ -813,10 +915,12 @@ class Vxi11Instrument {
         _lastError = 'USB connection not open';
         throw StateError(_lastError);
       }
-      return await _sharedUsbDevice!.doRead(
-        16 * 1024 * 1024,
-        useTermChar: false,
-        timeout: Duration(milliseconds: _timeoutMs),
+      return await _runUsb(
+        () => _sharedUsbDevice!.doRead(
+          16 * 1024 * 1024,
+          useTermChar: false,
+          timeout: Duration(milliseconds: _timeoutMs),
+        ),
       );
     }
     await _writeString('SCDP');
@@ -835,10 +939,12 @@ class Vxi11Instrument {
         _lastError = 'USB connection not open';
         throw StateError(_lastError);
       }
-      return await _sharedUsbDevice!.doRead(
-        16 * 1024 * 1024,
-        useTermChar: false,
-        timeout: timeout ?? Duration(milliseconds: _timeoutMs),
+      return await _runUsb(
+        () => _sharedUsbDevice!.doRead(
+          16 * 1024 * 1024,
+          useTermChar: false,
+          timeout: timeout ?? Duration(milliseconds: _timeoutMs),
+        ),
       );
     }
     await _writeString(cmd, timeout: timeout);
@@ -1159,9 +1265,13 @@ class Vxi11Instrument {
   Future<void> close() async {
     if (_ownsUsbShare) {
       _ownsUsbShare = false;
-      _usbRefCount--;
-      if (_usbRefCount <= 0) {
-        _usbRefCount = 0;
+      // The shared connection may already have been invalidated by a fatal
+      // transfer error, which resets the counter to 0. Never let it go
+      // negative or close a connection that no longer exists.
+      if (_usbRefCount > 0) {
+        _usbRefCount--;
+      }
+      if (_usbRefCount == 0) {
         if (_sharedUsbDevice != null) {
           try {
             await _sharedUsbDevice!.close();

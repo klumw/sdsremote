@@ -463,7 +463,7 @@ class LibusbDevice implements UsbDevice {
 
       if (res < 0) {
         final errDesc = _libusbErrorString(res);
-        throw Exception('libusb bulk write error: $res ($errDesc)');
+        throw UsbTransferException(res, errDesc, 'bulk write');
       }
 
       return actualLengthPtr.value;
@@ -493,8 +493,7 @@ class LibusbDevice implements UsbDevice {
 
       if (res < 0) {
         final errDesc = _libusbErrorString(res);
-        // print('libusb: bulk_read FAILED: error code $res ($errDesc)');
-        throw Exception('libusb bulk read error: $res ($errDesc)');
+        throw UsbTransferException(res, errDesc, 'bulk read');
       }
 
       final readLen = actualLengthPtr.value;
@@ -539,7 +538,8 @@ class LibusbDevice implements UsbDevice {
       );
 
       if (res < 0) {
-        throw Exception('libusb control transfer error: $res');
+        final errDesc = _libusbErrorString(res);
+        throw UsbTransferException(res, errDesc, 'control transfer');
       }
 
       final out = Uint8List(data.length);

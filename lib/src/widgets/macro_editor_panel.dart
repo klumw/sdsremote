@@ -14,6 +14,8 @@ import 'osci_chat_window.dart';
 /// Displays a header with "Macro Editor" title and a Close button.
 /// The editable text area shows the macro commands and supports
 /// full editing via keyboard, with line numbers on the left side.
+///
+/// The AI assistant opens to the right of the editor.
 class MacroEditorPanel extends StatefulWidget {
   /// The initial content to populate the text editor with.
   final String initialContent;
@@ -955,35 +957,45 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
               ),
             ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.edit, color: Colors.cyanAccent, size: 20),
-                    const SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text(
-                          "Macro Editor",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        if (widget.loadedFileName != null)
-                          Text(
-                            '${widget.loadedFileName}${widget.isModified ? " *" : ""}',
-                            style: const TextStyle(
-                              color: Colors.cyanAccent,
-                              fontSize: 12,
+                Expanded(
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.edit,
+                        color: Colors.cyanAccent,
+                        size: 20,
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              "Macro Editor",
+                              style: TextStyle(
+                                color: Colors.white,
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                              ),
                             ),
-                          ),
-                      ],
-                    ),
-                  ],
+                            if (widget.loadedFileName != null)
+                              Text(
+                                '${widget.loadedFileName}${widget.isModified ? " *" : ""}',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.cyanAccent,
+                                  fontSize: 12,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
+                const SizedBox(width: 12),
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

@@ -22,6 +22,13 @@ class MacroEvaluator {
   final Future<void> Function(Duration duration) delay;
   final void Function(String message) onLog;
 
+  /// Called with the formatted output of each executed `print()` statement.
+  ///
+  /// Unlike [onLog], this receives only the print text, without the
+  /// `Macro print: ` prefix, so it can be shown verbatim in the Macro
+  /// Editor's print panel.
+  final void Function(String message)? onPrint;
+
   final Map<String, String> _vars = {};
   bool _echoesDrained = false;
   bool _breakRequested = false;
@@ -33,6 +40,7 @@ class MacroEvaluator {
     required this.isCancelled,
     this.delay = _defaultDelay,
     this.onLog = _defaultLog,
+    this.onPrint,
   });
 
   static Future<void> _defaultDelay(Duration duration) =>
@@ -530,7 +538,9 @@ class MacroEvaluator {
     for (final item in items) {
       buf.write(await _resolvePrintItem(item));
     }
-    onLog('Macro print: ${buf.toString()}');
+    final text = buf.toString();
+    onPrint?.call(text);
+    onLog('Macro print: $text');
   }
 
   Future<String> _resolvePrintItem(PrintItem item) async {

@@ -60,6 +60,7 @@ import '../signal_generator/siggen_window_server.dart';
 import 'bode_plot_panel.dart';
 import '../app/app_paths.dart';
 import '../macro/macro_recorder_models.dart';
+import '../macro/macro_print_controller.dart';
 import 'macro_recorder_panel.dart';
 import 'macro_editor_panel.dart';
 import '../macro/macro_evaluator.dart';
@@ -236,6 +237,11 @@ class _OsciHomePageState extends State<OsciHomePage>
   String? _macroStatusMessage;
   bool _macroHadPlaybackError = false;
 
+  /// Output of `print()` statements from the most recent playback. The Macro
+  /// Editor listens to this and shows its print panel as soon as a message
+  /// arrives.
+  final MacroPrintController _macroPrintController = MacroPrintController();
+
   // Macro playback
   Vxi11Instrument? _playbackInstrument;
 
@@ -285,6 +291,9 @@ class _OsciHomePageState extends State<OsciHomePage>
     windowManager.addListener(this);
     windowManager.setPreventClose(true);
     HardwareKeyboard.instance.addHandler(_onGlobalKeyEvent);
+    // Drop the cached instrument when a fatal USB error invalidates the
+    // shared connection, so a replug can reconnect without an app restart.
+    Vxi11Instrument.onUsbConnectionLost = _onUsbConnectionLost;
     _dlAnimationController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -339,6 +348,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   @override
   void dispose() {
+    Vxi11Instrument.onUsbConnectionLost = null;
     HardwareKeyboard.instance.removeHandler(_onGlobalKeyEvent);
     _disposeSigGenWindowSupport();
     final server = _sigGenWindowServer;
@@ -359,6 +369,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
     unawaited(_bodeService?.stop());
     _aiChatService.dispose();
+    _macroPrintController.dispose();
     _dlAnimationController.dispose();
     super.dispose();
   }
@@ -1290,6 +1301,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       hasContent: _currentMacroContent.trim().isNotEmpty,
       macroStatus: _macroStatus,
       macroStatusMessage: _macroStatusMessage,
+      printController: _macroPrintController,
       loadedFileName: _loadedMacroFileName,
       isModified: _isMacroModified,
       onRecord: _onMacroStart,
@@ -1326,6 +1338,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   void _onMacroStart() {
+    _macroPrintController.clear();
     setState(() {
       _macroStatus = null;
       _macroStatusMessage = null;
@@ -1371,6 +1384,8 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// list of supported commands.
   Future<void> _playMacro() async {
     _macroHadPlaybackError = false;
+    // A new playback starts with an empty print panel.
+    _macroPrintController.clear();
     final source = _currentMacroContent;
 
     if (source.trim().isEmpty) {
@@ -1385,6 +1400,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       onError: _showMacroError,
       isCancelled: () => _macroPlaybackCancelled,
       delay: (duration) => Future.delayed(duration),
+      onPrint: _macroPrintController.add,
     );
 
     final success = await evaluator.evaluateSource(source);
@@ -1522,6 +1538,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       final file = File('${dir.path}/$fileName');
       if (!await file.exists()) throw Exception('Macro file not found');
       final content = await file.readAsString();
+      _macroPrintController.clear();
       setState(() {
         _macroStatus = null;
         _currentMacroContent = content;
@@ -1899,6 +1916,38 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   bool _isPinging = false;
 
+  /// Called by [Vxi11Instrument] when a fatal USB transfer error invalidated
+  /// the shared connection (IO_ERROR, PIPE, NO_DEVICE).
+  ///
+  /// Drops the cached instrument synchronously, so the next operation opens a
+  /// fresh device, and marks the UI offline. Once the device is reachable
+  /// again, the ping timer reopens it — replugging is enough, no app restart.
+  void _onUsbConnectionLost() {
+    if (!_isUsb) {
+      // A USB operation from a previous connection mode is still unwinding;
+      // do not disturb the current (network) instrument.
+      return;
+    }
+    AppLogger().warning('USB connection lost; dropping cached instrument');
+    // _closeInstrument() clears _instrument before its first await, so no
+    // follow-up operation can reuse the dead instrument.
+    unawaited(_closeInstrument());
+    _markUsbDeviceOffline();
+  }
+
+  /// Marks the device offline and clears the cached identity after a USB
+  /// disconnect or a fatal transfer error.
+  void _markUsbDeviceOffline() {
+    if (!mounted) return;
+    setState(() {
+      _isOnline = false;
+      _deviceName = null;
+      _deviceModel = null;
+      _numChannels = 2;
+    });
+    _setFallbackWindowTitle();
+  }
+
   Future<void> _pingDevice() async {
     if (_isPinging || _isAcquiring || _isAcquiringWaveform || _bodeIsRunning) {
       return;
@@ -1908,24 +1957,31 @@ class _OsciHomePageState extends State<OsciHomePage>
     try {
       if (_isUsb) {
         final address = await Vxi11Instrument.detectLiveVisaAddress();
+        if (address == null) {
+          // The oscilloscope disappeared from the bus. Invalidate the shared
+          // handle and drop the cached instrument so a replug opens a fresh
+          // connection instead of retrying a dead one.
+          if (_instrument != null || Vxi11Instrument.hasSharedUsbConnection) {
+            await Vxi11Instrument.invalidateUsbConnection();
+          }
+          _markUsbDeviceOffline();
+          return;
+        }
+
         if (mounted) {
-          setState(() => _isOnline = address != null);
-          if (address != null) {
-            if (_deviceName == null) {
-              // Awaited so _isPinging stays set until the IDN query finishes;
-              // otherwise the next tick starts a second device query while
-              // this one is still in flight.
-              await _updateWindowTitle();
-            } else {
-              windowManager.setTitle(_deviceName!);
-              // Re-assert the name: a transient ping failure clears it (see
-              // _setFallbackWindowTitle) and _updateWindowTitle() is only
-              // called while _deviceName is still unknown, so the agent would
-              // otherwise never learn it again.
-              _aiChatService.updateInstrumentModel(_deviceModel);
-            }
+          setState(() => _isOnline = true);
+          if (_deviceName == null) {
+            // Awaited so _isPinging stays set until the IDN query finishes;
+            // otherwise the next tick starts a second device query while
+            // this one is still in flight.
+            await _updateWindowTitle();
           } else {
-            _setFallbackWindowTitle();
+            windowManager.setTitle(_deviceName!);
+            // Re-assert the name: a transient ping failure clears it (see
+            // _setFallbackWindowTitle) and _updateWindowTitle() is only
+            // called while _deviceName is still unknown, so the agent would
+            // otherwise never learn it again.
+            _aiChatService.updateInstrumentModel(_deviceModel);
           }
         }
       } else {
@@ -1947,7 +2003,11 @@ class _OsciHomePageState extends State<OsciHomePage>
         }
       }
     } catch (e) {
-      if (mounted) {
+      if (_isUsb) {
+        // Clear the cached identity so the next successful ping re-queries
+        // *IDN? after the device becomes reachable again.
+        _markUsbDeviceOffline();
+      } else if (mounted) {
         setState(() => _isOnline = false);
         _setFallbackWindowTitle();
       }

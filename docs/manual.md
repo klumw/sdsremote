@@ -588,7 +588,7 @@ The Macro Recorder panel is opened by clicking the **Macro Recorder** button in 
 
 **Action Buttons**
 
-* **Record** — Starts recording a new macro. All SCPI commands sent through the AI chat, the Control Panel, or loaded via profiles are captured into the macro. During recording, the button shows a blinking red dot and the label changes to "Recording...". Disabled during playback.
+* **New Record** — Starts recording a new macro. If the editor already contains a macro, a confirmation dialog (Cancel/OK) asks whether to overwrite it. All SCPI commands sent through the AI chat, the Control Panel, or loaded via profiles are captured into the macro. During recording, the button shows a blinking red dot and the label changes to "Recording...". Disabled during playback.
 * **Stop** — Stops the current recording or playback. During playback, the label changes to "Stop Playback". Only enabled when recording or playback is active.
 * **Play** — Executes the current macro content against the connected oscilloscope. Disabled during recording, playback, or when no macro content has been loaded or recorded.
 * **Edit** — Opens the **Macro Editor** (see section 7.2) with the current macro content for manual editing. Disabled during recording, playback, or when no macro content is available.
@@ -602,6 +602,10 @@ The Macro Recorder panel is opened by clicking the **Macro Recorder** button in 
 * Per-file actions:
   * **Load** (upload icon) — Loads the macro content into the editor. Only enabled when the device is online.
   * **Delete** (trash icon) — Permanently removes the macro file.
+
+**Print Output**
+
+As soon as a `print()` statement produces output during playback, a **Print Output** panel appears on the left of the panel, next to the macro file list. It lists the messages of the current playback, scrolls to the newest line, and can be cleared with the icon in its header. The panel is hidden while it contains no messages. Starting a new playback, recording a new macro, or loading another macro clears the output.
 
 ### 7.2 Macro Editor
 
@@ -647,7 +651,7 @@ Changes are applied immediately and are marked as unsaved. `Ctrl` + `Z` in the e
 ### 7.3 Recording a Macro
 
 1. Ensure the oscilloscope is connected and online.
-2. Open the **Macro Recorder** panel and click **Record**.
+2. Open the **Macro Recorder** panel and click **New Record**.
 3. A `connect("IP")` line is automatically inserted at the start of the macro (or `connect(usb)` if USB connection mode is active).
 4. Perform actions through the AI chat, Control Panel, or load a device profile — each SCPI command is automatically appended to the macro.
 5. Click **Stop** when finished.
@@ -1341,6 +1345,11 @@ Files are stored in various subfolders of the application directory, depending o
   * Verify device power and network connection
   * Ensure oscilloscope is not in standby
   * If in network mode, validate IP address, firewall (VXI-11 uses port 111)
+
+* **USB connection lost / `libusb bulk write error`**
+  * On IO_ERROR, PIPE and NO_DEVICE the application invalidates the shared USB connection and drops its cached instrument. If the oscilloscope is still enumerated, it reconnects automatically within a few seconds.
+  * If the device has disappeared from the bus (`lsusb` no longer lists it), unplug and replug the USB cable, or power-cycle the oscilloscope. After a replug no application restart is required.
+  * USB is less reliable than VXI-11; use the network connection for long-running macros and profile uploads.
 
 * **Waveform Acquisition Failure**
   * Ensure at least one channel is enabled
