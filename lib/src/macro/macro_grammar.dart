@@ -63,7 +63,15 @@ import 'macro_ast.dart';
 ///     -> '(' Expression ')'
 /// ```
 class MacroGrammarDefinition extends GrammarDefinition {
-  const MacroGrammarDefinition();
+  /// Optional callback invoked for every parsed statement with its start and
+  /// stop offsets in the source.
+  ///
+  /// The evaluator uses it to map AST statements to source lines, which the
+  /// Macro Editor debugger needs for breakpoints and current-line
+  /// highlighting.
+  final void Function(Statement statement, int start, int stop)? onStatement;
+
+  const MacroGrammarDefinition({this.onStatement});
 
   @override
   Parser<Program> start() => ref0(program).end();
@@ -75,22 +83,32 @@ class MacroGrammarDefinition extends GrammarDefinition {
 
   // ── Statement dispatcher ────────────────────────────────────────────
 
-  Parser<Statement> statement() => [
-    ref0(comment),
-    ref0(connectStmt),
-    ref0(waitStmt),
-    ref0(scpiStmt),
-    ref0(queryStmt),
-    ref0(assignStmt),
-    ref0(printStmt),
-    ref0(assertStmt),
-    ref0(loadProfileStmt),
-    ref0(ifStmt),
-    ref0(whileStmt),
-    ref0(failStmt),
-    ref0(breakStmt),
-    ref0(continueStmt),
-  ].toChoiceParser().trim();
+  Parser<Statement> statement() {
+    final parser = [
+      ref0(comment),
+      ref0(connectStmt),
+      ref0(waitStmt),
+      ref0(scpiStmt),
+      ref0(queryStmt),
+      ref0(assignStmt),
+      ref0(printStmt),
+      ref0(assertStmt),
+      ref0(loadProfileStmt),
+      ref0(ifStmt),
+      ref0(whileStmt),
+      ref0(failStmt),
+      ref0(breakStmt),
+      ref0(continueStmt),
+    ].toChoiceParser().trim();
+
+    final onStatement = this.onStatement;
+    if (onStatement == null) return parser;
+
+    return parser.token().map((token) {
+      onStatement(token.value, token.start, token.stop);
+      return token.value;
+    });
+  }
 
   // ── Comment ─────────────────────────────────────────────────────────
 
@@ -98,7 +116,9 @@ class MacroGrammarDefinition extends GrammarDefinition {
       (char('#') &
               any().starLazy(newline() | endOfInput()).flatten() &
               (newline() | endOfInput()))
-          .map((_) => const Comment());
+          // A fresh instance per comment keeps the statement→line map
+          // accurate; const constructor calls would share one instance.
+          .map((_) => Comment());
 
   // ── connect("ip") | connect(usb) ────────────────────────────────────
 
@@ -190,8 +210,9 @@ class MacroGrammarDefinition extends GrammarDefinition {
   // RHS: literal, variable, query(), arithmetic, comparison, or logical.
 
   Parser<AssignStmt> assignStmt() =>
-      (ref0(identifier) & char('=').trim() & ref0(expression))
-          .map((r) => AssignStmt(r[0] as String, r[2] as Expr));
+      (ref0(identifier) & char('=').trim() & ref0(expression)).map(
+        (r) => AssignStmt(r[0] as String, r[2] as Expr),
+      );
 
   // ── print(item + item + ...) ────────────────────────────────────────
 
@@ -304,10 +325,7 @@ class MacroGrammarDefinition extends GrammarDefinition {
               ref0(statement).star() &
               char('}'))
           .map((r) {
-            return WhileStmt(
-              r[2] as Expr,
-              (r[5] as List).cast<Statement>(),
-            );
+            return WhileStmt(r[2] as Expr, (r[5] as List).cast<Statement>());
           });
 
   // ── break / continue ───────────────────────────────────────────────
@@ -341,8 +359,9 @@ class MacroGrammarDefinition extends GrammarDefinition {
   // ── Level 8: Logical OR (lowest precedence) ─────────────────────────
 
   Parser<Expr> orExpression() =>
-      (ref0(andExpression) & (ref0(_orOp) & ref0(andExpression)).star())
-          .map((r) => _buildBinaryChain(r[0] as Expr, r[1] as List));
+      (ref0(andExpression) & (ref0(_orOp) & ref0(andExpression)).star()).map(
+        (r) => _buildBinaryChain(r[0] as Expr, r[1] as List),
+      );
 
   // ── Level 7: Logical AND ────────────────────────────────────────────
 
@@ -375,8 +394,7 @@ class MacroGrammarDefinition extends GrammarDefinition {
   // ── Level 3: Multiplicative (* /) ───────────────────────────────────
 
   Parser<Expr> multiplicativeExpression() =>
-      (ref0(unaryExpression) &
-              (ref0(_mulOp) & ref0(unaryExpression)).star())
+      (ref0(unaryExpression) & (ref0(_mulOp) & ref0(unaryExpression)).star())
           .map((r) => _buildBinaryChain(r[0] as Expr, r[1] as List));
 
   // ── Level 2: Unary (! -) ────────────────────────────────────────────
@@ -385,17 +403,20 @@ class MacroGrammarDefinition extends GrammarDefinition {
   // Unary minus can be chained (`--5` is allowed).
 
   Parser<Expr> unaryExpression() => [
-    (char('!').trim() & ref0(unaryNotOperand))
-        .map((r) => NotExpr(r[1] as Expr)),
-    (char('-').trim() & ref0(unaryExpression))
-        .map((r) => UnaryMinusExpr(r[1] as Expr)),
+    (char('!').trim() & ref0(unaryNotOperand)).map(
+      (r) => NotExpr(r[1] as Expr),
+    ),
+    (char('-').trim() & ref0(unaryExpression)).map(
+      (r) => UnaryMinusExpr(r[1] as Expr),
+    ),
     ref0(primaryExpression),
   ].toChoiceParser();
 
   /// Operand of `!` — excludes another `!` to prevent double negation.
   Parser<Expr> unaryNotOperand() => [
-    (char('-').trim() & ref0(unaryExpression))
-        .map((r) => UnaryMinusExpr(r[1] as Expr)),
+    (char('-').trim() & ref0(unaryExpression)).map(
+      (r) => UnaryMinusExpr(r[1] as Expr),
+    ),
     ref0(primaryExpression),
   ].toChoiceParser();
 
@@ -408,8 +429,9 @@ class MacroGrammarDefinition extends GrammarDefinition {
     ref0(_queryExpr),
     ref0(_scpiExpr),
     ref0(identifier).map((name) => Variable(name)),
-    (char('(').trim() & ref0(expression) & char(')').trim())
-        .map((r) => r[1] as Expr),
+    (char('(').trim() & ref0(expression) & char(')').trim()).map(
+      (r) => r[1] as Expr,
+    ),
   ].toChoiceParser();
 
   // ── Inline query() and scpi() in expression context ─────────────────

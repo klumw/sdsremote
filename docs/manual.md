@@ -635,6 +635,23 @@ Clicking the **Edit** button or the **Load** button on a file opens the Macro Ed
 | `Ctrl` + `Home` | Jump to document start |
 | `Ctrl` + `End` | Jump to document end |
 
+#### Debugging
+
+The debug bar below the editor header controls execution:
+
+* **Play** — starts a fresh debug run from the beginning and runs until the first breakpoint (or the end). Without breakpoints it behaves like the Play button in the Macro Recorder panel.
+* **Step** — starts a debug session on the first click and executes one statement; each further click executes the next statement. Stepping enters `if`/`while` bodies; comments are skipped.
+* **Continue** — enabled only while the macro is paused; runs until the next breakpoint (or to the end).
+* **Stop** — cancels a running playback or debug session.
+
+**Breakpoints** — click a line number in the gutter to toggle a breakpoint (red dot). Breakpoints bind to executable statement lines; blank lines and comment-only lines are ignored.
+
+**Current line** — the statement being executed is highlighted in the gutter and in the editor, and the editor scrolls it into view. The status line names the statement.
+
+**Variables** — after each step a watch panel lists the current macro variables (`name = value`). It remains visible until the next session starts or the macro is edited.
+
+A debug session keeps the instrument connection and all macro variables alive between clicks. Starting a full playback, editing the macro, closing the editor, or leaving the Macro Recorder panel ends it. Stepping works on statements, not physical source lines: a compound statement is followed by the statements in its body.
+
 #### AI Macro Assistant
 
 The **AI** button in the editor header (sparkle icon) opens a chat panel to the right of the editor. The button is enabled only when an AI provider, API token and model are configured in the settings (section 4).
@@ -647,6 +664,8 @@ The assistant works directly on the macro that is open in the editor:
 * Its system prompt contains the complete macro language reference, including `if`/`else` (no `else if`), `while` with the 100-iteration limit, `break`/`continue`, `assert`, `fail`, string concatenation, expressions and operator precedence.
 
 Changes are applied immediately and are marked as unsaved. `Ctrl` + `Z` in the editor restores the previous version. Press the AI button again to close the chat panel.
+
+The chat stays open, including its complete history, when the editor is closed and reopened later in the same session. An answer that is still streaming when the editor closes continues to update the transcript and is visible on reopen.
 
 ### 7.3 Recording a Macro
 

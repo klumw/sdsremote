@@ -31,6 +31,7 @@ import '../waveform/waveform_painter.dart';
 import '../waveform/waveform_view_transform.dart';
 import '../ai/ai_chat_service.dart';
 import '../ai/ai_settings.dart';
+import '../ai/macro_chat_controller.dart';
 import '../core/logger.dart';
 import 'osci_physical_panel.dart';
 import 'osci_chat_window.dart';
@@ -61,6 +62,8 @@ import 'bode_plot_panel.dart';
 import '../app/app_paths.dart';
 import '../macro/macro_recorder_models.dart';
 import '../macro/macro_print_controller.dart';
+import '../macro/macro_ast.dart';
+import '../macro/macro_debug.dart';
 import 'macro_recorder_panel.dart';
 import 'macro_editor_panel.dart';
 import '../macro/macro_evaluator.dart';
@@ -238,9 +241,32 @@ class _OsciHomePageState extends State<OsciHomePage>
   bool _macroHadPlaybackError = false;
 
   /// Output of `print()` statements from the most recent playback. The Macro
-  /// Editor listens to this and shows its print panel as soon as a message
-  /// arrives.
+  /// Recorder panel listens to this and shows its print panel as soon as a
+  /// message arrives.
   final MacroPrintController _macroPrintController = MacroPrintController();
+
+  /// Owns the Macro Editor's AI conversation. It lives as long as the home
+  /// page, so closing and reopening the editor keeps the chat open with its
+  /// complete history.
+  final MacroChatController _macroChatController = MacroChatController();
+
+  /// Active step-by-step debug session, if any.
+  _MacroDebugSession? _macroDebugSession;
+
+  /// Status text shown in the Macro Editor's debug bar.
+  String? _macroDebugStatus;
+
+  /// Guards against overlapping Step clicks while a session is being started.
+  bool _macroDebugStepPending = false;
+
+  /// Breakpoints set in the Macro Editor (1-based source lines).
+  Set<int> _macroBreakpoints = <int>{};
+
+  /// Source line of the statement currently highlighted in the editor.
+  int? _macroDebugCurrentLine;
+
+  /// Variables shown in the debug watch panel.
+  Map<String, String> _macroDebugVariables = <String, String>{};
 
   // Macro playback
   Vxi11Instrument? _playbackInstrument;
@@ -350,6 +376,12 @@ class _OsciHomePageState extends State<OsciHomePage>
   void dispose() {
     Vxi11Instrument.onUsbConnectionLost = null;
     HardwareKeyboard.instance.removeHandler(_onGlobalKeyEvent);
+    // Cancel a paused/running debug session without calling setState during
+    // dispose. Its run future closes the instrument and ignores the cleared
+    // session.
+    final debugSession = _macroDebugSession;
+    _macroDebugSession = null;
+    debugSession?.cancel();
     _disposeSigGenWindowSupport();
     final server = _sigGenWindowServer;
     _sigGenWindowServer = null;
@@ -369,6 +401,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
     unawaited(_bodeService?.stop());
     _aiChatService.dispose();
+    _macroChatController.dispose();
     _macroPrintController.dispose();
     _dlAnimationController.dispose();
     super.dispose();
@@ -1275,9 +1308,38 @@ class _OsciHomePageState extends State<OsciHomePage>
         loadedFileName: _loadedMacroFileName,
         isModified: _isMacroModified,
         aiSettings: _macroAiSettings,
+        chatController: _macroChatController,
+        isPlaying: _isMacroPlaying,
+        hasDebugSession: _macroDebugSession != null,
+        isDebugPaused: _macroDebugSession?.paused ?? false,
+        isDebugRunning:
+            _macroDebugSession != null &&
+            !(_macroDebugSession?.paused ?? false),
+        debugStatus: _macroDebugStatus,
+        debugCurrentLine: _macroDebugCurrentLine,
+        debugVariables: _macroDebugVariables,
+        breakpoints: _macroBreakpoints,
+        onBreakpointsChanged: (breakpoints) {
+          setState(() => _macroBreakpoints = breakpoints);
+        },
+        onPlay: _onMacroEditorPlay,
+        onStep: _onMacroEditorStep,
+        onContinue: _onMacroEditorContinue,
+        onStop: _onMacroStop,
         errorMessage: _macroHadPlaybackError ? _macroStatusMessage : null,
         onContentChanged: (content) {
           _currentMacroContent = content;
+          // Editing invalidates a paused debug session because its AST no
+          // longer matches the editor content.
+          if (_macroDebugSession != null) {
+            unawaited(_stopMacroDebugSession(status: 'Stopped (macro edited)'));
+          }
+          // Line numbers and variable values are stale after an edit.
+          final hadDebugState =
+              _macroDebugCurrentLine != null || _macroDebugVariables.isNotEmpty;
+          _macroDebugCurrentLine = null;
+          _macroDebugVariables = <String, String>{};
+          if (hadDebugState) setState(() {});
           // When a loaded file is edited, enable the Save button.
           if (_loadedMacroFileName != null && !_isMacroModified) {
             setState(() => _isMacroModified = true);
@@ -1285,6 +1347,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         },
         onSave: _isMacroModified ? _onMacroSave : null,
         onClose: () {
+          unawaited(_stopMacroDebugSession());
           setState(() {
             _showMacroEditor = false;
           });
@@ -1338,6 +1401,11 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   void _onMacroStart() {
+    unawaited(_stopMacroDebugSession());
+    _macroDebugStatus = null;
+    _macroBreakpoints = <int>{};
+    _macroDebugCurrentLine = null;
+    _macroDebugVariables = <String, String>{};
     _macroPrintController.clear();
     setState(() {
       _macroStatus = null;
@@ -1368,6 +1436,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     if (_isMacroPlaying) {
       _macroPlaybackCancelled = true;
     }
+    unawaited(_stopMacroDebugSession());
     if (_isMacroRecording) {
       onScpiCommandSent = null;
       setState(() {
@@ -1449,11 +1518,14 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// Shows an error snackbar and logs the error.
   /// Also sets [_macroHadPlaybackError] if called during active playback.
   void _showMacroError(String message) {
-    if (_isMacroPlaying) {
+    if (_isMacroPlaying || _macroDebugSession != null) {
       _macroHadPlaybackError = true;
       _macroStatus = 0; // show error icon immediately
     }
     _macroStatusMessage = message;
+    if (_macroDebugSession != null) {
+      _macroDebugStatus = 'Error';
+    }
     AppLogger().error('Macro error: $message');
     if (mounted) {
       setState(() {});
@@ -1461,8 +1533,265 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
   }
 
+  // ── Step-by-step debugger ─────────────────────────────────────────────
+
+  /// Starts a paused debug session for the current editor content.
+  ///
+  /// Returns the session once it is paused before its first executable
+  /// statement, or null when the macro is empty, failed to parse, or contains
+  /// no statements to execute.
+  Future<_MacroDebugSession?> _startMacroDebugSession() async {
+    final source = _currentMacroContent;
+    if (source.trim().isEmpty) {
+      _showMacroError('Macro is empty');
+      return null;
+    }
+
+    await _stopMacroDebugSession(status: 'Stopped');
+
+    _macroHadPlaybackError = false;
+    _macroStatus = null;
+    _macroStatusMessage = null;
+    _macroDebugCurrentLine = null;
+    _macroDebugVariables = <String, String>{};
+    _macroPrintController.clear();
+    _macroDebugStatus = 'Preparing…';
+    if (mounted) setState(() {});
+
+    late final _MacroDebugSession session;
+    final evaluator = MacroEvaluator(
+      onError: _showMacroError,
+      isCancelled: () => session.cancelled,
+      delay: (duration) => Future.any([
+        Future<void>.delayed(duration),
+        session.cancelSignal.future,
+      ]),
+      onPrint: _macroPrintController.add,
+      onBeforeStatement: (statement) =>
+          _onDebugBeforeStatement(session, statement),
+    );
+    session = _MacroDebugSession(evaluator);
+
+    final program = evaluator.parseSource(source);
+    if (program == null) {
+      _macroHadPlaybackError = true;
+      _macroStatus = 0;
+      _macroDebugStatus = 'Error (parse)';
+      if (mounted) setState(() {});
+      return null;
+    }
+
+    _macroDebugSession = session;
+    session.runFuture = _runMacroDebugSession(session, program);
+
+    // Wait until the evaluator pauses before the first statement. A macro
+    // without executable statements finishes immediately and marks the
+    // session as finished instead.
+    await session.armed.future;
+    if (session.finished || session.cancelled) {
+      if (identical(_macroDebugSession, session)) {
+        _macroDebugSession = null;
+      }
+      if (session.finished && !session.cancelled) {
+        _macroDebugStatus = 'Finished';
+      }
+      if (mounted) setState(() {});
+      return null;
+    }
+    return session;
+  }
+
+  Future<void> _runMacroDebugSession(
+    _MacroDebugSession session,
+    Program program,
+  ) async {
+    try {
+      final success = await session.evaluator.evaluate(program);
+      if (!session.cancelled) {
+        _macroDebugStatus = _macroHadPlaybackError
+            ? 'Error'
+            : success
+            ? 'Finished'
+            : 'Stopped';
+      }
+    } finally {
+      final isCurrentSession = identical(_macroDebugSession, session);
+      session.finished = true;
+      session.markArmed();
+      if (isCurrentSession) {
+        // Capture values assigned by the last statement, which has no
+        // following gate to read them.
+        session.variables = session.evaluator.variables;
+        _macroDebugVariables = session.variables;
+      }
+      try {
+        await session.evaluator.close();
+      } catch (_) {}
+      if (isCurrentSession) {
+        _macroDebugSession = null;
+      }
+      if (mounted) setState(() {});
+    }
+  }
+
+  /// Gate called by the evaluator before each non-comment statement.
+  Future<void> _onDebugBeforeStatement(
+    _MacroDebugSession session,
+    Statement statement,
+  ) async {
+    if (session.cancelled) return;
+
+    session.step++;
+    session.statement = describeMacroStatement(statement);
+    session.currentLine = session.evaluator.lineForStatement(statement);
+    session.variables = session.evaluator.variables;
+    _macroDebugCurrentLine = session.currentLine;
+    _macroDebugVariables = session.variables;
+
+    final line = session.currentLine;
+    final hitBreakpoint = line != null && _macroBreakpoints.contains(line);
+
+    // Continue mode: skip statements until the next breakpoint. The current
+    // line is still updated so the editor highlights what is executing.
+    if (session.runToBreakpoint && !hitBreakpoint) {
+      _macroDebugStatus = _macroBreakpoints.isEmpty
+          ? 'Running to end…'
+          : line == null
+          ? 'Running…'
+          : 'Running to breakpoint · line $line';
+      if (mounted && identical(_macroDebugSession, session)) {
+        setState(() {});
+      }
+      return;
+    }
+    session.runToBreakpoint = false;
+
+    session.paused = true;
+    final gate = Completer<void>();
+    session.gate = gate;
+    session.markArmed();
+    final prefix = hitBreakpoint ? 'Paused at breakpoint' : 'Paused';
+    _macroDebugStatus = '$prefix · Step ${session.step}: ${session.statement}';
+    if (mounted && identical(_macroDebugSession, session)) {
+      setState(() {});
+    }
+
+    await gate.future;
+
+    session.gate = null;
+    session.paused = false;
+    if (session.cancelled) return;
+    _macroDebugStatus = 'Running step ${session.step}…';
+    if (mounted && identical(_macroDebugSession, session)) {
+      setState(() {});
+    }
+  }
+
+  void _onMacroEditorStep() {
+    unawaited(_stepMacroDebugSession());
+  }
+
+  Future<void> _stepMacroDebugSession() async {
+    if (_macroDebugStepPending || _isMacroPlaying) return;
+    _macroDebugStepPending = true;
+
+    try {
+      var session = _macroDebugSession;
+      if (session == null) {
+        session = await _startMacroDebugSession();
+        if (session == null || !mounted) return;
+      }
+
+      final gate = session.gate;
+      if (gate == null || gate.isCompleted) return;
+
+      _macroDebugStatus = 'Running step ${session.step}…';
+      if (mounted) setState(() {});
+      gate.complete();
+    } finally {
+      _macroDebugStepPending = false;
+    }
+  }
+
+  void _onMacroEditorContinue() {
+    final session = _macroDebugSession;
+    if (session == null || !session.paused) return;
+
+    final gate = session.gate;
+    if (gate == null || gate.isCompleted) return;
+
+    session.runToBreakpoint = true;
+    _macroDebugStatus = 'Continuing…';
+    if (mounted) setState(() {});
+    gate.complete();
+  }
+
+  void _onMacroEditorPlay() {
+    unawaited(_runMacroDebugFromEditor());
+  }
+
+  /// Starts a fresh debug run from the beginning and lets it execute until
+  /// the first breakpoint (or the end). Continue resumes a paused session;
+  /// Play always restarts.
+  Future<void> _runMacroDebugFromEditor() async {
+    if (_macroDebugStepPending || _isMacroPlaying) return;
+    _macroDebugStepPending = true;
+
+    try {
+      // Starting a session stops any previous paused run.
+      final session = await _startMacroDebugSession();
+      if (session == null || !mounted) return;
+
+      // The first gate is paused before statement 1. If it sits on a
+      // breakpoint, stop there instead of executing it.
+      final line = session.currentLine;
+      if (line != null && _macroBreakpoints.contains(line)) {
+        _macroDebugStatus =
+            'Paused at breakpoint · Step ${session.step}: '
+            '${session.statement}';
+        if (mounted) setState(() {});
+        return;
+      }
+
+      final gate = session.gate;
+      if (gate == null || gate.isCompleted) return;
+
+      session.runToBreakpoint = true;
+      _macroDebugStatus = 'Running…';
+      if (mounted) setState(() {});
+      gate.complete();
+    } finally {
+      _macroDebugStepPending = false;
+    }
+  }
+
+  /// Cancels a running debug session and closes its instrument connection.
+  Future<void> _stopMacroDebugSession({String status = 'Stopped'}) async {
+    final session = _macroDebugSession;
+    if (session == null) return;
+
+    session.cancel();
+    _macroDebugStatus = status;
+    if (mounted) setState(() {});
+
+    final runFuture = session.runFuture;
+    if (runFuture != null) {
+      // Do not block forever on an in-flight device operation. The run's
+      // finally closes the instrument and clears the session.
+      await runFuture.timeout(const Duration(seconds: 2), onTimeout: () {});
+    }
+
+    if (identical(_macroDebugSession, session)) {
+      _macroDebugSession = null;
+    }
+    if (mounted) setState(() {});
+  }
+
   void _onMacroPlay() {
     AppLogger().log('Macro play requested');
+    _macroDebugStatus = null;
+    _macroDebugCurrentLine = null;
+    _macroDebugVariables = <String, String>{};
     setState(() => _macroStatus = null);
     _macroPlaybackCancelled = false;
     setState(() => _isMacroPlaying = true);
@@ -1472,6 +1801,9 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   void _onMacroEdit() {
+    _macroDebugStatus = null;
+    _macroDebugCurrentLine = null;
+    _macroDebugVariables = <String, String>{};
     setState(() {
       _macroStatus = null;
       _macroStatusMessage = null;
@@ -1538,6 +1870,11 @@ class _OsciHomePageState extends State<OsciHomePage>
       final file = File('${dir.path}/$fileName');
       if (!await file.exists()) throw Exception('Macro file not found');
       final content = await file.readAsString();
+      unawaited(_stopMacroDebugSession());
+      _macroDebugStatus = null;
+      _macroBreakpoints = <int>{};
+      _macroDebugCurrentLine = null;
+      _macroDebugVariables = <String, String>{};
       _macroPrintController.clear();
       setState(() {
         _macroStatus = null;
@@ -1654,6 +1991,12 @@ class _OsciHomePageState extends State<OsciHomePage>
     // Stop a running Bode sweep when leaving its panel.
     if (_activePanel == ActivePanel.bode && panel != ActivePanel.bode) {
       _stopBodeIfRunning();
+    }
+    // A debug session keeps an instrument connection open; stop it when
+    // leaving the macro recorder.
+    if (_activePanel == ActivePanel.macroRecorder &&
+        panel != ActivePanel.macroRecorder) {
+      unawaited(_stopMacroDebugSession());
     }
     setState(() {
       if (_activePanel == panel) {
@@ -3516,4 +3859,49 @@ class _SigGenWindowSink implements SigGenWindowEventSink {
 
   @override
   Future<void> pushState(SigGenWindowState state) => _push(state);
+}
+
+/// One step-by-step debugging run of the macro in the editor.
+///
+/// The evaluator runs in the background and pauses before every statement at
+/// [gate]. Releasing the gate executes that statement; [cancel] interrupts a
+/// paused gate and any in-flight `wait()` delay.
+class _MacroDebugSession {
+  final MacroEvaluator evaluator;
+
+  /// Completed when the first statement gate is reached, or when the run
+  /// ends without reaching one (empty or comment-only macro).
+  final Completer<void> armed = Completer<void>();
+
+  /// Completed when the session is cancelled. Races against `wait()` delays
+  /// so Stop takes effect immediately.
+  final Completer<void> cancelSignal = Completer<void>();
+
+  bool cancelled = false;
+  bool paused = false;
+  bool finished = false;
+  int step = 0;
+  String statement = '';
+  bool runToBreakpoint = false;
+  int? currentLine;
+  Map<String, String> variables = <String, String>{};
+  Completer<void>? gate;
+  Future<void>? runFuture;
+
+  _MacroDebugSession(this.evaluator);
+
+  void markArmed() {
+    if (!armed.isCompleted) armed.complete();
+  }
+
+  void cancel() {
+    if (cancelled) return;
+    cancelled = true;
+    if (!cancelSignal.isCompleted) cancelSignal.complete();
+    final pendingGate = gate;
+    if (pendingGate != null && !pendingGate.isCompleted) {
+      pendingGate.complete();
+    }
+    paused = false;
+  }
 }

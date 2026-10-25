@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../ai/ai_settings.dart';
-import '../ai/macro_ai_service.dart';
+import '../ai/macro_chat_controller.dart';
 import '../macro/macro_lint_controller.dart';
 import '../macro/macro_linter.dart';
 import 'osci_chat_window.dart';
@@ -38,6 +38,53 @@ class MacroEditorPanel extends StatefulWidget {
   /// in the header is then disabled.
   final AiSettings? aiSettings;
 
+  /// Optional controller that owns the AI conversation.
+  ///
+  /// The parent passes a long-lived controller so that closing and reopening
+  /// the editor keeps the chat open and preserves its complete history. When
+  /// null, the panel creates its own controller and disposes it with the
+  /// panel.
+  final MacroChatController? chatController;
+
+  /// Whether the complete macro is currently being played.
+  final bool isPlaying;
+
+  /// Whether a step-by-step debug session is active.
+  final bool hasDebugSession;
+
+  /// Whether the debug session is paused before a statement.
+  final bool isDebugPaused;
+
+  /// Whether a step is currently executing (session active, not paused).
+  final bool isDebugRunning;
+
+  /// Status text shown in the debug bar (e.g. the statement about to run).
+  final String? debugStatus;
+
+  /// 1-based source line of the statement being executed or paused at.
+  final int? debugCurrentLine;
+
+  /// Variable values after the most recent step, shown in the watch panel.
+  final Map<String, String> debugVariables;
+
+  /// Breakpoint lines (1-based) set in this editor.
+  final Set<int> breakpoints;
+
+  /// Called when the user toggles a breakpoint in the gutter.
+  final ValueChanged<Set<int>>? onBreakpointsChanged;
+
+  /// Starts a full playback of the current editor content.
+  final VoidCallback? onPlay;
+
+  /// Executes the next statement in the debug session.
+  final VoidCallback? onStep;
+
+  /// Continues the debug session until the next breakpoint (or the end).
+  final VoidCallback? onContinue;
+
+  /// Stops a running playback or debug session.
+  final VoidCallback? onStop;
+
   /// Called whenever the user modifies the text content.
   final ValueChanged<String> onContentChanged;
 
@@ -55,6 +102,20 @@ class MacroEditorPanel extends StatefulWidget {
     this.isModified = false,
     this.errorMessage,
     this.aiSettings,
+    this.chatController,
+    this.isPlaying = false,
+    this.hasDebugSession = false,
+    this.isDebugPaused = false,
+    this.isDebugRunning = false,
+    this.debugStatus,
+    this.debugCurrentLine,
+    this.debugVariables = const <String, String>{},
+    this.breakpoints = const <int>{},
+    this.onBreakpointsChanged,
+    this.onPlay,
+    this.onStep,
+    this.onContinue,
+    this.onStop,
     required this.onContentChanged,
     required this.onClose,
     this.onSave,
@@ -75,10 +136,13 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   Set<int> _errorLines = {};
 
   /// AI assistant state.
-  MacroAiService? _macroAiService;
-  bool _showMacroChat = false;
-  final List<Map<String, String>> _macroChatMessages = [];
-  bool _isMacroChatting = false;
+  ///
+  /// A controller passed by the parent outlives the panel; without one the
+  /// panel owns a controller for its own lifetime.
+  MacroChatController? _ownedChatController;
+
+  MacroChatController get _chat =>
+      widget.chatController ?? _ownedChatController!;
 
   /// Focus node of the editor's text field.
   ///
@@ -88,6 +152,13 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   final FocusNode _editorFocusNode = FocusNode();
 
   static const Duration _lintDelay = Duration(milliseconds: 300);
+
+  // Layout constants of the editor text area. They are used for the debug
+  // line highlight, auto-scroll, and gutter hit testing; keep them in sync
+  // with _editorTextStyle and the TextField content padding.
+  static const double _editorLineHeight = 19.5;
+  static const double _editorContentTop = 18.0;
+  static const double _gutterTopPadding = 12.0;
 
   /// Pre-computed line metrics measured by running the editor's text
   /// through the same [TextPainter] configuration that [RenderEditable]
@@ -155,15 +226,40 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     // on Linux) consumes it.
     HardwareKeyboard.instance.addHandler(_hardwareKeyHandler);
 
-    // Create the macro AI agent when the AI is already configured.
-    _configureMacroAiService();
+    // Attach this editor to the (possibly shared) AI chat controller and
+    // create the agent when the AI is already configured.
+    _initMacroChat();
+    _chat.addListener(_onMacroChatChanged);
+  }
+
+  /// Creates the owned controller (if any), registers the editor callbacks
+  /// and configures the agent for the current AI settings.
+  void _initMacroChat() {
+    if (widget.chatController == null) {
+      _ownedChatController = MacroChatController();
+    }
+    _chat.attachEditor(
+      readMacro: () => mounted ? _controller.text : '',
+      writeMacro: _applyAiMacroEdit,
+      macroFileName: () => widget.loadedFileName,
+    );
+    _chat.configure(widget.aiSettings);
+  }
+
+  void _onMacroChatChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
   void dispose() {
     _lintDebounce?.cancel();
     HardwareKeyboard.instance.removeHandler(_hardwareKeyHandler);
-    _macroAiService?.dispose();
+    // Detach instead of disposing a controller owned by the parent: the
+    // transcript and agent must survive until the editor is opened again.
+    _chat.removeListener(_onMacroChatChanged);
+    _chat.detachEditor();
+    _ownedChatController?.dispose();
+    _ownedChatController = null;
     _editorFocusNode.dispose();
     _controller.removeListener(_onTextChanged);
     _controller.removeListener(_onLintRequired);
@@ -257,13 +353,25 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
       _updateLineCount();
     }
 
-    // Reconfigure the macro agent when the AI settings change while the
-    // editor is open (e.g. after saving the settings dialog).
-    if (widget.aiSettings != oldWidget.aiSettings) {
-      _configureMacroAiService();
-      if (widget.aiSettings == null) {
-        _showMacroChat = false;
-      }
+    // A different shared controller means this panel moved to a new owner.
+    if (widget.chatController != oldWidget.chatController) {
+      final oldChat = oldWidget.chatController ?? _ownedChatController;
+      oldChat?.removeListener(_onMacroChatChanged);
+      oldChat?.detachEditor();
+      _ownedChatController?.dispose();
+      _ownedChatController = null;
+      _initMacroChat();
+      _chat.addListener(_onMacroChatChanged);
+    } else if (widget.aiSettings != oldWidget.aiSettings) {
+      // Reconfigure the agent when the AI settings change while the editor is
+      // open (e.g. after saving the settings dialog). The controller keeps
+      // the agent and its history when the settings are unchanged.
+      _chat.configure(widget.aiSettings);
+    }
+
+    if (widget.debugCurrentLine != oldWidget.debugCurrentLine &&
+        widget.debugCurrentLine != null) {
+      _scrollToDebugLine(widget.debugCurrentLine!);
     }
   }
 
@@ -810,34 +918,237 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
         : 0.0;
   }
 
+  // ── Debug bar ────────────────────────────────────────────────────────
+
+  /// Maps a local y in the gutter to a 1-based source line.
+  ///
+  /// Uses the same line metrics and baseline offset as [_GutterPainter] so a
+  /// click maps to exactly the line whose number is drawn at that position.
+  int? _lineAtGutterOffset(double localY) {
+    final metrics = _lineMetrics;
+    if (metrics == null || metrics.isEmpty) return null;
+
+    for (var i = 0; i < metrics.length; i++) {
+      final top =
+          _gutterTopPadding +
+          metrics[i].baseline -
+          _scrollOffset -
+          _gutterBaselineOffset;
+      if (localY >= top && localY < top + metrics[i].height) {
+        return i + 1;
+      }
+    }
+    return null;
+  }
+
+  /// Toggles a breakpoint on the gutter line at [localY].
+  void _toggleBreakpointAt(double localY) {
+    final onChanged = widget.onBreakpointsChanged;
+    if (onChanged == null) return;
+
+    final line = _lineAtGutterOffset(localY);
+    if (line == null || line < 1 || line > _lineCount) return;
+
+    // Breakpoints only make sense on lines that contain a statement.
+    final sourceLines = _controller.text.split('\n');
+    final source = line <= sourceLines.length
+        ? sourceLines[line - 1].trim()
+        : '';
+    if (source.isEmpty || source.startsWith('#')) return;
+
+    final next = Set<int>.of(widget.breakpoints);
+    if (!next.add(line)) next.remove(line);
+    onChanged(next);
+  }
+
+  /// Scrolls the editor so the current debug line is visible.
+  void _scrollToDebugLine(int line) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_editorScrollController.hasClients) return;
+      final position = _editorScrollController.position;
+      final lineTop = _editorContentTop + (line - 1) * _editorLineHeight;
+      final lineBottom = lineTop + _editorLineHeight;
+      final viewTop = position.pixels;
+      final viewBottom = viewTop + position.viewportDimension;
+      if (lineTop < viewTop || lineBottom > viewBottom) {
+        final target = (lineTop - position.viewportDimension / 2).clamp(
+          0.0,
+          position.maxScrollExtent,
+        );
+        position.jumpTo(target);
+      }
+    });
+  }
+
+  /// Top offset of [line] inside the editor's scroll view.
+  double _debugLineTop(int line) =>
+      _editorContentTop + (line - 1) * _editorLineHeight - _scrollOffset;
+
+  Widget _buildVariablesPanel(Map<String, String> variables) {
+    final entries = variables.entries.toList()
+      ..sort((a, b) => a.key.compareTo(b.key));
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Container(
+        constraints: const BoxConstraints(maxHeight: 120),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0D0D0D),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFF475569)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              child: Text(
+                'Variables (${entries.length})',
+                style: const TextStyle(
+                  color: Colors.cyanAccent,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(10, 0, 10, 8),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    for (final entry in entries)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 3),
+                        child: Text(
+                          '${entry.key} = ${entry.value}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDebugBar() {
+    final hasContent = _controller.text.trim().isNotEmpty;
+    final canPlay =
+        widget.onPlay != null &&
+        !widget.isPlaying &&
+        !widget.isDebugRunning &&
+        hasContent;
+    final canStep =
+        widget.onStep != null &&
+        !widget.isPlaying &&
+        hasContent &&
+        (!widget.hasDebugSession || widget.isDebugPaused);
+    final canContinue =
+        widget.onContinue != null &&
+        !widget.isPlaying &&
+        hasContent &&
+        widget.hasDebugSession &&
+        widget.isDebugPaused;
+    final canStop =
+        widget.onStop != null && (widget.isPlaying || widget.hasDebugSession);
+
+    final status = widget.isPlaying
+        ? 'Running full macro…'
+        : widget.debugStatus ?? 'Idle';
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF1E1E1E).withValues(alpha: 0.95),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.5)),
+        ),
+        child: Row(
+          children: [
+            _buildDebugButton(
+              label: 'Play',
+              icon: Icons.play_arrow,
+              color: Colors.green[800]!,
+              onPressed: canPlay ? widget.onPlay : null,
+            ),
+            const SizedBox(width: 8),
+            _buildDebugButton(
+              label: 'Step',
+              icon: Icons.skip_next,
+              color: Colors.blue[800]!,
+              onPressed: canStep ? widget.onStep : null,
+            ),
+            const SizedBox(width: 8),
+            _buildDebugButton(
+              label: 'Continue',
+              icon: Icons.fast_forward,
+              color: Colors.teal[800]!,
+              onPressed: canContinue ? widget.onContinue : null,
+            ),
+            const SizedBox(width: 8),
+            _buildDebugButton(
+              label: 'Stop',
+              icon: Icons.stop,
+              color: Colors.orange[800]!,
+              onPressed: canStop ? widget.onStop : null,
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                status,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(
+                  color: Colors.white70,
+                  fontSize: 11,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDebugButton({
+    required String label,
+    required IconData icon,
+    required Color color,
+    required VoidCallback? onPressed,
+  }) {
+    return ElevatedButton.icon(
+      onPressed: onPressed,
+      icon: Icon(icon, size: 16),
+      label: Text(label, style: const TextStyle(fontSize: 11)),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: onPressed == null ? Colors.grey[800]! : color,
+        foregroundColor: onPressed == null ? Colors.white38 : Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        minimumSize: Size.zero,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
+      ),
+    );
+  }
+
   // ── AI assistant ─────────────────────────────────────────────────────
 
   /// Whether the AI assistant is configured and its agent was created.
   bool get _isAiAvailable =>
-      widget.aiSettings?.isConfigured == true && _macroAiService != null;
-
-  /// Creates (or recreates) the macro agent with the current AI settings.
-  ///
-  /// The agent's tools capture the editor controller, so the model always
-  /// reads and writes the live editor content rather than a snapshot.
-  void _configureMacroAiService() {
-    _macroAiService?.dispose();
-    _macroAiService = null;
-
-    final settings = widget.aiSettings;
-    if (settings == null || !settings.isConfigured) return;
-
-    final service = MacroAiService();
-    service.configure(
-      apiKey: settings.apiKeyName,
-      apiToken: settings.apiToken,
-      model: settings.model,
-      readMacro: () => mounted ? _controller.text : '',
-      writeMacro: _applyAiMacroEdit,
-      macroFileName: () => widget.loadedFileName,
-    );
-    _macroAiService = service;
-  }
+      widget.aiSettings?.isConfigured == true && _chat.isAvailable;
 
   /// Applies a complete macro written by the AI assistant.
   ///
@@ -857,9 +1168,9 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   /// Opens or closes the AI chat panel next to the editor.
   void _toggleMacroChat() {
     if (!_isAiAvailable) return;
-    setState(() => _showMacroChat = !_showMacroChat);
+    _chat.toggleOpen();
 
-    if (!_showMacroChat) {
+    if (!_chat.isOpen) {
       // Give the focus back to the editor so its keyboard shortcuts work
       // immediately after closing the chat.
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -869,57 +1180,16 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   }
 
   /// Sends a message to the macro agent and streams its answer into the chat.
-  Future<void> _onMacroChatSend(String text) async {
-    final service = _macroAiService;
-    final trimmed = text.trim();
-    if (service == null || !service.isInitialized) return;
-    if (trimmed.isEmpty || _isMacroChatting) return;
-
-    setState(() {
-      _macroChatMessages.add({'role': 'user', 'content': trimmed});
-      _isMacroChatting = true;
-      // Placeholder for the streamed AI response.
-      _macroChatMessages.add({'role': 'ai', 'content': ''});
-    });
-
-    final aiMsgIndex = _macroChatMessages.length - 1;
-    var hasReceivedChunk = false;
-
-    try {
-      await for (final chunk in service.sendMessageStream(text: trimmed)) {
-        hasReceivedChunk = true;
-        if (!mounted) return;
-        setState(() {
-          _macroChatMessages[aiMsgIndex]['content'] =
-              _macroChatMessages[aiMsgIndex]['content']! + chunk;
-        });
-      }
-
-      if (!hasReceivedChunk && mounted) {
-        setState(() {
-          _macroChatMessages[aiMsgIndex]['content'] =
-              'No response from AI-Server';
-        });
-      }
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _macroChatMessages[aiMsgIndex]['content'] =
-              'Error: Failed to connect to AI server ($e)';
-        });
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isMacroChatting = false);
-      }
-    }
-  }
+  ///
+  /// The controller owns the request, so it also completes normally while the
+  /// editor is closed.
+  Future<void> _onMacroChatSend(String text) => _chat.send(text);
 
   Widget _buildMacroChatWindow() {
     return ChatWindow(
-      chatMessages: _macroChatMessages,
-      isChatting: _isMacroChatting,
-      isInitialized: _macroAiService?.isInitialized ?? false,
+      chatMessages: _chat.messages,
+      isChatting: _chat.isChatting,
+      isInitialized: _chat.isInitialized,
       onSendMessage: _onMacroChatSend,
       hintText: 'Ask the macro assistant...',
       emptyStateText:
@@ -933,7 +1203,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     // Calculate gutter width based on digit count (min 32, add 8 per extra
     // digit beyond 2).
     final gutterWidth = 32.0 + (_lineCount.toString().length - 1) * 8.0;
-    final showChat = _showMacroChat && _isAiAvailable;
+    final showChat = _chat.isOpen && _isAiAvailable;
 
     return Container(
       // The AI chat needs room next to the 900 px editor column. The extra
@@ -1005,14 +1275,14 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                       icon: Icon(
                         Icons.auto_awesome,
                         color: _isAiAvailable
-                            ? (_showMacroChat
+                            ? (_chat.isOpen
                                   ? Colors.cyanAccent
                                   : Colors.white70)
                             : Colors.white24,
                         size: 20,
                       ),
                       tooltip: _isAiAvailable
-                          ? (_showMacroChat
+                          ? (_chat.isOpen
                                 ? 'Close AI Macro Assistant'
                                 : 'AI Macro Assistant')
                           : 'Configure AI settings first',
@@ -1059,6 +1329,9 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                 Expanded(
                   child: Column(
                     children: [
+                      _buildDebugBar(),
+                      if (widget.debugVariables.isNotEmpty)
+                        _buildVariablesPanel(widget.debugVariables),
                       // Editable text area with line numbers
                       Expanded(
                         child: Container(
@@ -1081,25 +1354,34 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                                 // scroll offset and line-height formula as
                                 // the TextField, guaranteeing pixel-perfect
                                 // alignment at any depth.
-                                Container(
-                                  width: gutterWidth,
-                                  color: const Color(0xFF080808),
-                                  child: ClipRect(
-                                    child: CustomPaint(
-                                      painter: _GutterPainter(
-                                        lineCount: _lineCount,
-                                        errorLines: _errorLines,
-                                        lineMetrics: _lineMetrics,
-                                        gutterBaselineOffset:
-                                            _gutterBaselineOffset,
-                                        topPadding: 12.0,
-                                        scrollOffset: _scrollOffset,
-                                        normalStyle: _gutterNormalStyle,
-                                        errorStyle: _gutterErrorStyle,
-                                        gutterWidth: gutterWidth,
-                                        rightPadding: 8.0,
+                                GestureDetector(
+                                  key: const ValueKey('macro-editor-gutter'),
+                                  behavior: HitTestBehavior.opaque,
+                                  onTapDown: (details) => _toggleBreakpointAt(
+                                    details.localPosition.dy,
+                                  ),
+                                  child: Container(
+                                    width: gutterWidth,
+                                    color: const Color(0xFF080808),
+                                    child: ClipRect(
+                                      child: CustomPaint(
+                                        painter: _GutterPainter(
+                                          lineCount: _lineCount,
+                                          errorLines: _errorLines,
+                                          lineMetrics: _lineMetrics,
+                                          gutterBaselineOffset:
+                                              _gutterBaselineOffset,
+                                          topPadding: _gutterTopPadding,
+                                          scrollOffset: _scrollOffset,
+                                          normalStyle: _gutterNormalStyle,
+                                          errorStyle: _gutterErrorStyle,
+                                          gutterWidth: gutterWidth,
+                                          rightPadding: 8.0,
+                                          breakpoints: widget.breakpoints,
+                                          currentLine: widget.debugCurrentLine,
+                                        ),
+                                        size: Size.infinite,
                                       ),
-                                      size: Size.infinite,
                                     ),
                                   ),
                                 ),
@@ -1110,30 +1392,58 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                                 ),
                                 // ── Text field ──────────────────────
                                 Expanded(
-                                  child: Focus(
-                                    onKeyEvent: _onKeyEvent,
-                                    child: TextField(
-                                      controller: _controller,
-                                      focusNode: _editorFocusNode,
-                                      scrollController: _editorScrollController,
-                                      maxLines: null,
-                                      minLines: null,
-                                      textAlignVertical: TextAlignVertical.top,
-                                      style: _editorTextStyle,
-                                      decoration: const InputDecoration(
-                                        hintText: 'Enter macro commands...',
-                                        hintStyle: TextStyle(
-                                          color: Colors.white24,
-                                          fontSize: 13,
+                                  child: ClipRect(
+                                    child: Stack(
+                                      fit: StackFit.expand,
+                                      children: [
+                                        if (widget.debugCurrentLine != null)
+                                          Positioned(
+                                            key: const ValueKey(
+                                              'macro-debug-line-highlight',
+                                            ),
+                                            left: 0,
+                                            right: 0,
+                                            top: _debugLineTop(
+                                              widget.debugCurrentLine!,
+                                            ),
+                                            height: _editorLineHeight,
+                                            child: IgnorePointer(
+                                              child: Container(
+                                                color: Colors.cyanAccent
+                                                    .withValues(alpha: 0.10),
+                                              ),
+                                            ),
+                                          ),
+                                        Focus(
+                                          onKeyEvent: _onKeyEvent,
+                                          child: TextField(
+                                            controller: _controller,
+                                            focusNode: _editorFocusNode,
+                                            scrollController:
+                                                _editorScrollController,
+                                            maxLines: null,
+                                            minLines: null,
+                                            textAlignVertical:
+                                                TextAlignVertical.top,
+                                            style: _editorTextStyle,
+                                            decoration: const InputDecoration(
+                                              hintText:
+                                                  'Enter macro commands...',
+                                              hintStyle: TextStyle(
+                                                color: Colors.white24,
+                                                fontSize: 13,
+                                              ),
+                                              border: InputBorder.none,
+                                              contentPadding: EdgeInsets.only(
+                                                left: 8,
+                                                top: 18,
+                                                right: 12,
+                                                bottom: 12,
+                                              ),
+                                            ),
+                                          ),
                                         ),
-                                        border: InputBorder.none,
-                                        contentPadding: EdgeInsets.only(
-                                          left: 8,
-                                          top: 18,
-                                          right: 12,
-                                          bottom: 12,
-                                        ),
-                                      ),
+                                      ],
                                     ),
                                   ),
                                 ),
@@ -1221,6 +1531,8 @@ class _GutterPainter extends CustomPainter {
   final TextStyle errorStyle;
   final double gutterWidth;
   final double rightPadding;
+  final Set<int> breakpoints;
+  final int? currentLine;
 
   _GutterPainter({
     required this.lineCount,
@@ -1233,13 +1545,16 @@ class _GutterPainter extends CustomPainter {
     required this.errorStyle,
     required this.gutterWidth,
     required this.rightPadding,
+    required this.breakpoints,
+    required this.currentLine,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
     if (lineCount == 0) return;
     final metrics = lineMetrics;
-    if (metrics == null) return;
+    // An empty document has one logical line but no measured line metrics.
+    if (metrics == null || metrics.isEmpty) return;
 
     // Cull: determine which lines intersect the visible viewport.
     const double approxLineHeight = 19.5;
@@ -1256,6 +1571,9 @@ class _GutterPainter extends CustomPainter {
     final int lastMetric = metrics.length - 1;
 
     final double textAreaWidth = gutterWidth - rightPadding;
+    final currentLinePaint = Paint()
+      ..color = Colors.cyanAccent.withValues(alpha: 0.12);
+    final breakpointPaint = Paint()..color = Colors.redAccent;
 
     for (int i = firstVisible; i <= lastVisible; i++) {
       final int metricIdx = i.clamp(0, lastMetric);
@@ -1271,6 +1589,19 @@ class _GutterPainter extends CustomPainter {
 
       // Quick cull: skip lines clearly outside the viewport.
       if (y + gutterBaselineOffset < 0 || y > size.height) continue;
+
+      // [y] is the top of the number's text box (the baseline alignment
+      // above makes the number's baseline match the editor text).
+      final double lineHeight = metrics[metricIdx].height;
+      if (currentLine == i + 1) {
+        canvas.drawRect(
+          Rect.fromLTWH(0, y, gutterWidth, lineHeight),
+          currentLinePaint,
+        );
+      }
+      if (breakpoints.contains(i + 1)) {
+        canvas.drawCircle(Offset(6, y + lineHeight / 2), 4, breakpointPaint);
+      }
 
       final bool isError = errorLines.contains(i + 1);
       final style = isError ? errorStyle : normalStyle;
@@ -1293,6 +1624,8 @@ class _GutterPainter extends CustomPainter {
         lineCount != oldDelegate.lineCount ||
         errorLines != oldDelegate.errorLines ||
         lineMetrics != oldDelegate.lineMetrics ||
-        gutterWidth != oldDelegate.gutterWidth;
+        gutterWidth != oldDelegate.gutterWidth ||
+        breakpoints != oldDelegate.breakpoints ||
+        currentLine != oldDelegate.currentLine;
   }
 }

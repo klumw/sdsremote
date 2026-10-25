@@ -29,7 +29,28 @@ class MacroEvaluator {
   /// Editor's print panel.
   final void Function(String message)? onPrint;
 
+  /// Called before each non-comment statement. The returned future is awaited
+  /// before the statement executes.
+  ///
+  /// The Macro Editor's step-by-step debugger uses this to pause between
+  /// statements: the future completes when the user presses Step. Comments
+  /// are skipped and do not consume a step.
+  final Future<void> Function(Statement statement)? onBeforeStatement;
+
   final Map<String, String> _vars = {};
+
+  /// 1-based source line of each parsed statement, used by the debugger for
+  /// breakpoints and current-line highlighting.
+  final Map<Statement, int> _statementLines = {};
+
+  /// The variable values of the current (or most recent) evaluation.
+  ///
+  /// The debugger shows this map after every step.
+  Map<String, String> get variables => Map<String, String>.unmodifiable(_vars);
+
+  /// The 1-based source line of [statement], or null when it is unknown.
+  int? lineForStatement(Statement statement) => _statementLines[statement];
+
   bool _echoesDrained = false;
   bool _breakRequested = false;
   bool _continueRequested = false;
@@ -41,6 +62,7 @@ class MacroEvaluator {
     this.delay = _defaultDelay,
     this.onLog = _defaultLog,
     this.onPrint,
+    this.onBeforeStatement,
   });
 
   static Future<void> _defaultDelay(Duration duration) =>
@@ -48,14 +70,21 @@ class MacroEvaluator {
 
   static void _defaultLog(String message) => AppLogger().log(message);
 
-  /// Parse [source] and evaluate the resulting program.
+  /// Parse [source] into a [Program], or return null after reporting a parse
+  /// error through [onError].
   ///
-  /// Returns `true` if the macro completed successfully, `false` if an
-  /// error occurred or playback was cancelled.
-  Future<bool> evaluateSource(String source) async {
-    final parser = MacroGrammarDefinition().build();
+  /// Splitting parsing from evaluation lets the step debugger prepare a
+  /// program and then drive it statement by statement.
+  Program? parseSource(String source) {
+    _statementLines.clear();
+    final parser = MacroGrammarDefinition(
+      onStatement: (statement, start, stop) {
+        _statementLines[statement] = _lineColumn(source, start).$1;
+      },
+    ).build();
     final result = parser.parse(source);
     if (result is Failure) {
+      _statementLines.clear();
       final pos = result.position;
       final start = pos > 30 ? pos - 30 : 0;
       final end = pos + 40 < source.length ? pos + 40 : source.length;
@@ -69,9 +98,18 @@ class MacroEvaluator {
         '${result.message}\n'
         'Near: "$snippet"',
       );
-      return false;
+      return null;
     }
-    final program = result.value as Program;
+    return result.value as Program;
+  }
+
+  /// Parse [source] and evaluate the resulting program.
+  ///
+  /// Returns `true` if the macro completed successfully, `false` if an
+  /// error occurred or playback was cancelled.
+  Future<bool> evaluateSource(String source) async {
+    final program = parseSource(source);
+    if (program == null) return false;
     return evaluate(program);
   }
 
@@ -108,6 +146,11 @@ class MacroEvaluator {
   }) async {
     for (final stmt in stmts) {
       if (isCancelled()) throw _MacroStopException();
+      if (stmt is! Comment) {
+        await onBeforeStatement?.call(stmt);
+        // The gate may have been released by a stop request.
+        if (isCancelled()) throw _MacroStopException();
+      }
       await _evalStmt(stmt, inLoop: inLoop);
       if (_breakRequested) break;
       if (_continueRequested) break;
