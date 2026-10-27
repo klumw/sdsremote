@@ -1061,20 +1061,40 @@ class PhysicalControlPanel extends StatelessWidget {
     );
   }
 
-  /// AI assistant toggle. The label mirrors the macro editor's sparkle icon;
-  /// the button is disabled until the AI settings are configured.
+  /// AI assistant toggle. The button is disabled until the AI settings are
+  /// configured and while the control panel is locked (automatic screen
+  /// capture or a command in progress).
   Widget _buildAiButton() {
     final controller = chatController;
     if (controller == null) {
-      return _buildAiButtonContent(null, available: false, open: false);
+      return _buildAiButtonContent(
+        null,
+        available: false,
+        open: false,
+        unavailableTooltip: 'Configure AI settings first',
+      );
     }
     return ListenableBuilder(
       listenable: controller,
-      builder: (context, _) => _buildAiButtonContent(
-        controller,
-        available: aiSettings?.isConfigured == true && controller.isAvailable,
-        open: controller.isOpen,
-      ),
+      builder: (context, _) {
+        final configured =
+            aiSettings?.isConfigured == true && controller.isAvailable;
+        final available = configured && !_inputLocked;
+        final String unavailableTooltip;
+        if (!configured) {
+          unavailableTooltip = 'Configure AI settings first';
+        } else if (autoCaptureEnabled) {
+          unavailableTooltip = 'Disable automatic screen capture first';
+        } else {
+          unavailableTooltip = 'Wait until the current command finishes';
+        }
+        return _buildAiButtonContent(
+          controller,
+          available: available,
+          open: controller.isOpen,
+          unavailableTooltip: unavailableTooltip,
+        );
+      },
     );
   }
 
@@ -1082,6 +1102,7 @@ class PhysicalControlPanel extends StatelessWidget {
     ControlPanelChatController? controller, {
     required bool available,
     required bool open,
+    required String unavailableTooltip,
   }) {
     final Color accent = open
         ? Colors.cyanAccent
@@ -1090,7 +1111,7 @@ class PhysicalControlPanel extends StatelessWidget {
     return Tooltip(
       message: available
           ? (open ? 'Collapse AI Control Assistant' : 'AI Control Assistant')
-          : 'Configure AI settings first',
+          : unavailableTooltip,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
