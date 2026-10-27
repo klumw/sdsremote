@@ -41,6 +41,7 @@ class MacroAiService {
     required MacroWriter writeMacro,
     String? Function()? macroFileName,
     MacroSiggenStatusReader? readSiggenStatus,
+    MacroOscilloscopeStatusReader? readOscilloscopeStatus,
     int maxToolCalls = MacroAgent.defaultMaxToolCalls,
   }) {
     if (_isDisposed) return;
@@ -67,6 +68,7 @@ class MacroAiService {
         writeMacro: writeMacro,
         macroFileName: macroFileName,
         readSiggenStatus: readSiggenStatus,
+        readOscilloscopeStatus: readOscilloscopeStatus,
         maxToolCalls: maxToolCalls,
       );
       logger.debug('SUCCESS: MacroAgent created, agent=${_agent != null}');

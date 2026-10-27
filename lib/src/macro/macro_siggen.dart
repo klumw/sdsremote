@@ -1,6 +1,6 @@
 /// Connection seam for signal-generator commands in macros.
 ///
-/// `connect(SIG, usb)`, `scpi(SIG, …)` and `query(SIG, …)` address the
+/// `connect(SIG, usb)`, `cmd(SIG, …)` and `query(SIG, …)` address the
 /// signal generator configured in the settings. The evaluator only depends on
 /// this narrow interface; `AppMacroSiggenConnector` in `macro_siggen_app.dart`
 /// binds it to the application's signal-generator service and drivers so that

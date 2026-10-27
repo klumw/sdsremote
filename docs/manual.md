@@ -666,8 +666,10 @@ The assistant works directly on the macro that is open in the editor:
 * It writes the complete updated macro back into the editor — no copy/paste is required.
 * It validates changes with the same parser and linter that underline errors in the editor.
 * It knows the authorized SCPI command reference — the same shared list used by the instrument agent — so it selects exact command strings instead of inventing them.
-* It knows the complete SCPI command set of both supported signal generators (JDS6600 and FY6900), including the `connect(SIG, usb)`, `scpi(SIG, …)` and `query(SIG, …)` syntax, the model-specific waveform names and the validation limits.
+* It knows the complete SCPI command set of both supported signal generators (JDS6600 and FY6900), including the `connect(SIG, usb)`, `cmd(SIG, …)` and `query(SIG, …)` syntax, the model-specific waveform names and the validation limits.
+* It knows the device-handle syntax for controlling several SCPI devices in one macro: `myscope = connect("192.168.1.100")`, `cmd(myscope, …)` and `query(myscope, …)`.
 * It can read the current signal generator settings and status (configured type, detection, serial port, model, channel settings and last error) with the `read_siggen_status` tool instead of guessing.
+* It can read whether the oscilloscope connection is active and, when it is, the detected model (e.g. `SDS1202X-E`), display name, channel count, transport and address with the `read_oscilloscope_status` tool instead of guessing.
 * It uses the shared deterministic `math_tool` for arithmetic, unit conversion (V/mV, Hz/kHz/MHz, s/ms/µs, …) and readable SI formatting. The tool is available to the assistant only; macros themselves cannot call it.
 * Its system prompt contains the complete macro language reference, including `if`/`else` (no `else if`), `while` with the 100-iteration limit, `break`/`continue`, `assert`, `fail`, string concatenation, expressions and operator precedence.
 
@@ -708,7 +710,7 @@ All brace pairs `{` `}` must be balanced before playback begins; the parser vali
 connect("192.168.1.100")
 ```
 
-Establishes a VXI-11 connection to the oscilloscope at the given IP address. This is always the first command in a recorded macro. Only one `connect` statement should appear per macro.
+Establishes a VXI-11 connection to the oscilloscope at the given IP address. This is always the first command in a recorded macro. Only one default oscilloscope connection should be opened per macro; additional devices are opened with device handles (see below).
 
 ```
 connect(usb)
@@ -719,12 +721,36 @@ Connects to the oscilloscope via USBTMC (USB) instead of network. The device is 
 connect(SIG, usb)
 ```
 
-Connects to the signal generator selected in **Settings → Signal Generator** (JDS6600 or FY6900). The generator type is read from the settings and the device is auto-detected on the USB serial ports. Playback stops with an error when no type is configured or no matching generator is reachable. A macro may contain one oscilloscope `connect` and one `connect(SIG, usb)`; both connections are independent.
+Connects to the signal generator selected in **Settings → Signal Generator** (JDS6600 or FY6900). The generator type is read from the settings and the device is auto-detected on the USB serial ports. Playback stops with an error when no type is configured or no matching generator is reachable. A macro may contain one default oscilloscope `connect` and one `connect(SIG, usb)`; both connections are independent.
+
+##### Device Handles
+
+```
+myscope = connect("192.168.1.100")
+```
+
+Assigning `connect("IP")` to a variable opens an additional VXI-11 connection and returns a **device handle**. The handle addresses that device in `cmd()` and `query()` calls, so one macro can control several SCPI devices:
+
+```
+scopeA = connect("192.168.1.100")
+scopeB = connect("192.168.1.101")
+connect("192.168.1.102")
+cmd(scopeA, "ASET")
+cmd(scopeB, "ASET")
+cmd("C1:TRA ON")
+```
+
+* `cmd(handle, "CMD")` and `query(handle, "CMD")` work in every position where `query()` is allowed: as a statement, in assignments, in `print()`, in conditions, and in `assert(..., cmd(handle, ...))`.
+* Each handle owns an independent connection. Commands without a selector keep addressing the default oscilloscope connection opened by the first `connect(...)` line.
+* Handles are network (VXI-11) connections. `connect(usb)` and `connect(SIG, usb)` do not return a handle, and a macro that uses handles should connect the oscilloscope with `connect("IP")` rather than `connect(usb)`.
+* Assigning the same address to the same variable again reuses the open connection. Assigning a different address, or any normal value, closes the old connection first. All handles are closed when playback ends.
+* A handle stores its device address as the variable value, so `print(myscope)` shows `192.168.1.100`. Use `cmd(myscope, "...")` rather than `cmd(myscope)` — the one-argument form expects command text and rejects handles.
+* A variable that merely contains an IP address string is not a handle: `cmd(addr, "...")` fails with "does not hold a device handle".
 
 #### 7.5.2 SCPI Commands
 
 ```
-scpi("C1:TRA ON")
+cmd("C1:TRA ON")
 ```
 
 Sends a raw SCPI write command to the device. The command is not queried — no response is read. Use this for configuration commands that do not return a value.
@@ -744,11 +770,13 @@ Sends a SCPI query and stores the cleaned response in a variable named `myVar`. 
 > **Note:** The oscilloscope echoes every command back. The macro engine automatically drains these echoes before queries to prevent buffer overflows. Query responses are cleaned by stripping the command echo and trailing unit suffixes (e.g. `V`, `mV`, `%`).
 
 ```
-scpi(SIG, "SOUR1:FREQ 1KHZ")
+cmd(SIG, "SOUR1:FREQ 1KHZ")
 query(SIG, "SOUR1:FREQ?")
 ```
 
-The `SIG` selector sends the command to the signal generator connected with `connect(SIG, usb)` instead of the oscilloscope. These commands use the same SCPI driver as the signal generator window and the Bode plot, so only headers defined by that driver are accepted; an undefined header stops playback with a SCPI error (e.g. `-113`). `query(SIG, …)` returns the driver's response and can be used everywhere `query(…)` is allowed: as a statement, in assignments, in `print()`, and in conditions. Use `scpi(SIG, …)` for set commands and `query(SIG, …)` for queries.
+The `SIG` selector sends the command to the signal generator connected with `connect(SIG, usb)` instead of the oscilloscope. These commands use the same SCPI driver as the signal generator window and the Bode plot, so only headers defined by that driver are accepted; an undefined header stops playback with a SCPI error (e.g. `-113`). `query(SIG, …)` returns the driver's response and can be used everywhere `query(…)` is allowed: as a statement, in assignments, in `print()`, and in conditions. Use `cmd(SIG, …)` for set commands and `query(SIG, …)` for queries.
+
+A device handle opened with `myscope = connect("192.168.1.100")` can be used instead of `SIG` as the selector, for example `cmd(myscope, "ASET")` or `query(myscope, "*IDN?")`. See section 7.5.1.
 
 #### 7.5.3 Timing
 
@@ -776,11 +804,11 @@ Logs the current value of the variable `myVar` to the application log. If the va
 
 ##### String Concatenation
 
-String arguments in `scpi()`, `connect()`, `query()`, `loadProfile()`, and `print()` can be built from multiple pieces joined by `+`. Each piece can be a quoted string literal or a variable reference:
+String arguments in `cmd()`, `connect()`, `query()`, `loadProfile()`, and `print()` can be built from multiple pieces joined by `+`. Each piece can be a quoted string literal or a variable reference:
 
 ```
 val = 1
-scpi("C1:VDIV " + val + "V")
+cmd("C1:VDIV " + val + "V")
 ```
 
 This sends `C1:VDIV 1V` to the oscilloscope after resolving the variable `val`.
@@ -802,7 +830,7 @@ Concatenation works with all string-accepting commands, including in `if`/`while
 ```
 expected = "1.0"
 if(query("C" + ch + ":VDIV?") == expected) {
-    scpi("C" + ch + ":TRMD SINGLE")
+    cmd("C" + ch + ":TRMD SINGLE")
 }
 ```
 
@@ -810,7 +838,7 @@ if(query("C" + ch + ":VDIV?") == expected) {
 
 ```
 if(myVar == 1.0) {
-    scpi("C1:TRA ON")
+    cmd("C1:TRA ON")
 }
 ```
 
@@ -818,9 +846,9 @@ An `else` block can be appended:
 
 ```
 if(myVar >= 2.5) {
-    scpi("C1:VDIV 5V")
+    cmd("C1:VDIV 5V")
 } else {
-    scpi("C1:VDIV 1V")
+    cmd("C1:VDIV 1V")
 }
 ```
 
@@ -850,7 +878,7 @@ if(myVar >= 2.5) {
 ```
 # Negate a comparison
 if(!(v > 5)) {
-    scpi("C1:TRA OFF")
+    cmd("C1:TRA OFF")
 }
 
 # Negate a compound expression
@@ -860,7 +888,7 @@ if(!(freq >= 990 && freq <= 1010)) {
 
 # Negate a variable's truthiness ("ON"→false, "OFF"→true, "0"→true)
 if(!flag) {
-    scpi("C1:TRA OFF")
+    cmd("C1:TRA OFF")
 }
 ```
 
@@ -893,7 +921,7 @@ Immediately stops macro playback with the specified error message. The message i
 fail("Vpp:" + vpp + " exceeds limit of " + maxVpp)
 ```
 
-The message can be built from multiple pieces using string concatenation (`"text" + var + "text"`), just like `print()` and `scpi()`.
+The message can be built from multiple pieces using string concatenation (`"text" + var + "text"`), just like `print()` and `cmd()`.
 
 **Example:**
 
@@ -927,7 +955,7 @@ assert("Channel 1 must be enabled", ch1State == ON)
 # connect via network or usb
 connect(usb)
 # set trigger mode to normal
-scpi("TRMD NORM")
+cmd("TRMD NORM")
 # wait for trigger
 while(query("SAST?")!="Trig'd"){
   wait(0.5) 

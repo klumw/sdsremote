@@ -45,7 +45,7 @@ List<MacroLintError> lintMacro(String source) {
 // ── Type tracking for linter ─────────────────────────────────────────────
 
 /// Tracks the statically-inferred type of a variable.
-enum _VarType { numeric, string, unknown }
+enum _VarType { numeric, string, unknown, handle }
 
 /// Walks the AST statement-by-statement, tracking defined variables and their
 /// inferred types, and returns lint errors for:
@@ -92,11 +92,14 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
   void reportTypeMismatch(String name, String opName, {String? context}) {
     final pos = _nextPos(posMap, nextIdx, name);
     final ctx = context != null ? ' in $context' : '';
+    final target = typeOf(name) == _VarType.handle
+        ? 'a device handle'
+        : 'a string value';
     if (pos != null) {
       errors.add(
         MacroLintError(
           message:
-              'Variable "$name" holds a string value and cannot be '
+              'Variable "$name" holds $target and cannot be '
               'used with "$opName"$ctx',
           start: pos.$1,
           end: pos.$2,
@@ -177,6 +180,44 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
     }
   }
 
+  /// Checks a `cmd(device, …)` / `query(device, …)` selector.
+  ///
+  /// `null` selects the default oscilloscope connection and
+  /// [macroSignalGeneratorDevice] the signal generator. Every other selector
+  /// must be a variable holding a device handle from `name = connect("IP")`.
+  void checkDeviceRef(String? device) {
+    if (device == null || device == macroSignalGeneratorDevice) return;
+    final idx = nextIdx[device] ?? 0;
+    final list = posMap[device];
+    final pos = (list != null && idx < list.length) ? list[idx] : null;
+    _nextPos(posMap, nextIdx, device);
+    if (pos == null) return;
+    if (!defined.contains(device)) {
+      errors.add(
+        MacroLintError(
+          message: 'Variable "$device" is not defined',
+          start: pos.$1,
+          end: pos.$2,
+          line: pos.$3,
+        ),
+      );
+      return;
+    }
+    final type = typeOf(device);
+    if (type != _VarType.handle && type != _VarType.unknown) {
+      errors.add(
+        MacroLintError(
+          message:
+              'Variable "$device" does not hold a device handle; '
+              'assign it from connect("IP") first',
+          start: pos.$1,
+          end: pos.$2,
+          line: pos.$3,
+        ),
+      );
+    }
+  }
+
   // ── String concatenation walker ───────────────────────────────────
 
   void walkConcat(ConcatString cs) {
@@ -232,6 +273,7 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
         break;
       case QueryExpr():
       case ScpiExpr():
+      case ConnectExpr():
       case UnaryMinusExpr():
       case NotExpr():
       case BinaryExpr():
@@ -244,12 +286,14 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
   void checkNumericCompare(Expr lhs, String op, Expr rhs) {
     switch (lhs) {
       case Variable(:final name):
-        if (typeOf(name) == _VarType.string) {
+        final type = typeOf(name);
+        if (type == _VarType.string || type == _VarType.handle) {
           reportTypeMismatch(name, op);
         }
       case StringLiteral():
         reportStringLiteralInCompare(op);
       case QueryExpr():
+      case ConnectExpr():
       case NumberLiteral():
       case BoolLiteral():
       case ScpiExpr():
@@ -261,7 +305,8 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
 
     switch (rhs) {
       case Variable(:final name):
-        if (typeOf(name) == _VarType.string) {
+        final type = typeOf(name);
+        if (type == _VarType.string || type == _VarType.handle) {
           reportTypeMismatch(name, op);
         }
       case StringLiteral():
@@ -269,6 +314,7 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
       case NumberLiteral():
       case BoolLiteral():
       case QueryExpr():
+      case ConnectExpr():
       case ScpiExpr():
       case UnaryMinusExpr():
       case NotExpr():
@@ -415,6 +461,17 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
       case ScpiExpr(:final variableName):
         if (variableName case final v?) checkRef(v);
 
+      case ConnectExpr(
+        :final address,
+        :final isVariable,
+        :final concatString,
+      ):
+        if (concatString != null) {
+          walkConcat(concatString);
+        } else if (isVariable && address != null) {
+          checkRef(address);
+        }
+
       case UnaryMinusExpr(:final operand):
         walkExpr(operand, allowTruthy: allowTruthy);
 
@@ -470,14 +527,16 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
       case WaitStmt(:final variableName):
         if (variableName case final v?) checkRef(v);
 
-      case ScpiStmt(:final variableName, :final concatString):
+      case ScpiStmt(:final variableName, :final concatString, :final device):
+        checkDeviceRef(device);
         if (concatString != null) {
           walkConcat(concatString);
         } else if (variableName case final v?) {
           checkRef(v);
         }
 
-      case QueryStmt(:final variableName, :final concatString):
+      case QueryStmt(:final variableName, :final concatString, :final device):
+        checkDeviceRef(device);
         if (concatString != null) {
           walkConcat(concatString);
         } else if (variableName case final v?) {
@@ -501,11 +560,17 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
         } else if (value is BoolLiteral) {
           varTypes[varName] = _VarType.string; // bools stored as strings
         } else if (value is Variable) {
-          // Variable copy — inherit the source variable's type.
-          varTypes[varName] = typeOf(value.name);
+          // Variable copy — inherit the source variable's type. Copying a
+          // handle variable copies its address string, not the handle.
+          final type = typeOf(value.name);
+          varTypes[varName] = type == _VarType.handle
+              ? _VarType.string
+              : type;
         } else if (value is QueryExpr) {
           // Query results are unknown at lint time.
           varTypes[varName] = _VarType.unknown;
+        } else if (value is ConnectExpr) {
+          varTypes[varName] = _VarType.handle;
         } else if (value is BinaryExpr) {
           // Arithmetic ops produce numbers; comparison/logical produce
           // boolean strings.
@@ -524,7 +589,12 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
           switch (item) {
             case VariableItem(:final name):
               checkRef(name);
-            case QueryItem(:final variableName, :final concatString):
+            case QueryItem(
+              :final variableName,
+              :final concatString,
+              :final device,
+            ):
+              checkDeviceRef(device);
               if (concatString != null) {
                 walkConcat(concatString);
               } else if (variableName case final v?) {

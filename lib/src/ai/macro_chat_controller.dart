@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../macro/macro_oscope_status.dart';
 import 'ai_settings.dart';
 import 'macro_ai_service.dart';
 import 'tools/macro_tools.dart';
@@ -34,6 +35,7 @@ class MacroChatController extends ChangeNotifier {
   MacroWriter? _writeMacro;
   String? Function()? _macroFileName;
   MacroSiggenStatusReader? _readSiggenStatus;
+  MacroOscilloscopeStatusReader? _readOscilloscopeStatus;
 
   bool _isOpen = false;
   bool _isChatting = false;
@@ -94,6 +96,16 @@ class MacroChatController extends ChangeNotifier {
     _readSiggenStatus = readStatus;
   }
 
+  /// Registers the live oscilloscope connection/model source used by the
+  /// agent's `read_oscilloscope_status` tool.
+  ///
+  /// The callback is read dynamically, so it may be registered before or after
+  /// [configure]. Without it the tool reports that no oscilloscope status is
+  /// available.
+  void attachOscilloscopeStatus(MacroOscilloscopeStatusReader readStatus) {
+    _readOscilloscopeStatus = readStatus;
+  }
+
   /// Creates or updates the agent for [settings].
   ///
   /// When the settings are unchanged, the existing agent is kept, including
@@ -136,6 +148,10 @@ class MacroChatController extends ChangeNotifier {
       readSiggenStatus: () async {
         final reader = _readSiggenStatus;
         return reader != null ? reader() : readStoredSiggenStatus();
+      },
+      readOscilloscopeStatus: () async {
+        final reader = _readOscilloscopeStatus;
+        return reader != null ? reader() : readUnavailableOscilloscopeStatus();
       },
     );
     _service = service;

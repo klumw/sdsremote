@@ -17,9 +17,11 @@
 library;
 
 /// Device selector of the signal generator in the two-argument command forms
-/// `connect(SIG, usb)`, `scpi(SIG, …)` and `query(SIG, …)`.
+/// `connect(SIG, usb)`, `cmd(SIG, …)` and `query(SIG, …)`.
 ///
-/// Commands without a selector keep addressing the oscilloscope.
+/// Any other selector names a variable that holds a device handle opened by
+/// `myscope = connect("192.168.1.100")`. Commands without a selector keep
+/// addressing the default oscilloscope connection.
 const String macroSignalGeneratorDevice = 'SIG';
 
 // ── Top-level program ───────────────────────────────────────────────────
@@ -77,8 +79,8 @@ class WaitStmt extends Statement {
   const WaitStmt(this.seconds, {this.variableName});
 }
 
-/// `scpi("CMD")`, `scpi(varName)`, `scpi("prefix" + var + "suffix")` or
-/// `scpi(SIG, …)` — send a raw SCPI command.
+/// `cmd("CMD")`, `cmd(varName)`, `cmd("prefix" + var + "suffix")` or
+/// `cmd(SIG, …)` — send a raw SCPI command.
 class ScpiStmt extends Statement {
   final String command;
 
@@ -90,8 +92,8 @@ class ScpiStmt extends Statement {
   /// must be resolved at evaluation time. Overrides [command] / [variableName].
   final ConcatString? concatString;
 
-  /// Device selector, or `null` for the oscilloscope. See
-  /// [macroSignalGeneratorDevice].
+  /// Device selector, or `null` for the default oscilloscope connection.
+  /// See [macroSignalGeneratorDevice] and [ConnectExpr].
   final String? device;
 
   const ScpiStmt(
@@ -115,8 +117,8 @@ class QueryStmt extends Statement {
   /// must be resolved at evaluation time. Overrides [command] / [variableName].
   final ConcatString? concatString;
 
-  /// Device selector, or `null` for the oscilloscope. See
-  /// [macroSignalGeneratorDevice].
+  /// Device selector, or `null` for the default oscilloscope connection.
+  /// See [macroSignalGeneratorDevice] and [ConnectExpr].
   final String? device;
 
   const QueryStmt(
@@ -201,8 +203,8 @@ class QueryItem extends PrintItem {
   /// must be resolved at evaluation time. Overrides [command] / [variableName].
   final ConcatString? concatString;
 
-  /// Device selector, or `null` for the oscilloscope. See
-  /// [macroSignalGeneratorDevice].
+  /// Device selector, or `null` for the default oscilloscope connection.
+  /// See [macroSignalGeneratorDevice] and [ConnectExpr].
   final String? device;
 
   const QueryItem(
@@ -373,8 +375,8 @@ class QueryExpr extends Expr {
   /// must be resolved at evaluation time. Overrides [command] / [variableName].
   final ConcatString? concatString;
 
-  /// Device selector, or `null` for the oscilloscope. See
-  /// [macroSignalGeneratorDevice].
+  /// Device selector, or `null` for the default oscilloscope connection.
+  /// See [macroSignalGeneratorDevice] and [ConnectExpr].
   final String? device;
 
   const QueryExpr(
@@ -385,8 +387,8 @@ class QueryExpr extends Expr {
   });
 }
 
-/// An inline SCPI command: `scpi("CMD")`, `scpi(varName)` or
-/// `scpi(SIG, …)`.
+/// An inline SCPI command: `cmd("CMD")`, `cmd(varName)` or
+/// `cmd(SIG, …)`.
 ///
 /// Produces no value; only valid in `assert()` as a success check.
 class ScpiExpr extends Expr {
@@ -396,11 +398,43 @@ class ScpiExpr extends Expr {
   /// SCPI command string, resolved at evaluation time.
   final String? variableName;
 
-  /// Device selector, or `null` for the oscilloscope. See
-  /// [macroSignalGeneratorDevice].
+  /// Device selector, or `null` for the default oscilloscope connection.
+  /// See [macroSignalGeneratorDevice] and [ConnectExpr].
   final String? device;
 
   const ScpiExpr(this.command, {this.variableName, this.device});
+}
+
+/// An inline device connection: `myscope = connect("192.168.1.100")`.
+///
+/// Evaluating it opens a VXI-11 connection and binds a device handle to the
+/// assignment target. The variable can then be used as the device selector in
+/// `cmd(myscope, …)`, `query(myscope, …)` and `print(query(myscope, …))`.
+///
+/// Only an IP address produces a handle: `connect(usb)` and
+/// `connect(SIG, usb)` remain plain statements.
+class ConnectExpr extends Expr {
+  /// The IP address string, or `null` for the bare `usb` keyword.
+  final String? address;
+
+  /// True if [address] is a variable name that should be resolved at eval time.
+  final bool isVariable;
+
+  /// When non-null, the argument was a concatenated string expression that
+  /// must be resolved at evaluation time. Overrides [address] / [isVariable].
+  final ConcatString? concatString;
+
+  /// Device selector from the two-argument form, or `null` for the
+  /// oscilloscope. Only `SIG` is syntactically possible here; it is rejected
+  /// at evaluation time because the signal generator has no IP handle.
+  final String? device;
+
+  const ConnectExpr(
+    this.address, {
+    this.isVariable = false,
+    this.concatString,
+    this.device,
+  });
 }
 
 // ── Unary operations ────────────────────────────────────────────────────

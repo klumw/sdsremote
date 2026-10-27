@@ -68,6 +68,7 @@ import '../macro/macro_debug.dart';
 import 'macro_recorder_panel.dart';
 import 'macro_editor_panel.dart';
 import '../macro/macro_evaluator.dart';
+import '../macro/macro_oscope_status.dart';
 import '../macro/macro_siggen.dart';
 import '../macro/macro_siggen_app.dart';
 import '../ai/tools/vxi11_tool.dart' show onScpiCommandSent;
@@ -322,6 +323,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   void initState() {
     super.initState();
     _macroChatController.attachSignalGeneratorStatus(_readMacroSiggenStatus);
+    _macroChatController.attachOscilloscopeStatus(_readMacroOscilloscopeStatus);
     windowManager.addListener(this);
     windowManager.setPreventClose(true);
     HardwareKeyboard.instance.addHandler(_onGlobalKeyEvent);
@@ -1474,7 +1476,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       if (!_isMacroRecording) return;
       switch (operation) {
         case 'write':
-          _currentMacroContent += 'scpi("$command")\n';
+          _currentMacroContent += 'cmd("$command")\n';
         case 'query':
           _currentMacroContent += 'query("$command")\n';
       }
@@ -1582,6 +1584,21 @@ class _OsciHomePageState extends State<OsciHomePage>
         detected: _sigGenDetected,
         service: _sigGenService,
         rememberedPort: _sigGenPort,
+      );
+
+  /// Reports the oscilloscope connection and detected model to the Macro
+  /// Agent's `read_oscilloscope_status` tool.
+  ///
+  /// The values come from the same state used by the connection monitor and
+  /// the window title, so no additional `*IDN?` query is sent.
+  Future<Map<String, dynamic>> _readMacroOscilloscopeStatus() async =>
+      readMacroOscilloscopeStatus(
+        connected: _isOnline,
+        model: _deviceModel,
+        name: _deviceName,
+        channels: _numChannels,
+        isUsb: _isUsb,
+        ipAddress: _ipAddress,
       );
 
   /// Shows an error snackbar and logs the error.
@@ -3243,7 +3260,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   Future<bool> _sendCommand(String command) async {
     // Capture SCPI commands during macro recording
     if (_isMacroRecording) {
-      _currentMacroContent += 'scpi("$command")\n';
+      _currentMacroContent += 'cmd("$command")\n';
     }
 
     if (!_isOnline) {

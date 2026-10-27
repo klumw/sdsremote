@@ -1709,7 +1709,7 @@ RESPONSE RULES:
 - If all searches fail or return a score < 2, respond exactly with: 'Sorry, I couldn't find any relevant information in the knowledge base.'""";
 
 /// Authorized SCPI reference for the signal generators addressed by
-/// `scpi(SIG, …)` and `query(SIG, …)`.
+/// `cmd(SIG, …)` and `query(SIG, …)`.
 ///
 /// Both families share one SCPI emulation layer, so the command set is
 /// identical. The waveform names and a few channel behaviors differ and are
@@ -1802,10 +1802,10 @@ SOUR<n>:FUNC:ARB return -113.
 
 ### Example
 connect(SIG, usb)
-scpi(SIG, "SOUR1:FUNC SIN")
-scpi(SIG, "SOUR1:FREQ 1KHZ")
-scpi(SIG, "SOUR1:VOLT 3.3VPP")
-scpi(SIG, "OUTP1:STAT ON")
+cmd(SIG, "SOUR1:FUNC SIN")
+cmd(SIG, "SOUR1:FREQ 1KHZ")
+cmd(SIG, "SOUR1:VOLT 3.3VPP")
+cmd(SIG, "OUTP1:STAT ON")
 freq = query(SIG, "SOUR1:FREQ?")
 print("SIG frequency: " + freq)
 """;
@@ -1826,11 +1826,12 @@ You help the user create and change macro files (.m) that automate the oscillosc
 You work directly on the macro that is currently open in the editor.
 
 ## ACCESS TO THE CURRENT MACRO
-You have five tools:
+You have six tools:
 - read_macro — returns the complete editor content, its line count, and the file name (when saved). Call it before every change and whenever you need the current state.
 - write_macro — replaces the COMPLETE editor content with the "content" argument. The editor updates immediately and the file is marked as modified. It returns whether the write was applied, the line count, and lint errors in the new content.
 - validate_macro — parses and lints macro source. It checks the current editor content when "content" is omitted, or a candidate version when "content" is supplied. Returns syntax and semantic errors with 1-based line numbers.
 - read_siggen_status — returns the signal generator selected in Settings → Signal Generator (none, jds6600 or fy6900), whether it is detected and connected, the serial port, model, identity, cached channel settings, outputs and the last error. Call it before writing SIG commands or answering generator questions.
+- read_oscilloscope_status — returns whether the oscilloscope connection is active and, when it is, the detected model (for example SDS1202X-E), the vendor-qualified display name, the channel count, the transport (network or usb) and the address. Call it before answering questions about the connected oscilloscope, its model or its channel count.
 - math_tool — deterministic calculator for arithmetic, unit conversion and readable SI formatting. It never reads or writes the editor and never talks to the instrument.
 
 NEVER ask the user to paste the macro — it is already available through read_macro.
@@ -1838,10 +1839,11 @@ NEVER claim that a change was made unless write_macro returned applied: true.
 
 ## WORKFLOW
 1. Questions about the signal generator, or changes that use SIG commands: call read_siggen_status first to learn the configured type (JDS6600 or FY6900) and the connection state.
-2. Questions about the macro, a command, or the macro language: call read_macro, then answer using the actual content.
-3. Changes: call read_macro, build the complete new file, call write_macro with it, then call validate_macro.
-4. If validation reports errors: fix them and call write_macro again (you have a limited number of tool calls).
-5. Reply with a short summary of what changed, or why nothing was changed.
+2. Questions about the connected oscilloscope, its model or its channel count: call read_oscilloscope_status first. When connected is false, say that no oscilloscope is connected instead of guessing a model; when model is null, say the model is not known yet.
+3. Questions about the macro, a command, or the macro language: call read_macro, then answer using the actual content.
+4. Changes: call read_macro, build the complete new file, call write_macro with it, then call validate_macro.
+5. If validation reports errors: fix them and call write_macro again (you have a limited number of tool calls).
+6. Reply with a short summary of what changed, or why nothing was changed.
 
 ## EDITING RULES
 - write_macro always requires the COMPLETE file — never a fragment, a patch, or a diff.
@@ -1849,6 +1851,7 @@ NEVER claim that a change was made unless write_macro returned applied: true.
 - Keep the existing indentation style; use two spaces per nesting level.
 - One statement per line. Put comments (# ...) on their own line.
 - Do not invent SCPI commands or device responses. If a command or expected reply is uncertain, say so instead of guessing.
+- Do not assume the oscilloscope model or channel count. Read them with read_oscilloscope_status when the connection is active. A macro can read the identity at playback time with query("*IDN?"); the second comma-separated field is the model.
 - If the macro is empty and the user asks for a new macro, ask whether it should connect via USB (connect(usb)) or network (connect("IP")) before writing the first line.
 - Do not remove an existing connect() line unless the user explicitly asks.
 
@@ -1883,18 +1886,31 @@ calculations that depend on query() results at runtime.
 - connect("192.168.1.100") opens a VXI-11 connection to the oscilloscope.
 - connect(usb) opens a USBTMC connection; the device is auto-detected.
 - connect(SIG, usb) opens the signal generator selected in Settings → Signal Generator (JDS6600 or FY6900) over its USB serial port. It fails when no generator type is configured or no matching device is found.
+- myscope = connect("192.168.1.100") opens an ADDITIONAL VXI-11 connection and stores a device handle in the variable myscope. Address that device with cmd(myscope, "...") and query(myscope, "..."). A macro may open several handles to control several SCPI devices.
+- Only an IP address returns a handle. connect(usb) and connect(SIG, usb) do not return a handle and cannot be assigned.
+- Assigning the same address to the same variable again reuses the open connection; a different address closes the old connection first. Assigning a normal value to the variable releases its handle. All handles are closed when playback ends.
+- A handle variable used as the one-argument command text, for example cmd(myscope), is rejected; always pass the handle as the first argument.
+- Handles are network connections: do not mix them with connect(usb) in the same macro.
 - Normally one oscilloscope connect() belongs in a macro, as the first line. A separate connect(SIG, usb) may be added for the generator; the two connections are independent.
-- Any scpi(), query(), loadProfile(), or assert(..., scpi(...)) for the oscilloscope before its connect() fails with "No device connected"; scpi(SIG, ...) or query(SIG, ...) before connect(SIG, usb) fails with "No signal generator connected".
+- Any cmd(), query(), loadProfile(), or assert(..., cmd(...)) for the oscilloscope before its connect() fails with "No device connected"; cmd(SIG, ...) or query(SIG, ...) before connect(SIG, usb) fails with "No signal generator connected"; a handle used before its assignment fails with "Variable ... is undefined".
 - The argument may be a string literal, a variable, or a concatenation such as "192.168." + subnet.
+- Device handle example:
+  scopeA = connect("192.168.1.100")
+  scopeB = connect("192.168.1.101")
+  connect("192.168.1.102")
+  cmd(scopeA, "ASET")
+  cmd(scopeB, "ASET")
+  cmd("C1:TRA ON")
 
-### scpi and query
-- scpi("C1:TRA ON") sends a command and reads no response.
+### cmd and query
+- cmd("C1:TRA ON") sends a command and reads no response.
 - query("C1:VDIV?") sends a query, reads the response, and logs it.
 - value = query("C1:VDIV?") stores the cleaned response in a variable.
-- scpi(SIG, "SOUR1:FREQ 1KHZ") and query(SIG, "SOUR1:FREQ?") address the configured signal generator. They use the generator's SCPI driver, so only headers that driver defines are accepted; an undefined header stops playback with a SCPI error (for example -113).
+- cmd(SIG, "SOUR1:FREQ 1KHZ") and query(SIG, "SOUR1:FREQ?") address the configured signal generator. They use the generator's SCPI driver, so only headers that driver defines are accepted; an undefined header stops playback with a SCPI error (for example -113).
+- cmd(myscope, "ASET") and query(myscope, "*IDN?") address the device opened by myscope = connect("IP"). A handle is allowed everywhere query() is: as a statement, in assignments, in print(), in conditions, and in assert(..., cmd(myscope, ...)).
 - value = <expression> stores any expression result.
 - Arguments may be string literals, variables, or concatenations such as "C" + ch + ":VDIV?".
-- Use query() for commands ending in ? and scpi() for all other commands.
+- Use query() for commands ending in ? and cmd() for all other commands.
 - Responses are cleaned: the command echo and trailing unit suffixes (V, mV, %) are removed.
 
 ### wait
@@ -1919,8 +1935,8 @@ calculations that depend on query() results at runtime.
 - Using a variable before it is assigned is an error.
 
 ### String concatenation
-- In connect(), scpi(), query(), loadProfile(), print(), fail(), and the assert() text argument, strings are built with +:
-  scpi("C1:VDIV " + level + "V")
+- In connect(), cmd(), query(), loadProfile(), print(), fail(), and the assert() text argument, strings are built with +:
+  cmd("C1:VDIV " + level + "V")
   fail("Vpp " + vpp + " exceeds " + maxVpp)
 - This concatenation syntax is only available in those string arguments. In ordinary expressions, + is numeric addition only; "a" + "b" is an error.
 
@@ -1929,9 +1945,9 @@ calculations that depend on query() results at runtime.
 - The keyword then is optional: if (<expression>) then { ... }
 - An else branch follows immediately after the closing brace:
   if (x > 5) {
-    scpi("C1:VDIV 5V")
+    cmd("C1:VDIV 5V")
   } else {
-    scpi("C1:VDIV 1V")
+    cmd("C1:VDIV 1V")
   }
 - else if is NOT supported. Put a second if inside the else block instead:
   } else {
@@ -1952,7 +1968,7 @@ calculations that depend on query() results at runtime.
 ### assert
 - assert("text", <expression>) stops playback with "Assertion failed: text" when the expression is false.
 - The text may be a string literal or a concatenation.
-- assert("text", scpi("COMMAND")) is the special form that checks whether a SCPI command executes without error.
+- assert("text", cmd("COMMAND")) is the special form that checks whether a SCPI command executes without error.
 
 ### Expressions
 - Number literals: 0, 42, 2.5 (digits with an optional decimal part; no exponent, no sign — use unary minus).
@@ -1960,7 +1976,8 @@ calculations that depend on query() results at runtime.
 - Boolean literals: true and false.
 - Variables: name.
 - query("...") may be used inside expressions, e.g. if (query("C1:PAVA? PKPK") > 3.0).
-- scpi("...") cannot be used as a value; it is only valid as a statement or in assert(..., scpi(...)).
+- cmd("...") cannot be used as a value; it is only valid as a statement or in assert(..., cmd(...)).
+- connect("...") returns a device handle only as the direct right side of an assignment: myscope = connect("192.168.1.100"). It cannot be used inside other expressions.
 - Parentheses group expressions.
 - Unary operators: ! (logical NOT) and - (unary minus).
 - Arithmetic: * / bind tighter than + -.
@@ -1977,7 +1994,7 @@ calculations that depend on query() results at runtime.
 ## EXAMPLE
 connect(usb)
 # set trigger mode to normal
-scpi("TRMD NORM")
+cmd("TRMD NORM")
 # wait for a trigger
 while(query("SAST?")!="Trig'd"){
   wait(0.5)
@@ -1999,7 +2016,7 @@ $signalGeneratorScpiReference
 The following authorized command reference is the same list the instrument
 agent uses. It is the single source of truth for command knowledge:
 - Locate the exact command pattern for the requested operation.
-- Use scpi() for set commands and query() for queries (commands ending in ?).
+- Use cmd() for set commands and query() for queries (commands ending in ?).
 - Copy the pattern character for character, including spaces and punctuation.
 - Substitute only the placeholders; never invent a command or a response.
 - If an operation is not in the list, say that it is not available instead

@@ -58,7 +58,8 @@ import 'macro_ast.dart';
 ///     -> StringLiteral
 ///     -> BoolLiteral
 ///     -> query '(' ... ')'
-///     -> scpi '(' ... ')'
+///     -> cmd '(' ... ')'
+///     -> connect '(' ... ')'
 ///     -> Variable
 ///     -> '(' Expression ')'
 /// ```
@@ -88,7 +89,7 @@ class MacroGrammarDefinition extends GrammarDefinition {
       ref0(comment),
       ref0(connectStmt),
       ref0(waitStmt),
-      ref0(scpiStmt),
+      ref0(cmdStmt),
       ref0(queryStmt),
       ref0(assignStmt),
       ref0(printStmt),
@@ -122,23 +123,45 @@ class MacroGrammarDefinition extends GrammarDefinition {
 
   // ── Device selector ─────────────────────────────────────────────────
   //
-  // `SIG` addresses the signal generator configured in the settings; the
-  // one-argument forms keep addressing the oscilloscope:
+  // `SIG` addresses the signal generator configured in the settings; any
+  // other identifier names a variable that holds a device handle opened by
+  // `myscope = connect("192.168.1.100")`. Commands without a selector keep
+  // addressing the default oscilloscope connection:
   //
-  //   connect(SIG, usb)   scpi(SIG, "…")   query(SIG, "…")
+  //   connect(SIG, usb)   cmd(SIG, "…")   cmd(myscope, "…")
   //
   // The selector is only recognized together with its trailing comma, so a
   // variable named `sig` still works in the one-argument forms.
 
   /// Matches the `SIG` selector (case-insensitive) and its trailing comma.
-  Parser<String> deviceSelector() =>
+  Parser<String> _siggenSelector() =>
       (_ciKeyword(macroSignalGeneratorDevice) & char(',').trim()).map(
         (_) => macroSignalGeneratorDevice,
       );
 
+  /// Matches a device selector and its trailing comma.
+  ///
+  /// `SIG` (any capitalization) selects the signal generator; every other
+  /// identifier is a variable holding a device handle.
+  Parser<String> deviceSelector() => (ref0(identifier) & char(',').trim()).map(
+    (r) => _normalizeDeviceSelector(r[0] as String),
+  );
+
+  /// Maps the case-insensitive `SIG` keyword to the canonical selector.
+  String _normalizeDeviceSelector(String selector) =>
+      selector.toUpperCase() == macroSignalGeneratorDevice
+      ? macroSignalGeneratorDevice
+      : selector;
+
   /// Adds an optional device selector to [target].
-  Parser<_DeviceArg> _withDeviceSelector(Parser<_DeviceArg> target) => [
-    (ref0(deviceSelector) & target).map(
+  ///
+  /// [selector] overrides the default selector grammar; `connect()` uses it
+  /// to accept only the `SIG` keyword as its first argument.
+  Parser<_DeviceArg> _withDeviceSelector(
+    Parser<_DeviceArg> target, {
+    Parser<String>? selector,
+  }) => [
+    ((selector ?? ref0(deviceSelector)) & target).map(
       (r) => (r[1] as _DeviceArg).withDevice(r[0] as String),
     ),
     target,
@@ -188,8 +211,10 @@ class MacroGrammarDefinition extends GrammarDefinition {
             );
           });
 
-  Parser<_DeviceArg> _connectArgs() =>
-      _withDeviceSelector(ref0(_connectTarget));
+  Parser<_DeviceArg> _connectArgs() => _withDeviceSelector(
+    ref0(_connectTarget),
+    selector: ref0(_siggenSelector),
+  );
 
   Parser<_DeviceArg> _connectTarget() => [
     ref0(concatExpr).map((c) => _DeviceArg(concatString: c)),
@@ -210,11 +235,11 @@ class MacroGrammarDefinition extends GrammarDefinition {
             return WaitStmt(0.0, variableName: arg as String);
           });
 
-  // ── scpi("CMD") | scpi(varName) | scpi("str" + var + "str") ───────
-  // ── scpi(SIG, <same argument forms>) ──────────────────────────────
+  // ── cmd("CMD") | cmd(varName) | cmd("str" + var + "str") ─────────
+  // ── cmd(SIG, <same argument forms>) ───────────────────────────────
 
-  Parser<ScpiStmt> scpiStmt() =>
-      (string('scpi(').trim() & ref0(_textArgs) & char(')')).map((r) {
+  Parser<ScpiStmt> cmdStmt() =>
+      (string('cmd(').trim() & ref0(_textArgs) & char(')')).map((r) {
         final arg = r[1] as _DeviceArg;
         if (arg.concatString != null) {
           return ScpiStmt(
@@ -481,14 +506,15 @@ class MacroGrammarDefinition extends GrammarDefinition {
     ref0(number).map((n) => NumberLiteral(n)),
     ref0(stringLiteral).map((s) => StringLiteral(s)),
     ref0(_queryExpr),
-    ref0(_scpiExpr),
+    ref0(_cmdExpr),
+    ref0(_connectExpr),
     ref0(identifier).map((name) => Variable(name)),
     (char('(').trim() & ref0(expression) & char(')').trim()).map(
       (r) => r[1] as Expr,
     ),
   ].toChoiceParser();
 
-  // ── Inline query() and scpi() in expression context ─────────────────
+  // ── Inline query(), cmd() and connect() in expression context ───────
 
   Parser<Expr> _queryExpr() =>
       (string('query(').trim() & ref0(_textArgs) & char(')')).map((r) {
@@ -506,14 +532,38 @@ class MacroGrammarDefinition extends GrammarDefinition {
             : QueryExpr(text, device: arg.device);
       });
 
-  Parser<Expr> _scpiExpr() =>
-      (string('scpi(').trim() & ref0(_plainArgs) & char(')')).map((r) {
+  Parser<Expr> _cmdExpr() =>
+      (string('cmd(').trim() & ref0(_plainArgs) & char(')')).map((r) {
         final arg = r[1] as _DeviceArg;
         final text = arg.text!;
         return arg.isVariable
             ? ScpiExpr(text, device: arg.device, variableName: text)
             : ScpiExpr(text, device: arg.device);
       });
+
+  /// `myscope = connect("192.168.1.100")` — opens a named device handle.
+  ///
+  /// The handle can be used as the selector of `cmd()` and `query()`.
+  Parser<Expr> _connectExpr() =>
+      (_ciKeyword('connect').trim() &
+              char('(').trim() &
+              ref0(_connectArgs) &
+              char(')'))
+          .map((r) {
+            final arg = r[2] as _DeviceArg;
+            if (arg.concatString != null) {
+              return ConnectExpr(
+                null,
+                device: arg.device,
+                concatString: arg.concatString,
+              );
+            }
+            return ConnectExpr(
+              arg.text,
+              device: arg.device,
+              isVariable: arg.isVariable,
+            );
+          });
 
   /// A literal/variable argument with an optional `SIG` selector.
   Parser<_DeviceArg> _plainArgs() => _withDeviceSelector(ref0(_plainTarget));
@@ -599,7 +649,8 @@ class _DeviceArg {
     this.concatString,
   });
 
-  /// Device selector (`SIG`), or `null` for the oscilloscope.
+  /// Device selector (`SIG` or a handle variable name), or `null` for the
+  /// default oscilloscope connection.
   final String? device;
 
   /// Literal text or variable name; `null` for the bare `usb` keyword.

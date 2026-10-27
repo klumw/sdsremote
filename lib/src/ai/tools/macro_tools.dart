@@ -3,6 +3,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import '../../app/app_preferences.dart';
 import '../../core/logger.dart';
 import '../../macro/macro_linter.dart';
+import '../../macro/macro_oscope_status.dart';
 
 /// Reads the macro currently open in the editor.
 typedef MacroReader = String Function();
@@ -164,7 +165,7 @@ Tool<Map<String, dynamic>> createReadSiggenStatusTool({
         'selected in Settings -> Signal Generator (none, jds6600 or fy6900), '
         'whether it is detected and connected, the serial port, model, '
         'identity, cached channel settings, outputs and the last error. Call '
-        'this before writing scpi(SIG, ...) or query(SIG, ...) commands, or '
+        'this before writing cmd(SIG, ...) or query(SIG, ...) commands, or '
         'when answering questions about the generator.',
     inputSchema: Schema.fromMap({
       'type': 'object',
@@ -181,6 +182,49 @@ Tool<Map<String, dynamic>> createReadSiggenStatusTool({
           'configured_device': result['configured_device'],
           'connected': result['connected'],
         },
+      );
+      return result;
+    },
+  );
+}
+
+/// Reads the current oscilloscope connection and model for the agent.
+///
+/// The host registers a live provider that reports whether the connection is
+/// active and, while it is, the model detected from `*IDN?`, the display name,
+/// the channel count, the transport and the address.
+typedef MacroOscilloscopeStatusReader = Future<Map<String, dynamic>> Function();
+
+/// Creates the tool that reports the oscilloscope connection and model.
+///
+/// This is the oscilloscope counterpart of [createReadSiggenStatusTool].
+/// Without a registered provider it reports a disconnected instrument.
+Tool<Map<String, dynamic>> createReadOscilloscopeStatusTool({
+  MacroOscilloscopeStatusReader? readStatus,
+  String agentName = 'unknown',
+}) {
+  final reader = readStatus ?? readUnavailableOscilloscopeStatus;
+  return Tool<Map<String, dynamic>>(
+    name: 'read_oscilloscope_status',
+    description:
+        'Return whether the oscilloscope connection is active and, when it '
+        'is, the detected model (for example SDS1202X-E), its display name, '
+        'the channel count, the transport (network or usb) and the address. '
+        'Call this before answering questions about the connected '
+        'oscilloscope or before writing commands that depend on its model or '
+        'channel count.',
+    inputSchema: Schema.fromMap({
+      'type': 'object',
+      'properties': <String, dynamic>{},
+    }),
+    onCall: (args) async {
+      final result = await reader();
+      AppLogger(
+        agentName: agentName,
+        toolName: 'read_oscilloscope_status',
+      ).logToolCall(
+        input: const {},
+        output: {'connected': result['connected'], 'model': result['model']},
       );
       return result;
     },

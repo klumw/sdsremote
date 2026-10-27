@@ -55,10 +55,10 @@ String describeMacroStatement(Statement statement) {
       :final device,
     ) =>
       concatString != null
-          ? 'scpi(${_devicePrefix(device)}<expression>)'
+          ? 'cmd(${_devicePrefix(device)}<expression>)'
           : variableName != null
-          ? 'scpi(${_devicePrefix(device)}$variableName)'
-          : 'scpi(${_devicePrefix(device)}"$command")',
+          ? 'cmd(${_devicePrefix(device)}$variableName)'
+          : 'cmd(${_devicePrefix(device)}"$command")',
     QueryStmt(
       :final command,
       :final variableName,
@@ -70,7 +70,10 @@ String describeMacroStatement(Statement statement) {
           : variableName != null
           ? 'query(${_devicePrefix(device)}$variableName)'
           : 'query(${_devicePrefix(device)}"$command")',
-    AssignStmt(:final varName) => '$varName = <expression>',
+    AssignStmt(:final varName, :final value) =>
+      value is ConnectExpr
+          ? '$varName = connect(...)'
+          : '$varName = <expression>',
     PrintStmt() => 'print(...)',
     AssertStmt(:final text, :final concatText) =>
       concatText != null ? 'assert(<text>, ...)' : 'assert("$text", ...)',

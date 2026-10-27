@@ -16,6 +16,9 @@ import 'systemprompts.dart';
 /// - `validate_macro` — lints the editor content or a candidate version.
 /// - `read_siggen_status` — returns the configured signal generator type and
 ///   its live connection and channel status.
+/// - `read_oscilloscope_status` — returns whether the oscilloscope connection
+///   is active and, when it is, the detected model, display name, channel
+///   count, transport and address.
 /// - `math_tool` — deterministic arithmetic, unit conversion and readable
 ///   value formatting.
 ///
@@ -61,6 +64,7 @@ class MacroAgent {
     required MacroWriter writeMacro,
     String? Function()? macroFileName,
     MacroSiggenStatusReader? readSiggenStatus,
+    MacroOscilloscopeStatusReader? readOscilloscopeStatus,
     this.maxToolCalls = defaultMaxToolCalls,
   }) : _agent = Agent(
          model,
@@ -82,6 +86,10 @@ class MacroAgent {
            ),
            createReadSiggenStatusTool(
              readStatus: readSiggenStatus,
+             agentName: 'MacroAgent',
+           ),
+           createReadOscilloscopeStatusTool(
+             readStatus: readOscilloscopeStatus,
              agentName: 'MacroAgent',
            ),
            createMathTool(agentName: 'MacroAgent'),

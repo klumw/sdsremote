@@ -33,7 +33,7 @@ UnaryExpression   → '!' UnaryNotOperand | '-' UnaryExpression | PrimaryExpress
 UnaryNotOperand   → '-' UnaryExpression | PrimaryExpression
 PrimaryExpression → number | string_literal | 'true' | 'false'
                   | 'query' '(' ... ')'
-                  | 'scpi' '(' ... ')'
+                  | 'cmd' '(' ... ')'
                   | identifier
                   | '(' Expression ')'
 ```

@@ -372,7 +372,7 @@ class SignalGeneratorService extends ChangeNotifier
   ///
   /// Unlike [popError], which returns the oldest entry, this leaves errors
   /// queued by other callers untouched. Macro playback uses it to attribute
-  /// exactly the error produced by one `scpi(SIG, …)` / `query(SIG, …)`
+  /// exactly the error produced by one `cmd(SIG, …)` / `query(SIG, …)`
   /// command.
   ScpiError? takeLastError() => _errors.isEmpty ? null : _errors.removeLast();
 

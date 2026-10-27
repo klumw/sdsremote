@@ -54,9 +54,14 @@ with the macro parser — no copy/paste is required. The assistant knows the
 complete macro language (including `if`/`else`, `while`, `break`/`continue`,
 `assert`, `fail`, string concatenation and operator precedence). It also knows
 the complete SCPI command set of both supported signal generators (JDS6600 and
-FY6900), including the `connect(SIG, usb)`, `scpi(SIG, …)` and `query(SIG, …)`
+FY6900), including the `connect(SIG, usb)`, `cmd(SIG, …)` and `query(SIG, …)`
 syntax, and can read the current generator settings and status with its
-`read_siggen_status` tool. It is available from the AI button in the editor
+`read_siggen_status` tool. It also knows the device-handle syntax for
+controlling several SCPI devices in one macro
+(`myscope = connect("192.168.1.100")`, `cmd(myscope, …)`,
+`query(myscope, …)`). It can read the live oscilloscope connection state and
+detected model with its `read_oscilloscope_status` tool. It is available from
+the AI button in the editor
 header whenever the AI settings are configured; see section 7.2 of the manual
 for details.
 
@@ -160,7 +165,7 @@ is running, and the child window closes together with the main application.
 
 ### Macro Recorder
 
-Record, edit and play back SCPI command sequences to automate repetitive measurement and configuration tasks. Supports variables, conditionals (`if`/`else`), loops (`while`), assertions, and both network (`connect("IP")`) and USB (`connect(usb)`) connections. A macro can additionally address the configured signal generator over USB with `connect(SIG, usb)`, `scpi(SIG, …)` and `query(SIG, …)`.
+Record, edit and play back SCPI command sequences to automate repetitive measurement and configuration tasks. Supports variables, conditionals (`if`/`else`), loops (`while`), assertions, and both network (`connect("IP")`) and USB (`connect(usb)`) connections. A macro can additionally address the configured signal generator over USB with `connect(SIG, usb)`, `cmd(SIG, …)` and `query(SIG, …)`.
 
 > ⚠️ USB connection support in macros is experimental.
 
@@ -428,7 +433,7 @@ The AI code is split into agents and tools:
   - `scpi_agent_tool.dart` — wraps the instrument agent as a `scpi_instrument_agent` tool.
   - `search_agent_tool.dart` — wraps the search agent as a `search_agent` tool.
   - `knowledgebase_search_tool.dart` — knowledgebase chunk search tool (`knowledgebase_search`).
-  - `macro_tools.dart` — Macro Editor tools `read_macro`, `write_macro`, `validate_macro`, `read_siggen_status`.
+  - `macro_tools.dart` — Macro Editor tools `read_macro`, `write_macro`, `validate_macro`, `read_siggen_status`, `read_oscilloscope_status`.
 
 ### Widget Code Layout
 

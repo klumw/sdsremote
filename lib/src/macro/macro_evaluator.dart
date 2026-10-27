@@ -9,6 +9,12 @@ import 'macro_grammar.dart';
 import 'macro_print_formatter.dart';
 import 'macro_siggen.dart';
 
+/// Creates the VXI-11 instrument behind `connect("IP")` and the device
+/// handles opened by `myscope = connect("192.168.1.100")`.
+///
+/// The application keeps the default factory; tests inject a fake.
+typedef MacroInstrumentFactory = Vxi11Instrument Function(String host);
+
 /// Evaluates a macro [Program] by walking its AST and executing commands
 /// against a VXI-11 instrument.
 ///
@@ -23,6 +29,13 @@ class MacroEvaluator {
   final bool Function() isCancelled;
   final Future<void> Function(Duration duration) delay;
   final void Function(String message) onLog;
+
+  /// Creates the instruments for `connect("IP")` and for device handles.
+  final MacroInstrumentFactory _createInstrument;
+
+  /// Device handles bound by `myscope = connect("IP")`, keyed by variable
+  /// name.
+  final Map<String, _MacroDeviceHandle> _handles = {};
 
   /// Opens the signal generator addressed by `connect(SIG, usb)`.
   ///
@@ -79,7 +92,12 @@ class MacroEvaluator {
     this.onPrint,
     this.onBeforeStatement,
     MacroSiggenConnector? siggenConnector,
-  }) : _siggenConnector = siggenConnector ?? unavailableMacroSiggenConnector;
+    MacroInstrumentFactory? instrumentFactory,
+  }) : _siggenConnector = siggenConnector ?? unavailableMacroSiggenConnector,
+       _createInstrument = instrumentFactory ?? _defaultInstrumentFactory;
+
+  static Vxi11Instrument _defaultInstrumentFactory(String host) =>
+      Vxi11Instrument(host, sourceLabel: 'macroPlay');
 
   static Future<void> _defaultDelay(Duration duration) =>
       Future.delayed(duration);
@@ -131,6 +149,7 @@ class MacroEvaluator {
 
   /// Evaluate a previously parsed [Program].
   Future<bool> evaluate(Program program) async {
+    await _closeHandles();
     _vars.clear();
     _varUnits.clear();
     _echoesDrained = false;
@@ -149,11 +168,31 @@ class MacroEvaluator {
     return true;
   }
 
-  /// Close the oscilloscope and signal-generator connections.
+  /// Close the oscilloscope and signal-generator connections and every
+  /// device handle opened by `myscope = connect("IP")`.
   Future<void> close() async {
     await instrument?.close();
     instrument = null;
     await _closeSiggen();
+    await _closeHandles();
+  }
+
+  /// Closes the device handle bound to [varName], if any.
+  Future<void> _releaseHandle(String varName) async {
+    final handle = _handles.remove(varName);
+    if (handle == null) return;
+    try {
+      await handle.instrument.close();
+    } catch (e) {
+      onLog('Macro playback: closing device handle $varName failed: $e');
+    }
+  }
+
+  /// Closes every device handle opened by `myscope = connect("IP")`.
+  Future<void> _closeHandles() async {
+    for (final name in _handles.keys.toList()) {
+      await _releaseHandle(name);
+    }
   }
 
   /// Closes the signal-generator session without failing the macro.
@@ -239,29 +278,25 @@ class MacroEvaluator {
         :final concatString,
         :final device,
       ):
-        if (device == macroSignalGeneratorDevice) {
+        // Resolve first so a handle used as command text is reported as
+        // such, even when no default device is connected.
+        final resolved = _resolveScpiText(
+          command: command,
+          variableName: variableName,
+          concatString: concatString,
+          kind: 'command',
+        );
+        if (_isSiggen(device)) {
           final session = _requireSiggen();
-          final resolved = _resolveScpiText(
-            command: command,
-            variableName: variableName,
-            concatString: concatString,
-            kind: 'command',
-          );
-          onLog('Macro playback: scpi(SIG, "$resolved")');
+          onLog('Macro playback: cmd(${_devicePrefix(device)}"$resolved")');
           final response = await session.execute(resolved);
           if (response != null) {
             onLog('Macro query response: $response');
           }
         } else {
-          await _ensureDevice();
-          final resolved = _resolveScpiText(
-            command: command,
-            variableName: variableName,
-            concatString: concatString,
-            kind: 'command',
-          );
-          onLog('Macro playback: scpi("$resolved")');
-          await instrument!.writeString(resolved);
+          final target = _requireVxiDevice(device);
+          onLog('Macro playback: cmd(${_devicePrefix(device)}"$resolved")');
+          await target.instrument.writeString(resolved);
         }
         await _doDelay();
       case QueryStmt(
@@ -270,56 +305,53 @@ class MacroEvaluator {
         :final concatString,
         :final device,
       ):
-        if (device == macroSignalGeneratorDevice) {
+        final resolved = _resolveScpiText(
+          command: command,
+          variableName: variableName,
+          concatString: concatString,
+          kind: 'query',
+        );
+        if (_isSiggen(device)) {
           final session = _requireSiggen();
-          final resolved = _resolveScpiText(
-            command: command,
-            variableName: variableName,
-            concatString: concatString,
-            kind: 'query',
-          );
-          onLog('Macro playback: query(SIG, "$resolved")');
+          onLog('Macro playback: query(${_devicePrefix(device)}"$resolved")');
           final response = await session.execute(resolved);
           if (response == null) {
             _error(
               'query(SIG, "$resolved") returned no response; '
-              'use scpi(SIG, ...) for set commands',
+              'use cmd(SIG, ...) for set commands',
             );
           }
           onLog('Macro query response: $response');
         } else {
-          await _ensureDevice();
-          await _drainEchoes();
-          final resolved = _resolveScpiText(
-            command: command,
-            variableName: variableName,
-            concatString: concatString,
-            kind: 'query',
-          );
-          onLog('Macro playback: query("$resolved")');
-          await instrument!.writeString(resolved);
-          final raw = await instrument!.readString();
-          final response = _cleanQueryResponse(raw, resolved);
+          final target = _requireVxiDevice(device);
+          onLog('Macro playback: query(${_devicePrefix(device)}"$resolved")');
+          final response = await _queryVxi(target, resolved);
           onLog('Macro query response: $response');
         }
         await _doDelay();
       case AssignStmt(:final varName, :final value):
-        // Resolve the unit before the assignment overwrites the variable; a
-        // query may use the target variable as its command.
-        final unit = _unitForAssignment(value);
-        final result = await _evalExpr(value);
-        final stored = switch (result) {
-          double d => d.toStringAsFixed(4),
-          int i => i.toStringAsFixed(4),
-          _ => result.toString(),
-        };
-        _vars[varName] = stored;
-        if (unit != null) {
-          _varUnits[varName] = unit;
+        if (value is ConnectExpr) {
+          await _assignDeviceConnection(varName, value);
         } else {
-          _varUnits.remove(varName);
+          // Resolve the unit before the assignment overwrites the variable; a
+          // query may use the target variable as its command.
+          final unit = _unitForAssignment(value);
+          final result = await _evalExpr(value);
+          final stored = switch (result) {
+            double d => d.toStringAsFixed(4),
+            int i => i.toStringAsFixed(4),
+            _ => result.toString(),
+          };
+          // Reassigning a handle variable to a value closes its connection.
+          await _releaseHandle(varName);
+          _vars[varName] = stored;
+          if (unit != null) {
+            _varUnits[varName] = unit;
+          } else {
+            _varUnits.remove(varName);
+          }
+          onLog('Macro variable: $varName=$stored');
         }
-        onLog('Macro variable: $varName=$stored');
         await _doDelay();
       case PrintStmt(:final items):
         await _evalPrint(items);
@@ -336,7 +368,7 @@ class MacroEvaluator {
         if (Vxi11Instrument.usbProfileLoadBlocked) {
           _error(Vxi11Instrument.usbProfileLoadError);
         }
-        await _ensureDevice();
+        _ensureDevice();
         final resolved = concatString != null
             ? _resolveConcatString(concatString)
             : path;
@@ -363,18 +395,27 @@ class MacroEvaluator {
       await _connectSignalGenerator();
       return;
     }
+    if (ip == null && _handles.isNotEmpty) {
+      _error(
+        'connect(usb) cannot be combined with device handles. '
+        'Use connect("IP") for the oscilloscope instead.',
+      );
+    }
     await instrument?.close();
+    instrument = null;
+    // A new default connection needs its own echo drain.
+    _echoesDrained = false;
     if (ip == null) {
       onLog('Macro playback: connect via USB (USBTMC)');
       Vxi11Instrument.isUsbMode = true;
-      instrument = Vxi11Instrument('usb', sourceLabel: 'macroPlay');
+      instrument = _createInstrument('usb');
       await instrument!.open(timeoutSeconds: 5.0);
       return;
     }
     final resolved = isVariable ? _resolveVar(ip) : ip;
     onLog('Macro playback: connect to $resolved');
     Vxi11Instrument.isUsbMode = false;
-    instrument = Vxi11Instrument(resolved, sourceLabel: 'macroPlay');
+    instrument = _createInstrument(resolved);
     await instrument!.open(timeoutSeconds: 5.0);
   }
 
@@ -391,6 +432,122 @@ class MacroEvaluator {
     }
   }
 
+  /// Opens the VXI-11 connection of `name = connect("IP")` and binds its
+  /// handle to [varName].
+  ///
+  /// Assigning the same address to the same variable again reuses the open
+  /// connection; a different address closes the old one first. Only IP
+  /// addresses produce a handle — `connect(usb)` and `connect(SIG, usb)`
+  /// remain statements.
+  Future<void> _assignDeviceConnection(String varName, ConnectExpr expr) async {
+    if (expr.device == macroSignalGeneratorDevice) {
+      _error(
+        'connect(SIG, ...) does not return a device handle. '
+        'Use connect("IP") to open an addressable device.',
+      );
+    }
+    if (instrument != null && Vxi11Instrument.isUsbMode) {
+      _error(
+        'Device handles are network connections and cannot be combined '
+        'with connect(usb). Connect the oscilloscope with connect("IP") '
+        'instead.',
+      );
+    }
+    final String host;
+    if (expr.concatString != null) {
+      host = _resolveConcatString(expr.concatString!);
+    } else if (expr.isVariable) {
+      host = _resolveVar(expr.address!);
+    } else if (expr.address != null) {
+      host = expr.address!;
+    } else {
+      _error(
+        'connect(usb) does not return a device handle. '
+        'Use connect("IP") with the device address.',
+      );
+    }
+
+    final existing = _handles[varName];
+    if (existing != null && existing.host == host) {
+      _vars[varName] = host;
+      onLog('Macro playback: reusing connection to $host (handle $varName)');
+      return;
+    }
+    await _releaseHandle(varName);
+
+    onLog('Macro playback: connect to $host (handle $varName)');
+    // A handle is a VXI-11 connection, like connect("IP").
+    Vxi11Instrument.isUsbMode = false;
+    final device = _createInstrument(host);
+    try {
+      await device.open(timeoutSeconds: 5.0);
+    } catch (_) {
+      try {
+        await device.close();
+      } catch (_) {
+        // The failed open already cleaned up.
+      }
+      rethrow;
+    }
+    _handles[varName] = _MacroDeviceHandle(
+      name: varName,
+      host: host,
+      instrument: device,
+    );
+    _vars[varName] = host;
+    _varUnits.remove(varName);
+  }
+
+  /// Resolves the device selector of `cmd()` / `query()`.
+  ///
+  /// Without a selector the default oscilloscope connection is used. A
+  /// selector names a variable bound by `myscope = connect("IP")`.
+  _MacroVxiTarget _requireVxiDevice(String? device) {
+    if (device == null) {
+      _ensureDevice();
+      return (instrument: instrument!, handle: null);
+    }
+    final handle = _handles[device];
+    if (handle != null) {
+      return (instrument: handle.instrument, handle: handle);
+    }
+    _error(
+      _vars.containsKey(device)
+          ? 'Variable "$device" does not hold a device handle. '
+                'Assign it from connect("IP") first, e.g. '
+                '$device = connect("192.168.1.100").'
+          : 'Variable "$device" is undefined. Open the device first with '
+                '$device = connect("192.168.1.100").',
+    );
+  }
+
+  /// Sends [command] as a query to [target] and returns the cleaned response.
+  ///
+  /// The first query on each connection drains the command echoes that the
+  /// oscilloscope sends back for every received command.
+  Future<String> _queryVxi(_MacroVxiTarget target, String command) async {
+    final handle = target.handle;
+    final drained = handle?.echoesDrained ?? _echoesDrained;
+    if (!drained) {
+      if (handle != null) {
+        handle.echoesDrained = true;
+      } else {
+        _echoesDrained = true;
+      }
+      await _drainEchoes(target.instrument);
+    }
+    await target.instrument.writeString(command);
+    final raw = await target.instrument.readString();
+    return _cleanQueryResponse(raw, command);
+  }
+
+  /// Whether [device] is the signal-generator selector.
+  static bool _isSiggen(String? device) => device == macroSignalGeneratorDevice;
+
+  /// Comma-separated device selector for log messages, or an empty string.
+  static String _devicePrefix(String? device) =>
+      device == null ? '' : '$device, ';
+
   /// Returns the signal-generator session, or stops the macro if
   /// `connect(SIG, usb)` has not run yet.
   MacroSiggenSession _requireSiggen() {
@@ -404,8 +561,8 @@ class MacroEvaluator {
     return session;
   }
 
-  /// Resolves a `scpi()` / `query()` argument and rejects numeric variables,
-  /// which are never valid SCPI text.
+  /// Resolves a `cmd()` / `query()` argument and rejects numeric variables
+  /// and device handles, which are never valid SCPI text.
   String _resolveScpiText({
     required String command,
     required String? variableName,
@@ -417,13 +574,21 @@ class MacroEvaluator {
         : variableName != null
         ? _resolveVar(variableName)
         : command;
-    if (concatString == null &&
-        variableName != null &&
-        double.tryParse(resolved) != null) {
-      _error(
-        'Variable "$variableName" has value "$resolved" which is a '
-        'number, not a valid SCPI $kind string',
-      );
+    if (concatString == null && variableName != null) {
+      if (_handles.containsKey(variableName)) {
+        final call = kind == 'query' ? 'query' : 'cmd';
+        _error(
+          'Variable "$variableName" holds a device handle, not a SCPI '
+          '$kind string. Use $call($variableName, "...") to address the '
+          'device.',
+        );
+      }
+      if (double.tryParse(resolved) != null) {
+        _error(
+          'Variable "$variableName" has value "$resolved" which is a '
+          'number, not a valid SCPI $kind string',
+        );
+      }
     }
     return resolved;
   }
@@ -491,41 +656,38 @@ class MacroEvaluator {
         :final concatString,
         :final device,
       ):
-        if (device == macroSignalGeneratorDevice) {
-          final session = _requireSiggen();
-          final cmd = _resolveScpiText(
-            command: command,
-            variableName: variableName,
-            concatString: concatString,
-            kind: 'query',
-          );
-          final response = await session.execute(cmd);
-          if (response == null) {
-            _error(
-              'query(SIG, "$cmd") returned no response; '
-              'use scpi(SIG, ...) for set commands',
-            );
-          }
-          return response;
-        }
-        await _ensureDevice();
-        await _drainEchoes();
         final cmd = _resolveScpiText(
           command: command,
           variableName: variableName,
           concatString: concatString,
           kind: 'query',
         );
-        await instrument!.writeString(cmd);
-        final raw = await instrument!.readString();
-        final response = _cleanQueryResponse(raw, cmd);
-        return response;
+        if (_isSiggen(device)) {
+          final session = _requireSiggen();
+          final response = await session.execute(cmd);
+          if (response == null) {
+            _error(
+              'query(SIG, "$cmd") returned no response; '
+              'use cmd(SIG, ...) for set commands',
+            );
+          }
+          return response;
+        }
+        final target = _requireVxiDevice(device);
+        return _queryVxi(target, cmd);
 
       // ── Scpi ──────────────────────────────────────────────────────
       case ScpiExpr():
         _error(
-          'scpi() cannot be used as an expression value '
+          'cmd() cannot be used as an expression value '
           '(it returns no value)',
+        );
+
+      // ── Connect ───────────────────────────────────────────────────
+      case ConnectExpr():
+        _error(
+          'connect() opens a device handle and can only be assigned '
+          'directly: name = connect("192.168.1.100")',
         );
 
       // ── Unary minus ───────────────────────────────────────────────
@@ -638,6 +800,7 @@ class MacroEvaluator {
     if (value is String) return '"$value"';
     if (value is bool) return '$value';
     if (value is num) return '$value';
+    if (value is _MacroDeviceHandle) return 'the device handle "$value.name"';
     return '${value.runtimeType}';
   }
 
@@ -679,32 +842,27 @@ class MacroEvaluator {
     onLog('Macro assert: $text → $passed');
   }
 
-  /// Handle `assert("text", scpi("CMD"))` — success if the command
+  /// Handle `assert("text", cmd("CMD"))` — success if the command
   /// executes without error.
   Future<void> _evalAssertScpi(String text, ScpiExpr scpi) async {
-    if (scpi.device == macroSignalGeneratorDevice) {
-      final session = _requireSiggen();
-      final resolved = _resolveScpiText(
-        command: scpi.command,
-        variableName: scpi.variableName,
-        concatString: null,
-        kind: 'command',
-      );
-      onLog('Macro assert-scpi: "$text" scpi(SIG, "$resolved")');
-      await session.execute(resolved);
-      onLog('Macro assert: $text: scpi(SIG, "$resolved") → OK');
-      return;
-    }
-    await _ensureDevice();
+    final label = _devicePrefix(scpi.device);
     final resolved = _resolveScpiText(
       command: scpi.command,
       variableName: scpi.variableName,
       concatString: null,
       kind: 'command',
     );
-    onLog('Macro assert-scpi: "$text" scpi("$resolved")');
-    await instrument!.writeString(resolved);
-    onLog('Macro assert: $text: scpi("$resolved") → OK');
+    if (_isSiggen(scpi.device)) {
+      final session = _requireSiggen();
+      onLog('Macro assert-cmd: "$text" cmd($label"$resolved")');
+      await session.execute(resolved);
+      onLog('Macro assert: $text: cmd($label"$resolved") → OK');
+      return;
+    }
+    final target = _requireVxiDevice(scpi.device);
+    onLog('Macro assert-cmd: "$text" cmd($label"$resolved")');
+    await target.instrument.writeString(resolved);
+    onLog('Macro assert: $text: cmd($label"$resolved") → OK');
   }
 
   // ── Print evaluation ──────────────────────────────────────────────
@@ -715,7 +873,7 @@ class MacroEvaluator {
     if (!await file.exists()) {
       _error('loadProfile("$path"): file not found');
     }
-    await _ensureDevice();
+    _ensureDevice();
     final xml = await file.readAsString();
     // The upload itself is acknowledged immediately, but the instrument then
     // stops answering SCPI queries while it applies the profile. VXI-11
@@ -759,19 +917,19 @@ class MacroEvaluator {
         :final concatString,
         :final device,
       ):
-        if (device == macroSignalGeneratorDevice) {
+        final resolved = _resolveScpiText(
+          command: command,
+          variableName: variableName,
+          concatString: concatString,
+          kind: 'query',
+        );
+        if (_isSiggen(device)) {
           final session = _requireSiggen();
-          final resolved = _resolveScpiText(
-            command: command,
-            variableName: variableName,
-            concatString: concatString,
-            kind: 'query',
-          );
           final response = await session.execute(resolved);
           if (response == null) {
             _error(
               'query(SIG, "$resolved") returned no response; '
-              'use scpi(SIG, ...) for set commands',
+              'use cmd(SIG, ...) for set commands',
             );
           }
           return prettyPrintMacroValue(
@@ -779,17 +937,8 @@ class MacroEvaluator {
             unit: inferMacroUnit(resolved),
           );
         }
-        await _ensureDevice();
-        await _drainEchoes();
-        final resolved = _resolveScpiText(
-          command: command,
-          variableName: variableName,
-          concatString: concatString,
-          kind: 'query',
-        );
-        await instrument!.writeString(resolved);
-        final raw = await instrument!.readString();
-        final response = _cleanQueryResponse(raw, resolved);
+        final target = _requireVxiDevice(device);
+        final response = await _queryVxi(target, resolved);
         return prettyPrintMacroValue(response, unit: inferMacroUnit(resolved));
     }
   }
@@ -855,7 +1004,7 @@ class MacroEvaluator {
 
   // ── Helpers ────────────────────────────────────────────────────────
 
-  Future<void> _ensureDevice() async {
+  void _ensureDevice() {
     if (instrument == null) {
       _error(
         'No device connected. Add connect("IP") at the start of the macro.',
@@ -870,12 +1019,12 @@ class MacroEvaluator {
   /// explicitly with the `wait()` statement.
   Future<void> _doDelay() => delay(const Duration(milliseconds: 50));
 
-  Future<void> _drainEchoes() async {
-    if (_echoesDrained || instrument == null) return;
-    _echoesDrained = true;
+  /// Drains the command echoes a VXI-11 device sends back for received
+  /// commands, so they do not pollute the next query response.
+  Future<void> _drainEchoes(Vxi11Instrument target) async {
     for (var attempt = 0; attempt < 10; attempt++) {
       try {
-        final data = await instrument!.readString();
+        final data = await target.readString();
         if (data.isEmpty) break;
       } catch (_) {
         break;
@@ -936,3 +1085,34 @@ class MacroEvaluator {
 }
 
 class _MacroStopException implements Exception {}
+
+/// A VXI-11 target resolved from a `cmd()` / `query()` device selector.
+///
+/// [handle] is null for the default oscilloscope connection.
+typedef _MacroVxiTarget = ({
+  Vxi11Instrument instrument,
+  _MacroDeviceHandle? handle,
+});
+
+/// Runtime binding of `name = connect("IP")`.
+class _MacroDeviceHandle {
+  _MacroDeviceHandle({
+    required this.name,
+    required this.host,
+    required this.instrument,
+  });
+
+  /// Variable name the handle is bound to.
+  final String name;
+
+  /// Device address the connection was opened to.
+  final String host;
+
+  final Vxi11Instrument instrument;
+
+  /// Whether the first query already drained the command echoes.
+  bool echoesDrained = false;
+
+  @override
+  String toString() => host;
+}
