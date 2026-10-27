@@ -26,6 +26,7 @@ ScpiCommandCallback? onScpiCommandSent;
 Tool<Map<String, dynamic>> createVxi11Tool({
   required String host,
   String agentName = 'unknown',
+  ScpiCommandCallback? onCommandSent,
 }) {
   return Tool<Map<String, dynamic>>(
     name: 'vxi11',
@@ -63,6 +64,9 @@ Tool<Map<String, dynamic>> createVxi11Tool({
 
       // Notify the macro recorder (if any) that a SCPI command is being sent.
       onScpiCommandSent?.call(command, operation);
+      // Notify the owning feature (for example the Control Panel's screen
+      // refresh) without disturbing the global recorder callback.
+      onCommandSent?.call(command, operation);
 
       final logger = AppLogger(agentName: agentName, toolName: 'vxi11');
 

@@ -19,6 +19,7 @@ SDS-Remote enables remote control and AI-enhanced operation of Siglent SDS1202X-
 - **Data Logging**: Log key data points over a period of time. Generate PDF measurement reports containing charts and key metrics, or export all recorded measurement points as CSV files.
 - **Signal Generator & Bode Plot**: Choose **No Signal Generator**, **JDS6600** or **FY6900** in the settings. With JDS6600 or FY6900 selected, a **Bode** toolbar button appears once both the oscilloscope and the generator are detected; it runs a frequency sweep and plots gain and phase. The sweep limits are taken from the detected generator model and the selected waveform.
 - **Macro Recorder**: Record, edit and play back SCPI command sequences. Supports variables, conditionals, loops, and both network and USB connections for automated test procedures.
+- **AI Control Panel Assistant**: Configure the oscilloscope from the Control Panel in plain language. The assistant overlays the control sidebar, reads the connected model and channel count, and delegates the SCPI work to the instrument agent.
 
 ### Waveform Data Acquisition
 
@@ -34,7 +35,7 @@ Acquire and display oscilloscope screenshots in real time. Control your oscillos
 
 ### AI Chat Interface
 
-Send commands and query oscilloscope functionality using natural-language prompts.
+Send commands and query oscilloscope functionality using natural-language prompts. While the AI is generating a response, the send button changes to a square stop button that aborts the response immediately and marks it as `terminated by user`.
 
 The instrument sub-agent also exposes a deterministic measurement parser tool
 (`parse_measurement`). It converts raw `PAVA` response strings such as
@@ -63,7 +64,26 @@ controlling several SCPI devices in one macro
 detected model with its `read_oscilloscope_status` tool. It is available from
 the AI button in the editor
 header whenever the AI settings are configured; see section 7.2 of the manual
-for details.
+for details. While it is working, the send button changes to a square stop
+button that aborts the response and marks it as `terminated by user`.
+
+### AI Control Panel Assistant
+
+The Control Panel has its own AI assistant. A sparkle button at the bottom-left
+of the control sidebar — at the same height as the automatic screenshot
+toggle — opens a chat overlay on top of the controls; the close button in the
+overlay header collapses it again. Describe the desired setup in plain
+language, for example "Set CH1 to 200 mV/div with an offset of 0.2 V, then run
+Auto Setup" or "Measure the frequency and RMS voltage on CH3". The assistant
+reads the connected oscilloscope type and channel count, delegates the SCPI
+work to the instrument agent, and asks a clarifying question when a channel,
+value or unit is ambiguous. It reports only plain-language results — never
+SCPI commands, raw device responses or unformatted values. While it is working,
+the send button turns into a square stop button that aborts the response
+immediately and marks it as `terminated by user`. After the assistant changes
+a setting, the screen capture next to the chat refreshes automatically. It is
+available whenever the AI settings are configured; see section 9.10 of the
+manual for details.
 
 ### Device Profile Management
 
@@ -422,6 +442,7 @@ The AI code is split into agents and tools:
 
 - `lib/src/ai/agents/` — agent classes and system prompts:
   - `frontend_agent.dart` — user-facing agent that delegates to specialized sub-agents.
+  - `control_panel_agent.dart` — Control Panel assistant that configures the oscilloscope via the instrument agent.
   - `macro_agent.dart` — Macro Editor assistant that reads, writes and validates the open macro.
   - `instrument_agent.dart` — SCPI/VXI-11 instrument control agent.
   - `search_agent.dart` — knowledgebase search agent.
@@ -447,7 +468,8 @@ All Flutter widget class files live under `lib/src/widgets/`:
 - Windows/screens: `home_page.dart`, `osci_chat_window.dart`,
   `osci_help_window.dart`, `signal_generator_window.dart`.
 - Widgets & dialogs: `data_logger_dialog.dart`, `data_logger_plot.dart`,
-  `osci_knob_widgets.dart`, `osci_news_notification.dart`,
+  `control_panel_chat_overlay.dart`, `osci_knob_widgets.dart`,
+  `osci_news_notification.dart`,
   `osci_toolbar_button.dart`, `filename_prefix_dialog.dart`,
   `reference_file_picker_dialog.dart`, `unsaved_changes_dialog.dart`.
 
@@ -457,7 +479,9 @@ Non-widget, domain-specific support code is grouped into subfolders under
 ### Domain Code Layout
 
 - `lib/src/ai/` — AI agents (`agents/`), tools (`tools/`), and the chat services
-  (`ai_chat_service.dart`, `macro_ai_service.dart`).
+  (`ai_chat_service.dart`, `macro_ai_service.dart`,
+  `control_panel_ai_service.dart`) plus their chat controllers
+  (`macro_chat_controller.dart`, `control_panel_chat_controller.dart`).
 - `lib/src/app/` — application configuration and environment:
   `app_config.dart`, `app_paths.dart`, `app_preferences.dart`, `app_theme.dart`.
 - `lib/src/core/` — cross-cutting utilities: `logger.dart`.

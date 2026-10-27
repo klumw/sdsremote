@@ -5,6 +5,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import '../../core/logger.dart';
 import '../tools/scpi_agent_tool.dart';
 import '../tools/search_agent_tool.dart';
+import '../tools/vxi11_tool.dart';
 import 'instrument_agent.dart';
 import 'search_agent.dart';
 import 'systemprompts.dart';
@@ -105,6 +106,7 @@ class FrontendAgent {
     String knowledgebasePath = 'docs/knowledgebase.md',
     String? instrumentModel,
     List<Tool>? tools,
+    ScpiCommandCallback? onCommandSent,
     this.instrumentToolCalls = defaultInstrumentToolCalls,
     this.searchToolCalls = defaultSearchToolCalls,
   }) : _ownsSystemPrompt = systemPrompt == null,
@@ -118,6 +120,7 @@ class FrontendAgent {
                  model: model,
                  vxi11Host: vxi11Host,
                  maxToolCalls: instrumentToolCalls,
+                 onCommandSent: onCommandSent,
                ),
                agentName: 'FrontendAgent',
              ),
@@ -129,9 +132,12 @@ class FrontendAgent {
              ),
              agentName: 'FrontendAgent',
            ),
-           if (tools != null) ...tools,
+           ...?tools,
          ],
        ) {
+    if (systemPrompt != null) {
+      _history.add(ChatMessage.system(systemPrompt));
+    }
     _instrumentModel = _normalize(instrumentModel);
     _applySystemPrompt();
   }
@@ -345,11 +351,13 @@ class FrontendAgent {
     required String model,
     required String? vxi11Host,
     required int maxToolCalls,
+    ScpiCommandCallback? onCommandSent,
   }) {
     return InstrumentAgent(
       model: model,
       vxi11Host: vxi11Host,
       maxToolCalls: maxToolCalls,
+      onCommandSent: onCommandSent,
       systemPrompt: instrumentAgentSystemPrompt,
     );
   }

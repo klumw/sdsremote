@@ -3,7 +3,10 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 
 import 'osci_knob_widgets.dart';
+import '../ai/ai_settings.dart';
+import '../ai/control_panel_chat_controller.dart';
 import '../app/app_config.dart' show KnobId;
+import 'control_panel_chat_overlay.dart';
 
 /// A widget that renders a physical oscilloscope control panel overlay
 /// on top of a screen dump image.
@@ -36,6 +39,19 @@ class PhysicalControlPanel extends StatelessWidget {
   /// Called when the automatic screen capture toggle is pressed.
   final ValueChanged<bool>? onAutoCaptureChanged;
 
+  /// AI provider/token/model settings for the Control Panel assistant.
+  ///
+  /// Null when the AI is not configured; the AI button is then disabled.
+  final AiSettings? aiSettings;
+
+  /// Controller that owns the Control Panel AI conversation.
+  ///
+  /// When null, no chat overlay is built and the AI button stays disabled.
+  final ControlPanelChatController? chatController;
+
+  /// Instrument address used by the Control Panel assistant.
+  final String? vxi11Host;
+
   const PhysicalControlPanel({
     super.key,
     required this.isOnline,
@@ -56,6 +72,9 @@ class PhysicalControlPanel extends StatelessWidget {
     this.onTriggerButtonPressed,
     this.autoCaptureEnabled = false,
     this.onAutoCaptureChanged,
+    this.aiSettings,
+    this.chatController,
+    this.vxi11Host,
   });
 
   /// Input is locked while a SCPI event is being processed or while the
@@ -391,11 +410,14 @@ class PhysicalControlPanel extends StatelessWidget {
                             ),
                           ),
                         ),
-                        Align(
-                          alignment: Alignment.centerRight,
-                          child: Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: _buildAutoCaptureToggle(),
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Row(
+                            children: [
+                              if (isOnline) _buildAiButton(),
+                              const Spacer(),
+                              _buildAutoCaptureToggle(),
+                            ],
                           ),
                         ),
                       ],
@@ -433,6 +455,18 @@ class PhysicalControlPanel extends StatelessWidget {
                         ),
                       ),
                     ),
+                  ),
+                ),
+              // Keep the AI assistant reachable while the controls are covered
+              // by the OFFLINE overlay.
+              if (!isOnline && chatController != null)
+                Positioned(left: 12, bottom: 12, child: _buildAiButton()),
+              if (chatController != null)
+                Positioned.fill(
+                  child: ControlPanelChatOverlay(
+                    controller: chatController!,
+                    aiSettings: aiSettings,
+                    vxi11Host: vxi11Host,
                   ),
                 ),
             ],
@@ -923,6 +957,66 @@ class PhysicalControlPanel extends StatelessWidget {
                     ? Colors.white38
                     : (useBlackText ? Colors.black : Colors.white),
               ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// AI assistant toggle. The label mirrors the macro editor's sparkle icon;
+  /// the button is disabled until the AI settings are configured.
+  Widget _buildAiButton() {
+    final controller = chatController;
+    if (controller == null) {
+      return _buildAiButtonContent(null, available: false, open: false);
+    }
+    return ListenableBuilder(
+      listenable: controller,
+      builder: (context, _) => _buildAiButtonContent(
+        controller,
+        available: aiSettings?.isConfigured == true && controller.isAvailable,
+        open: controller.isOpen,
+      ),
+    );
+  }
+
+  Widget _buildAiButtonContent(
+    ControlPanelChatController? controller, {
+    required bool available,
+    required bool open,
+  }) {
+    final Color accent = open
+        ? Colors.cyanAccent
+        : (available ? Colors.white70 : Colors.white24);
+
+    return Tooltip(
+      message: available
+          ? (open ? 'Collapse AI Control Assistant' : 'AI Control Assistant')
+          : 'Configure AI settings first',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: available ? controller!.toggleOpen : null,
+          borderRadius: BorderRadius.circular(4),
+          child: Ink(
+            height: 30,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF334155),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: accent, width: 0.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  offset: const Offset(1, 1),
+                  blurRadius: 2,
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [Icon(Icons.auto_awesome, size: 16, color: accent)],
             ),
           ),
         ),

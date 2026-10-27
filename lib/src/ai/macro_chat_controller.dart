@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../macro/macro_oscope_status.dart';
@@ -40,6 +42,10 @@ class MacroChatController extends ChangeNotifier {
   bool _isOpen = false;
   bool _isChatting = false;
   bool _disposed = false;
+
+  StreamSubscription<String>? _subscription;
+  Completer<void>? _sendCompleter;
+  bool _cancelRequested = false;
 
   /// Invalidates chunks from a request that belonged to an older agent (for
   /// example after the AI settings changed mid-response).
@@ -106,6 +112,21 @@ class MacroChatController extends ChangeNotifier {
     _readOscilloscopeStatus = readStatus;
   }
 
+  /// Cancels an in-flight response without changing the transcript.
+  ///
+  /// Used when the agent is reconfigured or the controller is disposed. User
+  /// initiated cancellation goes through [cancel], which also writes the
+  /// termination notice into the transcript.
+  void _cancelActiveRequest() {
+    _cancelRequested = true;
+    final subscription = _subscription;
+    _subscription = null;
+    final completer = _sendCompleter;
+    _sendCompleter = null;
+    if (completer != null && !completer.isCompleted) completer.complete();
+    if (subscription != null) unawaited(subscription.cancel());
+  }
+
   /// Creates or updates the agent for [settings].
   ///
   /// When the settings are unchanged, the existing agent is kept, including
@@ -118,6 +139,7 @@ class MacroChatController extends ChangeNotifier {
 
     if (!configured) {
       final changed = _service != null || _isOpen || _settings != null;
+      _cancelActiveRequest();
       _settings = null;
       _generation++;
       _isChatting = false;
@@ -132,6 +154,7 @@ class MacroChatController extends ChangeNotifier {
       return;
     }
 
+    _cancelActiveRequest();
     _settings = settings;
     _generation++;
     _isChatting = false;
@@ -181,36 +204,85 @@ class MacroChatController extends ChangeNotifier {
     _messages.add(<String, String>{'role': 'user', 'content': trimmed});
     _messages.add(aiMessage);
     _isChatting = true;
-    notifyListeners();
+    _cancelRequested = false;
+    final completer = Completer<void>();
+    _sendCompleter = completer;
 
     var hasReceivedChunk = false;
-    try {
-      await for (final chunk in service.sendMessageStream(text: trimmed)) {
-        if (_disposed || generation != _generation) return;
-        hasReceivedChunk = true;
-        aiMessage['content'] = (aiMessage['content'] ?? '') + chunk;
-        notifyListeners();
-      }
+    var hasError = false;
+    final subscription = service
+        .sendMessageStream(text: trimmed)
+        .listen(
+          (chunk) {
+            if (_disposed || generation != _generation || _cancelRequested) {
+              return;
+            }
+            hasReceivedChunk = true;
+            aiMessage['content'] = (aiMessage['content'] ?? '') + chunk;
+            notifyListeners();
+          },
+          onError: (Object e) {
+            if (_disposed || generation != _generation || _cancelRequested) {
+              if (!completer.isCompleted) completer.complete();
+              return;
+            }
+            hasError = true;
+            aiMessage['content'] = 'Error: Failed to connect to AI server ($e)';
+            if (!completer.isCompleted) completer.complete();
+          },
+          onDone: () {
+            if (!completer.isCompleted) completer.complete();
+          },
+          cancelOnError: true,
+        );
+    _subscription = subscription;
+    notifyListeners();
 
-      if (!_disposed && generation == _generation && !hasReceivedChunk) {
-        aiMessage['content'] = 'No response from AI-Server';
-      }
-    } catch (e) {
-      if (!_disposed && generation == _generation) {
-        aiMessage['content'] = 'Error: Failed to connect to AI server ($e)';
-      }
-    } finally {
-      if (!_disposed && generation == _generation) {
-        _isChatting = false;
-        notifyListeners();
-      }
+    await completer.future;
+
+    if (_subscription == subscription) _subscription = null;
+    if (_sendCompleter == completer) _sendCompleter = null;
+
+    if (_disposed || generation != _generation || _cancelRequested) return;
+
+    if (!hasReceivedChunk && !hasError) {
+      aiMessage['content'] = 'No response from AI-Server';
     }
+    _isChatting = false;
+    notifyListeners();
+  }
+
+  /// Stops the active response immediately and reports the termination in the
+  /// transcript.
+  ///
+  /// The stream subscription is cancelled so no further chunks (and no further
+  /// agent tool calls driven by the stream) are processed.
+  Future<void> cancel() async {
+    if (_disposed || !_isChatting) return;
+
+    _cancelRequested = true;
+    final subscription = _subscription;
+    _subscription = null;
+
+    final aiMessage = _messages.isNotEmpty && _messages.last['role'] == 'ai'
+        ? _messages.last
+        : null;
+    aiMessage?['content'] = 'terminated by user';
+
+    _isChatting = false;
+    final completer = _sendCompleter;
+    _sendCompleter = null;
+    if (completer != null && !completer.isCompleted) completer.complete();
+    notifyListeners();
+
+    await subscription?.cancel();
   }
 
   @override
   void dispose() {
     _disposed = true;
     _generation++;
+    _cancelActiveRequest();
     _service?.dispose();
     _service = null;
     super.dispose();

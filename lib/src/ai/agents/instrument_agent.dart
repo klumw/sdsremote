@@ -64,19 +64,24 @@ class InstrumentAgent with MaxToolCallsHandler {
     String? systemPrompt,
     String? vxi11Host,
     List<Tool>? tools,
+    ScpiCommandCallback? onCommandSent,
     this.maxToolCalls = defaultMaxToolCalls,
   }) : _agent = Agent(
          model,
          displayName: 'InstrumentAgent',
          tools: [
            if (vxi11Host != null)
-             createVxi11Tool(host: vxi11Host, agentName: 'InstrumentAgent'),
+             createVxi11Tool(
+               host: vxi11Host,
+               agentName: 'InstrumentAgent',
+               onCommandSent: onCommandSent,
+             ),
            // Deterministic measurement parser; needs no instrument connection.
            createMeasurementTool(agentName: 'InstrumentAgent'),
            // Deterministic math on measured numbers (gain in dB, and any
            // operation added later); needs no instrument connection.
            createMathTool(agentName: 'InstrumentAgent'),
-           if (tools != null) ...tools,
+           ...?tools,
          ],
          maxToolCalls: maxToolCalls,
        ) {

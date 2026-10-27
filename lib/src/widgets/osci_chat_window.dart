@@ -85,6 +85,13 @@ class ChatWindow extends StatefulWidget {
   /// Optional hint shown in the message area while the chat is empty.
   final String? emptyStateText;
 
+  /// Optional callback that stops the active AI response.
+  ///
+  /// When provided and [isChatting] is true, the send button is replaced by a
+  /// square stop button. Chats without cancellation support keep the disabled
+  /// send button while a response is running.
+  final VoidCallback? onCancel;
+
   const ChatWindow({
     super.key,
     required this.chatMessages,
@@ -93,6 +100,7 @@ class ChatWindow extends StatefulWidget {
     required this.onSendMessage,
     this.hintText = 'Ask about the oscilloscope or give a command...',
     this.emptyStateText,
+    this.onCancel,
   });
 
   @override
@@ -282,15 +290,22 @@ class _ChatWindowState extends State<ChatWindow> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                IconButton(
-                  icon: Icon(
-                    Icons.send,
-                    color: widget.isInitialized
-                        ? Colors.cyanAccent
-                        : Colors.grey[700],
+                if (widget.isChatting && widget.onCancel != null)
+                  IconButton(
+                    icon: const Icon(Icons.stop, color: Colors.redAccent),
+                    tooltip: 'Stop AI response',
+                    onPressed: widget.onCancel,
+                  )
+                else
+                  IconButton(
+                    icon: Icon(
+                      Icons.send,
+                      color: widget.isInitialized
+                          ? Colors.cyanAccent
+                          : Colors.grey[700],
+                    ),
+                    onPressed: widget.isInitialized ? _sendChatMessage : null,
                   ),
-                  onPressed: widget.isInitialized ? _sendChatMessage : null,
-                ),
               ],
             ),
           ),

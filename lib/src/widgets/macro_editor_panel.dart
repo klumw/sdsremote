@@ -1471,6 +1471,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
       isChatting: _chat.isChatting,
       isInitialized: _chat.isInitialized,
       onSendMessage: _onMacroChatSend,
+      onCancel: _chat.cancel,
       hintText: 'Ask the macro assistant...',
       emptyStateText:
           'Ask me to create or change the macro.\n'

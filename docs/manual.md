@@ -261,6 +261,8 @@ For the exact model name string required by your provider, consult your provider
 
 Click the **AI** button in the top toolbar to open or close the chat interface. The chat replaces the main content area (Control Panel, Waveform, etc.) while open. Your conversation history is preserved while the panel remains open; closing and reopening the chat clears the history.
 
+The Macro Editor (section 7.2) and the Control Panel (section 9.10) have their own AI assistants that work directly in those panels without replacing them.
+
 #### Interface Layout
 
 The chat window consists of:
@@ -269,6 +271,7 @@ The chat window consists of:
 * **Streaming Indicator** — While the AI is generating a response, a pulsing cyan cursor (`▊`) might appear at the end of the message, indicating more content is coming.
 * **Input Field** — A text field at the bottom for typing messages. Press **Enter** to send (Shift+Enter for newline is not supported — text wraps automatically).
 * **Send Button** — A paper-plane icon to the right of the input field. Disabled while the AI is generating a response.
+* **Stop Button** — While the AI is generating a response, the send button changes to a square stop button. Pressing it aborts the response immediately and marks it as `terminated by user`.
 
 #### Response Format
 
@@ -673,7 +676,7 @@ The assistant works directly on the macro that is open in the editor:
 * It uses the shared deterministic `math_tool` for arithmetic, unit conversion (V/mV, Hz/kHz/MHz, s/ms/µs, …) and readable SI formatting. The tool is available to the assistant only; macros themselves cannot call it.
 * Its system prompt contains the complete macro language reference, including `if`/`else` (no `else if`), `while` with the 100-iteration limit, `break`/`continue`, `assert`, `fail`, string concatenation, expressions and operator precedence.
 
-Changes are applied immediately and are marked as unsaved. `Ctrl` + `Z` in the editor restores the previous version. Press the AI button again to close the chat panel.
+Changes are applied immediately and are marked as unsaved. `Ctrl` + `Z` in the editor restores the previous version. Press the AI button again to close the chat panel. While the assistant is working, the send button changes to a square stop button; pressing it aborts the response immediately and marks it as `terminated by user`.
 
 The chat stays open, including its complete history, when the editor is closed and reopened later in the same session. An answer that is still streaming when the editor closes continues to update the transcript and is visible on reopen.
 
@@ -1148,7 +1151,7 @@ If the **Ask for filename on save** option is enabled in Settings, a dialog prom
 
 The Control Panel provides a virtual representation of the oscilloscope's physical front panel, allowing remote operation of the device. Click the **Control Panel** button in the top toolbar to open it — the current oscilloscope screen is captured and displayed with interactive control overlays. After each command, the screen is automatically refreshed.
 
-The panel is divided into two main areas: the **Screen Display** on the left and the **Control Sidebar** on the right. When the device is offline, an "OFFLINE" overlay blocks the control sidebar.
+The panel is divided into two main areas: the **Screen Display** on the left and the **Control Sidebar** on the right. When the device is offline, an "OFFLINE" overlay is shown over the control sidebar; the AI assistant button remains usable.
 
 ### 9.1 Screen Display
 
@@ -1256,7 +1259,18 @@ While the **Macro Recorder** is recording, every button press and knob adjustmen
 
 Press the **Save** button in the top toolbar while the Control Panel is active to save the current oscilloscope screen as a PNG file. Screenshots are stored in the `screenshots/` subdirectory of the application working directory. The image format is PNG.
 
-### 9.10 Signal Generator Window (Ctrl+J)
+### 9.10 AI Control Panel Assistant
+
+The Control Panel has its own AI assistant. A sparkle button at the bottom-left of the control sidebar — at the same height as the automatic screenshot toggle — opens a chat overlay that covers the control sidebar. The close button in the overlay header collapses it again; the conversation is kept while the Control Panel remains open.
+
+Describe the desired setup in plain language, for example:
+
+* "Set channel 1 to 200 mV per division with an offset of 0.2 V, then do an autoset."
+* "Give me the frequency on channel 3 and the RMS voltage."
+
+The assistant uses the instrument agent for every device action and measurement. It reads the connected oscilloscope type and channel count before answering model- or channel-dependent requests, so it never addresses CH3 or CH4 on a two-channel instrument. When a channel, value, unit or target is ambiguous, it asks a clarifying question instead of guessing. The AI button is disabled until an AI provider, token and model are configured (section 4). After the assistant changes a setting, the screen capture to the left of the chat overlay refreshes automatically. The assistant reports only plain-language results: it never shows SCPI commands, raw device responses or unformatted values. While it is working, the send button changes to a square stop button; pressing it aborts the response immediately and marks it as `terminated by user`.
+
+### 9.11 Signal Generator Window (Ctrl+J)
 
 When **Settings → Signal Generator** is set to **JDS6600** or **FY6900** and the generator was detected, press **Ctrl+J** to open the signal generator window as a separate OS window. There is no toolbar button. Pressing Ctrl+J while the window is open brings it to the front.
 

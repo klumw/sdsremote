@@ -32,6 +32,7 @@ import '../waveform/waveform_painter.dart';
 import '../waveform/waveform_view_transform.dart';
 import '../ai/ai_chat_service.dart';
 import '../ai/ai_settings.dart';
+import '../ai/control_panel_chat_controller.dart';
 import '../ai/macro_chat_controller.dart';
 import '../core/logger.dart';
 import 'osci_physical_panel.dart';
@@ -253,6 +254,8 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// page, so closing and reopening the editor keeps the chat open with its
   /// complete history.
   final MacroChatController _macroChatController = MacroChatController();
+  final ControlPanelChatController _controlPanelChatController =
+      ControlPanelChatController();
 
   /// Active step-by-step debug session, if any.
   _MacroDebugSession? _macroDebugSession;
@@ -283,6 +286,11 @@ class _OsciHomePageState extends State<OsciHomePage>
   bool _refreshPending = false;
   static const int _refreshDelayMs = 1758;
 
+  /// Extra settling time for screen captures triggered by the Control Panel
+  /// AI assistant. The instrument needs longer to render settings that were
+  /// applied through the separate AI connection.
+  static const Duration _controlPanelAiRefreshDelay = Duration(seconds: 2);
+
   Timer? _autoCaptureTimer;
   bool _autoCaptureEnabled = false;
   static const Duration _autoCaptureInterval = Duration(seconds: 4);
@@ -300,6 +308,9 @@ class _OsciHomePageState extends State<OsciHomePage>
   final AiChatService _aiChatService = AiChatService();
   final List<Map<String, String>> _chatMessages = [];
   bool _isChatting = false;
+  StreamSubscription<String>? _chatSubscription;
+  Completer<void>? _chatSendCompleter;
+  bool _chatCancelRequested = false;
 
   // Data Logger
   late final AnimationController _dlAnimationController;
@@ -323,7 +334,11 @@ class _OsciHomePageState extends State<OsciHomePage>
   void initState() {
     super.initState();
     _macroChatController.attachSignalGeneratorStatus(_readMacroSiggenStatus);
-    _macroChatController.attachOscilloscopeStatus(_readMacroOscilloscopeStatus);
+    _macroChatController.attachOscilloscopeStatus(_readOscilloscopeStatus);
+    _controlPanelChatController.attachOscilloscopeStatus(
+      _readOscilloscopeStatus,
+    );
+    _controlPanelChatController.attachCommandListener(_onControlPanelAiCommand);
     windowManager.addListener(this);
     windowManager.setPreventClose(true);
     HardwareKeyboard.instance.addHandler(_onGlobalKeyEvent);
@@ -410,8 +425,18 @@ class _OsciHomePageState extends State<OsciHomePage>
       sigGen.dispose();
     }
     unawaited(_bodeService?.stop());
+    _chatCancelRequested = true;
+    final chatSubscription = _chatSubscription;
+    _chatSubscription = null;
+    if (chatSubscription != null) unawaited(chatSubscription.cancel());
+    final chatCompleter = _chatSendCompleter;
+    _chatSendCompleter = null;
+    if (chatCompleter != null && !chatCompleter.isCompleted) {
+      chatCompleter.complete();
+    }
     _aiChatService.dispose();
     _macroChatController.dispose();
+    _controlPanelChatController.dispose();
     _macroPrintController.dispose();
     _dlAnimationController.dispose();
     super.dispose();
@@ -932,6 +957,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       onTriggerButtonPressed: _handleButtonPress,
       autoCaptureEnabled: _autoCaptureEnabled,
       onAutoCaptureChanged: _setAutoCaptureEnabled,
+      aiSettings: _macroAiSettings,
+      chatController: _controlPanelChatController,
+      vxi11Host: _ipAddress,
     );
   }
 
@@ -1252,48 +1280,99 @@ class _OsciHomePageState extends State<OsciHomePage>
       isChatting: _isChatting,
       isInitialized: _aiChatService.isInitialized,
       onSendMessage: _onChatSendMessage,
+      onCancel: _cancelChat,
     );
   }
 
   void _onChatSendMessage(String text) async {
+    if (_isChatting) return;
     setState(() {
       _chatMessages.add({'role': 'user', 'content': text});
       _isChatting = true;
+      _chatCancelRequested = false;
       // Add a placeholder for the AI response
       _chatMessages.add({'role': 'ai', 'content': ''});
     });
 
     final aiMsgIndex = _chatMessages.length - 1;
-    bool hasReceivedChunk = false;
+    final completer = Completer<void>();
+    _chatSendCompleter = completer;
+    var hasReceivedChunk = false;
+    var hasError = false;
 
-    try {
-      final stream = _aiChatService.sendMessageStream(text: text);
+    final subscription = _aiChatService
+        .sendMessageStream(text: text)
+        .listen(
+          (chunk) {
+            if (!mounted || _chatCancelRequested) return;
+            hasReceivedChunk = true;
+            setState(() {
+              _chatMessages[aiMsgIndex]['content'] =
+                  (_chatMessages[aiMsgIndex]['content'] ?? '') + chunk;
+            });
+          },
+          onError: (Object e) {
+            if (!mounted || _chatCancelRequested) {
+              if (!completer.isCompleted) completer.complete();
+              return;
+            }
+            hasError = true;
+            setState(() {
+              _chatMessages[aiMsgIndex]['content'] =
+                  'Error: Failed to connect to AI server ($e)';
+            });
+            if (!completer.isCompleted) completer.complete();
+          },
+          onDone: () {
+            if (!completer.isCompleted) completer.complete();
+          },
+          cancelOnError: true,
+        );
+    _chatSubscription = subscription;
 
-      await for (final chunk in stream) {
-        hasReceivedChunk = true;
-        setState(() {
-          _chatMessages[aiMsgIndex]['content'] =
-              _chatMessages[aiMsgIndex]['content']! + chunk;
-        });
-      }
+    await completer.future;
 
-      if (!hasReceivedChunk) {
-        setState(() {
-          _chatMessages[aiMsgIndex]['content'] = 'No response from AI-Server';
-        });
-      }
-    } catch (e) {
+    if (_chatSubscription == subscription) _chatSubscription = null;
+    if (_chatSendCompleter == completer) _chatSendCompleter = null;
+
+    if (!mounted || _chatCancelRequested) return;
+
+    if (!hasReceivedChunk && !hasError) {
       setState(() {
-        _chatMessages[aiMsgIndex]['content'] =
-            'Error: Failed to connect to AI server ($e)';
+        _chatMessages[aiMsgIndex]['content'] = 'No response from AI-Server';
       });
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isChatting = false;
-        });
-      }
     }
+    setState(() {
+      _isChatting = false;
+    });
+  }
+
+  /// Stops the active main-chat response immediately.
+  Future<void> _cancelChat() async {
+    if (!_isChatting) return;
+
+    _chatCancelRequested = true;
+    final subscription = _chatSubscription;
+    _chatSubscription = null;
+
+    if (mounted &&
+        _chatMessages.isNotEmpty &&
+        _chatMessages.last['role'] == 'ai') {
+      setState(() {
+        _chatMessages.last['content'] = 'terminated by user';
+      });
+    }
+
+    final completer = _chatSendCompleter;
+    _chatSendCompleter = null;
+    if (completer != null && !completer.isCompleted) completer.complete();
+    if (mounted) {
+      setState(() {
+        _isChatting = false;
+      });
+    }
+
+    await subscription?.cancel();
   }
 
   Widget _buildProfilesWindow() {
@@ -1586,12 +1665,12 @@ class _OsciHomePageState extends State<OsciHomePage>
         rememberedPort: _sigGenPort,
       );
 
-  /// Reports the oscilloscope connection and detected model to the Macro
-  /// Agent's `read_oscilloscope_status` tool.
+  /// Reports the oscilloscope connection and detected model to the AI agents'
+  /// `read_oscilloscope_status` tools.
   ///
   /// The values come from the same state used by the connection monitor and
   /// the window title, so no additional `*IDN?` query is sent.
-  Future<Map<String, dynamic>> _readMacroOscilloscopeStatus() async =>
+  Future<Map<String, dynamic>> _readOscilloscopeStatus() async =>
       readMacroOscilloscopeStatus(
         connected: _isOnline,
         model: _deviceModel,
@@ -1600,6 +1679,18 @@ class _OsciHomePageState extends State<OsciHomePage>
         isUsb: _isUsb,
         ipAddress: _ipAddress,
       );
+
+  /// Refreshes the screen dump shown next to the Control Panel chat after the
+  /// AI assistant changed a setting on the oscilloscope.
+  ///
+  /// Write commands are passed through the existing debounce with extra
+  /// settling time, so the instrument has rendered the new setting before the
+  /// capture is taken. Several commands in one agent turn restart the timer,
+  /// resulting in a single capture after the last change.
+  void _onControlPanelAiCommand(String command, String operation) {
+    if (operation != 'write') return;
+    _scheduleRefresh(extraDelay: _controlPanelAiRefreshDelay, reschedule: true);
+  }
 
   /// Shows an error snackbar and logs the error.
   /// Also sets [_macroHadPlaybackError] if called during active playback.
@@ -3206,16 +3297,22 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// The interface is now claimed once and held for the lifetime of the app,
   /// and released in [dispose].
 
-  void _scheduleRefresh() {
-    if (_refreshPending) return;
+  void _scheduleRefresh({
+    Duration extraDelay = Duration.zero,
+    bool reschedule = false,
+  }) {
+    if (_refreshPending && !reschedule) return;
     _refreshPending = true;
     _refreshTimer?.cancel();
-    _refreshTimer = Timer(Duration(milliseconds: _refreshDelayMs), () {
-      _refreshPending = false;
-      if (mounted && _isOnline && !_isAcquiringWaveform && !_bodeIsRunning) {
-        _acquireScreenDump(keepPanels: true);
-      }
-    });
+    _refreshTimer = Timer(
+      Duration(milliseconds: _refreshDelayMs) + extraDelay,
+      () {
+        _refreshPending = false;
+        if (mounted && _isOnline && !_isAcquiringWaveform && !_bodeIsRunning) {
+          _acquireScreenDump(keepPanels: true);
+        }
+      },
+    );
   }
 
   /// Starts or stops the periodic screen capture requested by the toggle at
