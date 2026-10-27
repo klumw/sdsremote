@@ -52,9 +52,13 @@ The Macro Editor has its own AI agent. It reads the macro currently open in
 the editor, writes a complete updated version back, and validates the result
 with the macro parser — no copy/paste is required. The assistant knows the
 complete macro language (including `if`/`else`, `while`, `break`/`continue`,
-`assert`, `fail`, string concatenation and operator precedence). It is
-available from the AI button in the editor header whenever the AI settings are
-configured; see section 7.2 of the manual for details.
+`assert`, `fail`, string concatenation and operator precedence). It also knows
+the complete SCPI command set of both supported signal generators (JDS6600 and
+FY6900), including the `connect(SIG, usb)`, `scpi(SIG, …)` and `query(SIG, …)`
+syntax, and can read the current generator settings and status with its
+`read_siggen_status` tool. It is available from the AI button in the editor
+header whenever the AI settings are configured; see section 7.2 of the manual
+for details.
 
 ### Device Profile Management
 
@@ -424,7 +428,7 @@ The AI code is split into agents and tools:
   - `scpi_agent_tool.dart` — wraps the instrument agent as a `scpi_instrument_agent` tool.
   - `search_agent_tool.dart` — wraps the search agent as a `search_agent` tool.
   - `knowledgebase_search_tool.dart` — knowledgebase chunk search tool (`knowledgebase_search`).
-  - `macro_tools.dart` — Macro Editor tools `read_macro`, `write_macro`, `validate_macro`.
+  - `macro_tools.dart` — Macro Editor tools `read_macro`, `write_macro`, `validate_macro`, `read_siggen_status`.
 
 ### Widget Code Layout
 

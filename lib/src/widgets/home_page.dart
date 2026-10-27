@@ -321,6 +321,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   @override
   void initState() {
     super.initState();
+    _macroChatController.attachSignalGeneratorStatus(_readMacroSiggenStatus);
     windowManager.addListener(this);
     windowManager.setPreventClose(true);
     HardwareKeyboard.instance.addHandler(_onGlobalKeyEvent);
@@ -1572,6 +1573,16 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// the signal generator window never open the same serial port twice.
   Future<MacroSiggenSession> _connectMacroSignalGenerator() =>
       AppMacroSiggenConnector(service: _sigGenService).connect();
+
+  /// Reports the generator settings and live status to the Macro Agent's
+  /// `read_siggen_status` tool.
+  Future<Map<String, dynamic>> _readMacroSiggenStatus() async =>
+      readMacroSiggenStatus(
+        configuredDevice: _signalGenerator,
+        detected: _sigGenDetected,
+        service: _sigGenService,
+        rememberedPort: _sigGenPort,
+      );
 
   /// Shows an error snackbar and logs the error.
   /// Also sets [_macroHadPlaybackError] if called during active playback.

@@ -14,6 +14,8 @@ import 'systemprompts.dart';
 /// - `read_macro` — returns the complete editor content.
 /// - `write_macro` — replaces the complete editor content.
 /// - `validate_macro` — lints the editor content or a candidate version.
+/// - `read_siggen_status` — returns the configured signal generator type and
+///   its live connection and channel status.
 /// - `math_tool` — deterministic arithmetic, unit conversion and readable
 ///   value formatting.
 ///
@@ -58,6 +60,7 @@ class MacroAgent {
     required MacroReader readMacro,
     required MacroWriter writeMacro,
     String? Function()? macroFileName,
+    MacroSiggenStatusReader? readSiggenStatus,
     this.maxToolCalls = defaultMaxToolCalls,
   }) : _agent = Agent(
          model,
@@ -75,6 +78,10 @@ class MacroAgent {
            ),
            createValidateMacroTool(
              readMacro: readMacro,
+             agentName: 'MacroAgent',
+           ),
+           createReadSiggenStatusTool(
+             readStatus: readSiggenStatus,
              agentName: 'MacroAgent',
            ),
            createMathTool(agentName: 'MacroAgent'),

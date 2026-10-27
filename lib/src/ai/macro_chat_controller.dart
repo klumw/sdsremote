@@ -33,6 +33,7 @@ class MacroChatController extends ChangeNotifier {
   MacroReader? _readMacro;
   MacroWriter? _writeMacro;
   String? Function()? _macroFileName;
+  MacroSiggenStatusReader? _readSiggenStatus;
 
   bool _isOpen = false;
   bool _isChatting = false;
@@ -83,6 +84,16 @@ class MacroChatController extends ChangeNotifier {
     _macroFileName = null;
   }
 
+  /// Registers the live signal-generator settings/status source used by the
+  /// agent's `read_siggen_status` tool.
+  ///
+  /// The callback is read dynamically, so it may be registered before or after
+  /// [configure]. Without it the tool falls back to the persisted generator
+  /// selection in [readStoredSiggenStatus].
+  void attachSignalGeneratorStatus(MacroSiggenStatusReader readStatus) {
+    _readSiggenStatus = readStatus;
+  }
+
   /// Creates or updates the agent for [settings].
   ///
   /// When the settings are unchanged, the existing agent is kept, including
@@ -122,6 +133,10 @@ class MacroChatController extends ChangeNotifier {
       readMacro: () => _readMacro?.call() ?? '',
       writeMacro: (content) => _writeMacro?.call(content) ?? false,
       macroFileName: () => _macroFileName?.call(),
+      readSiggenStatus: () async {
+        final reader = _readSiggenStatus;
+        return reader != null ? reader() : readStoredSiggenStatus();
+      },
     );
     _service = service;
     notifyListeners();

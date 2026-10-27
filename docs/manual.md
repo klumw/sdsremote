@@ -666,6 +666,8 @@ The assistant works directly on the macro that is open in the editor:
 * It writes the complete updated macro back into the editor — no copy/paste is required.
 * It validates changes with the same parser and linter that underline errors in the editor.
 * It knows the authorized SCPI command reference — the same shared list used by the instrument agent — so it selects exact command strings instead of inventing them.
+* It knows the complete SCPI command set of both supported signal generators (JDS6600 and FY6900), including the `connect(SIG, usb)`, `scpi(SIG, …)` and `query(SIG, …)` syntax, the model-specific waveform names and the validation limits.
+* It can read the current signal generator settings and status (configured type, detection, serial port, model, channel settings and last error) with the `read_siggen_status` tool instead of guessing.
 * It uses the shared deterministic `math_tool` for arithmetic, unit conversion (V/mV, Hz/kHz/MHz, s/ms/µs, …) and readable SI formatting. The tool is available to the assistant only; macros themselves cannot call it.
 * Its system prompt contains the complete macro language reference, including `if`/`else` (no `else if`), `while` with the 100-iteration limit, `break`/`continue`, `assert`, `fail`, string concatenation, expressions and operator precedence.
 

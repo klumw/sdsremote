@@ -1708,6 +1708,108 @@ RESPONSE RULES:
 - Instructions, procedures and step-by-step descriptions MUST be passed on completely: every step, in the original order, with all conditions, values and warnings - never shortened, summarized, truncated or cut off. Restructuring for readability is allowed, removing content is not.
 - If all searches fail or return a score < 2, respond exactly with: 'Sorry, I couldn't find any relevant information in the knowledge base.'""";
 
+/// Authorized SCPI reference for the signal generators addressed by
+/// `scpi(SIG, …)` and `query(SIG, …)`.
+///
+/// Both families share one SCPI emulation layer, so the command set is
+/// identical. The waveform names and a few channel behaviors differ and are
+/// listed separately.
+const String signalGeneratorScpiReference = """
+The SIG selector only works after connect(SIG, usb). Both supported generators
+(JOY-IT/Juntek JDS6600 and FeelElec FY6900) use the same SCPI layer, so the
+command set below is identical for both families. Only these commands are
+accepted; any other header returns error -113 and stops macro playback. Never
+send oscilloscope commands with SIG.
+
+Call read_siggen_status before writing SIG commands. Read its
+"configured_device" value to pick the waveform list: jds6600 uses the JDS6600
+list, fy6900 uses the FY6900 list. When it is "none", SIG commands cannot run.
+
+### Common commands
+- *IDN? — identity, e.g. JOY-IT,JDS6600-LITE,12345,N/A or FeelElec,FY6900-20M,12345,N/A
+- *RST — safe reset: outputs off, sine, 1 kHz, 1 Vpp, 0 V offset, duty 50 %, phase 0
+- *CLS — clears the error queue
+- *OPC? — returns 1
+- SYST:ERR? — oldest queued error as code,"message"; 0,"No error" when empty
+- SYST:ERR:COUN? — number of queued errors
+- SYST:VERS? — 1999.0
+- SYST:COMM:BAUD? — 115200
+- SYST:LOC and SYST:REM — accepted, no effect
+
+### Source commands (n = 1 or 2)
+- SOUR<n>:FUNC <shape> | SOUR<n>:FUNC? — waveform; see the lists below
+- SOUR<n>:FREQ <value>[unit] | SOUR<n>:FREQ? — frequency; query returns Hz with 2 decimals
+- SOUR<n>:VOLT <value>[unit] | SOUR<n>:VOLT? — amplitude in Vpp; 3 decimals
+- SOUR<n>:VOLT:OFFS <value>[unit] | SOUR<n>:VOLT:OFFS? — DC offset; 2 decimals
+- SOUR<n>:PHAS <value>[unit] | SOUR<n>:PHAS? — phase; query returns degrees with 1 decimal
+- SOUR<n>:PULS:DCYC <value>[unit] | SOUR<n>:PULS:DCYC? — pulse duty in %; 1 decimal
+- SOUR<n>:FUNC:SQU:DCYC <value>[unit] | SOUR<n>:FUNC:SQU:DCYC? — square duty in %; 1 decimal
+
+### Output commands
+- OUTP<n>:STAT ON|OFF|1|0 | OUTP<n>:STAT? — output state; query returns 1 or 0
+  STAT may be omitted: OUTP1 ON and OUTP1? are equivalent.
+- OUTP:ALL ON|OFF|1|0 | OUTP:ALL? — both outputs; the query returns 1 only when both are on
+
+### Units and header aliases
+- Units are optional and case-insensitive: HZ, KHZ, MHZ for FREQ (no unit = Hz);
+  V, VPP, MV for VOLT and VOLT:OFFS (no unit = V); %, PCT for DCYC (no unit = %);
+  DEG, DEGREE for PHAS (no unit = degrees).
+- Whole header segments may use these aliases: SOURCE=SOUR, OUTPUT=OUTP,
+  VOLTAGE=VOLT, OFFSET=OFFS, FUNCTION=FUNC, DCYCLE=DCYC, PHASE=PHAS,
+  STATE=STAT, FREQUENCY=FREQ. SQUARE and PULSE are not aliases; use SQU and PULS.
+
+### Waveforms — JDS6600 (configured_device = jds6600)
+SIN, SQU, PULS, TRI, PSIN, CMOS, DC, HALF, FULL, POSL, NEGL, NOIS, ERIS, EDEC,
+MTON, SINC, LOR. Also accepted: SINE, SQUARE, PULSE, TRIANGLE, NOISE.
+FY6900-only names (RECT, TRAP, RAMP, ...) return -222.
+
+### Waveforms — FY6900 (configured_device = fy6900)
+SIN, SQU, RECT, TRAP, CMOS, PULS, DC, TRI, RAMP, NRMP, STRG, STPS, NSTP,
+PEXP, NEXP, PFEX, NFEX, PLOG, NLOG, PFLO, NFLO, PFUL, NFUL, PHAL, NHAL,
+LOR, MTON, NOIS, ECG, SINC, IMPU, AWGN, AM, FM, CHIR. Also accepted: SINE,
+SQUARE, RECTANGLE, TRAPEZOID, PULSE, TRIANGLE, NOISE, RAMP. JDS6600-only
+names map to the closest FY6900 preset; PULS on CH2 becomes RECT.
+
+ARB is not available on either family: SOUR<n>:FUNC ARB and
+SOUR<n>:FUNC:ARB return -113.
+
+### Family differences
+- Phase: the JDS6600 has one global CH2-vs-CH1 phase register, so SOUR1:PHAS
+  and SOUR2:PHAS address the same value and both queries return it. The
+  FY6900 stores phase per channel.
+- Duty: on the JDS6600, DCYC applies to the square/pulse shape. On the FY6900
+  the square shape is fixed at 50 %; setting DCYC switches the channel to RECT
+  so the value takes effect.
+- Limits: values are validated against the detected model and waveform, and
+  out-of-range values return -222 and stop playback:
+  - JDS6600: frequency 0.01 Hz up to model MHz for sine, 15 MHz for
+    square/triangle, 6 MHz for other shapes; amplitude 0..20 Vpp below 10 MHz
+    and 0..10 Vpp above; offset -9.99..9.99 V; duty 0..100 %; phase 0..360 deg.
+  - FY6900: frequency from 0.000001 Hz up to model MHz for sine, 15 MHz for
+    square (25 MHz for 30 MHz models), 10 MHz for other shapes; amplitude
+    24/20/10/5 Vpp up to 5/10/20 MHz and above; offset up to +-12 V up to
+    20 MHz and +-2.5 V above; duty 0.1..99.9 %; phase 0..360 deg.
+
+### Unsupported
+- Command chaining with ';' (-113).
+- MEAS, READ and CALC subsystems (-113).
+- Sweep (SOUR:SWE), burst (SOUR:BURS) and arbitrary (SOUR:FUNC:ARB) (-113).
+- Pulse parameters other than SOUR<n>:PULS:DCYC (-113).
+- Any header not listed above, and channel suffixes other than 1 or 2
+  (-113 or -114).
+- Error codes: -100 device error, -113 undefined header, -114 invalid channel
+  suffix, -222 value out of range, -224 invalid parameter.
+
+### Example
+connect(SIG, usb)
+scpi(SIG, "SOUR1:FUNC SIN")
+scpi(SIG, "SOUR1:FREQ 1KHZ")
+scpi(SIG, "SOUR1:VOLT 3.3VPP")
+scpi(SIG, "OUTP1:STAT ON")
+freq = query(SIG, "SOUR1:FREQ?")
+print("SIG frequency: " + freq)
+""";
+
 /// System prompt for the Macro Editor's AI assistant.
 ///
 /// The agent works directly on the macro that is open in the editor through
@@ -1724,20 +1826,22 @@ You help the user create and change macro files (.m) that automate the oscillosc
 You work directly on the macro that is currently open in the editor.
 
 ## ACCESS TO THE CURRENT MACRO
-You have four tools:
+You have five tools:
 - read_macro — returns the complete editor content, its line count, and the file name (when saved). Call it before every change and whenever you need the current state.
 - write_macro — replaces the COMPLETE editor content with the "content" argument. The editor updates immediately and the file is marked as modified. It returns whether the write was applied, the line count, and lint errors in the new content.
 - validate_macro — parses and lints macro source. It checks the current editor content when "content" is omitted, or a candidate version when "content" is supplied. Returns syntax and semantic errors with 1-based line numbers.
+- read_siggen_status — returns the signal generator selected in Settings → Signal Generator (none, jds6600 or fy6900), whether it is detected and connected, the serial port, model, identity, cached channel settings, outputs and the last error. Call it before writing SIG commands or answering generator questions.
 - math_tool — deterministic calculator for arithmetic, unit conversion and readable SI formatting. It never reads or writes the editor and never talks to the instrument.
 
 NEVER ask the user to paste the macro — it is already available through read_macro.
 NEVER claim that a change was made unless write_macro returned applied: true.
 
 ## WORKFLOW
-1. Questions about the macro, a command, or the macro language: call read_macro, then answer using the actual content.
-2. Changes: call read_macro, build the complete new file, call write_macro with it, then call validate_macro.
-3. If validation reports errors: fix them and call write_macro again (you have a limited number of tool calls).
-4. Reply with a short summary of what changed, or why nothing was changed.
+1. Questions about the signal generator, or changes that use SIG commands: call read_siggen_status first to learn the configured type (JDS6600 or FY6900) and the connection state.
+2. Questions about the macro, a command, or the macro language: call read_macro, then answer using the actual content.
+3. Changes: call read_macro, build the complete new file, call write_macro with it, then call validate_macro.
+4. If validation reports errors: fix them and call write_macro again (you have a limited number of tool calls).
+5. Reply with a short summary of what changed, or why nothing was changed.
 
 ## EDITING RULES
 - write_macro always requires the COMPLETE file — never a fragment, a patch, or a diff.
@@ -1887,6 +1991,9 @@ assert("C1 Vpp must be >= " + minVpp, query("C1:PAVA? PKPK") >= minVpp)
 # log the channel 1 frequency
 freq = query("C1:PAVA? FREQ")
 print("C1 frequency: " + freq)
+
+## SIGNAL GENERATOR SCPI REFERENCE (SIG)
+$signalGeneratorScpiReference
 
 ## SCPI COMMAND REFERENCE (SHARED WITH THE INSTRUMENT AGENT)
 The following authorized command reference is the same list the instrument

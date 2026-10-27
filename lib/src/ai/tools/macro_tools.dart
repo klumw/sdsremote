@@ -1,5 +1,6 @@
 import 'package:dartantic_ai/dartantic_ai.dart';
 
+import '../../app/app_preferences.dart';
 import '../../core/logger.dart';
 import '../../macro/macro_linter.dart';
 
@@ -114,6 +115,71 @@ Tool<Map<String, dynamic>> createWriteMacroTool({
           'line_count': result['line_count'],
           'valid': result['valid'],
           'error_count': errors.length,
+        },
+      );
+      return result;
+    },
+  );
+}
+
+/// Reads the current signal-generator settings and status for the agent.
+///
+/// The map uses the keys of [createReadSiggenStatusTool]: at least
+/// `configured_device`, `supported`, `detected` and `connected`.
+typedef MacroSiggenStatusReader = Future<Map<String, dynamic>> Function();
+
+/// Fallback status source when the host did not register a live provider.
+///
+/// Reads the persisted generator selection. The live connection state is only
+/// available from the application's signal-generator service, so it is
+/// reported as disconnected.
+Future<Map<String, dynamic>> readStoredSiggenStatus() async {
+  final device = await AppPreferences.getString('siggen_device') ?? 'none';
+  final port = await AppPreferences.getString('siggen_port');
+  return <String, dynamic>{
+    'configured_device': device,
+    'supported': device == 'jds6600' || device == 'fy6900',
+    'detected': false,
+    'connected': false,
+    'port': port,
+    'model': null,
+    'identity': null,
+    'status_available': false,
+  };
+}
+
+/// Creates the tool that reports the signal-generator settings and status.
+///
+/// The agent needs the configured type (JDS6600 or FY6900) to choose the
+/// correct waveform list and to know whether `connect(SIG, usb)` will work.
+Tool<Map<String, dynamic>> createReadSiggenStatusTool({
+  MacroSiggenStatusReader? readStatus,
+  String agentName = 'unknown',
+}) {
+  final reader = readStatus ?? readStoredSiggenStatus;
+  return Tool<Map<String, dynamic>>(
+    name: 'read_siggen_status',
+    description:
+        'Return the current signal-generator settings and status: the type '
+        'selected in Settings -> Signal Generator (none, jds6600 or fy6900), '
+        'whether it is detected and connected, the serial port, model, '
+        'identity, cached channel settings, outputs and the last error. Call '
+        'this before writing scpi(SIG, ...) or query(SIG, ...) commands, or '
+        'when answering questions about the generator.',
+    inputSchema: Schema.fromMap({
+      'type': 'object',
+      'properties': <String, dynamic>{},
+    }),
+    onCall: (args) async {
+      final result = await reader();
+      AppLogger(
+        agentName: agentName,
+        toolName: 'read_siggen_status',
+      ).logToolCall(
+        input: const {},
+        output: {
+          'configured_device': result['configured_device'],
+          'connected': result['connected'],
         },
       );
       return result;

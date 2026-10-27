@@ -24,6 +24,59 @@ const String _portPreferenceKey = 'siggen_port';
 typedef MacroPreferenceReader = Future<String?> Function(String key);
 typedef MacroPortLister = Future<List<String>> Function();
 
+/// Returns the current signal-generator settings and live status.
+///
+/// Used by the Macro Agent's `read_siggen_status` tool. [configuredDevice] is
+/// the value selected in the settings (`none`, `jds6600` or `fy6900`). The
+/// channel block is only present while a generator is connected.
+Map<String, dynamic> readMacroSiggenStatus({
+  required String configuredDevice,
+  required bool detected,
+  SignalGeneratorService? service,
+  String? rememberedPort,
+}) {
+  final connected = service?.isConnected ?? false;
+  final info = connected ? service!.deviceInfo : null;
+  final family = info?.family ?? SiggenFamily.jds6600;
+  final status = <String, dynamic>{
+    'configured_device': configuredDevice,
+    'supported': configuredDevice == 'jds6600' || configuredDevice == 'fy6900',
+    'detected': detected,
+    'connected': connected,
+    'port': service?.port ?? rememberedPort,
+    'model': info?.modelName,
+    'identity': info?.scpiIdentity,
+    'family': info?.family.name,
+    'last_error': service?.lastError,
+    'action_active': service?.actionActive ?? false,
+  };
+  if (!connected) return status;
+
+  final generator = service!;
+  status['channels'] = <String, dynamic>{
+    '1': _channelStatus(generator.ch1, family),
+    '2': _channelStatus(generator.ch2, family),
+  };
+  status['outputs'] = <String, dynamic>{
+    'ch1': generator.outputs.ch1,
+    'ch2': generator.outputs.ch2,
+  };
+  return status;
+}
+
+Map<String, dynamic> _channelStatus(
+  Jds6600ChannelState state,
+  SiggenFamily family,
+) => <String, dynamic>{
+  'waveform': state.waveform.scpiMnemonic,
+  'waveform_name': state.waveform.displayNameFor(family),
+  'frequency_hz': state.frequencyHz,
+  'amplitude_vpp': state.amplitudeVpp,
+  'offset_v': state.offsetV,
+  'duty_percent': state.dutyPercent,
+  'phase_deg': state.phaseDeg,
+};
+
 /// Opens the signal generator configured in Settings → Signal Generator.
 ///
 /// When the application already owns a [service] for the configured family,
