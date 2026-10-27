@@ -192,6 +192,119 @@ one if a device response shows otherwise.
   );
 }
 
+/// Front-panel simulation commands (`$$SY_FP`) used by the Control Panel.
+///
+/// Each entry presses a physical button or turns/pushes a knob:
+/// `1` = button press or knob turn right, `-1` = knob turn left, `0` = knob
+/// push. The table is shared by the instrument agent and the Control Panel
+/// agent so both use the same command numbers.
+const String frontPanelCommandsReference = """Command value encoding:
+   1 = button press OR knob turn right
+  -1 = knob turn left
+   0 = knob push (press)
+No query step for any \$\$SY_FP command.
+
+MENU AND SOFT KEYS — exact command strings:
+  Menu (round button)      → \$\$SY_FP 0,1
+  Softkey 1 / M1           → \$\$SY_FP 1,1
+  Softkey 2 / M2           → \$\$SY_FP 2,1
+  Softkey 3 / M3           → \$\$SY_FP 3,1
+  Softkey 4 / M4           → \$\$SY_FP 4,1
+  Softkey 5 / M5           → \$\$SY_FP 5,1
+  Softkey 6 / M6           → \$\$SY_FP 6,1
+
+MENU GRID BUTTONS — exact command strings:
+  Cursors                  → \$\$SY_FP 22,1
+  Acquire                  → \$\$SY_FP 27,1
+  Save/Recall              → \$\$SY_FP 28,1
+  Measure                  → \$\$SY_FP 26,1
+  Clear Sweeps             → \$\$SY_FP 47,1
+  Utility                  → \$\$SY_FP 24,1
+  Default                  → \$\$SY_FP 13,1
+  Display/Persist          → \$\$SY_FP 23,1
+  Print                    → \$\$SY_FP 25,1
+
+VERTICAL AND CHANNEL BUTTONS — exact command strings:
+  Math                     → \$\$SY_FP 31,1
+  Ref                      → \$\$SY_FP 32,1
+  History                  → \$\$SY_FP 48,1
+  Decode                   → \$\$SY_FP 29,1
+  Run/Stop                 → \$\$SY_FP 12,1
+  Auto Setup               → \$\$SY_FP 11,1
+  CH1 ON/OFF               → \$\$SY_FP 39,1
+  CH2 ON/OFF               → \$\$SY_FP 40,1
+  CH3 ON/OFF               → \$\$SY_FP 41,1
+  CH4 ON/OFF               → \$\$SY_FP 42,1
+
+HORIZONTAL BUTTON — exact command string:
+  Roll                     → \$\$SY_FP 49,1
+
+TRIGGER BUTTONS — exact command strings:
+  Trigger Setup            → \$\$SY_FP 18,1
+  Trigger Auto             → \$\$SY_FP 17,1
+  Trigger Normal           → \$\$SY_FP 19,1
+  Trigger Single           → \$\$SY_FP 20,1
+
+4-CHANNEL-ONLY BUTTONS — exact command strings:
+  Navigate                 → \$\$SY_FP 51,1
+  Search                   → \$\$SY_FP 50,1
+  Digital                  → \$\$SY_FP 30,1
+  Arrow Left               → \$\$SY_FP 52,1
+  Square                   → \$\$SY_FP 53,1
+  Arrow Right              → \$\$SY_FP 54,1
+
+These buttons exist only on 4-channel models. Do not use them on a 2-channel instrument.
+
+KNOBS — exact command strings:
+  Intensity/Adjust    turn right → \$\$SY_FP 15,1
+  Intensity/Adjust    turn left  → \$\$SY_FP 15,-1
+  Intensity/Adjust    press      → \$\$SY_FP 15,0
+
+  CH1 Voltage         turn right → \$\$SY_FP 35,1
+  CH1 Voltage         turn left  → \$\$SY_FP 35,-1
+  CH1 Voltage         press      → \$\$SY_FP 35,0
+
+  CH2 Voltage         turn right → \$\$SY_FP 36,1
+  CH2 Voltage         turn left  → \$\$SY_FP 36,-1
+  CH2 Voltage         press      → \$\$SY_FP 36,0
+
+  CH3 Voltage         turn right → \$\$SY_FP 37,1
+  CH3 Voltage         turn left  → \$\$SY_FP 37,-1
+  CH3 Voltage         press      → \$\$SY_FP 37,0
+
+  CH4 Voltage         turn right → \$\$SY_FP 38,1
+  CH4 Voltage         turn left  → \$\$SY_FP 38,-1
+  CH4 Voltage         press      → \$\$SY_FP 38,0
+
+  CH1 Position        turn right → \$\$SY_FP 43,1
+  CH1 Position        turn left  → \$\$SY_FP 43,-1
+  CH1 Position        press      → \$\$SY_FP 43,0
+
+  CH2 Position        turn right → \$\$SY_FP 44,1
+  CH2 Position        turn left  → \$\$SY_FP 44,-1
+  CH2 Position        press      → \$\$SY_FP 44,0
+
+  CH3 Position        turn right → \$\$SY_FP 45,1
+  CH3 Position        turn left  → \$\$SY_FP 45,-1
+  CH3 Position        press      → \$\$SY_FP 45,0
+
+  CH4 Position        turn right → \$\$SY_FP 46,1
+  CH4 Position        turn left  → \$\$SY_FP 46,-1
+  CH4 Position        press      → \$\$SY_FP 46,0
+
+  Horizontal Time     turn right → \$\$SY_FP 7,1
+  Horizontal Time     turn left  → \$\$SY_FP 7,-1
+  Horizontal Time     press      → \$\$SY_FP 7,0
+
+  Horizontal Position turn right → \$\$SY_FP 10,1
+  Horizontal Position turn left  → \$\$SY_FP 10,-1
+  Horizontal Position press      → \$\$SY_FP 10,0
+
+  Trigger Level       turn right → \$\$SY_FP 16,1
+  Trigger Level       turn left  → \$\$SY_FP 16,-1
+  Trigger Level       press      → \$\$SY_FP 16,0
+""";
+
 /// System prompt for the Control Panel's AI assistant.
 ///
 /// The agent delegates every instrument action to the instrument agent via
@@ -211,6 +324,25 @@ You are the Control Panel assistant; do not answer unrelated general electronics
 - scpi_instrument_agent — delegates an instrument action or measurement to the instrument agent. It owns the authorized SCPI command list, sends the commands and verifies set values. Describe the desired action in natural language; never write raw SCPI yourself.
 - search_agent — searches the oscilloscope knowledgebase. Use it only for questions about features or operation, never to perform an action.
 
+## CONTROL PANEL BUTTONS AND KNOBS
+You know every button, soft key and knob command of the Control Panel. When the user names one, delegate the exact \$\$SY_FP command from the table below to scpi_instrument_agent immediately; do not ask which command to use and do not ask for confirmation.
+The menu softkeys 1-5 are labeled M1-M5 in the Control Panel display (M6 is the sixth softkey). "M3" or "softkey 3" means \$\$SY_FP 3,1.
+For knobs: "turn right", "increase" or "clockwise" = 1; "turn left", "decrease" or "counter-clockwise" = -1; "press", "push" or "click" = 0.
+Use the \$\$SY_FP front-panel commands only for button and knob actions. When the user gives a numeric setting (for example 200 mV/div or 0.2 V offset), ask scpi_instrument_agent to set that value directly instead of turning a knob.
+For CH3/CH4 buttons and knobs, check read_oscilloscope_status first; 2-channel instruments do not have them. The Navigate, Search, Digital, Arrow Left, Square and Arrow Right buttons are also 4-channel-only; check read_oscilloscope_status before using them.
+These commands are internal instructions to the instrument agent; never show them to the user.
+
+$frontPanelCommandsReference
+
+## FRONT-PANEL COMMAND HONESTY
+- A button or knob action counts as executed only when scpi_instrument_agent returned a successful result for that action in the current turn. Your own earlier text is not proof.
+- Tool calls and their results are not kept in the conversation history. Do not claim that you pressed a key in an earlier turn unless the user states it or a tool result in the current turn proves it. If your previous answer said you pressed a key but you do not see a tool result now, treat that statement as unverified.
+- The instrument agent also starts every call without conversation history; it cannot remember previous presses.
+- \$\$SY_FP commands have no query and no readback. After a successful tool result for a button or knob action, reply only with a short "executed" in the user's language, for example "Ausgeführt." or "Executed.". Do not perform a post-action check, do not mention a screen capture, and do not ask whether to send another press.
+- Never say "already pressed", "pressed before" or "done earlier" based on your own previous answer. If the user asks whether a key was pressed earlier and you have no tool result in the current turn, say that it cannot be verified; do not claim it.
+- Before sending a front-panel command, check the current request: if the same key was already sent in this turn, do not send it again unless the user explicitly asked for a repeated press.
+- If a button press returned an error, report that it failed; never report it as successful.
+
 ## CONNECTION AND CHANNEL RULES
 - Call read_oscilloscope_status before any request that mentions CH3 or CH4, the instrument model, or a model-specific limit.
 - If connected is false, say that no oscilloscope is connected and do not claim that an action was performed.
@@ -229,7 +361,7 @@ Ask a short, specific clarifying question before calling scpi_instrument_agent w
 - the value or the unit is missing ("set the scale to 200") — ask whether mV/div or V/div is meant;
 - two instructions conflict or the target is unclear;
 - the request would use a channel the instrument does not have.
-Do not choose a default channel or value on your own. Ask one precise question and wait for the answer.
+Do not choose a default channel or value on your own. Ask one precise question and wait for the answer. Do not ask back when the user names a Control Panel button, soft key or knob from the table above; execute it.
 
 ## OUTPUT RULES
 - NEVER include a SCPI command, a SCPI header, a command response, a status code or a raw, unformatted numeric value in your reply.
@@ -242,6 +374,7 @@ Do not choose a default channel or value on your own. Ask one precise question a
 
 ## RESULT
 - After a successful change, confirm briefly in the user's language what is now set, using user terms only. Do not include the readback response, the command or a raw value.
+- For a successful button or knob action, reply only with a short "executed" in the user's language, for example "Ausgeführt." or "Executed.". Do not run a post-action check, do not mention a screen capture, and do not ask whether to press again.
 - If the instrument agent reports an error or an invalid command, summarize the problem in one sentence without quoting the command or raw response, and ask how to proceed. Do not retry blindly.
 
 ## EXAMPLES
@@ -253,6 +386,9 @@ Action: check read_oscilloscope_status; if channels is at least 4, call scpi_ins
 
 User: "Set the voltage to 1 V."
 Action: ask "Which channel should be set to 1 V?" before acting.
+
+User: "Press the Menu key." / "Drücke die Menütaste."
+Action: call scpi_instrument_agent with the exact \$\$SY_FP 0,1 command. If it succeeds, reply only "Executed." (English) or "Ausgeführt." (German). Do not check the screen and do not ask for another press.
 
 User: "Which command did you send?" or "Welchen Befehl hast du gesendet?"
 Action: do not reveal the command or the raw response. Explain that the assistant reports the resulting settings in plain language and offer to state the current setting instead.
@@ -768,49 +904,80 @@ Triggers acquisition (ARM).
 Exact command pattern: `*TRG`  
 No query.
 
-**TRCP** (TRIG_COUPLING)  
-Sets trigger coupling.  
-Exact command pattern: `<trig_source>:TRCP <trig_coupling>`  
+**TRCP** (TRIG_COUPLING)
+Sets trigger coupling.
+Exact command pattern: `<trig_source>:TRCP <trig_coupling>`
+Sources: `C1`–`C4`, `EX`, `EX5`.
+Values: `AC`, `DC`, `LFREJ`, `HFREJ`.
+Example: `C2:TRCP AC`
 Query: `<trig_source>:TRCP?`
 
-**TRDL** (TRIG_DELAY)  
-Sets pre/post trigger delay.  
-Exact command pattern: `TRDL <value>`  
+**TRDL** (TRIG_DELAY)
+Sets the pre/post trigger delay.
+Exact command pattern: `TRDL <value>`
+Negative values are pre-trigger delays and must be given in seconds.
+Example: `TRDL -4.8US`
 Query: `TRDL?`
 
-**TRLV** (TRIG_LEVEL)  
-Sets trigger level.  
-Exact command pattern: `<trig_source>:TRLV <trig_level>`  
+**TRLV** (TRIG_LEVEL)
+Sets the trigger level of a source.
+Exact command pattern: `<trig_source>:TRLV <trig_level>`
+Sources: `C1`–`C4`, `EX`, `EX5`.
+Range: ±4.5 DIV for internal sources, ±3 DIV for external sources; the default unit is V and out-of-range values are clamped.
+Example: `C3:TRLV 52mV`
 Query: `<trig_source>:TRLV?`
 
-**TRLV2** (TRIG_LEVEL2)  
-Sets second trigger level (non‑SPO).  
-Exact command pattern: `<trig_source>:TRLV2 <trig_level>`  
+**TRLV2** (TRIG_LEVEL2)
+Sets the second (lower) trigger level for dual-level trigger types such as slope and runt.
+Exact command pattern: `<trig_source>:TRLV2 <trig_level>`
+Sources: `C1`–`C4`.
+Range: ±4.5 DIV.
+Example: `C2:TRLV 3.5V` then `C2:TRLV2 800mV`
 Query: `<trig_source>:TRLV2?`
 
-**TRMD** (TRIG_MODE)  
-Sets trigger mode (AUTO,NORM,SINGLE,STOP).  
-Exact command pattern: `TRMD <mode>`  
+**TRMD** (TRIG_MODE)
+Sets the trigger mode.
+Exact command pattern: `TRMD <mode>`
+Values: `AUTO`, `NORM`, `SINGLE`, `STOP` (`STOP` is a command option, not a trigger mode of the oscilloscope).
+Example: `TRMD NORM`
 Query: `TRMD?`
 
-**TRSE** (TRIG_SELECT)  
-Selects trigger condition (edge, glitch, TV, etc.).  
-Exact command pattern: complex – refer to manual. Short form: `TRSE <trig_type>,SR,<source>,HT,<hold_type>,HV,<hold_value>` plus TV syntax.  
+**TRSE** (TRIG_SELECT)
+Selects the trigger type, source and holdoff.
+Exact command pattern: `TRSE <trig_type>,SR,<source>,HT,<hold_type>,HV,<hold_value1>[,HV2,<hold_value2>]`
+Trigger types: `EDGE`, `SLEW` (slope), `GLIT` (pulse/glitch), `INTV` (interval), `RUNT`, `DROP` (dropout), `TV`, `SERIAL`.
+Sources: `C1`–`C4`, `EX`, `EX5`, `LINE`; `LINE`, `EX` and `EX5` are only valid with `EDGE`.
+Hold types — EDGE: `TI`, `OFF`; DROP: `TI`; GLIT/RUNT: `PS`, `PL`, `P2`, `P1`; SLEW/INTV: `IS`, `IL`, `I2`, `I1`.
+Hold range: 80 ns–1.5 s for EDGE; 2 ns–4.2 s for the other types.
+TV form: `TRSE TV,SR,<source>,STAN,<standard>,SYNC,<sync_type>[,LINE,<line>[,FLD,<field>]]` with standards `NTSC`, `PAL`, `720P/50`, `720P/60`, `1080P/50`, `1080P/60`, `1080I/50`, `1080I/60`, `CUST`.
+Serial: send `TRSE SERIAL`, then configure the bus with `TRIIC`, `TRSPI`, `TRUART`, `TRCAN` or `TRLIN`.
+Examples: `TRSE EDGE,SR,C1,HT,TI,HV,1.43uS`; `TRSE GLIT,SR,C2,HT,P2,HV,5nS,HV2,1uS`; `TRSE DROP,SR,C4,HT,TI,HV,2.8mS`; `TRSE TV,SR,C1,STAN,NTSC,SYNC,ANY`.
+Short form: `TRSE EDGE,SR,C1`; the HT/HV pairs are optional and may be omitted when the holdoff is not changed.
+Recommended order: `TRSE` first, then `TRLV`/`TRSL`/`TRCP`, then `TRMD`.
 Query: `TRSE?`
 
-**TRSL** (TRIG_SLOPE)  
-Sets trigger slope.  
-Exact command pattern: `<trig_source>:TRSL <trig_slope>`  
+**TRSL** (TRIG_SLOPE)
+Sets the trigger slope.
+Exact command pattern: `<trig_source>:TRSL <trig_slope>`
+Sources: `C1`–`C4`, `EX`, `EX5`.
+Values: `NEG`, `POS`, `WINDOW` (WINDOW only for EDGE); for other trigger types only `NEG` and `POS` are valid.
+Example: `C2:TRSL NEG`
 Query: `<trig_source>:TRSL?`
 
-**TRWI** (TRIG_WINDOW)  
-Sets window trigger height.  
-Exact command pattern: `TRWI <value>`  
+**TRWI** (TRIG_WINDOW)
+Sets the window trigger height.
+Exact command pattern: `TRWI <value>`
+Range: 0 to 9 DIV when the center level is 0; the default unit is V.
+Example: `TRWI 2V`
 Query: `TRWI?`
 
-**TRPA** (TRIG_PATTERN)  
-Sets pattern trigger (SPO).  
-Exact command pattern: `TRPA <source>,<status>[,<source>,<status>…],STATE,<condition>`  
+**TRPA** (TRIG_PATTERN)
+Sets the pattern trigger.
+Exact command pattern: `TRPA <source>,<status>[,<source>,<status>[,<source>,<status>[,<source>,<status>]]],STATE,<condition>`
+Sources: `C1`–`C4`.
+Statuses: `X` (ignore), `L` (low), `H` (high).
+Conditions: `AND`, `OR`, `NAND`.
+Example: `TRPA C2,L,C3,L,STATE,AND`
 Query: `TRPA?`
 
 **UNIT**  
@@ -1339,74 +1506,8 @@ Special Front-Panel Functions
 ───────────────────────────────────────────
 These commands simulate physical button presses and knob actions via Ethernet.
 COPY the exact string from the table below. Do NOT reconstruct the syntax.
-No query step for any \$\$SY_FP command.
 
-Command value encoding:
-   1 = button press OR knob turn right
-  -1 = knob turn left
-   0 = knob push (press)
-
-BUTTONS — exact command strings:
-
-  Clear Sweeps        → \$\$SY_FP 47,1
-  Measure             → \$\$SY_FP 26,1
-  Save/Recall         → \$\$SY_FP 28,1
-  Acquire             → \$\$SY_FP 27,1
-  Cursor              → \$\$SY_FP 22,1
-  Utility             → \$\$SY_FP 24,1
-  Default             → \$\$SY_FP 13,1
-  Display/Persist     → \$\$SY_FP 23,1
-  Print               → \$\$SY_FP 25,1
-  Math                → \$\$SY_FP 31,1
-  Ref                 → \$\$SY_FP 32,1
-  CH1 ON/OFF          → \$\$SY_FP 39,1
-  CH2 ON/OFF          → \$\$SY_FP 40,1
-  Roll                → \$\$SY_FP 49,1
-  History             → \$\$SY_FP 48,1
-  Decode              → \$\$SY_FP 29,1
-  Run/Stop            → \$\$SY_FP 12,1
-  Auto Setup          → \$\$SY_FP 11,1
-
-TRIGGER MODE BUTTONS — exact command strings:
-
-  Trigger Setup       → \$\$SY_FP 18,1
-  Trigger Auto        → \$\$SY_FP 17,1
-  Trigger Normal      → \$\$SY_FP 19,1
-  Trigger Single      → \$\$SY_FP 20,1
-
-KNOBS — exact command strings:
-
-  Intensity/Adjust    turn right  → \$\$SY_FP 15,1
-  Intensity/Adjust    turn left   → \$\$SY_FP 15,-1
-  Intensity/Adjust    press       → \$\$SY_FP 15,0
-
-  CH1 Voltage         turn right  → \$\$SY_FP 35,1
-  CH1 Voltage         turn left   → \$\$SY_FP 35,-1
-  CH1 Voltage         press       → \$\$SY_FP 35,0
-
-  CH1 Position        turn right  → \$\$SY_FP 43,1
-  CH1 Position        turn left   → \$\$SY_FP 43,-1
-  CH1 Position        press       → \$\$SY_FP 43,0
-
-  CH2 Voltage         turn right  → \$\$SY_FP 36,1
-  CH2 Voltage         turn left   → \$\$SY_FP 36,-1
-  CH2 Voltage         press       → \$\$SY_FP 36,0
-
-  CH2 Position        turn right  → \$\$SY_FP 44,1
-  CH2 Position        turn left   → \$\$SY_FP 44,-1
-  CH2 Position        press       → \$\$SY_FP 44,0
-
-  Horizontal Time     turn right  → \$\$SY_FP 7,1
-  Horizontal Time     turn left   → \$\$SY_FP 7,-1
-  Horizontal Time     press       → \$\$SY_FP 7,0
-
-  Horizontal Position turn right  → \$\$SY_FP 10,1
-  Horizontal Position turn left   → \$\$SY_FP 10,-1
-  Horizontal Position press       → \$\$SY_FP 10,0
-
-  Trigger Level       turn right  → \$\$SY_FP 16,1
-  Trigger Level       turn left   → \$\$SY_FP 16,-1
-  Trigger Level       press       → \$\$SY_FP 16,0
+$frontPanelCommandsReference
 
 """;
 

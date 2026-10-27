@@ -77,13 +77,16 @@ language, for example "Set CH1 to 200 mV/div with an offset of 0.2 V, then run
 Auto Setup" or "Measure the frequency and RMS voltage on CH3". The assistant
 reads the connected oscilloscope type and channel count, delegates the SCPI
 work to the instrument agent, and asks a clarifying question when a channel,
-value or unit is ambiguous. It reports only plain-language results — never
-SCPI commands, raw device responses or unformatted values. While it is working,
-the send button turns into a square stop button that aborts the response
-immediately and marks it as `terminated by user`. After the assistant changes
-a setting, the screen capture next to the chat refreshes automatically. It is
-available whenever the AI settings are configured; see section 9.10 of the
-manual for details.
+value or unit is ambiguous. It knows every Control Panel button and knob
+command (the menu softkeys 1–5 appear as M1–M5 in the display) and executes
+them without asking for confirmation; a button or knob action is confirmed
+with a short "Executed." (localized) without a screen check. It reports only plain-language results —
+never SCPI commands, raw device responses or unformatted values. While it is
+working, the send button turns into a square stop button that aborts the
+response immediately and marks it as `terminated by user`. After the assistant
+changes a setting, the screen capture next to the chat refreshes automatically.
+It is available whenever the AI settings are configured; see section 9.10 of
+the manual for details.
 
 ### Device Profile Management
 
