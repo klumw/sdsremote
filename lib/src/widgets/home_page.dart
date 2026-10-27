@@ -953,6 +953,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       onKnobTapped: _handleKnobTapped,
       onMenuButtonPressed: _handleButtonPress,
       onVerticalButtonPressed: _handleButtonPress,
+      onNavigationButtonPressed: _handleButtonPress,
       onHorizontalButtonPressed: _handleButtonPress,
       onTriggerButtonPressed: _handleButtonPress,
       autoCaptureEnabled: _autoCaptureEnabled,

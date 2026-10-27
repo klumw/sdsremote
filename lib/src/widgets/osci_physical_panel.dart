@@ -30,6 +30,7 @@ class PhysicalControlPanel extends StatelessWidget {
   final void Function(KnobId knob)? onKnobTapped;
   final ValueChanged<String>? onMenuButtonPressed;
   final ValueChanged<String>? onVerticalButtonPressed;
+  final ValueChanged<String>? onNavigationButtonPressed;
   final ValueChanged<String>? onHorizontalButtonPressed;
   final ValueChanged<String>? onTriggerButtonPressed;
 
@@ -68,6 +69,7 @@ class PhysicalControlPanel extends StatelessWidget {
     this.onKnobTapped,
     this.onMenuButtonPressed,
     this.onVerticalButtonPressed,
+    this.onNavigationButtonPressed,
     this.onHorizontalButtonPressed,
     this.onTriggerButtonPressed,
     this.autoCaptureEnabled = false,
@@ -221,6 +223,10 @@ class PhysicalControlPanel extends StatelessWidget {
                                     ),
                                   ],
                                 ),
+                                if (channelCount >= 4) ...[
+                                  const SizedBox(height: 10),
+                                  _buildFourChannelNavigationRow(),
+                                ],
                                 const SizedBox(height: 10),
                                 // Control Sections Row
                                 IntrinsicHeight(
@@ -288,6 +294,22 @@ class PhysicalControlPanel extends StatelessWidget {
                                                           )
                                                     : null,
                                               ),
+                                              if (channelCount >= 4) ...[
+                                                const SizedBox(height: 10),
+                                                _buildOscButton(
+                                                  'Search',
+                                                  onTap:
+                                                      (isOnline &&
+                                                          onHorizontalButtonPressed !=
+                                                              null &&
+                                                          !_inputLocked)
+                                                      ? () =>
+                                                            onHorizontalButtonPressed!(
+                                                              'Search',
+                                                            )
+                                                      : null,
+                                                ),
+                                              ],
                                               const Spacer(),
                                               const Text(
                                                 'Position',
@@ -378,6 +400,22 @@ class PhysicalControlPanel extends StatelessWidget {
                                                           )
                                                     : null,
                                               ),
+                                              if (channelCount >= 4) ...[
+                                                const SizedBox(height: 10),
+                                                _buildOscButton(
+                                                  'Digital',
+                                                  onTap:
+                                                      (isOnline &&
+                                                          onTriggerButtonPressed !=
+                                                              null &&
+                                                          !_inputLocked)
+                                                      ? () =>
+                                                            onTriggerButtonPressed!(
+                                                              'Digital',
+                                                            )
+                                                      : null,
+                                                ),
+                                              ],
                                               const Spacer(),
                                               const Text(
                                                 'Level',
@@ -768,6 +806,56 @@ class PhysicalControlPanel extends StatelessWidget {
   int get _activeChannel =>
       (selectedChannel >= 1 && selectedChannel <= 4) ? selectedChannel : 1;
 
+  /// Navigation and arrow buttons shown only on 4-channel models.
+  ///
+  /// The buttons form one compact bordered group in the same style as the
+  /// Vertical, Horizontal and Trigger sections.
+  Widget _buildFourChannelNavigationRow() {
+    final bool canNavigate =
+        isOnline && onNavigationButtonPressed != null && !_inputLocked;
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: _buildSectionWrapper(
+        'Navigation',
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 100,
+              child: _buildOscButton(
+                'Navigate',
+                height: 34,
+                onTap: canNavigate
+                    ? () => onNavigationButtonPressed!('Navigate')
+                    : null,
+              ),
+            ),
+            const SizedBox(width: 8),
+            _buildNavIconButton('Arrow Left', Icons.arrow_left, canNavigate),
+            const SizedBox(width: 6),
+            _buildNavIconButton('Square', Icons.crop_square, canNavigate),
+            const SizedBox(width: 6),
+            _buildNavIconButton('Arrow Right', Icons.arrow_right, canNavigate),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildNavIconButton(String label, IconData icon, bool enabled) {
+    return Tooltip(
+      message: label,
+      child: _buildOscButton(
+        '',
+        icon: icon,
+        width: 38,
+        height: 34,
+        onTap: enabled ? () => onNavigationButtonPressed!(label) : null,
+      ),
+    );
+  }
+
   /// Vertical controls for a four-channel instrument.
   ///
   /// The front panel has one scale and one position knob that act on the
@@ -911,6 +999,7 @@ class PhysicalControlPanel extends StatelessWidget {
     bool highContrast = false,
     bool lowContrast = false,
     Color? borderColor,
+    IconData? icon,
   }) {
     final bool isDisabled = onTap == null;
     bool useBlackText =
@@ -947,17 +1036,25 @@ class PhysicalControlPanel extends StatelessWidget {
             border: Border.all(color: actualBorderColor, width: 0.5),
           ),
           child: Center(
-            child: Text(
-              label,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-                color: (isDisabled || lowContrast)
-                    ? Colors.white38
-                    : (useBlackText ? Colors.black : Colors.white),
-              ),
-            ),
+            child: icon != null
+                ? Icon(
+                    icon,
+                    size: 22,
+                    color: (isDisabled || lowContrast)
+                        ? Colors.white38
+                        : (useBlackText ? Colors.black : Colors.white),
+                  )
+                : Text(
+                    label,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: (isDisabled || lowContrast)
+                          ? Colors.white38
+                          : (useBlackText ? Colors.black : Colors.white),
+                    ),
+                  ),
           ),
         ),
       ),

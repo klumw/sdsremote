@@ -77,15 +77,7 @@ const List<ProviderConfig> providerConfigs = [
 // Application Enums
 // ===========================================================================
 
-enum ActivePanel {
-  none,
-  help,
-  chat,
-  profiles,
-  dataLogger,
-  macroRecorder,
-  bode,
-}
+enum ActivePanel { none, help, chat, profiles, dataLogger, macroRecorder, bode }
 
 /// Actions the user can take when closing with unsaved macro changes.
 enum UnsavedMacroAction { save, discard }
@@ -145,6 +137,13 @@ const Map<String, String> buttonCommands = {
   'CH2': r'$$SY_FP 40,1',
   'CH3': r'$$SY_FP 41,1',
   'CH4': r'$$SY_FP 42,1',
+  // 4-channel navigation and function buttons
+  'Navigate': r'$$SY_FP 51,1',
+  'Arrow Left': r'$$SY_FP 52,1',
+  'Square': r'$$SY_FP 53,1',
+  'Arrow Right': r'$$SY_FP 54,1',
+  'Search': r'$$SY_FP 50,1',
+  'Digital': r'$$SY_FP 30,1',
 };
 
 /// Number of analog channels for an oscilloscope model from `*IDN?`.

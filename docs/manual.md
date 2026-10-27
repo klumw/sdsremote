@@ -1188,6 +1188,8 @@ A 3×3 grid of buttons corresponding to the oscilloscope's front-panel menu keys
 | **Display/Persist** | Opens display and persistence settings |
 | **Print** | Triggers a print/screenshot action |
 
+On **four-channel instruments**, an additional navigation row appears below the menu grid with **Navigate**, **Arrow Left**, **Square** and **Arrow Right**. The Horizontal section also shows **Search**, and the Trigger section shows **Digital**. These buttons are hidden on two-channel instruments.
+
 #### Vertical Buttons
 
 A column of four buttons to the right of the menu grid:
