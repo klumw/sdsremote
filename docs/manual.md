@@ -8,7 +8,7 @@ Welcome to the SDS-Remote Help Center.
 
 ### 1.1 Compatibility
 
-SDS-Remote is designed for the **Siglent SDS 1000X-E** series oscilloscopes (SDS1104X-E, SDS1204X-E, etc.). It communicates with the instrument via the VXI-11 protocol over TCP/IP (port 111) or via USBTMC (USB). While the application may partially work with other Siglent oscilloscope series that share the same SCPI command set, only the SDS 1000X-E series is tested and officially supported.
+SDS-Remote is designed for the **Siglent SDS 1000X-E** series oscilloscopes (SDS1104X-E, SDS1204X-E, etc.). It communicates with the instrument via the VXI-11 protocol over TCP/IP or via USBTMC (USB). While the application may partially work with other Siglent oscilloscope series that share the same SCPI command set, only the SDS 1000X-E series is tested and officially supported.
 
 **Minimum Requirements:**
 
@@ -17,7 +17,7 @@ SDS-Remote is designed for the **Siglent SDS 1000X-E** series oscilloscopes (SDS
 | Operating System | Linux or Windows |
 | Display Resolution | 1100 × 600 minimum |
 | Oscilloscope | Siglent SDS 1000X-E series |
-| Network | TCP/IP (port 111) for VXI-11, or USB for USBTMC |
+| Network | TCP/IP for VXI-11, or USB for USBTMC |
 | Internet (AI features) | Required for AI chat functionality |
 
 ### 1.2 General Usage Advice
@@ -30,12 +30,11 @@ SDS-Remote is designed for the **Siglent SDS 1000X-E** series oscilloscopes (SDS
 * Use the **Data Logger** for long-term monitoring and trend analysis.
 * Use the **Macro Recorder** to automate repetitive tasks. Record a sequence once, then replay it as needed.
 * Save your oscilloscope configuration as a **Profile** before starting critical measurements so you can restore it later.
-* The **AI Chat** is most effective for SCPI command assistance and troubleshooting questions.
+* The **AI Chat** is most effective for oscilloscope related questions and SCPI command assistance.
 
 **Performance Tips**
 
 * Network (VXI-11) connections are generally more reliable than USB for sustained operation. USB support is experimental and may have device-specific compatibility issues.
-* When using USB mode, the application detaches the kernel driver (`usbtmc`) to claim the device. Other software accessing the oscilloscope via USB may interfere.
 * Screen captures (Control Panel) update after every command, which takes approximately 1–3 seconds depending on network latency and screen complexity. Rapid consecutive button presses are rate-limited to prevent command queue overflows.
 * Waveform acquisition downloads the full dataset from the oscilloscope, which may take several seconds. The waveform is downsampled for rendering performance.
 * The Data Logger queries the oscilloscope at the configured interval. Very short intervals (10 seconds) with many parameters enabled may cause measurement timing jitter due to SCPI query overhead.
@@ -54,11 +53,11 @@ See section 11 (Application Directory) for a complete breakdown of subdirectorie
 ### 1.3 Known Limitations
 
 * **AI Accuracy** — The AI chat subsystem uses large language models that may generate incorrect SCPI commands or inaccurate technical advice. Always verify critical commands before execution. SDS-Remote is not liable for any damage resulting from AI-generated instructions.
-* **Single Device** — The application connects to one oscilloscope at a time. Simultaneous control of multiple instruments is not supported.
+* **Single Device** — The application connects to one oscilloscope at a time. Simultaneous control of multiple instruments is only supported in the Macro-Recorder.
 * **No Data Streaming** — The application uses request-response SCPI communication. Continuous high-speed data streaming (e.g., at the full sample rate) is not supported. The Data Logger operates at minimum 10-second intervals.
 * **Macro Playback** — Macros run on a dedicated VXI-11 connection. During playback, most UI functions are disabled. The Control Panel, Acquire Waveform, Data Logger, and AI Chat cannot be used concurrently with macro playback.
 * **Waveform Downsampling** — Acquired waveforms are downsampled for display to maintain rendering performance. The full dataset is preserved in CSV exports.
-* **Gain (dB) with Very Small Signals** — Below an RMS voltage of 10 mV on either channel the gain calculation reflects the oscilloscope's noise floor and its 8 bit quantisation instead of the device under test, and the result can vary by tens of decibels between samples. The Data Logger records no gain value for such samples (see the note in section 6.2).
+* **Gain (dB) with very small signals** — Below an RMS voltage of 10 mV on either channel the gain calculation reflects the oscilloscope's noise floor and its 8 bit quantisation instead of the device under test, and the result can vary by tens of decibels between samples. The Data Logger records no gain value for such samples (see the note in section 6.2).
 
 ---
 
@@ -173,7 +172,29 @@ Two toggle switches control default export behavior across the application:
 
 Both settings take effect immediately and persist across application restarts.
 
-### 3.6 Saving Configuration
+### 3.6 Signal Generator
+
+Select the signal generator used by the Bode Plot and the signal generator window:
+
+* **No Signal Generator** — disables generator features (default).
+* **JDS6600** — JOY-IT/Juntek JDS6600 and JDS6600-Lite.
+* **FY6900** — FeelElec FY6900 series.
+
+The selection is persisted as `siggen_device` and restored on the next launch. When a generator is selected, the application scans the serial ports, identifies it via `*IDN?` and enables the **Bode** button and the signal generator window (Ctrl+J). The detected model supplies the frequency, amplitude and offset limits; see the Bode Plot chapter ([section 10](#10-bode-plot)).
+
+### 3.7 Network Connection
+
+Basic connection setup for network mode. Skip steps 1–3 if USB is selected in **Connection Mode**.
+
+1. Connect the oscilloscope to the same network as the host computer.
+2. Obtain the oscilloscope's IP address.
+3. In **Settings**, enter the IP address in the **IP Address** field (see section 3.3).
+4. Click **SAVE CONFIGURATION**.
+5. Verify that the status bar shows your device as `ONLINE`.
+
+For USB (USBTMC), select that connection mode instead and connect the USB cable; the device is auto-detected.
+
+### 3.8 Saving Configuration
 
 Click the **SAVE CONFIGURATION** button to persist all settings. The application:
 
@@ -187,28 +208,6 @@ The status bar updates to reflect the new connection state. If `ONLINE` is shown
 The main window's size and position are saved automatically when the application closes and restored on the next launch. If the saved position is no longer visible on a connected display (for example after disconnecting a monitor), the window opens centered instead.
 
 > **Note:** The API token is stored in plain text in the preferences file (`preferences/preferences.json`) within the application directory. Ensure appropriate file system permissions if working in a shared environment.
-
-### 3.7 Signal Generator
-
-Select the signal generator used by the Bode Plot and the signal generator window:
-
-* **No Signal Generator** — disables generator features (default).
-* **JDS6600** — JOY-IT/Juntek JDS6600 and JDS6600-Lite.
-* **FY6900** — FeelElec FY6900 series.
-
-The selection is persisted as `siggen_device` and restored on the next launch. When a generator is selected, the application scans the serial ports, identifies it via `*IDN?` and enables the **Bode** button and the signal generator window (Ctrl+J). The detected model supplies the frequency, amplitude and offset limits; see the Bode Plot chapter ([section 10](#10-bode-plot)).
-
-### 3.8 Network Connection
-
-Basic connection setup for network mode. Skip steps 1–3 if USB is selected in **Connection Mode**.
-
-1. Connect the oscilloscope to the same network as the host computer.
-2. Obtain the oscilloscope's IP address.
-3. In **Settings**, enter the IP address in the **IP Address** field (see section 3.3).
-4. Click **SAVE CONFIGURATION**.
-5. Verify that the status bar shows your device as `ONLINE`.
-
-For USB (USBTMC), select that connection mode instead and connect the USB cable; the device is auto-detected.
 
 ---
 
@@ -272,16 +271,6 @@ The chat window consists of:
 * **Input Field** — A text field at the bottom for typing messages. Press **Enter** to send (Shift+Enter for newline is not supported — text wraps automatically).
 * **Send Button** — A paper-plane icon to the right of the input field. Disabled while the AI is generating a response.
 * **Stop Button** — While the AI is generating a response, the send button changes to a square stop button. Pressing it aborts the response immediately and marks it as `terminated by user`.
-
-#### Response Format
-
-AI responses are rendered as **Markdown**, supporting:
-
-* Headings, bold, italic
-* Bulleted and numbered lists
-* Tables
-* Code blocks (with monospace font)
-* Clickable URLs (automatically detected and linkified)
 
 #### Message History
 
@@ -1289,7 +1278,7 @@ The **Bode Plot** measures the frequency response of a device under test (DUT). 
 ### 10.1 Prerequisites
 
 * The oscilloscope is connected and the status bar shows `ONLINE`.
-* A supported signal generator is selected in **Settings → Signal Generator** (see [section 3.7](#37-signal-generator)):
+* A supported signal generator is selected in **Settings → Signal Generator** (see [section 3.6](#36-signal-generator)):
   * **JDS6600** — JOY-IT/Juntek JDS6600 and JDS6600-Lite
   * **FY6900** — FeelElec FY6900 series
   * **No Signal Generator** disables the Bode function.
