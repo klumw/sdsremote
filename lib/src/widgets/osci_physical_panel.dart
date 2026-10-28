@@ -1,4 +1,5 @@
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -40,6 +41,26 @@ class PhysicalControlPanel extends StatelessWidget {
   /// Called when the automatic screen capture toggle is pressed.
   final ValueChanged<bool>? onAutoCaptureChanged;
 
+  /// Whether the live screen (VNC) toggle is offered at all.
+  ///
+  /// Only four-channel instruments connected over IP whose built-in VNC
+  /// server answers qualify.
+  final bool showLiveButton;
+
+  /// Whether the live screen is currently displayed instead of the captured
+  /// screen dump.
+  final bool liveEnabled;
+
+  /// Whether the live screen can be switched on. False after the VNC server
+  /// went away; the button stays visible but disabled.
+  final bool liveAvailable;
+
+  /// Called when the live screen toggle is pressed.
+  final ValueChanged<bool>? onLiveChanged;
+
+  /// Latest VNC frame shown while [liveEnabled] is true.
+  final ui.Image? liveScreen;
+
   /// AI provider/token/model settings for the Control Panel assistant.
   ///
   /// Null when the AI is not configured; the AI button is then disabled.
@@ -74,6 +95,11 @@ class PhysicalControlPanel extends StatelessWidget {
     this.onTriggerButtonPressed,
     this.autoCaptureEnabled = false,
     this.onAutoCaptureChanged,
+    this.showLiveButton = false,
+    this.liveEnabled = false,
+    this.liveAvailable = true,
+    this.onLiveChanged,
+    this.liveScreen,
     this.aiSettings,
     this.chatController,
     this.vxi11Host,
@@ -106,11 +132,17 @@ class PhysicalControlPanel extends StatelessWidget {
                             width: 2.0,
                           ),
                         ),
-                        child: Image.memory(
-                          screenDump,
-                          fit: BoxFit.fitWidth,
-                          gaplessPlayback: true,
-                        ),
+                        child: liveEnabled && liveScreen != null
+                            ? RawImage(
+                                image: liveScreen,
+                                fit: BoxFit.fitWidth,
+                                filterQuality: FilterQuality.low,
+                              )
+                            : Image.memory(
+                                screenDump,
+                                fit: BoxFit.fitWidth,
+                                gaplessPlayback: true,
+                              ),
                       ),
                     ),
                   ],
@@ -454,6 +486,10 @@ class PhysicalControlPanel extends StatelessWidget {
                             children: [
                               if (isOnline) _buildAiButton(),
                               const Spacer(),
+                              if (showLiveButton) ...[
+                                _buildLiveToggle(),
+                                const SizedBox(width: 6),
+                              ],
                               _buildAutoCaptureToggle(),
                             ],
                           ),
@@ -1144,20 +1180,24 @@ class PhysicalControlPanel extends StatelessWidget {
 
   /// Toggle for the periodic screen capture. The label reflects the current
   /// state so the switch reads "off" when disabled and "on" when enabled.
+  ///
+  /// While the live screen is active the periodic capture is not available:
+  /// the live stream replaces it, and both must never run at the same time.
   Widget _buildAutoCaptureToggle() {
     final bool enabled = autoCaptureEnabled;
-    final Color accent = enabled
-        ? const Color(0xFF22C55E)
-        : const Color(0xFF94A3B8);
+    final bool disabled = liveEnabled || onAutoCaptureChanged == null;
+    final Color accent = disabled
+        ? Colors.white24
+        : (enabled ? const Color(0xFF22C55E) : const Color(0xFF94A3B8));
 
     return Tooltip(
-      message: 'Automatic screen capture every 4 seconds',
+      message: liveEnabled
+          ? 'Disabled while the live screen is active'
+          : 'Automatic screen capture every 4 seconds',
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onAutoCaptureChanged == null
-              ? null
-              : () => onAutoCaptureChanged!(!enabled),
+          onTap: disabled ? null : () => onAutoCaptureChanged!(!enabled),
           borderRadius: BorderRadius.circular(4),
           child: Ink(
             height: 30,
@@ -1178,6 +1218,61 @@ class PhysicalControlPanel extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.camera_alt_outlined, size: 16, color: accent),
+                const SizedBox(width: 6),
+                Text(
+                  enabled ? 'on' : 'off',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: accent,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Toggle for the live screen streamed from the instrument's VNC server.
+  ///
+  /// The button is only rendered for four-channel instruments connected over
+  /// IP whose VNC server answered ([showLiveButton]). When the VNC server goes
+  /// away it stays visible but disabled ([liveAvailable] is false).
+  Widget _buildLiveToggle() {
+    final bool enabled = liveEnabled;
+    final bool disabled = !liveAvailable || onLiveChanged == null;
+    final Color accent = disabled
+        ? Colors.white24
+        : (enabled ? const Color(0xFF22C55E) : const Color(0xFF94A3B8));
+
+    return Tooltip(
+      message: 'Live Screen',
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: disabled ? null : () => onLiveChanged!(!enabled),
+          borderRadius: BorderRadius.circular(4),
+          child: Ink(
+            height: 30,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF334155),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: accent, width: 0.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  offset: const Offset(1, 1),
+                  blurRadius: 2,
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.live_tv, size: 16, color: accent),
                 const SizedBox(width: 6),
                 Text(
                   enabled ? 'on' : 'off',

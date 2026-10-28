@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'dart:ui' as ui show ImageByteFormat;
+import 'dart:ui' as ui
+    show Image, ImageByteFormat, PixelFormat, decodeImageFromPixels;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
@@ -22,6 +23,7 @@ import 'unsaved_changes_dialog.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../instrument/dart_vxi11.dart';
+import '../instrument/vnc_screen_service.dart';
 import '../waveform/waveform_acquisition.dart';
 import '../waveform/waveform_processing.dart';
 import '../waveform/waveform_csv_parser.dart';
@@ -158,6 +160,29 @@ class _OsciHomePageState extends State<OsciHomePage>
   SdsNotification? _latestNews;
   bool _hasUnreadUpdate = false;
   Uint8List? _screenDump;
+
+  // Live screen (VNC) — four-channel instruments connected over IP only.
+  //
+  // [_vncReachable] mirrors whether the instrument's VNC server answered the
+  // last probe; the Live toggle is only offered while it does. When a live
+  // session fails, [_vncCrashed] keeps the toggle visible but disabled until
+  // a later probe succeeds again.
+  bool _vncReachable = false;
+  bool _vncCrashed = false;
+  bool _vncLive = false;
+  bool _vncProbing = false;
+  bool _autoCaptureBeforeLive = false;
+  DateTime _lastVncProbe = DateTime.fromMillisecondsSinceEpoch(0);
+  VncScreenService? _vncService;
+  ui.Image? _liveScreenImage;
+
+  /// Incremented whenever a live session starts or ends, so a frame that is
+  /// still being decoded cannot be applied to a newer session.
+  int _vncSessionId = 0;
+
+  /// Remembers that the live screen was active when the Control Panel was
+  /// left, so it can be switched on again when the panel is shown again.
+  bool _restoreLiveOnPanelReturn = false;
   WaveformData? _waveformCh1;
   WaveformData? _waveformCh2;
   WaveformData? _waveformCh3;
@@ -295,6 +320,10 @@ class _OsciHomePageState extends State<OsciHomePage>
   bool _autoCaptureEnabled = false;
   static const Duration _autoCaptureInterval = Duration(seconds: 4);
 
+  /// Minimum delay between two VNC reachability probes. The probe runs on the
+  /// 5 s ping tick and only while the Control Panel is visible.
+  static const Duration _vncProbeInterval = Duration(seconds: 10);
+
   // UI State
   bool _showSettings = false;
   ActivePanel _activePanel = ActivePanel.none;
@@ -414,6 +443,12 @@ class _OsciHomePageState extends State<OsciHomePage>
     _pingTimer?.cancel();
     _refreshTimer?.cancel();
     _autoCaptureTimer?.cancel();
+    _vncLive = false;
+    _vncSessionId++;
+    _vncService?.stop();
+    _vncService = null;
+    _liveScreenImage?.dispose();
+    _liveScreenImage = null;
     _closeInstrument();
     _sigGenDetector?.dispose();
     _sigGenDetector = null;
@@ -958,6 +993,11 @@ class _OsciHomePageState extends State<OsciHomePage>
       onTriggerButtonPressed: _handleButtonPress,
       autoCaptureEnabled: _autoCaptureEnabled,
       onAutoCaptureChanged: _setAutoCaptureEnabled,
+      showLiveButton: _showLiveButton,
+      liveEnabled: _vncLive,
+      liveAvailable: _vncReachable,
+      onLiveChanged: _setVncLiveEnabled,
+      liveScreen: _liveScreenImage,
       aiSettings: _macroAiSettings,
       chatController: _controlPanelChatController,
       vxi11Host: _ipAddress,
@@ -2172,8 +2212,19 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   void _togglePanel(ActivePanel panel) {
-    // Leaving the Control Panel stops its periodic screen capture.
-    if (panel != ActivePanel.none) _stopAutoCapture();
+    final bool wasOnControlPanel =
+        _activePanel == ActivePanel.none && !_waveformAcquired;
+    // Leaving the Control Panel stops its periodic screen capture and the
+    // live screen stream. A running live screen is remembered and restored
+    // when the Control Panel is shown again.
+    if (panel != ActivePanel.none) {
+      if (wasOnControlPanel && _vncLive) {
+        _restoreLiveOnPanelReturn = true;
+      }
+      _stopAutoCapture();
+      _stopVncLive(fetchScreen: false, restoreAutoCapture: false);
+      _clearVncAvailability();
+    }
     // Stop the Data Logger immediately when switching away from it
     if (_activePanel == ActivePanel.dataLogger &&
         panel != ActivePanel.dataLogger) {
@@ -2212,6 +2263,12 @@ class _OsciHomePageState extends State<OsciHomePage>
         _loadMacroFiles();
       }
     });
+
+    // Back on the Control Panel: re-check the VNC server and restore the
+    // live screen when it was active before switching away.
+    if (_activePanel == ActivePanel.none && !_waveformAcquired) {
+      unawaited(_refreshVncAndRestoreLive());
+    }
   }
 
   // =========================================================================
@@ -2383,6 +2440,11 @@ class _OsciHomePageState extends State<OsciHomePage>
             'model="$newModel", isUsb=$newIsUsb',
           );
 
+          // The live session belongs to the old address/mode.
+          _restoreLiveOnPanelReturn = false;
+          _stopVncLive(fetchScreen: false, restoreAutoCapture: false);
+          _clearVncAvailability();
+
           setState(() {
             _ipAddress = newIp;
             _isUsb = newIsUsb;
@@ -2481,6 +2543,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       _numChannels = 2;
     });
     _setFallbackWindowTitle();
+    _restoreLiveOnPanelReturn = false;
+    _stopVncLive(fetchScreen: false, restoreAutoCapture: false);
+    _clearVncAvailability();
   }
 
   Future<void> _pingDevice() async {
@@ -2535,6 +2600,7 @@ class _OsciHomePageState extends State<OsciHomePage>
             // Re-assert the name; see the note in the USB branch above.
             _aiChatService.updateInstrumentModel(_deviceModel);
           }
+          unawaited(_refreshVncAvailability());
         }
       }
     } catch (e) {
@@ -2545,6 +2611,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       } else if (mounted) {
         setState(() => _isOnline = false);
         _setFallbackWindowTitle();
+        _restoreLiveOnPanelReturn = false;
+        _stopVncLive(fetchScreen: false, restoreAutoCapture: false);
+        _clearVncAvailability();
       }
     } finally {
       _isPinging = false;
@@ -2603,11 +2672,228 @@ class _OsciHomePageState extends State<OsciHomePage>
         // configured before the first device response, so it learns the model
         // here rather than at construction time.
         _aiChatService.updateInstrumentModel(model);
+        if (_numChannels < 4) {
+          // A two-channel model has no live screen; drop a stale session and
+          // never try to restore one.
+          _restoreLiveOnPanelReturn = false;
+          if (_vncLive) {
+            _stopVncLive(fetchScreen: false, restoreAutoCapture: false);
+          }
+        }
+        unawaited(_refreshVncAvailability(force: true));
       }
     } catch (_) {
       if (mounted) {
         _setFallbackWindowTitle();
       }
+    }
+  }
+
+  // =========================================================================
+  // Live screen (VNC)
+  // =========================================================================
+
+  /// Whether the instrument could in principle stream its screen: a
+  /// four-channel model connected over IP.
+  bool get _couldUseVnc => !_isUsb && _isOnline && _numChannels >= 4;
+
+  /// Whether the Control Panel — and with it the Live toggle — is on screen.
+  bool get _isControlPanelVisible =>
+      _activePanel == ActivePanel.none &&
+      !_waveformAcquired &&
+      _screenDump != null;
+
+  /// Whether the Live toggle should be rendered. After a failed session it
+  /// stays visible but disabled until a probe succeeds again.
+  bool get _showLiveButton =>
+      _couldUseVnc &&
+      _isControlPanelVisible &&
+      (_vncReachable || _vncCrashed);
+
+  /// Probes the instrument's VNC server (rate limited) and updates the
+  /// availability of the Live toggle.
+  Future<void> _refreshVncAvailability({bool force = false}) async {
+    if (!mounted || _vncProbing || _vncLive) return;
+    if (!_couldUseVnc || !_isControlPanelVisible) {
+      _clearVncAvailability();
+      return;
+    }
+    final now = DateTime.now();
+    if (!force && now.difference(_lastVncProbe) < _vncProbeInterval) return;
+    _vncProbing = true;
+    _lastVncProbe = now;
+    bool reachable;
+    try {
+      reachable = await VncScreenService.isReachable(_ipAddress);
+    } finally {
+      _vncProbing = false;
+    }
+    if (!mounted) return;
+    if (!reachable && _vncReachable) {
+      // The server disappeared between sessions.
+      setState(() {
+        _vncReachable = false;
+        _vncCrashed = true;
+      });
+    } else if (reachable && (!_vncReachable || _vncCrashed)) {
+      setState(() {
+        _vncReachable = true;
+        _vncCrashed = false;
+      });
+    }
+  }
+
+  /// Probes the VNC server when the Control Panel becomes visible and
+  /// restores the live screen if it was active before switching panels.
+  Future<void> _refreshVncAndRestoreLive() async {
+    final bool restore = _restoreLiveOnPanelReturn;
+    _restoreLiveOnPanelReturn = false;
+    if (!mounted || !_couldUseVnc || !_isControlPanelVisible) return;
+    await _refreshVncAvailability(force: true);
+    // A ping-triggered probe may still be in flight; wait for its result.
+    var waited = 0;
+    while (_vncProbing && mounted && waited < 20) {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      waited++;
+    }
+    if (!restore || !mounted || _vncLive || !_vncReachable) return;
+    if (!_couldUseVnc || !_isControlPanelVisible) return;
+    _setVncLiveEnabled(true);
+  }
+
+  /// Drops the cached VNC availability, e.g. when the connection mode changes.
+  void _clearVncAvailability() {
+    if (!_vncReachable && !_vncCrashed) return;
+    if (mounted) {
+      setState(() {
+        _vncReachable = false;
+        _vncCrashed = false;
+      });
+    } else {
+      _vncReachable = false;
+      _vncCrashed = false;
+    }
+  }
+
+  /// Switches the live screen on or off.
+  ///
+  /// Live streaming replaces both the periodic automatic capture and the
+  /// per-command screen dumps; while it runs, no SCPI driven screen captures
+  /// are performed.
+  void _setVncLiveEnabled(bool enabled) {
+    if (enabled == _vncLive) return;
+    if (enabled) {
+      if (!_vncReachable || !_couldUseVnc) return;
+      // Live streaming and the periodic capture are mutually exclusive.
+      // Remember the toggle so it can be restored when live ends.
+      _autoCaptureBeforeLive = _autoCaptureEnabled;
+      _stopAutoCapture();
+      _refreshTimer?.cancel();
+      _refreshPending = false;
+      final service = VncScreenService(
+        host: _ipAddress,
+        onFrame: _onVncFrame,
+        onClosed: _onVncClosed,
+      );
+      _vncSessionId++;
+      setState(() {
+        _vncService = service;
+        _vncLive = true;
+        _vncCrashed = false;
+      });
+      unawaited(service.start());
+    } else {
+      _stopVncLive();
+    }
+  }
+
+  void _onVncFrame(VncFrame frame) {
+    if (!mounted || !_vncLive) return;
+    final session = _vncSessionId;
+    ui.decodeImageFromPixels(
+      frame.rgba,
+      frame.width,
+      frame.height,
+      ui.PixelFormat.rgba8888,
+      (image) {
+        if (!mounted || !_vncLive || session != _vncSessionId) {
+          image.dispose();
+          return;
+        }
+        final previous = _liveScreenImage;
+        setState(() => _liveScreenImage = image);
+        if (previous != null) {
+          // The old frame may still be painted in this frame; release it
+          // only after the widgets have rebuilt.
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => previous.dispose(),
+          );
+        }
+      },
+    );
+  }
+
+  /// Called by the VNC service when the session ends without [_stopVncLive]
+  /// asking for it — typically because the instrument's VNC daemon died.
+  void _onVncClosed(Object? error) {
+    if (!_vncLive) return;
+    AppLogger().warning('Live screen session ended: ${error ?? 'closed'}');
+    _stopVncLive(crashed: true);
+  }
+
+  /// Stops the live screen and returns to ordinary screen captures.
+  ///
+  /// On [crashed] the Live toggle is disabled until a probe succeeds again.
+  /// [fetchScreen] fetches a fresh screen dump immediately; it is disabled
+  /// when the Control Panel is being left anyway. [restoreAutoCapture] puts
+  /// the periodic capture back into the state it had before live started.
+  void _stopVncLive({
+    bool crashed = false,
+    bool fetchScreen = true,
+    bool restoreAutoCapture = true,
+  }) {
+    final service = _vncService;
+    final wasLive = _vncLive;
+    _vncService = null;
+    _vncSessionId++;
+    service?.stop();
+    final image = _liveScreenImage;
+    _liveScreenImage = null;
+    if (image != null) {
+      // The panel may still paint the last frame until it rebuilds.
+      WidgetsBinding.instance.addPostFrameCallback((_) => image.dispose());
+    }
+    if (!wasLive) return;
+
+    if (mounted) {
+      setState(() {
+        _vncLive = false;
+        if (crashed) {
+          _vncReachable = false;
+          _vncCrashed = true;
+        }
+      });
+    } else {
+      _vncLive = false;
+      if (crashed) {
+        _vncReachable = false;
+        _vncCrashed = true;
+      }
+    }
+
+    final restore = restoreAutoCapture && _autoCaptureBeforeLive;
+    _autoCaptureBeforeLive = false;
+    if (restore && mounted && _isOnline) _setAutoCaptureEnabled(true);
+    if (crashed && mounted) {
+      _showInfoSnackBar('Live screen lost — switched back to screen captures');
+    }
+    if (fetchScreen &&
+        mounted &&
+        _isOnline &&
+        !_isAcquiring &&
+        !_isAcquiringWaveform &&
+        !_isProcessingEvent) {
+      unawaited(_acquireScreenDump(keepPanels: true));
     }
   }
 
@@ -2648,6 +2934,12 @@ class _OsciHomePageState extends State<OsciHomePage>
           _isOnline = true;
           _waveformAcquired = false;
         });
+        // Opening the Control Panel is the moment the Live toggle matters;
+        // probe right away instead of waiting for the next ping tick, and
+        // restore the live screen when it was active before.
+        if (!keepPanels) {
+          unawaited(_refreshVncAndRestoreLive());
+        }
       }
     } catch (e) {
       if (mounted) {
@@ -2658,6 +2950,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       setState(() {
         _isOnline = false;
       });
+      _restoreLiveOnPanelReturn = false;
+      _stopVncLive(fetchScreen: false, restoreAutoCapture: false);
+      _clearVncAvailability();
     } finally {
       if (mounted) {
         setState(() {
@@ -2672,6 +2967,9 @@ class _OsciHomePageState extends State<OsciHomePage>
     _stopDataLoggerIfRunning();
     _stopBodeIfRunning();
     _stopAutoCapture();
+    _restoreLiveOnPanelReturn = false;
+    _stopVncLive(fetchScreen: false, restoreAutoCapture: false);
+    _clearVncAvailability();
 
     setState(() {
       _isAcquiringWaveform = true;
@@ -2878,7 +3176,17 @@ class _OsciHomePageState extends State<OsciHomePage>
 
       final dir = await AppPaths.getOrCreateScreenshotsDir();
       final file = await AppPaths.getUniqueFilePath(dir, baseName, 'png');
-      await file.writeAsBytes(_screenDump!);
+      final liveImage = _vncLive ? _liveScreenImage : null;
+      if (liveImage != null) {
+        // While live, the SCDP dump above is stale — save the current frame.
+        final data = await liveImage.toByteData(format: ui.ImageByteFormat.png);
+        if (data == null) {
+          throw Exception('Failed to encode live screen');
+        }
+        await file.writeAsBytes(data.buffer.asUint8List());
+      } else {
+        await file.writeAsBytes(_screenDump!);
+      }
       final fileName = file.uri.pathSegments.last;
       _showInfoSnackBar('Saved $fileName');
     } catch (e) {
@@ -3302,6 +3610,9 @@ class _OsciHomePageState extends State<OsciHomePage>
     Duration extraDelay = Duration.zero,
     bool reschedule = false,
   }) {
+    // While the live screen streams the current display there is no point in
+    // fetching SCPI screen dumps; the VNC stream already shows every change.
+    if (_vncLive) return;
     if (_refreshPending && !reschedule) return;
     _refreshPending = true;
     _refreshTimer?.cancel();
@@ -3320,6 +3631,9 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// the bottom right of the Control Panel. While enabled, a fresh screen
   /// dump is fetched every [_autoCaptureInterval].
   void _setAutoCaptureEnabled(bool enabled) {
+    // The periodic capture and the live screen are mutually exclusive; the
+    // toggle is disabled in the UI while live, this guards programmatic calls.
+    if (enabled && _vncLive) return;
     _autoCaptureTimer?.cancel();
     _autoCaptureTimer = null;
     setState(() => _autoCaptureEnabled = enabled);
@@ -3436,8 +3750,11 @@ class _OsciHomePageState extends State<OsciHomePage>
       if (await _sendCommand(command)) {
         // Wait for oscilloscope to process the command
         await Future.delayed(const Duration(milliseconds: _refreshDelayMs));
-        // Fetch the screen dump synchronously
-        await _acquireScreenDump(keepPanels: true);
+        // Fetch the screen dump synchronously — except while the live screen
+        // is active: the VNC stream already reflects the new display state.
+        if (!_vncLive) {
+          await _acquireScreenDump(keepPanels: true);
+        }
         // Final cooldown before next event is allowed
         await Future.delayed(const Duration(milliseconds: 500));
         return true;
