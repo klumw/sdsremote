@@ -280,6 +280,11 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// page, so closing and reopening the editor keeps the chat open with its
   /// complete history.
   final MacroChatController _macroChatController = MacroChatController();
+
+  /// Side-panel layout of the Macro Editor. It lives as long as the home page,
+  /// so panel boundaries dragged by the user survive closing and reopening
+  /// the editor.
+  final MacroEditorLayout _macroEditorLayout = MacroEditorLayout();
   final ControlPanelChatController _controlPanelChatController =
       ControlPanelChatController();
 
@@ -1441,6 +1446,11 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   bool _showMacroEditor = false;
 
+  /// Whether the user last worked in the Macro Editor rather than in the
+  /// recorder file list. Opening the macro recorder panel restores that mode,
+  /// so returning to the panel does not require pressing Edit again.
+  bool _macroEditorPreferred = false;
+
   Widget _buildMacroRecorderWindow() {
     if (_showMacroEditor) {
       return MacroEditorPanel(
@@ -1449,6 +1459,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         isModified: _isMacroModified,
         aiSettings: _aiSettings,
         chatController: _macroChatController,
+        layout: _macroEditorLayout,
         isPlaying: _isMacroPlaying,
         hasDebugSession: _macroDebugSession != null,
         isDebugPaused: _macroDebugSession?.paused ?? false,
@@ -2047,6 +2058,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       _macroStatus = null;
       _macroStatusMessage = null;
       _macroHadPlaybackError = false;
+      _macroEditorPreferred = true;
       _showMacroEditor = true;
     });
   }
@@ -2121,6 +2133,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         _currentMacroContent = content;
         _loadedMacroFileName = fileName;
         _isMacroModified = false;
+        _macroEditorPreferred = true;
         _showMacroEditor = true;
       });
     } catch (e) {
@@ -2267,7 +2280,9 @@ class _OsciHomePageState extends State<OsciHomePage>
 
       // Special logic for macro recorder
       if (_activePanel == ActivePanel.macroRecorder) {
-        _showMacroEditor = false;
+        // Return to the mode the user last worked in: the editor if it was
+        // used before, otherwise the recorder file list.
+        _showMacroEditor = _macroEditorPreferred;
         _loadMacroFiles();
       }
     });

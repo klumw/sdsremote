@@ -12,6 +12,36 @@ import '../macro/macro_linter.dart';
 import '../macro/macro_print_controller.dart';
 import 'osci_chat_window.dart';
 
+/// Layout state of the Macro Editor's side panels.
+///
+/// The owner can keep one instance for the whole session and pass it to every
+/// [MacroEditorPanel]. Panel boundaries dragged by the user then survive
+/// closing and reopening the editor. A null value means the panel uses its
+/// automatic layout for that boundary.
+class MacroEditorLayout {
+  /// Width of the variables/print sidebar set by dragging its boundary.
+  double? sidebarWidth;
+
+  /// Width of the AI chat panel set by dragging its boundary.
+  double? chatWidth;
+
+  /// Height of the variables pane set by dragging the variables/print
+  /// boundary.
+  double? variablesPaneHeight;
+
+  /// Whether the output sidebar has been shown in this session.
+  ///
+  /// Once the sidebar has shown content (variables or print output), it stays
+  /// open even after both become empty again.
+  bool outputSidebarVisible = false;
+
+  /// Whether the user closed the output sidebar with its close button.
+  ///
+  /// Kept for the session, so the panel also stays closed when the editor is
+  /// reopened. A new run opens it again.
+  bool outputSidebarDismissed = false;
+}
+
 /// A simple multi-line text editor for editing macro file content.
 ///
 /// Displays a header with "Macro Editor" title and a Close button.
@@ -48,6 +78,13 @@ class MacroEditorPanel extends StatefulWidget {
   /// null, the panel creates its own controller and disposes it with the
   /// panel.
   final MacroChatController? chatController;
+
+  /// Optional layout state of the side panels.
+  ///
+  /// The parent passes a long-lived instance so that panel widths and heights
+  /// set by dragging survive closing and reopening the editor. When null, the
+  /// panel keeps its own layout for its lifetime.
+  final MacroEditorLayout? layout;
 
   /// Whether the complete macro is currently being played.
   final bool isPlaying;
@@ -130,6 +167,7 @@ class MacroEditorPanel extends StatefulWidget {
     this.errorMessage,
     this.aiSettings,
     this.chatController,
+    this.layout,
     this.isPlaying = false,
     this.hasDebugSession = false,
     this.isDebugPaused = false,
@@ -217,14 +255,10 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   /// Smallest height of the variables and print panes.
   static const double _minVariablePaneHeight = 60;
 
-  /// Widths set by dragging a panel boundary; null restores the automatic
-  /// width for that panel.
-  double? _sidebarWidthOverride;
-  double? _chatWidthOverride;
+  /// Fallback layout when the owner does not supply one.
+  final MacroEditorLayout _ownedLayout = MacroEditorLayout();
 
-  /// Height of the variables pane set by dragging; null restores the
-  /// automatic 50/50 split.
-  double? _variablesPaneHeightOverride;
+  MacroEditorLayout get _layout => widget.layout ?? _ownedLayout;
 
   /// Drag state of the active panel boundary.
   double? _dragStartSize;
@@ -304,13 +338,31 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
 
     // Keep the lower half of the output sidebar in sync with print output.
     widget.printController?.addListener(_onPrintOutputChanged);
+    _latchOutputSidebar();
     WidgetsBinding.instance.addPostFrameCallback((_) => _scrollPrintToBottom());
   }
 
   void _onPrintOutputChanged() {
     if (!mounted) return;
+    _latchOutputSidebar();
     setState(() {});
     _scrollPrintToBottom();
+  }
+
+  /// Keeps the output sidebar open once it has shown content.
+  ///
+  /// Clearing the print output or running without variables must not close
+  /// the panels again; their empty states stay visible instead.
+  void _latchOutputSidebar() {
+    if (widget.debugVariables.isNotEmpty ||
+        (widget.printController?.hasMessages ?? false)) {
+      _layout.outputSidebarVisible = true;
+    }
+  }
+
+  /// Hides the output sidebar until the next run.
+  void _closeOutputSidebar() {
+    setState(() => _layout.outputSidebarDismissed = true);
   }
 
   /// Scrolls the print output to its newest message after the next frame.
@@ -475,6 +527,14 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
         widget.debugCurrentLine != null) {
       _scrollToDebugLine(widget.debugCurrentLine!);
     }
+
+    // A new run brings the output panel back after the user closed it.
+    if ((!oldWidget.hasDebugSession && widget.hasDebugSession) ||
+        (!oldWidget.isPlaying && widget.isPlaying)) {
+      _layout.outputSidebarDismissed = false;
+    }
+
+    _latchOutputSidebar();
   }
 
   void _onTextChanged() {
@@ -584,9 +644,9 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
         .toDouble();
     setState(() {
       if (left) {
-        _sidebarWidthOverride = width;
+        _layout.sidebarWidth = width;
       } else {
-        _chatWidthOverride = width;
+        _layout.chatWidth = width;
       }
     });
   }
@@ -600,7 +660,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     final height = (start + _dragDistance)
         .clamp(_minVariablePaneHeight, _dragMaxSize)
         .toDouble();
-    setState(() => _variablesPaneHeightOverride = height);
+    setState(() => _layout.variablesPaneHeight = height);
   }
 
   void _endPanelDrag() {
@@ -1277,7 +1337,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                   : 0.0;
               // 50/50 by default; a drag overrides the variables height.
               final variablesHeight =
-                  (_variablesPaneHeightOverride ?? splitBudget / 2)
+                  (_layout.variablesPaneHeight ?? splitBudget / 2)
                       .clamp(minSplitHeight, maxSplitHeight)
                       .toDouble();
 
@@ -1301,7 +1361,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                       onDragUpdate: _updateVariablesDrag,
                       onDragEnd: _endPanelDrag,
                       onDoubleTap: () =>
-                          setState(() => _variablesPaneHeightOverride = null),
+                          setState(() => _layout.variablesPaneHeight = null),
                     ),
                   ),
                   Expanded(child: _buildPrintOutputSection()),
@@ -1325,6 +1385,14 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
         _buildSidebarHeader(
           icon: Icons.data_object,
           title: 'Variables (${entries.length})',
+          trailing: IconButton(
+            key: const ValueKey('macro-output-sidebar-close'),
+            icon: const Icon(Icons.close, color: Colors.white54, size: 15),
+            tooltip: 'Close output panel',
+            onPressed: _closeOutputSidebar,
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+          ),
         ),
         Expanded(
           child: entries.isEmpty
@@ -1619,9 +1687,11 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     // digit beyond 2).
     final gutterWidth = 32.0 + (_lineCount.toString().length - 1) * 8.0;
     final showChat = _chat.isOpen && _isAiAvailable;
+    // Latched: once the sidebar has shown content it stays open, even when
+    // both the variables and the print output are empty. The close button
+    // hides it until the next run.
     final showOutputSidebar =
-        widget.debugVariables.isNotEmpty ||
-        (widget.printController?.hasMessages ?? false);
+        _layout.outputSidebarVisible && !_layout.outputSidebarDismissed;
 
     final charWidth = _measureEditorCharWidth();
     // The editor column is sized for 60 to 120 monospace characters: the
@@ -1682,9 +1752,9 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
         // window has become too narrow since the drag, the panels shrink so
         // that the editor keeps its 60-character minimum.
         var sidebarWidth = showOutputSidebar
-            ? (_sidebarWidthOverride ?? autoSidebarWidth)
+            ? (_layout.sidebarWidth ?? autoSidebarWidth)
             : 0.0;
-        var chatWidth = showChat ? (_chatWidthOverride ?? autoChatWidth) : 0.0;
+        var chatWidth = showChat ? (_layout.chatWidth ?? autoChatWidth) : 0.0;
         final panelBudget = (rowWidth - minEditorWidth)
             .clamp(0.0, double.infinity)
             .toDouble();
@@ -2087,7 +2157,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                               _updatePanelDrag(dx, left: true),
                           onDragEnd: _endPanelDrag,
                           onDoubleTap: () =>
-                              setState(() => _sidebarWidthOverride = null),
+                              setState(() => _layout.sidebarWidth = null),
                         ),
                       ),
                     if (showChat)
@@ -2107,7 +2177,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                               _updatePanelDrag(dx, left: false),
                           onDragEnd: _endPanelDrag,
                           onDoubleTap: () =>
-                              setState(() => _chatWidthOverride = null),
+                              setState(() => _layout.chatWidth = null),
                         ),
                       ),
                   ],

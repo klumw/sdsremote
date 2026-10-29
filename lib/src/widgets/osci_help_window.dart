@@ -497,29 +497,41 @@ class _HelpWindowState extends State<HelpWindow>
 
   /// Sparkle button next to the title that opens and closes the AI help
   /// assistant. It is only active while valid AI settings are configured.
+  ///
+  /// The colors match the Macro Editor's assistant button: a cyan border and
+  /// a white icon while the assistant is closed, a cyan icon while it is open.
   Widget _buildHelpAssistantButton() {
     final enabled = widget.aiSettings?.isConfigured == true;
     final borderColor = enabled ? Colors.cyanAccent : Colors.white24;
     // The frame makes the icon read as a button rather than a decoration.
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.2),
-        border: Border.all(color: borderColor, width: 1),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: IconButton(
-        icon: Icon(
-          Icons.auto_awesome,
-          size: 20,
-          color: enabled ? Colors.cyanAccent : Colors.white24,
-        ),
-        tooltip: enabled
-            ? 'AI Help Assistant'
-            : 'AI Help Assistant (configure the AI settings first)',
-        onPressed: enabled ? _helpChatController.toggleOpen : null,
-        padding: const EdgeInsets.all(4),
-        constraints: const BoxConstraints(),
-      ),
+    return ListenableBuilder(
+      listenable: _helpChatController,
+      builder: (context, _) {
+        final open = enabled && _helpChatController.isOpen;
+        return Container(
+          key: const ValueKey('help-ai-button-frame'),
+          decoration: BoxDecoration(
+            color: Colors.black.withValues(alpha: 0.2),
+            border: Border.all(color: borderColor, width: 1),
+            borderRadius: BorderRadius.circular(6),
+          ),
+          child: IconButton(
+            icon: Icon(
+              Icons.auto_awesome,
+              size: 20,
+              color: enabled
+                  ? (open ? Colors.cyanAccent : Colors.white70)
+                  : Colors.white24,
+            ),
+            tooltip: enabled
+                ? (open ? 'Close AI Help Assistant' : 'AI Help Assistant')
+                : 'AI Help Assistant (configure the AI settings first)',
+            onPressed: enabled ? _helpChatController.toggleOpen : null,
+            padding: const EdgeInsets.all(4),
+            constraints: const BoxConstraints(),
+          ),
+        );
+      },
     );
   }
 
