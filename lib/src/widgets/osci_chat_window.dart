@@ -92,6 +92,13 @@ class ChatWindow extends StatefulWidget {
   /// send button while a response is running.
   final VoidCallback? onCancel;
 
+  /// Optional handler for taps on links inside AI answers.
+  ///
+  /// When null, links open in the external browser. The help window uses this
+  /// to keep in-document links (`#heading-slug`) inside the help page instead
+  /// of handing them to the browser.
+  final void Function(String href)? onLinkTap;
+
   const ChatWindow({
     super.key,
     required this.chatMessages,
@@ -101,6 +108,7 @@ class ChatWindow extends StatefulWidget {
     this.hintText = 'Ask about the oscilloscope or give a command...',
     this.emptyStateText,
     this.onCancel,
+    this.onLinkTap,
   });
 
   @override
@@ -163,6 +171,20 @@ class _ChatWindowState extends State<ChatWindow> {
     _chatScrollController.dispose();
     _chatFocusNode.dispose();
     super.dispose();
+  }
+
+  /// Dispatches a tap on a link inside a message.
+  ///
+  /// [ChatWindow.onLinkTap] takes precedence; without it the link opens in the
+  /// external browser.
+  void _handleLink(String? href) {
+    if (href == null || href.isEmpty) return;
+    final handler = widget.onLinkTap;
+    if (handler != null) {
+      handler(href);
+      return;
+    }
+    launchUrl(Uri.parse(href), mode: LaunchMode.externalApplication);
   }
 
   void _sendChatMessage() {
@@ -359,14 +381,7 @@ class _ChatWindowState extends State<ChatWindow> {
             child: MarkdownBody(
               selectable: true,
               data: _convertBareUrlsToMarkdownLinks(msg['content']!),
-              onTapLink: (text, href, title) {
-                if (href != null) {
-                  launchUrl(
-                    Uri.parse(href),
-                    mode: LaunchMode.externalApplication,
-                  );
-                }
-              },
+              onTapLink: (text, href, title) => _handleLink(href),
               styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
                   .copyWith(
                     p: const TextStyle(color: Colors.white, fontSize: 15),
@@ -415,11 +430,7 @@ class _ChatWindowState extends State<ChatWindow> {
       child: MarkdownBody(
         selectable: true,
         data: _convertBareUrlsToMarkdownLinks(msg['content']!),
-        onTapLink: (text, href, title) {
-          if (href != null) {
-            launchUrl(Uri.parse(href), mode: LaunchMode.externalApplication);
-          }
-        },
+        onTapLink: (text, href, title) => _handleLink(href),
         styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
           p: const TextStyle(color: Colors.white, fontSize: 15),
           h1: const TextStyle(

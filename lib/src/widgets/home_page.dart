@@ -2,7 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
-import 'dart:ui' as ui
+import 'dart:ui'
+    as ui
     show Image, ImageByteFormat, PixelFormat, decodeImageFromPixels;
 
 import 'package:flutter/material.dart';
@@ -139,13 +140,13 @@ class _OsciHomePageState extends State<OsciHomePage>
       _aiApiToken.trim().length >= 8 &&
       _llmModel.trim().isNotEmpty;
 
-  /// AI settings for the Macro Editor's assistant, or null when the AI is not
-  /// configured.
+  /// AI settings shared by the feature assistants (Macro Editor, Control
+  /// Panel and help window), or null when the AI is not configured.
   ///
   /// The main chat is configured separately through [AiChatService]; the
-  /// macro editor gets the same provider, token and model so both AI features
-  /// follow the values from the settings panel.
-  AiSettings? get _macroAiSettings {
+  /// assistants use the same provider, token and model so every AI feature
+  /// follows the values from the settings panel.
+  AiSettings? get _aiSettings {
     if (!_isAiEnabled) return null;
     return AiSettings.fromProviderConfig(
       providerName: _aiProvider,
@@ -998,7 +999,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       liveAvailable: _vncReachable,
       onLiveChanged: _setVncLiveEnabled,
       liveScreen: _liveScreenImage,
-      aiSettings: _macroAiSettings,
+      aiSettings: _aiSettings,
       chatController: _controlPanelChatController,
       vxi11Host: _ipAddress,
     );
@@ -1313,7 +1314,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   // =========================================================================
 
   Widget _buildHelpWindow() {
-    return HelpWindow();
+    return HelpWindow(aiSettings: _aiSettings);
   }
 
   Widget _buildChatWindow() {
@@ -1440,7 +1441,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         initialContent: _currentMacroContent,
         loadedFileName: _loadedMacroFileName,
         isModified: _isMacroModified,
-        aiSettings: _macroAiSettings,
+        aiSettings: _aiSettings,
         chatController: _macroChatController,
         isPlaying: _isMacroPlaying,
         hasDebugSession: _macroDebugSession != null,
@@ -2707,9 +2708,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// Whether the Live toggle should be rendered. After a failed session it
   /// stays visible but disabled until a probe succeeds again.
   bool get _showLiveButton =>
-      _couldUseVnc &&
-      _isControlPanelVisible &&
-      (_vncReachable || _vncCrashed);
+      _couldUseVnc && _isControlPanelVisible && (_vncReachable || _vncCrashed);
 
   /// Probes the instrument's VNC server (rate limited) and updates the
   /// availability of the Live toggle.

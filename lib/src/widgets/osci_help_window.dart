@@ -5,7 +5,17 @@ import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:markdown/markdown.dart' as md;
 
+import '../ai/ai_settings.dart';
+import '../ai/help_chat_controller.dart';
 import '../core/logger.dart';
+import '../help/help_sections.dart';
+import 'osci_chat_window.dart';
+
+/// The slug helpers live in `help_sections.dart` because the AI help
+/// assistant needs the same link targets; they are re-exported here for the
+/// existing imports and tests.
+export '../help/help_sections.dart'
+    show markdownHeadingSlug, resolveHeadingAnchor;
 
 /// One entry of the table of contents: the title of a main chapter and the
 /// anchor slug that scrolls to its heading.
@@ -56,15 +66,31 @@ _ManualIndex _indexManualInIsolate(String content) {
 /// `[section 4.1](#41-ai-model-configuration)` — scroll to the heading they
 /// point at instead of being handed to the browser.
 class HelpWindow extends StatefulWidget {
-  const HelpWindow({super.key});
+  const HelpWindow({super.key, this.aiSettings});
+
+  /// AI provider/token/model settings for the help assistant; null (or an
+  /// unconfigured value) disables the sparkle button in the header.
+  final AiSettings? aiSettings;
 
   @override
   State<HelpWindow> createState() => _HelpWindowState();
 }
 
-class _HelpWindowState extends State<HelpWindow> {
+class _HelpWindowState extends State<HelpWindow>
+    with SingleTickerProviderStateMixin {
   String _manualContent = '';
   bool _isLoading = true;
+
+  /// Owns the AI help conversation. Created with the window, so closing and
+  /// reopening the chat panel keeps the transcript; leaving the help page
+  /// disposes it and discards the chat.
+  late final HelpChatController _helpChatController;
+
+  /// Drives the chat panel's slide-in from the right and its slide-out.
+  late final AnimationController _helpChatAnimation;
+
+  /// S-curve slide of the panel across the right half of the window.
+  late final Animation<Offset> _helpSlideAnimation;
 
   // Search state
   final TextEditingController _searchController = TextEditingController();
@@ -111,6 +137,26 @@ class _HelpWindowState extends State<HelpWindow> {
   @override
   void initState() {
     super.initState();
+    // Deliberately slow, S-curve motion: the panel slides in from the right
+    // edge and glides back out the same way.
+    _helpChatAnimation = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2000),
+      reverseDuration: const Duration(milliseconds: 1600),
+    );
+    _helpSlideAnimation =
+        Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero).animate(
+          CurvedAnimation(
+            parent: _helpChatAnimation,
+            curve: Curves.easeInOutCubic,
+            reverseCurve: Curves.easeInOutCubic,
+          ),
+        );
+    _helpChatController = HelpChatController();
+    _helpChatController.addListener(_syncHelpChatPanel);
+    // The agent itself is created once the manual has loaded; with valid
+    // settings the panel can already be opened until then.
+    _helpChatController.configure(widget.aiSettings, manual: '');
     // Defer loading until after the first frame is rendered so the
     // CircularProgressIndicator is visible and its animation has started
     // ticking before the async I/O and isolate work begin.
@@ -121,8 +167,22 @@ class _HelpWindowState extends State<HelpWindow> {
   }
 
   @override
+  void didUpdateWidget(covariant HelpWindow oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.aiSettings != widget.aiSettings) {
+      _helpChatController.configure(
+        widget.aiSettings,
+        manual: _isLoading ? '' : _manualContent,
+      );
+    }
+  }
+
+  @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_onHardwareKeyEvent);
+    _helpChatController.removeListener(_syncHelpChatPanel);
+    _helpChatController.dispose();
+    _helpChatAnimation.dispose();
     _searchController.dispose();
     _scrollController.dispose();
     _searchFocusNode.dispose();
@@ -155,6 +215,9 @@ class _HelpWindowState extends State<HelpWindow> {
       // Anchors of a previously loaded manual are stale: the new content may
       // have a different set of headings.
       _headingAnchorKeys.clear();
+      // The help assistant answers from the manual, so its agent is created
+      // once the text is available.
+      _helpChatController.configure(widget.aiSettings, manual: _manualContent);
       log.log(
         'Manual indexed: ${index.fencedCodeBlockSpans.length} fenced code '
         'blocks, ${index.inlineCodeSpans.length} inline code spans, '
@@ -408,6 +471,125 @@ class _HelpWindowState extends State<HelpWindow> {
     );
   }
 
+  /// Starts the slide-in or slide-out animation for the chat panel.
+  void _syncHelpChatPanel() {
+    if (_helpChatController.isOpen && _helpChatController.isAvailable) {
+      _helpChatAnimation.forward();
+    } else {
+      _helpChatAnimation.reverse();
+    }
+  }
+
+  /// Handles a link clicked in an answer of the help assistant.
+  ///
+  /// Section links (`#heading-slug`) slide the chat out and scroll the manual
+  /// to the heading; everything else is a real URL and goes to the browser.
+  void _handleHelpChatLink(String href) {
+    if (href.startsWith('#')) {
+      _helpChatController.close();
+      // The panel overlays the manual, so the scroll position is stable while
+      // it slides out.
+      _scrollToHeading(href.substring(1));
+    } else {
+      _launchUrl(href);
+    }
+  }
+
+  /// Sparkle button next to the title that opens and closes the AI help
+  /// assistant. It is only active while valid AI settings are configured.
+  Widget _buildHelpAssistantButton() {
+    final enabled = widget.aiSettings?.isConfigured == true;
+    final borderColor = enabled ? Colors.cyanAccent : Colors.white24;
+    // The frame makes the icon read as a button rather than a decoration.
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.2),
+        border: Border.all(color: borderColor, width: 1),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: IconButton(
+        icon: Icon(
+          Icons.auto_awesome,
+          size: 20,
+          color: enabled ? Colors.cyanAccent : Colors.white24,
+        ),
+        tooltip: enabled
+            ? 'AI Help Assistant'
+            : 'AI Help Assistant (configure the AI settings first)',
+        onPressed: enabled ? _helpChatController.toggleOpen : null,
+        padding: const EdgeInsets.all(4),
+        constraints: const BoxConstraints(),
+      ),
+    );
+  }
+
+  /// Chat panel that fills the right half of the help window.
+  Widget _buildHelpChatPanel() {
+    return Container(
+      margin: const EdgeInsets.all(4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF0A192F),
+        border: Border.all(color: const Color(0xFF475569)),
+        borderRadius: BorderRadius.circular(8),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.45),
+            blurRadius: 18,
+            offset: const Offset(-6, 0),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(12, 6, 4, 2),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.auto_awesome,
+                  size: 16,
+                  color: Colors.cyanAccent,
+                ),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.white70,
+                    size: 18,
+                  ),
+                  tooltip: 'Close AI Help Assistant',
+                  onPressed: _helpChatController.close,
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(4, 0, 4, 4),
+              child: ListenableBuilder(
+                listenable: _helpChatController,
+                builder: (context, _) => ChatWindow(
+                  chatMessages: _helpChatController.messages,
+                  isChatting: _helpChatController.isChatting,
+                  isInitialized: _helpChatController.isInitialized,
+                  onSendMessage: _helpChatController.send,
+                  onCancel: _helpChatController.cancel,
+                  onLinkTap: _handleHelpChatLink,
+                  hintText: 'Ask about SDS-Remote...',
+                  emptyStateText:
+                      'Ask me anything about SDS-Remote. I answer from the '
+                      'manual and link the matching sections.',
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   // ---------------------------------------------------------------------------
   // Build
   // ---------------------------------------------------------------------------
@@ -468,200 +650,234 @@ class _HelpWindowState extends State<HelpWindow> {
             }
             return KeyEventResult.ignored;
           },
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                // Headline and search bar row
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
+          child: Stack(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                child: Column(
                   children: [
-                    const Text(
-                      'SDS-Remote Help',
-                      style: TextStyle(
-                        color: Colors.cyanAccent,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    _buildSearchBar(),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                // Black blurred line with 3D depth effect
-                Container(
-                  height: 2,
-                  decoration: BoxDecoration(
-                    border: const Border(
-                      top: BorderSide(color: Colors.black, width: 1),
-                      bottom: BorderSide(color: Colors.white10, width: 1),
-                    ),
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.95),
-                        blurRadius: 6,
-                        spreadRadius: 2,
-                        offset: const Offset(0, 3),
-                      ),
-                    ],
-                  ),
-                ),
-                // Markdown content — using MarkdownBody (non-scrolling) inside a
-                // SingleChildScrollView so WE control the ScrollController.
-                Expanded(
-                  child: _isLoading
-                      ? const Center(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              CircularProgressIndicator(
-                                color: Colors.cyanAccent,
-                              ),
-                              SizedBox(height: 16),
-                              Text(
-                                'Loading...',
-                                style: TextStyle(
-                                  color: Colors.white54,
-                                  fontSize: 14,
-                                ),
-                              ),
-                            ],
+                    // Headline, AI assistant button and search bar row
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        const Text(
+                          'SDS-Remote Help',
+                          style: TextStyle(
+                            color: Colors.cyanAccent,
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
                           ),
-                        )
-                      : Scrollbar(
-                          controller: _scrollController,
-                          child: SingleChildScrollView(
-                            controller: _scrollController,
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.stretch,
-                              children: [
-                                // Table of contents first, so a chapter can be
-                                // picked right away; it scrolls away with the
-                                // manual like any other content.
-                                if (_chapters.isNotEmpty) ...[
-                                  _buildContents(),
-                                  const SizedBox(height: 24),
-                                ],
-                                MarkdownBody(
-                                  data: displayContent,
-                                  // Selection is OFF for the manual as a whole.
-                                  // `selectable: true` wraps every text node of
-                                  // the ~58 KB manual in its own SelectableText
-                                  // plus selection bookkeeping, which measured
-                                  // 4767 ms to lay out versus 577 ms without —
-                                  // an 8x cost that blocked the UI thread for
-                                  // seconds and made the app look frozen when
-                                  // Help was opened. Code blocks stay selectable
-                                  // and copyable on their own (see
-                                  // CodeBlockElementBuilder).
-                                  selectable: false,
-                                  onTapLink: (text, href, title) {
-                                    _handleLinkTap(href);
-                                  },
-                                  // Custom block syntaxes are consulted before the
-                                  // GitHub-flavored extension set, so the stock
-                                  // heading syntax is shadowed by this one — which
-                                  // only adds the invisible anchors and renders
-                                  // headings exactly as before.
-                                  blockSyntaxes: const [AnchorHeadingSyntax()],
-                                  inlineSyntaxes: [_highlightSyntax],
-                                  builders: {
-                                    'code': InlineCodeElementBuilder(),
-                                    'pre': CodeBlockElementBuilder(),
-                                    'mark': MarkHighlightBuilder(_matchKeys),
-                                    _kAnchorTag: HeadingAnchorBuilder(
-                                      _headingAnchorKeys,
+                        ),
+                        _buildSearchBar(),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    // Black blurred line with 3D depth effect
+                    Container(
+                      height: 2,
+                      decoration: BoxDecoration(
+                        border: const Border(
+                          top: BorderSide(color: Colors.black, width: 1),
+                          bottom: BorderSide(color: Colors.white10, width: 1),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.95),
+                            blurRadius: 6,
+                            spreadRadius: 2,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                    ),
+                    // Markdown content — using MarkdownBody (non-scrolling) inside a
+                    // SingleChildScrollView so WE control the ScrollController.
+                    Expanded(
+                      child: _isLoading
+                          ? const Center(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  CircularProgressIndicator(
+                                    color: Colors.cyanAccent,
+                                  ),
+                                  SizedBox(height: 16),
+                                  Text(
+                                    'Loading...',
+                                    style: TextStyle(
+                                      color: Colors.white54,
+                                      fontSize: 14,
                                     ),
-                                  },
-                                  styleSheet:
-                                      MarkdownStyleSheet.fromTheme(
-                                        Theme.of(context),
-                                      ).copyWith(
-                                        p: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 16,
+                                  ),
+                                ],
+                              ),
+                            )
+                          : Scrollbar(
+                              controller: _scrollController,
+                              child: SingleChildScrollView(
+                                controller: _scrollController,
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
+                                  children: [
+                                    // Table of contents first, so a chapter can be
+                                    // picked right away; it scrolls away with the
+                                    // manual like any other content.
+                                    if (_chapters.isNotEmpty) ...[
+                                      _buildContents(),
+                                      const SizedBox(height: 24),
+                                    ],
+                                    MarkdownBody(
+                                      data: displayContent,
+                                      // Selection is OFF for the manual as a whole.
+                                      // `selectable: true` wraps every text node of
+                                      // the ~58 KB manual in its own SelectableText
+                                      // plus selection bookkeeping, which measured
+                                      // 4767 ms to lay out versus 577 ms without —
+                                      // an 8x cost that blocked the UI thread for
+                                      // seconds and made the app look frozen when
+                                      // Help was opened. Code blocks stay selectable
+                                      // and copyable on their own (see
+                                      // CodeBlockElementBuilder).
+                                      selectable: false,
+                                      onTapLink: (text, href, title) {
+                                        _handleLinkTap(href);
+                                      },
+                                      // Custom block syntaxes are consulted before the
+                                      // GitHub-flavored extension set, so the stock
+                                      // heading syntax is shadowed by this one — which
+                                      // only adds the invisible anchors and renders
+                                      // headings exactly as before.
+                                      blockSyntaxes: const [
+                                        AnchorHeadingSyntax(),
+                                      ],
+                                      inlineSyntaxes: [_highlightSyntax],
+                                      builders: {
+                                        'code': InlineCodeElementBuilder(),
+                                        'pre': CodeBlockElementBuilder(),
+                                        'mark': MarkHighlightBuilder(
+                                          _matchKeys,
                                         ),
-                                        h1: const TextStyle(
-                                          color: Colors.cyanAccent,
-                                          fontSize: 28,
-                                          fontWeight: FontWeight.bold,
+                                        _kAnchorTag: HeadingAnchorBuilder(
+                                          _headingAnchorKeys,
                                         ),
-                                        h2: const TextStyle(
-                                          color: Colors.cyanAccent,
-                                          fontSize: 22,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        h3: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 18,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                        code: TextStyle(
-                                          backgroundColor: Colors.black54,
-                                          color: Colors.greenAccent[100],
-                                          fontFamily: 'Roboto Mono',
-                                          fontFamilyFallback: const [
-                                            'Consolas',
-                                            'Courier New',
-                                            'monospace',
-                                          ],
-                                        ),
-                                        codeblockDecoration:
-                                            const BoxDecoration(
-                                              color: Colors.transparent,
+                                      },
+                                      styleSheet:
+                                          MarkdownStyleSheet.fromTheme(
+                                            Theme.of(context),
+                                          ).copyWith(
+                                            p: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 16,
                                             ),
-                                        blockquote: const TextStyle(
-                                          color: Colors.white70,
-                                          fontSize: 15,
-                                          fontStyle: FontStyle.italic,
-                                        ),
-                                        blockquoteDecoration: BoxDecoration(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.05,
-                                          ),
-                                          borderRadius: BorderRadius.circular(
-                                            4,
-                                          ),
-                                          border: Border(
-                                            left: BorderSide(
-                                              color: Colors.cyanAccent
-                                                  .withValues(alpha: 0.6),
-                                              width: 3,
+                                            h1: const TextStyle(
+                                              color: Colors.cyanAccent,
+                                              fontSize: 28,
+                                              fontWeight: FontWeight.bold,
                                             ),
-                                          ),
-                                        ),
-                                        horizontalRuleDecoration:
-                                            const BoxDecoration(
-                                              border: Border(
-                                                top: BorderSide(
-                                                  color: Colors.white38,
-                                                  width: 1.3,
+                                            h2: const TextStyle(
+                                              color: Colors.cyanAccent,
+                                              fontSize: 22,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            h3: const TextStyle(
+                                              color: Colors.white,
+                                              fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            code: TextStyle(
+                                              backgroundColor: Colors.black54,
+                                              color: Colors.greenAccent[100],
+                                              fontFamily: 'Roboto Mono',
+                                              fontFamilyFallback: const [
+                                                'Consolas',
+                                                'Courier New',
+                                                'monospace',
+                                              ],
+                                            ),
+                                            codeblockDecoration:
+                                                const BoxDecoration(
+                                                  color: Colors.transparent,
                                                 ),
-                                                bottom: BorderSide(
-                                                  color: Colors.black38,
-                                                  width: 1.3,
+                                            blockquote: const TextStyle(
+                                              color: Colors.white70,
+                                              fontSize: 15,
+                                              fontStyle: FontStyle.italic,
+                                            ),
+                                            blockquoteDecoration: BoxDecoration(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.05,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(4),
+                                              border: Border(
+                                                left: BorderSide(
+                                                  color: Colors.cyanAccent
+                                                      .withValues(alpha: 0.6),
+                                                  width: 3,
                                                 ),
                                               ),
                                             ),
-                                        tablePadding: const EdgeInsets.fromLTRB(
-                                          8,
-                                          0,
-                                          8,
-                                          4,
-                                        ),
-                                        tableColumnWidth:
-                                            const IntrinsicColumnWidth(),
-                                      ),
+                                            horizontalRuleDecoration:
+                                                const BoxDecoration(
+                                                  border: Border(
+                                                    top: BorderSide(
+                                                      color: Colors.white38,
+                                                      width: 1.3,
+                                                    ),
+                                                    bottom: BorderSide(
+                                                      color: Colors.black38,
+                                                      width: 1.3,
+                                                    ),
+                                                  ),
+                                                ),
+                                            tablePadding:
+                                                const EdgeInsets.fromLTRB(
+                                                  8,
+                                                  0,
+                                                  8,
+                                                  4,
+                                                ),
+                                            tableColumnWidth:
+                                                const IntrinsicColumnWidth(),
+                                          ),
+                                    ),
+                                  ],
                                 ),
-                              ],
+                              ),
                             ),
-                          ),
-                        ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              Positioned.fill(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: FractionallySizedBox(
+                    widthFactor: 0.5,
+                    heightFactor: 1,
+                    child: AnimatedBuilder(
+                      animation: _helpChatAnimation,
+                      builder: (context, child) {
+                        // A fully collapsed panel is removed from the tree so
+                        // the chat field cannot take focus while it is hidden.
+                        if (_helpChatAnimation.value == 0) {
+                          return const SizedBox.shrink();
+                        }
+                        return ClipRect(
+                          child: SlideTransition(
+                            position: _helpSlideAnimation,
+                            child: child,
+                          ),
+                        );
+                      },
+                      child: _buildHelpChatPanel(),
+                    ),
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),
@@ -781,6 +997,10 @@ class _HelpWindowState extends State<HelpWindow> {
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                // Opens the AI help assistant; sits directly left of the
+                // magnifier so both controls form one group.
+                _buildHelpAssistantButton(),
+                const SizedBox(width: 8),
                 const Icon(Icons.search, color: Colors.white70, size: 20),
                 const SizedBox(width: 8),
                 SizedBox(
@@ -1084,41 +1304,6 @@ const String _kAnchorTag = 'anchor';
 
 /// Attribute of an [_kAnchorTag] element holding its heading slug.
 const String _kAnchorSlugAttribute = 'data-slug';
-
-/// GitHub-style anchor slug of a heading: lower-cased, punctuation removed
-/// and every space turned into a dash, so "4.1 AI Model Configuration"
-/// becomes `41-ai-model-configuration`.
-///
-/// Fragments of in-document links are written by hand and resolved against
-/// these slugs — see [resolveHeadingAnchor].
-String markdownHeadingSlug(String headingText) {
-  return headingText
-      .trim()
-      .toLowerCase()
-      // Punctuation is dropped while `-` and `_` survive, mirroring the slugs
-      // GitHub generates — which is what a cross-reference is copied from.
-      .replaceAll(RegExp(r'''[!"#$%&'()*+,./:;<=>?@\[\\\]^`{|}~]'''), '')
-      .replaceAll(' ', '-');
-}
-
-/// Returns the slug from [slugs] that the link fragment [fragment] points at,
-/// or `null` when no heading matches.
-///
-/// The exact slug wins.  As a fallback the collapsed fragment is tried, since
-/// dropping a punctuation character leaves two dashes behind: the heading
-/// "1. Introduction & Overview" generates `1-introduction--overview`, while a
-/// hand-written link is likely to spell it `1-introduction-overview`.
-String? resolveHeadingAnchor(String fragment, Iterable<String> slugs) {
-  final collapsed = fragment.replaceAll(RegExp(r'-+'), '-');
-  String? fallback;
-  for (final slug in slugs) {
-    if (slug == fragment) return slug;
-    if (fallback == null && slug.replaceAll(RegExp(r'-+'), '-') == collapsed) {
-      fallback = slug;
-    }
-  }
-  return fallback;
-}
 
 /// Parses ATX headings (`### 4.1 AI Model Configuration`) exactly like the
 /// stock markdown heading syntax and additionally injects an invisible

@@ -1,0 +1,76 @@
+import 'dart:async';
+
+import 'package:dartantic_ai/dartantic_ai.dart';
+
+import '../../help/help_sections.dart';
+import 'systemprompts.dart';
+
+/// User-facing agent of the help window.
+///
+/// Unlike the other agents it has no tools: the complete manual is part of its
+/// system prompt, so it answers from the document itself and links to the
+/// sections it cites. The section list in the prompt holds the anchor slugs
+/// that the help window scrolls to, so every link the model emits resolves to
+/// a heading.
+class HelpAgent {
+  /// Maximum number of history messages kept after the system prompt.
+  ///
+  /// Ten messages correspond to five user/assistant turns; the manual in the
+  /// system prompt already consumes most of the context budget.
+  static const int defaultMaxHistoryMessages = 10;
+
+  final Agent _agent;
+  late final ChatMessage _systemMessage;
+  late List<ChatMessage> _history;
+
+  /// Creates a [HelpAgent] whose knowledge is [manual] — the raw markdown of
+  /// `docs/manual.md`.
+  HelpAgent({
+    String model = 'deepseek:deepseek-v4-flash',
+    required String manual,
+  }) : _agent = Agent(model, displayName: 'HelpAgent') {
+    _systemMessage = ChatMessage.system(
+      helpAgentSystemPrompt(
+        manual: manual,
+        sections: extractHelpSections(manual),
+      ),
+    );
+    _history = [_systemMessage];
+  }
+
+  /// The display name of the agent.
+  String get displayName => _agent.displayName;
+
+  /// The current model name being used.
+  String get model => _agent.model;
+
+  /// Sends [prompt] and streams the response chunks.
+  ///
+  /// The conversation history is maintained for multi-turn conversations and
+  /// trimmed to [defaultMaxHistoryMessages] entries after each answer.
+  Stream<String> sendStream(String prompt) async* {
+    final allChunks = <String>[];
+
+    await for (final chunk in _agent.sendStream(prompt, history: _history)) {
+      if (chunk.output.isEmpty) continue;
+      allChunks.add(chunk.output);
+      yield chunk.output;
+    }
+
+    final fullOutput = allChunks.join();
+    if (fullOutput.isEmpty) return;
+
+    _history.addAll([ChatMessage.user(prompt), ChatMessage.model(fullOutput)]);
+    if (_history.length > defaultMaxHistoryMessages + 1) {
+      _history = [
+        _systemMessage,
+        ..._history.sublist(_history.length - defaultMaxHistoryMessages),
+      ];
+    }
+  }
+
+  /// Clears the conversation history but keeps the system prompt.
+  void clearHistory() {
+    _history = [_systemMessage];
+  }
+}

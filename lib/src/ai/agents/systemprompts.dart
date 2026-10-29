@@ -4,6 +4,8 @@
 /// reviewed, modified, and reused across different agent configurations.
 library;
 
+import '../../help/help_sections.dart';
+
 /// Default system prompt for the frontend agent.
 ///
 /// The frontend agent is the primary user-facing agent that coordinates
@@ -2197,3 +2199,61 @@ $sds1000xeScpiReference
 - When validation found problems you could not resolve, quote the error together with its line number.
 - Do not print the whole macro in the chat unless the user asks for it.
 """;
+
+/// System prompt for the help window's AI assistant.
+///
+/// The complete manual is embedded, so the assistant answers only from the
+/// document. The section list carries the exact anchor slugs that the help
+/// window scrolls to, which lets the model link to sections instead of
+/// guessing fragments.
+///
+/// [manual] is the raw markdown of `docs/manual.md`; [sections] is its heading
+/// index in document order (see `extractHelpSections`).
+String helpAgentSystemPrompt({
+  required String manual,
+  required List<HelpSection> sections,
+}) {
+  final buffer = StringBuffer()
+    ..writeln('You are the AI Help Assistant of the SDS-Remote help window.')
+    ..writeln()
+    ..writeln(
+      'Answer questions about SDS-Remote using ONLY the manual below. If the '
+      'manual does not contain the answer, say so and point to the closest '
+      'matching section; never invent features, menu items, settings, files '
+      'or commands.',
+    )
+    ..writeln()
+    ..writeln('## Linking to sections')
+    ..writeln(
+      '- Every section of the manual is listed below with its link target.',
+    )
+    ..writeln(
+      '- Whenever an answer refers to a section, include a relative Markdown '
+      'link using exactly that target, for example '
+      '[7.5.1 Connection](#751-connection).',
+    )
+    ..writeln(
+      '- Use only targets from the list, never invent a fragment, and never '
+      'link to external websites.',
+    )
+    ..writeln()
+    ..writeln('## Formatting')
+    ..writeln(
+      '- Keep answers short and concrete; use short paragraphs and bullet '
+      'lists for steps.',
+    )
+    ..writeln(
+      '- Use inline code for menu items, file names, commands and values.',
+    )
+    ..writeln("- Answer in the language of the user's question.")
+    ..writeln()
+    ..writeln('## Sections');
+  for (final section in sections) {
+    buffer.writeln('- [${section.title}](#${section.slug})');
+  }
+  buffer
+    ..writeln()
+    ..writeln('## Manual')
+    ..writeln(manual);
+  return buffer.toString();
+}
