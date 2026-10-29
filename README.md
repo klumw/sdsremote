@@ -355,7 +355,16 @@ Some Siglent USB firmware versions are not fully USB compliant. Perform the foll
    usb 1-4: config 1 interface 0 altsetting 0 bulk endpoint 0x1 has invalid maxpacket 64
    ```
 
-   then the device's USB firmware is not fully compliant with the USB standard, and some SDS-Remote functionality, such as profile upload, may not work correctly under Linux.
+   then the device reports a 64-byte `wMaxPacketSize` for a high-speed bulk
+   endpoint, which the USB standard does not allow and which limits the
+   firmware to one packet per Bulk-OUT transfer. SDS-Remote accounts for
+   this: profile uploads under Linux are sent as 64-byte transfers, the same
+   segmentation WinUSB performs automatically on Windows. Other USB
+   functions are unaffected.
+
+   While applying an uploaded profile the instrument resets its USB
+   interface and disappears from the bus for about 20 seconds. SDS-Remote
+   waits for it to re-enumerate and then reconnects automatically.
 
 ### 3.4 Running the Application
 

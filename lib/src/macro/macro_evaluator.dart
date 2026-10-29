@@ -363,11 +363,6 @@ class MacroEvaluator {
         await _evalAssert(resolvedText, condition);
         await _doDelay();
       case LoadProfileStmt(:final path, :final concatString):
-        // Profile uploads over USB are rejected on Linux for every
-        // oscilloscope; Windows supports them.
-        if (Vxi11Instrument.usbProfileLoadBlocked) {
-          _error(Vxi11Instrument.usbProfileLoadError);
-        }
         _ensureDevice();
         final resolved = concatString != null
             ? _resolveConcatString(concatString)
@@ -882,14 +877,13 @@ class MacroEvaluator {
     // with "bTag mismatch".
     const profileTimeout = Duration(seconds: 30);
     await instrument!.writeProfileData(xml, timeout: profileTimeout);
-    final isUsb = Vxi11Instrument.isUsbMode;
-    await instrument!.queryStringRetryOnBusy(
-      '*OPC?',
-      timeout: profileTimeout,
-      readTimeout: isUsb
-          ? const Duration(seconds: 40)
-          : const Duration(seconds: 10),
-    );
+    await instrument!.awaitProfileApplied();
+    if (Vxi11Instrument.isUsbMode) {
+      // Applying a profile resets the instrument's USB interface, which
+      // invalidates the shared connection. Reopen it so the statements after
+      // loadProfile() in the same macro keep working.
+      await instrument!.open(timeoutSeconds: 5);
+    }
   }
 
   Future<void> _evalPrint(List<PrintItem> items) async {

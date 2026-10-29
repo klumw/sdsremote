@@ -64,6 +64,26 @@ class UsbtmcDevice {
   /// drain its receive FIFO before the next chunk arrives.
   static const Duration _chunkDelay = Duration(milliseconds: 20);
 
+  /// wMaxPacketSize the SDS1000X-E firmware reports for its Bulk-OUT
+  /// endpoint. USB 2.0 requires 512 bytes for a high-speed bulk endpoint;
+  /// the firmware reports 64 and the Linux kernel logs this as an
+  /// "invalid maxpacket 64".
+  static const int usbBulkPacketSize = 64;
+
+  /// Size of one Bulk-OUT transfer on the Linux profile upload path. The
+  /// firmware accepts exactly one 64-byte packet per USB transfer; larger
+  /// transfers lock its Bulk-OUT endpoint up until the device is reset.
+  static const int profileSegmentSize = usbBulkPacketSize;
+
+  /// Payload bytes that fit into the first segment next to the Bulk-OUT
+  /// header.
+  static const int _firstSegmentPayloadSize =
+      profileSegmentSize - UsbtmcConstants.headerSize;
+
+  /// Delay between continuation transfers so the firmware can drain its
+  /// receive FIFO.
+  static const Duration _segmentDelay = Duration(milliseconds: 1);
+
   /// Writes binary data using USBTMC DEV_DEP_MSG_OUT multi-transfer
   /// messaging (USBTMC 1.0 spec §3.2.1.1).
   ///
@@ -202,6 +222,82 @@ class UsbtmcDevice {
       await _usbDevice.write(packet, timeout: timeout);
 
       // print('USBTMC: profileWrite complete — ${payload.length} payload bytes sent');
+      return payload.length;
+    });
+  }
+
+  /// Writes profile data as a sequence of Bulk-OUT transfers the SDS1000X-E
+  /// firmware accepts.
+  ///
+  /// The firmware takes at most one 64-byte packet per USB transfer; larger
+  /// transfers lock its Bulk-OUT endpoint up until the device is reset. The
+  /// message is therefore sent as a single DEV_DEP_MSG_OUT header (EOM=1,
+  /// TransferSize = total length) followed by raw continuation transfers of
+  /// one packet each — the same segmentation WinUSB performs on Windows,
+  /// where [profileWrite] keeps a single transfer.
+  ///
+  /// The last transfer is kept shorter than [profileSegmentSize] so the USB
+  /// transaction ends with a short packet (USB 2.0 §5.8.3).
+  Future<int> profileWriteChunked(Uint8List payload,
+      {Duration? timeout}) async {
+    return _lock.protect(() async {
+      if (payload.isEmpty) return 0;
+
+      // Prepare the Bulk-OUT pipe: a previous transfer (from the kernel
+      // driver or a failed operation) may have left a partial URB behind.
+      try {
+        await _usbDevice.clearHalt();
+      } catch (_) {}
+      try {
+        await _usbDevice.controlTransfer(
+          requestType: 0xA1,
+          request: UsbtmcConstants.initiateAbortBulkOut,
+          value: 0,
+          index: 0,
+          data: Uint8List(2),
+          timeout: const Duration(milliseconds: 500),
+        );
+      } catch (_) {}
+      await Future.delayed(const Duration(milliseconds: 10));
+
+      _bTag = UsbtmcProtocolHelpers.nextbTag(_bTag);
+
+      final firstPayloadLen = payload.length < _firstSegmentPayloadSize
+          ? payload.length
+          : _firstSegmentPayloadSize;
+      final header = UsbtmcProtocolHelpers.encodeBulkOutHeader(
+        _bTag,
+        payload.length,
+        true, // EOM = 1: one complete message
+      );
+      final firstTotalLen = UsbtmcConstants.headerSize + firstPayloadLen;
+      final firstPacket = Uint8List(
+        firstTotalLen + UsbtmcProtocolHelpers.getPaddingLength(firstTotalLen),
+      );
+      firstPacket.setRange(0, header.length, header);
+      firstPacket.setRange(
+        header.length,
+        header.length + firstPayloadLen,
+        Uint8List.sublistView(payload, 0, firstPayloadLen),
+      );
+      await _usbDevice.write(firstPacket, timeout: timeout);
+
+      var offset = firstPayloadLen;
+      while (offset < payload.length) {
+        var len = payload.length - offset;
+        if (len >= profileSegmentSize) {
+          len = len == profileSegmentSize
+              ? profileSegmentSize - 1
+              : profileSegmentSize;
+        }
+        await _usbDevice.write(
+          Uint8List.sublistView(payload, offset, offset + len),
+          timeout: timeout,
+        );
+        offset += len;
+        await Future.delayed(_segmentDelay);
+      }
+
       return payload.length;
     });
   }

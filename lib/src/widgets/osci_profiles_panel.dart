@@ -11,6 +11,9 @@ class ProfileInfo {
 class ProfilesPanel extends StatefulWidget {
   final List<ProfileInfo> profileFiles;
   final bool isOnline;
+
+  /// True while a profile is uploaded to the instrument and applied there.
+  final bool isLoading;
   final Function(String) onSave;
   final Function(String) onLoad;
   final Function(String) onDelete;
@@ -20,6 +23,7 @@ class ProfilesPanel extends StatefulWidget {
     super.key,
     required this.profileFiles,
     required this.isOnline,
+    required this.isLoading,
     required this.onSave,
     required this.onLoad,
     required this.onDelete,
@@ -44,15 +48,28 @@ class _ProfilesPanelState extends State<ProfilesPanel> {
     super.dispose();
   }
 
-  void _handleSave() async {
+  /// How long the busy indicator stays visible at minimum. Reading the setup
+  /// from the instrument takes only a few frames over USB, which makes the
+  /// spinner flash past unnoticed.
+  static const Duration _minBusyDuration = Duration(milliseconds: 600);
+
+  Future<void> _handleSave() async {
     final name = _nameController.text.trim();
     if (name.isEmpty) return;
 
+    final started = DateTime.now();
     setState(() => _isSaving = true);
+    // The instrument read blocks the UI isolate, so make sure the busy
+    // indicator is painted before the transfer starts.
+    await WidgetsBinding.instance.endOfFrame;
     try {
       await widget.onSave(name);
       _nameController.clear();
     } finally {
+      final remaining = _minBusyDuration - DateTime.now().difference(started);
+      if (remaining > Duration.zero) {
+        await Future<void>.delayed(remaining);
+      }
       if (mounted) {
         setState(() => _isSaving = false);
       }
@@ -108,11 +125,11 @@ class _ProfilesPanelState extends State<ProfilesPanel> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Row(
+                Row(
                   children: [
-                    Icon(Icons.save, color: Colors.cyanAccent, size: 20),
-                    SizedBox(width: 8),
-                    Text(
+                    const Icon(Icons.save, color: Colors.cyanAccent, size: 20),
+                    const SizedBox(width: 8),
+                    const Text(
                       "Device Profiles",
                       style: TextStyle(
                         color: Colors.white,
@@ -120,6 +137,19 @@ class _ProfilesPanelState extends State<ProfilesPanel> {
                         fontWeight: FontWeight.bold,
                       ),
                     ),
+                    if (widget.isLoading || _isSaving) ...[
+                      const SizedBox(width: 10),
+                      const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            Colors.cyanAccent,
+                          ),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
                 IconButton(
@@ -200,16 +230,7 @@ class _ProfilesPanelState extends State<ProfilesPanel> {
                         onPressed: (_isSaving || !widget.isOnline)
                             ? null
                             : _handleSave,
-                        icon: _isSaving
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
-                              )
-                            : const Icon(Icons.add, size: 18),
+                        icon: const Icon(Icons.add, size: 18),
                         label: const Text("Save"),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: widget.isOnline
@@ -337,15 +358,17 @@ class _ProfilesPanelState extends State<ProfilesPanel> {
                             IconButton(
                               icon: Icon(
                                 Icons.file_upload,
-                                color: widget.isOnline
+                                color: widget.isOnline && !widget.isLoading
                                     ? Colors.greenAccent
                                     : Colors.white24,
                                 size: 20,
                               ),
-                              tooltip: widget.isOnline
+                              tooltip: widget.isLoading
+                                  ? 'Loading Profile...'
+                                  : widget.isOnline
                                   ? 'Load Profile'
                                   : 'Device Offline',
-                              onPressed: widget.isOnline
+                              onPressed: widget.isOnline && !widget.isLoading
                                   ? () => widget.onLoad(fileName)
                                   : null,
                             ),

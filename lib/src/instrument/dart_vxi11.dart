@@ -363,19 +363,6 @@ class Vxi11Instrument {
   /// handle to be closed instead of racing with it.
   static Future<void>? _usbInvalidationInFlight;
 
-  /// Exact error shown when a profile upload is attempted over USB.
-  ///
-  /// Applies to every supported oscilloscope: the USB bulk endpoint is
-  /// misconfigured for profile transfers, so the load is aborted instead of
-  /// sending a partial or corrupted setup.
-  static const String usbProfileLoadError =
-      'USB driver bulk endpoint misconfiguration';
-
-  /// True when a USB profile upload must be rejected: USB mode is active and
-  /// the app runs on Linux, where the bulk endpoint is misconfigured. On
-  /// Windows, USB profile uploads work and are not blocked.
-  static bool get usbProfileLoadBlocked => isUsbMode && Platform.isLinux;
-
   /// Shared USB connection — only ONE UsbtmcContext/Device is opened per
   /// process. All Vxi11Instrument instances in USB mode share this connection,
   /// preventing LIBUSB_ERROR_BUSY from concurrent open attempts.
@@ -723,11 +710,12 @@ class Vxi11Instrument {
 
   /// Sends profile data (e.g. XML configuration) to the instrument.
   ///
-  /// On Linux, USB (USBTMC) profile uploads are rejected with
-  /// [usbProfileLoadError]: the bulk endpoint is misconfigured on all supported
-  /// oscilloscopes. On Windows the payload is sent in a single USB bulk
-  /// transfer via [UsbtmcDevice.profileWrite], which the firmware requires for
-  /// an atomic XML block.
+  /// In USB mode the upload path depends on the platform. On Linux the
+  /// payload is split into 64-byte Bulk-OUT transfers via
+  /// [UsbtmcDevice.profileWriteChunked], because the device locks up on
+  /// anything larger. On Windows it is sent in a single USB bulk transfer
+  /// via [UsbtmcDevice.profileWrite], which WinUSB splits into 64-byte URBs
+  /// itself.
   ///
   /// VXI-11 (TCP) mode delegates to [writeString], which sends the data via the
   /// standard DEVICE_WRITE RPC.
@@ -736,24 +724,27 @@ class Vxi11Instrument {
 
   Future<void> _writeProfileData(String data, {Duration? timeout}) async {
     if (isUsbMode) {
-      if (usbProfileLoadBlocked) {
-        // Abort before touching the device: a partial profile would leave the
-        // oscilloscope in an undefined state.
-        _lastError = usbProfileLoadError;
-        throw StateError(_lastError);
-      }
       if (_sharedUsbDevice == null) {
         _lastError = 'USB connection not open';
         throw StateError(_lastError);
       }
       // Send the profile data as-is, without any modifications.
       final payload = Uint8List.fromList(utf8.encode(data));
+      final effectiveTimeout = timeout ?? Duration(milliseconds: _timeoutMs);
 
+      // Linux rejects a single profile-sized bulk transfer: the device's
+      // Bulk-OUT endpoint accepts only one 64-byte packet per transfer, so
+      // the profile is sent as 64-byte transfers there.
       await _runUsb(
-        () => _sharedUsbDevice!.profileWrite(
-          payload,
-          timeout: timeout ?? Duration(milliseconds: _timeoutMs),
-        ),
+        () => Platform.isLinux
+            ? _sharedUsbDevice!.profileWriteChunked(
+                payload,
+                timeout: effectiveTimeout,
+              )
+            : _sharedUsbDevice!.profileWrite(
+                payload,
+                timeout: effectiveTimeout,
+              ),
       );
       return;
     }
@@ -779,6 +770,65 @@ class Vxi11Instrument {
     await _writeString(cmd, timeout: timeout);
     return _readString(maxLen: maxLen, readTimeout: readTimeout);
   });
+
+  /// Waits until an uploaded profile has been applied.
+  ///
+  /// Over VXI-11 the instrument answers `*OPC?` once the setup is applied; the
+  /// read is retried while the instrument reports an I/O timeout (error 15).
+  ///
+  /// Over USB the SDS1000X-E resets its USB interface while applying a setup:
+  /// the current handle dies, the device leaves the bus and re-enumerates
+  /// after roughly 20 s. The connection is therefore invalidated and the
+  /// device's return is awaited; the UI reconnects on its next ping. Windows
+  /// is unaffected and normally answers `*OPC?` directly.
+  Future<void> awaitProfileApplied({
+    Duration readTimeout = const Duration(seconds: 45),
+    Duration timeout = const Duration(seconds: 120),
+  }) async {
+    if (!isUsbMode) {
+      await queryStringRetryOnBusy(
+        '*OPC?',
+        timeout: const Duration(seconds: 15),
+        readTimeout: readTimeout,
+      );
+      return;
+    }
+
+    try {
+      await queryString(
+        '*OPC?',
+        timeout: const Duration(seconds: 15),
+        readTimeout: readTimeout,
+      );
+      return;
+    } catch (e) {
+      if (!isUsbMode) rethrow;
+      AppLogger().log(
+        'USB: instrument stopped answering after the profile upload ($e); '
+        'waiting for its USB interface to come back',
+      );
+    }
+
+    // The device resets its USB interface while applying the setup. Drop the
+    // dead handle and wait until it has re-enumerated.
+    await invalidateUsbConnection();
+
+    final deadline = DateTime.now().add(timeout);
+    var wasGone = false;
+    while (DateTime.now().isBefore(deadline)) {
+      final address = await detectLiveVisaAddress();
+      if (address == null) {
+        wasGone = true;
+      } else if (wasGone) {
+        AppLogger().log('USB: instrument back at $address');
+        return;
+      }
+      await Future<void>.delayed(const Duration(seconds: 2));
+    }
+    throw StateError(
+      'The oscilloscope did not return after applying the profile',
+    );
+  }
 
   /// Writes [cmd] and reads its response, retrying the read when the
   /// instrument reports a VXI-11 I/O timeout (error 15) because it is still
@@ -888,11 +938,14 @@ class Vxi11Instrument {
         _lastError = 'USB connection not open';
         throw StateError(_lastError);
       }
+      // Never abort a large USB read early: cancelling a bulk-IN transfer
+      // mid-message leaves the firmware's USBTMC state corrupted (it then
+      // answers with MsgID 0 until the instrument is power-cycled).
       final bytes = await _runUsb(
         () => _sharedUsbDevice!.doRead(
           16 * 1024 * 1024,
           useTermChar: false,
-          timeout: Duration(milliseconds: _timeoutMs),
+          timeout: const Duration(seconds: 30),
         ),
       );
       return stripIeeeHeader(bytes);
@@ -919,7 +972,7 @@ class Vxi11Instrument {
         () => _sharedUsbDevice!.doRead(
           16 * 1024 * 1024,
           useTermChar: false,
-          timeout: Duration(milliseconds: _timeoutMs),
+          timeout: const Duration(seconds: 30),
         ),
       );
     }

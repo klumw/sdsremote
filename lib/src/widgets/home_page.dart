@@ -257,6 +257,9 @@ class _OsciHomePageState extends State<OsciHomePage>
   // Profiles
   List<ProfileInfo> _profileFiles = [];
 
+  /// True while a profile is uploaded and applied on the instrument.
+  bool _isProfileLoading = false;
+
   // Macro Recorder
   List<MacroInfo> _macroFiles = [];
   bool _isMacroRecording = false;
@@ -1433,6 +1436,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     return ProfilesPanel(
       profileFiles: _profileFiles,
       isOnline: _isOnline,
+      isLoading: _isProfileLoading,
       onSave: _saveProfile,
       onLoad: _loadProfile,
       onDelete: _deleteProfile,
@@ -2327,6 +2331,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   Future<void> _saveProfile(String name) async {
+    final sw = Stopwatch()..start();
     try {
       final instr = await _getInstrument();
       if (instr == null) throw Exception('Device not connected');
@@ -2335,9 +2340,11 @@ class _OsciHomePageState extends State<OsciHomePage>
       // The instrument returns data with an IEEE 488.2 definite-length block
       // header (e.g. "PNSU #9000047692<?xml..."). Decode with lenient UTF-8
       // handling to tolerate any non-UTF-8 bytes in the raw response.
+      // The instrument needs ~14 s to build the setup block before it sends
+      // the first byte; a 15 s timeout left no margin.
       final data = await instr.readRawResponse(
         'PNSU?',
-        timeout: const Duration(seconds: 15),
+        timeout: const Duration(seconds: 30),
       );
       final content = utf8.decode(data, allowMalformed: true);
 
@@ -2346,7 +2353,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       await file.writeAsString(content);
 
       _loadProfileFiles();
-      AppLogger().log('Profile "$name" saved successfully.');
+      AppLogger().log(
+        'Profile "$name" saved successfully (${sw.elapsedMilliseconds} ms).',
+      );
       _showInfoSnackBar('Profile "$name" saved.');
     } catch (e) {
       AppLogger().error('Save profile error: $e');
@@ -2355,17 +2364,20 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
   }
 
+  /// Uploads [fileName] to the instrument and marks the panel as busy.
   Future<void> _loadProfile(String fileName) async {
-    // Loading a profile over USB is not supported on Linux for any
-    // oscilloscope: the USB bulk endpoint is misconfigured. Windows supports
-    // it, so only abort on Linux.
-    if (Platform.isLinux && (_isUsb || Vxi11Instrument.isUsbMode)) {
-      final message = Vxi11Instrument.usbProfileLoadError;
-      AppLogger().error('LoadProfile aborted: $message');
-      _showErrorSnackBar(message);
-      return;
+    if (_isProfileLoading) return;
+    setState(() => _isProfileLoading = true);
+    try {
+      await _loadProfileInner(fileName);
+    } finally {
+      if (mounted) {
+        setState(() => _isProfileLoading = false);
+      }
     }
+  }
 
+  Future<void> _loadProfileInner(String fileName) async {
     // Capture profile load during macro recording
     if (_isMacroRecording) {
       final fullPath = '${AppPaths.profilesDirectory.path}/$fileName';
@@ -2385,26 +2397,19 @@ class _OsciHomePageState extends State<OsciHomePage>
       final instr = await _getInstrument();
       if (instr == null) throw Exception('Device not connected');
 
-      // Send the entire XML string via profileWrite — a single USB bulk
-      // transfer (no chunking), which the instrument requires for atomic
-      // profile upload.  For VXI-11 mode this delegates to writeString.
+      // Send the XML string via writeProfileData. Over USB, Linux splits it
+      // into 64-byte transfers while Windows uses a single bulk transfer
+      // that WinUSB segments itself.  For VXI-11 mode this delegates to
+      // writeString.
       AppLogger().log(
         'LoadProfile: sending ${xml.length} bytes via writeProfileData '
         '(timeout: 15s, isUsb: $_isUsb)',
       );
       await instr.writeProfileData(xml, timeout: const Duration(seconds: 15));
-      // The upload is acknowledged immediately, but the scope stops answering
-      // while it applies the profile. VXI-11 reports error 15 and is retried;
-      // USB uses one long read instead, because a retried Bulk-IN request has
-      // a new bTag and a late response would fail with "bTag mismatch".
-      final isUsb = _isUsb || Vxi11Instrument.isUsbMode;
-      await instr.queryStringRetryOnBusy(
-        '*OPC?',
-        timeout: const Duration(seconds: 15),
-        readTimeout: isUsb
-            ? const Duration(seconds: 40)
-            : const Duration(seconds: 10),
-      );
+      // The scope stops answering while it applies the profile. Over VXI-11
+      // *OPC? reports completion; over USB the instrument resets its USB
+      // interface and is reconnected once it is back on the bus.
+      await instr.awaitProfileApplied();
 
       AppLogger().log('Profile "$fileName" loaded successfully.');
       _showInfoSnackBar('Profile "$fileName" loaded.');
