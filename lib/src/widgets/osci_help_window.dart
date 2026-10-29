@@ -1020,44 +1020,52 @@ class CodeBlockElementBuilder extends MarkdownElementBuilder {
     final text = element.textContent.replaceAll(RegExp(r'\n$'), '');
     return Builder(
       builder: (context) {
-        return Container(
-          width: double.infinity,
-          decoration: BoxDecoration(
-            color: Colors.black54,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: SelectableText(
-                  text,
-                  style: TextStyle(
-                    color: Colors.greenAccent[100],
-                    fontFamily: 'Roboto Mono',
-                    fontFamilyFallback: const [
-                      'Consolas',
-                      'Courier New',
-                      'monospace',
-                    ],
-                    fontSize: 14,
+        // The block hugs its longest line (plus the copy button) instead of
+        // spanning the whole manual width; longer lines still wrap at the
+        // available width.
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: Container(
+            decoration: BoxDecoration(
+              color: Colors.black54,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            padding: const EdgeInsets.fromLTRB(8, 8, 8, 8),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              // Centre the copy button on the text; with `start` its 8 px
+              // padding pushed the icon visibly below the first code line.
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                Flexible(
+                  child: SelectableText(
+                    text,
+                    style: TextStyle(
+                      color: Colors.greenAccent[100],
+                      fontFamily: 'Roboto Mono',
+                      fontFamilyFallback: const [
+                        'Consolas',
+                        'Courier New',
+                        'monospace',
+                      ],
+                      fontSize: 14,
+                    ),
                   ),
                 ),
-              ),
-              GestureDetector(
-                onTap: () {
-                  Clipboard.setData(ClipboardData(text: text));
-                },
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.click,
-                  child: const Padding(
-                    padding: EdgeInsets.all(8),
-                    child: Icon(Icons.copy, size: 16, color: Colors.white70),
+                GestureDetector(
+                  onTap: () {
+                    Clipboard.setData(ClipboardData(text: text));
+                  },
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.click,
+                    child: const Padding(
+                      padding: EdgeInsets.all(8),
+                      child: Icon(Icons.copy, size: 16, color: Colors.white70),
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         );
       },

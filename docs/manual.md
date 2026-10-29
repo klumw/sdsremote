@@ -4,11 +4,16 @@
 
 Welcome to the SDS-Remote Help Center.
 
-***SDS-Remote*** delivers a comprehensive remote control solution designed specifically for the Siglent SDS 1000X-E series. The platform streamlines device interaction by integrating robust instrument control and waveform analysis with advanced features like data logging, macro recording/playback, and screen capture— supported by a built-in, AI-powered chat interface.
+***SDS-Remote*** delivers a comprehensive remote control solution designed specifically for the Siglent SDS 1000X-E series.  
+The platform streamlines device interaction by integrating robust instrument control and waveform analysis with advanced features like data logging,  
+macro recording/playback, and screen capture— supported by a built-in, AI-powered chat interface.
 
 ### 1.1 Compatibility
 
-SDS-Remote is designed for the **Siglent SDS 1000X-E** series oscilloscopes (SDS1104X-E, SDS1204X-E, etc.). It communicates with the instrument via the VXI-11 protocol over TCP/IP or via USBTMC (USB). While the application may partially work with other Siglent oscilloscope series that share the same SCPI command set, only the SDS 1000X-E series is tested and officially supported.
+SDS-Remote is designed for the **Siglent SDS 1000X-E** series oscilloscopes (SDS1104X-E, SDS1204X-E, etc.).  
+It communicates with the instrument via the VXI-11 protocol over TCP/IP or via USBTMC (USB).  
+While the application may partially work with other Siglent oscilloscope series that share the same SCPI command set,  
+only the SDS 1000X-E series is tested and officially supported.
 
 **Minimum Requirements:**
 
@@ -26,7 +31,8 @@ SDS-Remote is designed for the **Siglent SDS 1000X-E** series oscilloscopes (SDS
 
 * Start by connecting to the oscilloscope using the **Settings** panel. Verify the status bar shows `ONLINE` before proceeding.
 * Use the **[Control Panel](#9-control-panel)** for interactive operation — it provides immediate visual feedback through the screen capture.
-* Use **[Acquire Waveform](#8-acquire-waveform)** when you need precise measurements, cursor analysis, or [reference waveform](#86-reference-waveforms) comparison.
+* Use **[Acquire Waveform](#8-acquire-waveform)** when you need precise measurements,  
+  cursor analysis, or [reference waveform](#86-reference-waveforms) comparison.
 * Use the **[Data Logger](#6-data-logger)** for long-term monitoring and trend analysis.
 * Use the **[Macro Recorder](#7-macro-recorder)** to automate repetitive tasks. Record a sequence once, then replay it as needed.
 * Save your oscilloscope configuration as a **Profile** before starting critical measurements so you can restore it later.
@@ -34,9 +40,12 @@ SDS-Remote is designed for the **Siglent SDS 1000X-E** series oscilloscopes (SDS
 
 **Performance Tips**
 
-* Network (VXI-11) connections are generally more reliable than USB for sustained operation. USB support is experimental and may have device-specific compatibility issues.
-* Screen captures (Control Panel) update after every command, which takes approximately 1–3 seconds depending on network latency and screen complexity. Rapid consecutive button presses are rate-limited to prevent command queue overflows.
-* Waveform acquisition downloads the full dataset from the oscilloscope, which may take several seconds. The waveform is downsampled for rendering performance.
+* Network (VXI-11) connections are generally more reliable than USB for sustained operation.  
+  USB support is experimental and may have device-specific compatibility issues.
+* Screen captures (Control Panel) update after every command, which takes approximately 1–3 seconds depending on network latency and screen complexity.  
+  Rapid consecutive button presses are rate-limited to prevent command queue overflows.
+* Waveform acquisition downloads the full dataset from the oscilloscope, which may take several seconds.  
+  The waveform is downsampled for rendering performance.
 * The Data Logger queries the oscilloscope at the configured interval. Very short intervals (10 seconds) with many parameters enabled may cause measurement timing jitter due to SCPI query overhead.
 
 **File Storage**
@@ -48,22 +57,28 @@ All user data (screenshots, waveforms, profiles, macros, reports) is stored unde
 | Linux | `~/.local/share/sdsremote/` |
 | Windows | `%LocalAppData%\sdsremote` |
 
-See [section 11](#11-application-directory) (Application Directory) for a complete breakdown of subdirectories.
+See [11. Application Directory](#11-application-directory) (Application Directory) for a complete breakdown of subdirectories.
 
 ### 1.3 Known Limitations
 
-* **AI Accuracy** — The AI chat subsystem uses large language models that may generate incorrect SCPI commands or inaccurate technical advice. Always verify critical commands before execution. SDS-Remote is not liable for any damage resulting from AI-generated instructions.
+* **AI Accuracy** — The AI chat subsystem uses large language models that may generate incorrect SCPI commands or inaccurate technical advice.  
+  Always verify critical commands before execution. SDS-Remote is not liable for any damage resulting from AI-generated instructions.
 * **Single Device** — The application connects to one oscilloscope at a time. Simultaneous control of multiple instruments is only supported in the Macro-Recorder.
-* **No Data Streaming** — The application uses request-response SCPI communication. Continuous high-speed data streaming (e.g., at the full sample rate) is not supported. The Data Logger operates at minimum 10-second intervals.
+* **No Data Streaming** — The application uses request-response SCPI communication.  
+  Continuous high-speed data streaming (e.g., at the full sample rate) is not supported.  
+  The Data Logger operates at minimum 10-second intervals.
 * **Macro Playback** — Macros run on a dedicated VXI-11 connection. During playback, most UI functions are disabled. The Control Panel, Acquire Waveform, Data Logger, and AI Chat cannot be used concurrently with macro playback.
-* **Waveform Downsampling** — Acquired waveforms are downsampled for display to maintain rendering performance. The full dataset is preserved in CSV exports.
-* **Gain (dB) with very small signals** — Below an RMS voltage of 10 mV on either channel the gain calculation reflects the oscilloscope's noise floor and its 8 bit quantisation instead of the device under test, and the result can vary by tens of decibels between samples. The Data Logger records no gain value for such samples (see the note in [section 6.2](#62-measurable-parameters)).
+* **Waveform Downsampling** — Acquired waveforms are downsampled for display to maintain rendering performance.  
+  The full dataset is preserved in CSV exports.
+* **Gain (dB) with very small signals** — Below an RMS voltage of 10 mV on either channel the gain calculation reflects the oscilloscope's noise floor and its 8 bit quantisation instead of the device under test,  
+  and the result can vary by tens of decibels between samples.  
+  The Data Logger records no gain value for such samples (see the note in [6.2 Measurable Parameters](#62-measurable-parameters)).
 
 ---
 
 #### Connection Requirement
 
-> **Note:** Network-based (IP address) and direct USB control is supported. USB support is experimental.
+> **Note:** Network-based (IP address) and direct USB control is supported. USB support is experimental.  
 > For network connection ensure that the oscilloscope and host system are connected to the same network.
 
 ---
@@ -151,11 +166,13 @@ Enter the IPv4 address of the oscilloscope. The address must be reachable from t
 
 **Example:** `192.168.1.100`
 
-The current IP address is also displayed in the status bar at the bottom of the main window. If the address is incorrect or the device is unreachable, the status bar shows `OFFLINE` in red.
+The current IP address is also displayed in the status bar at the bottom of the main window.  
+If the address is incorrect or the device is unreachable, the status bar shows `OFFLINE` in red.
 
 ### 3.4 AI Provider Settings
 
-Refer to [section 4.1](#41-ai-model-configuration) for detailed instructions on configuring the [AI chat](#42-ai-chat-interface) feature. The Settings panel provides three fields for AI configuration:
+Refer to [4.1 AI Model Configuration](#41-ai-model-configuration) for detailed instructions on configuring the [AI chat](#42-ai-chat-interface) feature.  
+The Settings panel provides three fields for AI configuration:
 
 * **AI Provider** — Dropdown list of supported providers (DeepSeek, OpenAI, Anthropic, Google, Mistral, Cohere, EdenAI, OpenRouter, xAI).
 * **AI API Token** — Your provider API key. The field masks input for privacy. A minimum of 8 characters is required.
@@ -167,8 +184,12 @@ The AI chat feature is only enabled when all three fields are populated. If the 
 
 Two toggle switches control default export behavior across the application:
 
-* **Save CSV data** — When enabled, waveform acquisitions and data logger recordings automatically export a companion CSV file alongside the primary output (PNG image or PDF report). CSV files contain raw numerical data suitable for import into spreadsheet applications or analysis tools. When disabled, only the primary output format is saved.
-* **Ask for filename on save** — When enabled, a dialog prompts for a custom filename prefix before each save operation. When disabled, default prefixes are used (e.g. `screen_dump`, `waveform`, `data_logging_report`). A numeric suffix is always appended to avoid overwriting existing files, regardless of this setting.
+* **Save CSV data** — When enabled, waveform acquisitions and data logger recordings automatically export a companion CSV file alongside the primary output (PNG image or PDF report).  
+  CSV files contain raw numerical data suitable for import into spreadsheet applications or analysis tools.  
+  When disabled, only the primary output format is saved.
+* **Ask for filename on save** — When enabled, a dialog prompts for a custom filename prefix before each save operation.  
+  When disabled, default prefixes are used (e.g. `screen_dump`, `waveform`, `data_logging_report`).  
+  A numeric suffix is always appended to avoid overwriting existing files, regardless of this setting.
 
 Both settings take effect immediately and persist across application restarts.
 
@@ -180,7 +201,8 @@ Select the signal generator used by the [Bode Plot](#10-bode-plot) and the [sign
 * **JDS6600** — JOY-IT/Juntek JDS6600 and JDS6600-Lite.
 * **FY6900** — FeelElec FY6900 series.
 
-The selection is persisted as `siggen_device` and restored on the next launch. When a generator is selected, the application scans the serial ports, identifies it via `*IDN?` and enables the **Bode** button and the signal generator window (Ctrl+J). The detected model supplies the frequency, amplitude and offset limits; see the Bode Plot chapter ([section 10](#10-bode-plot)).
+The selection is persisted as `siggen_device` and restored on the next launch. When a generator is selected, the application scans the serial ports, identifies it via `*IDN?` and enables the **Bode** button and the signal generator window (Ctrl+J).  
+The detected model supplies the frequency, amplitude and offset limits; see the Bode Plot chapter ([10. Bode Plot](#10-bode-plot)).
 
 ### 3.7 Network Connection
 
@@ -188,7 +210,7 @@ Basic connection setup for network mode. Skip steps 1–3 if USB is selected in 
 
 1. Connect the oscilloscope to the same network as the host computer.
 2. Obtain the oscilloscope's IP address.
-3. In **Settings**, enter the IP address in the **IP Address** field (see [section 3.3](#33-ip-address)).
+3. In **Settings**, enter the IP address in the **IP Address** field (see [3.3 IP Address](#33-ip-address)).
 4. Click **SAVE CONFIGURATION**.
 5. Verify that the status bar shows your device as `ONLINE`.
 
@@ -205,19 +227,24 @@ Click the **SAVE CONFIGURATION** button to persist all settings. The application
 
 The status bar updates to reflect the new connection state. If `ONLINE` is shown, the oscilloscope is reachable and ready for operation.
 
-The main window's size and position are saved automatically when the application closes and restored on the next launch. If the saved position is no longer visible on a connected display (for example after disconnecting a monitor), the window opens centered instead.
+The main window's size and position are saved automatically when the application closes and restored on the next launch.  
+If the saved position is no longer visible on a connected display (for example after disconnecting a monitor),  
+the window opens centered instead.
 
-> **Note:** The API token is stored in plain text in the preferences file (`preferences/preferences.json`) within the application directory. Ensure appropriate file system permissions if working in a shared environment.
+> **Note:** The API token is stored in plain text in the preferences file (`preferences/preferences.json`) within the application directory.  
+> Ensure appropriate file system permissions if working in a shared environment.
 
 ---
 
 ## 4. AI System
 
-The [AI chat](#42-ai-chat-interface) feature enables natural-language interaction with the oscilloscope — ask device-related questions, send SCPI commands, or get troubleshooting help. The AI communicates directly with your chosen provider's API (no intermediate server) and requires an active internet connection.
+The [AI chat](#42-ai-chat-interface) feature enables natural-language interaction with the oscilloscope — ask device-related questions,  
+send SCPI commands, or get troubleshooting help.  
+The AI communicates directly with your chosen provider's API (no intermediate server) and requires an active internet connection.
 
 ### 4.1 AI Model Configuration
 
-Before using the AI, configure it in the **Settings** panel (see [section 3.4](#34-ai-provider-settings)):
+Before using the AI, configure it in the **Settings** panel (see [3.4 AI Provider Settings](#34-ai-provider-settings)):
 
 1. Open **Settings** (gear icon in the top toolbar).
 2. Select your **AI Provider** from the dropdown (DeepSeek, OpenAI, Anthropic, Google, Mistral, Cohere, EdenAI, OpenRouter, or xAI).
@@ -225,7 +252,8 @@ Before using the AI, configure it in the **Settings** panel (see [section 3.4](#
 4. Enter the **LLM Model** name exactly as specified by your provider.
 5. Click **SAVE CONFIGURATION**.
 
-After saving, the **AI** button in the top toolbar becomes enabled (colored icon instead of greyed out). The application initializes the agent system immediately — no restart is needed.
+After saving, the **AI** button in the top toolbar becomes enabled (colored icon instead of greyed out).  
+The application initializes the agent system immediately — no restart is needed.
 
 #### Supported Providers
 
@@ -258,9 +286,10 @@ For the exact model name string required by your provider, consult your provider
 
 #### Opening and Closing
 
-Click the **AI** button in the top toolbar to open or close the chat interface. The chat replaces the main content area ([Control Panel](#9-control-panel), Waveform, etc.) while open. Your conversation history is preserved while the panel remains open; closing and reopening the chat clears the history.
+Click the **AI** button in the top toolbar to open or close the chat interface. The chat replaces the main content area ([Control Panel](#9-control-panel), Waveform, etc.) while open.  
+Your conversation history is preserved while the panel remains open; closing and reopening the chat clears the history.
 
-The Macro Editor ([section 7.2](#72-macro-editor)) and the Control Panel ([section 9.10](#910-ai-control-panel-assistant)) have their own AI assistants that work directly in those panels without replacing them.
+The Macro Editor ([7.2 Macro Editor](#72-macro-editor)) and the Control Panel ([9.10 AI Control Panel Assistant](#910-ai-control-panel-assistant)) have their own AI assistants that work directly in those panels without replacing them.
 
 #### Interface Layout
 
@@ -270,17 +299,20 @@ The chat window consists of:
 * **Streaming Indicator** — While the AI is generating a response, a pulsing cyan cursor (`▊`) might appear at the end of the message, indicating more content is coming.
 * **Input Field** — A text field at the bottom for typing messages. Press **Enter** to send (Shift+Enter for newline is not supported — text wraps automatically).
 * **Send Button** — A paper-plane icon to the right of the input field. Disabled while the AI is generating a response.
-* **Stop Button** — While the AI is generating a response, the send button changes to a square stop button. Pressing it aborts the response immediately and marks it as `terminated by user`.
+* **Stop Button** — While the AI is generating a response, the send button changes to a square stop button.  
+  Pressing it aborts the response immediately and marks it as `terminated by user`.
 
 #### Message History
 
-The chat maintains a multi-turn conversation history within the session. The AI remembers previous exchanges, so you can ask follow-up questions or refine commands without repeating context. Closing the chat panel clears the history; a fresh conversation starts when reopened.
+The chat maintains a multi-turn conversation history within the session. The AI remembers previous exchanges, so you can ask follow-up questions or refine commands without repeating context.  
+Closing the chat panel clears the history; a fresh conversation starts when reopened.
 
 ### 4.3 Capabilities and Usage
 
 #### Device Questions (Knowledge Base)
 
-Ask questions about oscilloscope features, specifications, measurements, or troubleshooting. The AI searches the built-in knowledge base and returns the relevant documentation.
+Ask questions about oscilloscope features, specifications, measurements, or troubleshooting.  
+The AI searches the built-in knowledge base and returns the relevant documentation.
 
 **Examples:**
 * *"What is the maximum sample rate of the oscilloscope"*
@@ -288,7 +320,8 @@ Ask questions about oscilloscope features, specifications, measurements, or trou
 * *"Explain the difference between Auto and Normal trigger mode."*
 * *"What SCPI command sets the timebase?"*
 
-The knowledge base is a curated Markdown document (`docs/knowledgebase.md`) bundled with the application. The Search Agent queries it using semantic search and returns the most relevant sections.
+The knowledge base is a curated Markdown document (`docs/knowledgebase.md`) bundled with the application.  
+The Search Agent queries it using semantic search and returns the most relevant sections.
 
 #### SCPI Command Execution
 
@@ -309,7 +342,8 @@ For precise control, use the **send command** syntax to bypass natural-language 
 send command C1:VDIV 500mV
 ```
 
-This sends the SCPI command directly to the oscilloscope without any translation. The device response (for queries) is returned verbatim.
+This sends the SCPI command directly to the oscilloscope without any translation.  
+The device response (for queries) is returned verbatim.
 
 **Examples:**
 * `send command C1:TRA ON`
@@ -318,17 +352,24 @@ This sends the SCPI command directly to the oscilloscope without any translation
 
 #### SDS-Remote Software Help
 
-When you ask about the SDS-Remote application itself (installation, configuration, features), the AI directs you to the built-in Help system rather than attempting to answer from its own knowledge.
+When you ask about the SDS-Remote application itself (installation, configuration, features),  
+the AI directs you to the built-in Help system rather than attempting to answer from its own knowledge.
 
 ### 4.4 Limitations and Best Practices
 
-* **AI Accuracy** — The AI does not use its training data for oscilloscope answers. All responses are grounded in the knowledge base or actual device responses. However, the underlying language model may still misinterpret queries or produce incorrect SCPI command syntax. Always verify critical commands.
-* **Provider Dependency** — Response quality and speed depend entirely on the chosen AI provider and model. Different providers have different strengths for technical content.
-* **Internet Required** — AI features require an active internet connection to reach the provider's API. Without internet, the AI button is effectively non-functional even if configured.
+* **AI Accuracy** — The AI does not use its training data for oscilloscope answers.  
+  All responses are grounded in the knowledge base or actual device responses. However, the underlying language model may still misinterpret queries or produce incorrect SCPI command syntax.  
+  Always verify critical commands.
+* **Provider Dependency** — Response quality and speed depend entirely on the chosen AI provider and model.  
+  Different providers have different strengths for technical content.
+* **Internet Required** — AI features require an active internet connection to reach the provider's API.  
+  Without internet, the AI button is effectively non-functional even if configured.
 * **API Costs** — The AI communicates directly with your provider's API. Usage may incur costs according to your provider's pricing. Monitor your API usage to avoid unexpected charges.
-* **English Recommended** — The knowledge base and system prompts are written in English. Queries in other languages may produce less accurate results.
+* **English Recommended** — The knowledge base and system prompts are written in English.  
+  Queries in other languages may produce less accurate results.
 
-> **Warning:** The AI subsystem may generate inaccurate information or incorrect operating instructions. Always verify critical SCPI commands before execution. SDS-Remote is not liable for any damage resulting from AI-generated instructions.
+> **Warning:** The AI subsystem may generate inaccurate information or incorrect operating instructions.  
+> Always verify critical SCPI commands before execution. SDS-Remote is not liable for any damage resulting from AI-generated instructions.
 
 
 ### 4.5 Troubleshooting
@@ -365,9 +406,11 @@ When you ask about the SDS-Remote application itself (installation, configuratio
 
 ## 5. Device Profiles
 
-The **Profiles** feature allows you to save the complete oscilloscope configuration and restore it later. This is useful for switching between measurement setups, sharing instrument configurations, or restoring a known-good state before critical measurements.
+The **Profiles** feature allows you to save the complete oscilloscope configuration and restore it later.  
+This is useful for switching between measurement setups, sharing instrument configurations, or restoring a known-good state before critical measurements.
 
-Profile files are stored with the `.lss` extension in the `profiles/` subdirectory of the application working directory. The file format is SCPI XML — the raw configuration data provided by the oscilloscope's `PNSU?` query.
+Profile files are stored with the `.lss` extension in the `profiles/` subdirectory of the application working directory.  
+The file format is SCPI XML — the raw configuration data provided by the oscilloscope's `PNSU?` query.
 
 ### 5.1 Profiles Panel
 
@@ -383,7 +426,8 @@ Click the **Profiles** button in the top toolbar to open the Profiles panel. The
 * A text input field labeled "Create New Profile" for entering a profile name.
 * **Name restrictions**: Maximum 30 characters. Only alphanumeric characters (`a–z`, `A–Z`, `0–9`), underscores (`_`), and hyphens (`-`) are allowed.
 * A **Save** button that reads the current oscilloscope configuration via the `PNSU?` SCPI query and stores it as an `.lss` file.
-* During the save operation (which can take up to 15 seconds for large configurations), the Save button is disabled and shows a progress indicator.
+* During the save operation (which can take up to 15 seconds for large configurations),  
+  the Save button is disabled and shows a progress indicator.
 
 **File List**
 
@@ -391,7 +435,8 @@ Click the **Profiles** button in the top toolbar to open the Profiles panel. The
 * Each entry shows the file name and last modified date.
 * **Sorting**: Sort by **Name** or **Date** in ascending or descending order using the sort controls above the list.
 * Per-file actions:
-  * **Load** (upload icon) — Sends the stored XML configuration to the oscilloscope via `profileWrite`. Only enabled when the device is online. The load operation has a 15-second timeout.
+  * **Load** (upload icon) — Sends the stored XML configuration to the oscilloscope via `profileWrite`.  
+    Only enabled when the device is online. The load operation has a 15-second timeout.
   * **Delete** (trash icon) — Permanently removes the profile file.
 
 > **Note:** After a profile is loaded, the oscilloscope screen automatically refreshes to reflect the restored configuration.
@@ -403,37 +448,47 @@ Click the **Profiles** button in the top toolbar to open the Profiles panel. The
 3. Enter a descriptive name in the "Create New Profile" field.
 4. Click **Save**. The application sends `PNSU?` to the oscilloscope, receives the full XML configuration, and saves it to the `profiles/` directory.
 
-> **Note:** Saving a profile requires the device to be online. The `PNSU?` query returns an IEEE 488.2 definite-length block containing the complete instrument setup in XML format. The save operation may take several seconds depending on configuration size.
+> **Note:** Saving a profile requires the device to be online. The `PNSU?` query returns an IEEE 488.2 definite-length block containing the complete instrument setup in XML format.  
+> The save operation may take several seconds depending on configuration size.
 
 ### 5.3 Loading a Profile
 
 1. Ensure the oscilloscope is connected and online.
 2. Open the **Profiles** panel.
 3. Click the **Load** icon next to the desired profile.
-4. The profile's XML configuration is sent to the oscilloscope as a single atomic write via `profileWrite`. For USB connections, there might be problems under Linux, because of USB incompatabilities depending on the device USB firmware version.
+4. The profile's XML configuration is sent to the oscilloscope as a single atomic write via `profileWrite`.  
+   For USB connections, there might be problems under Linux, because of USB incompatabilities depending on the device USB firmware version.
 5. The oscilloscope screen automatically refreshes after the profile is applied.
 
-> **Note:** Loading a profile will overwrite the current oscilloscope configuration. The operation cannot be undone on the device, so consider saving the current configuration first if you may need it later.
+> **Note:** Loading a profile will overwrite the current oscilloscope configuration.  
+> The operation cannot be undone on the device, so consider saving the current configuration first if you may need it later.
 
 ### 5.4 Using Profiles in Macros
 
-Profile loading is supported in macro scripts via the `loadProfile` command (see [section 7.5.4](#754-device-profiles)). When macro recording is active, loading a profile through the [Profiles panel](#51-profiles-panel) automatically appends a `loadProfile` command to the macro script, making it easy to include profile restoration in automated workflows.
+Profile loading is supported in macro scripts via the `loadProfile` command (see [7.5.4 Device Profiles](#754-device-profiles)).  
+When macro recording is active, loading a profile through the [Profiles panel](#51-profiles-panel) automatically appends a `loadProfile` command to the macro script,  
+making it easy to include profile restoration in automated workflows.
 
 ### 5.5 Deleting a Profile
 
-Click the **Delete** icon next to a profile to permanently remove it from the `profiles/` directory. Deleted profiles cannot be recovered.
+Click the **Delete** icon next to a profile to permanently remove it from the `profiles/` directory.  
+Deleted profiles cannot be recovered.
 
 ## 6. Data Logger
 
-The **Data Logger** records oscilloscope measurement parameters over time, plots them on a real-time chart, and generates PDF reports. It is ideal for monitoring signal drift, characterizing component behavior over time, or documenting long-duration measurements.
+The **Data Logger** records oscilloscope measurement parameters over time, plots them on a real-time chart, and generates PDF reports.  
+It is ideal for monitoring signal drift, characterizing component behavior over time, or documenting long-duration measurements.
 
 ### 6.1 Opening the Data Logger
 
-Click the **Data Logger** button in the top toolbar to open the Data Logger panel. The panel replaces the main waveform/control panel area and shows a configuration dialog when first opened. The button icon rotates during active recording.
+Click the **Data Logger** button in the top toolbar to open the Data Logger panel.  
+The panel replaces the main waveform/control panel area and shows a configuration dialog when first opened.  
+The button icon rotates during active recording.
 
 ### 6.2 Measurable Parameters
 
-The following parameters can be logged. Vpp, Mean, Rms, Duty and Freq are available per channel (CH1–CH4 on four-channel instruments); Gain (dB) is a single cross-channel measurement. Up to **5 parameters** total can be selected simultaneously:
+The following parameters can be logged. Vpp, Mean, Rms, Duty and Freq are available per channel (CH1–CH4 on four-channel instruments); Gain (dB) is a single cross-channel measurement.  
+Up to **5 parameters** total can be selected simultaneously:
 
 | Parameter | Channels | Description |
 |:----------|:---------|:------------|
@@ -466,11 +521,19 @@ Measures the voltage gain between two channels and records it as a decibel value
 | 100 mV | 10 mV | -20.00 dB |
 | 100 mV | 5 mV | no value (below the noise floor) |
 
-Each voltage is scaled by its own probe divider before the ratio is taken, so differing probe attenuation on the two channels is handled correctly rather than biasing the result. If either voltage cannot be measured, or it falls below the noise floor described below, no gain value is recorded for that sample.
+Each voltage is scaled by its own probe divider before the ratio is taken, so differing probe attenuation on the two channels is handled correctly rather than biasing the result.  
+If either voltage cannot be measured, or it falls below the noise floor described below, no gain value is recorded for that sample.
 
-> **Note — very small signals:** Gain (dB) is only meaningful while both RMS voltages are well above the oscilloscope's own noise floor and its 8 bit quantisation. Below an RMS voltage of **10 mV** a single ADC step is a large fraction of the signal, so the calculated gain no longer describes the device under test: it can jump by tens of decibels from one sample to the next although nothing changed in the circuit. For that reason **no gain value is recorded when either channel's RMS voltage is below 10 mV** — the sample simply carries no Gain (dB) entry, which appears as an empty cell in the CSV export and as `Gain: invalid` in the cursor popup, and the chart draws its line straight across such samples. A reading of exactly 10 mV is still measured. If the signal under test is genuinely smaller than that, the gain has to be determined where the levels are higher, for example after an amplifier stage.
+> **Note — very small signals:** Gain (dB) is only meaningful while both RMS voltages are well above the oscilloscope's own noise floor and its 8 bit quantisation.  
+> Below an RMS voltage of **10 mV** a single ADC step is a large fraction of the signal,  
+> so the calculated gain no longer describes the device under test: it can jump by tens of decibels from one sample to the next although nothing changed in the circuit.  
+> For that reason **no gain value is recorded when either channel's RMS voltage is below 10 mV** — the sample simply carries no Gain (dB) entry,  
+> which appears as an empty cell in the CSV export and as `Gain: invalid` in the cursor popup,  
+> and the chart draws its line straight across such samples.  
+> A reading of exactly 10 mV is still measured. If the signal under test is genuinely smaller than that, the gain has to be determined where the levels are higher, for example after an amplifier stage.
 
-> **Note:** Gain (dB) is a **voltage** gain, not a power gain. A power gain in dB would additionally require the impedance at both measurement points to be known. If the impedance of both measurement points is equal, voltage gain in dB equals power gain in dB.
+> **Note:** Gain (dB) is a **voltage** gain, not a power gain. A power gain in dB would additionally require the impedance at both measurement points to be known.  
+> If the impedance of both measurement points is equal, voltage gain in dB equals power gain in dB.
 
 ### 6.3 Configuration
 
@@ -481,7 +544,8 @@ When the Data Logger panel opens in the **configuring** state, a setup dialog is
 * Toggle checkboxes for each parameter on CH1–CH4 independently. CH3 and CH4 are offered only when a four-channel oscilloscope was detected.
 * A counter shows the number of selected parameters (maximum 5).
 * At least one parameter must be selected before starting.
-* **Gain (dB)** has a single toggle rather than one per channel, because it is derived from both channels at once. It counts as one parameter.
+* **Gain (dB)** has a single toggle rather than one per channel, because it is derived from both channels at once.  
+  It counts as one parameter.
 
 #### Measurement Interval
 
@@ -506,7 +570,9 @@ Once recording starts, the Data Logger panel expands to show a real-time XY plot
 
 * Time axis (X) with automatic unit scaling: seconds (`s`), minutes (`min`), or hours (`h`) depending on total duration.
 * Each selected parameter is plotted as a separate colored line.
-* Voltage measurements (Vpp, Mean, Rms) share the left Y-axis; frequency uses the right Y-axis; duty cycle and Gain (dB) use their own auto-scaled inner axes on the left, labelled with a `%` and a `dB` suffix respectively. The gain axis always includes the 0 dB (unity gain) reference line.
+* Voltage measurements (Vpp, Mean, Rms) share the left Y-axis; frequency uses the right Y-axis; duty cycle and Gain (dB) use their own auto-scaled inner axes on the left,  
+  labelled with a `%` and a `dB` suffix respectively.  
+  The gain axis always includes the 0 dB (unity gain) reference line.
 * The elapsed time counter updates with each new data point.
 
 **Hover Tooltip**
@@ -537,7 +603,8 @@ Clicking **Close** (X) in the header returns to the main view. The Data Logger s
 
 ### 6.6 PDF Report
 
-After recording is stopped (and at least 2 data points exist), save a PDF report by clicking the **Save** button in the top toolbar. The report includes:
+After recording is stopped (and at least 2 data points exist), save a PDF report by clicking the **Save** button in the top toolbar.  
+The report includes:
 
 * **Headline** — "Data Logger Report" title.
 * **Report Name** — The description entered during configuration.
@@ -553,22 +620,28 @@ Reports are saved to the `logger/reports/` subdirectory of the application worki
 
 ### 6.7 CSV Export
 
-If the **Save CSV Data** option is enabled in Settings, a CSV file with all raw data points is exported alongside the PDF report to the `logger/csv/` subdirectory. The CSV contains a timestamp column and one column per measured parameter — `Gain (dB)` among them when gain logging is enabled — with the report name included as a metadata comment.
+If the **Save CSV Data** option is enabled in Settings, a CSV file with all raw data points is exported alongside the PDF report to the `logger/csv/` subdirectory.  
+The CSV contains a timestamp column and one column per measured parameter — `Gain (dB)` among them when gain logging is enabled — with the report name included as a metadata comment.
 
 ### 6.8 Probe Attenuation
 
-The Data Logger automatically queries the oscilloscope's probe attenuation settings before recording begins. Voltage measurements (Vpp, Mean, Rms), as well as the RMS voltages that Gain (dB) is derived from, are scaled by the probe divider factor so that reported values match the actual signal levels at the probe tip. Probe dividers are displayed in the configuration dialog after the initial query completes; the dividers of all channels with selected measurements are queried and shown. Gain (dB) always uses the CH1 and CH2 probe dividers, regardless of how many channels the instrument has.
+The Data Logger automatically queries the oscilloscope's probe attenuation settings before recording begins.  
+Voltage measurements (Vpp, Mean, Rms), as well as the RMS voltages that Gain (dB) is derived from, are scaled by the probe divider factor so that reported values match the actual signal levels at the probe tip.  
+Probe dividers are displayed in the configuration dialog after the initial query completes; the dividers of all channels with selected measurements are queried and shown.  
+Gain (dB) always uses the CH1 and CH2 probe dividers, regardless of how many channels the instrument has.
 
 ## 7. Macro Recorder
 
-The **Macro Recorder** automates repetitive measurement and configuration tasks by recording, editing and playing back sequences of SCPI commands.  
+The **Macro Recorder** automates repetitive measurement and configuration tasks by recording,  
+editing and playing back sequences of SCPI commands.  
 Macros support variables, conditionals (`if`/`else`), loops (`while`) and assertions, making them suitable for automated test procedures and batch instrument configuration.
 
 Macro files are stored with the `.m` extension in the `automation/macros/` subdirectory of the application working directory.
 
 ### 7.1 Macro Recorder Panel
 
-The Macro Recorder panel is opened by clicking the **Macro Recorder** button in the top toolbar. The panel is divided into three areas:
+The Macro Recorder panel is opened by clicking the **Macro Recorder** button in the top toolbar.  
+The panel is divided into three areas:
 
 **Header**
 
@@ -582,11 +655,17 @@ The Macro Recorder panel is opened by clicking the **Macro Recorder** button in 
 
 **Action Buttons**
 
-* **New Record** — Starts recording a new macro. If the editor already contains a macro, a confirmation dialog (Cancel/OK) asks whether to overwrite it. All SCPI commands sent through the [AI chat](#42-ai-chat-interface), the [Control Panel](#9-control-panel), or loaded via profiles are captured into the macro. During recording, the button shows a blinking red dot and the label changes to "Recording...". Disabled during playback.
+* **New Record** — Starts recording a new macro. If the editor already contains a macro, a confirmation dialog (Cancel/OK) asks whether to overwrite it.  
+  All SCPI commands sent through the [AI chat](#42-ai-chat-interface), the [Control Panel](#9-control-panel), or loaded via profiles are captured into the macro.  
+  During recording, the button shows a blinking red dot and the label changes to "Recording...".  
+  Disabled during playback.
 * **Stop** — Stops the current recording or playback. During playback, the label changes to "Stop Playback". Only enabled when recording or playback is active.
-* **Play** — Executes the current macro content against the connected oscilloscope. Disabled during recording, playback, or when no macro content has been loaded or recorded.
-* **Edit** — Opens the **Macro Editor** (see [section 7.2](#72-macro-editor)) with the current macro content for manual editing. Disabled during recording, playback, or when no macro content is available.
-* **Save** — Saves the macro to a `.m` file. If a file was previously loaded, it is overwritten silently. Otherwise, a dialog prompts for a file name (up to 30 characters, alphanumeric plus `_` and `-`). Enabled only after recording, loading, or editing a macro.
+* **Play** — Executes the current macro content against the connected oscilloscope.  
+  Disabled during recording, playback, or when no macro content has been loaded or recorded.
+* **Edit** — Opens the **Macro Editor** (see [7.2 Macro Editor](#72-macro-editor)) with the current macro content for manual editing.  
+  Disabled during recording, playback, or when no macro content is available.
+* **Save** — Saves the macro to a `.m` file. If a file was previously loaded, it is overwritten silently. Otherwise, a dialog prompts for a file name (up to 30 characters, alphanumeric plus `_` and `-`).  
+  Enabled only after recording, loading, or editing a macro.
 
 **File List**
 
@@ -599,13 +678,18 @@ The Macro Recorder panel is opened by clicking the **Macro Recorder** button in 
 
 **Print Output**
 
-As soon as a `print()` statement produces output during playback, a **Print Output** panel appears on the left of the panel, next to the macro file list. It lists the messages of the current playback, scrolls to the newest line, and can be cleared with the icon in its header. The panel is hidden while it contains no messages. Starting a new playback, recording a new macro, or loading another macro clears the output. While the [Macro Editor](#72-macro-editor) is open, the same messages also appear in the lower half of its left output sidebar.
+As soon as a `print()` statement produces output during playback, a **Print Output** panel appears on the left of the panel, next to the macro file list.  
+It lists the messages of the current playback, scrolls to the newest line, and can be cleared with the icon in its header.  
+The panel is hidden while it contains no messages. Starting a new playback, recording a new macro, or loading another macro clears the output.  
+While the [Macro Editor](#72-macro-editor) is open, the same messages also appear in the lower half of its left output sidebar.
 
-Printed values are formatted for readability: frequencies use Hz, kHz or MHz, voltages use mV or V, and scientific notation (for example `8.000000E+3`) is never shown. The unit is taken from the SCPI query that produced the value when it is known; otherwise the label before the value (such as `Frequency:` or `Vpp:`) selects it.
+Printed values are formatted for readability: frequencies use Hz, kHz or MHz, voltages use mV or V, and scientific notation (for example `8.000000E+3`) is never shown.  
+The unit is taken from the SCPI query that produced the value when it is known; otherwise the label before the value (such as `Frequency:` or `Vpp:`) selects it.
 
 ### 7.2 Macro Editor
 
-Clicking the **Edit** button or the **Load** button on a file opens the Macro Editor. This is a full text editor with line numbers, designed for writing and modifying macro scripts.
+Clicking the **Edit** button or the **Load** button on a file opens the Macro Editor.  
+This is a full text editor with line numbers, designed for writing and modifying macro scripts.
 
 **Features**
 
@@ -635,28 +719,41 @@ Clicking the **Edit** button or the **Load** button on a file opens the Macro Ed
 
 The debug bar below the editor header controls execution:
 
-* **Play** — starts a fresh debug run from the beginning and runs until the first breakpoint (or the end). Without breakpoints it behaves like the Play button in the Macro Recorder panel.
-* **Step** — starts a debug session on the first click and executes one statement; each further click executes the next statement. Stepping enters `if`/`while` bodies; comments are skipped.
+* **Play** — starts a fresh debug run from the beginning and runs until the first breakpoint (or the end).  
+  Without breakpoints it behaves like the Play button in the Macro Recorder panel.
+* **Step** — starts a debug session on the first click and executes one statement; each further click executes the next statement.  
+  Stepping enters `if`/`while` bodies; comments are skipped.
 * **Continue** — enabled only while the macro is paused; runs until the next breakpoint (or to the end).
 * **Stop** — cancels a running playback or debug session.
 
-**Breakpoints** — click a line number in the gutter to toggle a breakpoint (red dot). Breakpoints bind to executable statement lines; blank lines and comment-only lines are ignored. Right-click an existing breakpoint for a context menu: delete it, enable or disable it, enable or disable all breakpoints, or delete all breakpoints. Disabled breakpoints are drawn hollow and do not pause execution.
+**Breakpoints** — click a line number in the gutter to toggle a breakpoint (red dot).  
+Breakpoints bind to executable statement lines; blank lines and comment-only lines are ignored.  
+Right-click an existing breakpoint for a context menu: delete it, enable or disable it, enable or disable all breakpoints, or delete all breakpoints.  
+Disabled breakpoints are drawn hollow and do not pause execution.
 
-**Current line** — the statement being executed is highlighted in the gutter and in the editor, and the editor scrolls it into view. The status line names the statement.
+**Current line** — the statement being executed is highlighted in the gutter and in the editor,  
+and the editor scrolls it into view.  
+The status line names the statement.
 
-**Variables** — after each step a watch panel to the left of the editor lists the current macro variables (`name = value`). The values are selectable and can be copied. The sidebar is split into two equal halves: variables in the upper half and the print output below. It remains visible until the next session starts or the macro is edited.
+**Variables** — after each step a watch panel to the left of the editor lists the current macro variables (`name = value`).  
+The values are selectable and can be copied. The sidebar is split into two equal halves: variables in the upper half and the print output below.  
+It remains visible until the next session starts or the macro is edited.
 
-A debug session keeps the instrument connection and all macro variables alive between clicks. Starting a full playback, editing the macro, closing the editor, or leaving the Macro Recorder panel ends it. Stepping works on statements, not physical source lines: a compound statement is followed by the statements in its body.
+A debug session keeps the instrument connection and all macro variables alive between clicks.  
+Starting a full playback, editing the macro, closing the editor, or leaving the Macro Recorder panel ends it.  
+Stepping works on statements, not physical source lines: a compound statement is followed by the statements in its body.
 
 #### AI Macro Assistant
 
-The **AI** button in the editor header (sparkle icon) opens a chat panel to the right of the editor. The button is enabled only when an AI provider, API token and model are configured in the settings ([section 4](#4-ai-system)).
+The **AI** button in the editor header (sparkle icon) opens a chat panel to the right of the editor.  
+The button is enabled only when an AI provider, API token and model are configured in the settings ([4. AI System](#4-ai-system)).
 
 The assistant works directly on the macro that is open in the editor.
 
 Changes are applied immediately and are marked as unsaved. `Ctrl` + `Z` in the editor restores the previous version. Press the AI button again to close the chat panel. While the assistant is working, the send button changes to a square stop button; pressing it aborts the response immediately and marks it as `terminated by user`.
 
-The chat stays open, including its complete history, when the editor is closed and reopened later in the same session. An answer that is still streaming when the editor closes continues to update the transcript and is visible on reopen.
+The chat stays open, including its complete history, when the editor is closed and reopened later in the same session.  
+An answer that is still streaming when the editor closes continues to update the transcript and is visible on reopen.
 
 ### 7.3 Recording a Macro
 
@@ -702,7 +799,10 @@ Connects to the oscilloscope via USBTMC (USB) instead of network. The device is 
 connect(SIG, usb)
 ```
 
-Connects to the signal generator selected in **Settings → Signal Generator** (JDS6600 or FY6900). The generator type is read from the settings and the device is auto-detected on the USB serial ports. Playback stops with an error when no type is configured or no matching generator is reachable. A macro may contain one default oscilloscope `connect` and one `connect(SIG, usb)`; both connections are independent.
+Connects to the signal generator selected in **Settings → Signal Generator** (JDS6600 or FY6900).  
+The generator type is read from the settings and the device is auto-detected on the USB serial ports.  
+Playback stops with an error when no type is configured or no matching generator is reachable.  
+A macro may contain one default oscilloscope `connect` and one `connect(SIG, usb)`; both connections are independent.
 
 ##### Device Handles
 Device Handles allow to control multiple scpi devices.
@@ -711,7 +811,8 @@ Device Handles allow to control multiple scpi devices.
 myscope = connect("192.168.1.100")
 ```
 
-Assigning `connect("IP")` to a variable opens an additional VXI-11 connection and returns a **device handle**. The handle addresses that device in `cmd()` and `query()` calls, so one macro can control several SCPI devices:
+Assigning `connect("IP")` to a variable opens an additional VXI-11 connection and returns a **device handle**.  
+The handle addresses that device in `cmd()` and `query()` calls, so one macro can control several SCPI devices:
 
 ```
 scopeA = connect("192.168.1.100")
@@ -722,11 +823,15 @@ cmd(scopeB, "ASET")
 cmd("C1:TRA ON")
 ```
 
-* `cmd(handle, "CMD")` and `query(handle, "CMD")` work in every position where `query()` is allowed: as a statement, in assignments, in `print()`, in conditions, and in `assert(..., cmd(handle, ...))`.
+* `cmd(handle, "CMD")` and `query(handle, "CMD")` work in every position where `query()` is allowed: as a statement,  
+  in assignments, in `print()`, in conditions, and in `assert(..., cmd(handle, ...))`.
 * Each handle owns an independent connection. Commands without a selector keep addressing the default oscilloscope connection opened by the first `connect(...)` line.
 * Handles are network (VXI-11) connections. `connect(usb)` and `connect(SIG, usb)` do not return a handle, and a macro that uses handles should connect the oscilloscope with `connect("IP")` rather than `connect(usb)`.
-* Assigning the same address to the same variable again reuses the open connection. Assigning a different address, or any normal value, closes the old connection first. All handles are closed when playback ends.
-* A handle stores its device address as the variable value, so `print(myscope)` shows `192.168.1.100`. Use `cmd(myscope, "...")` rather than `cmd(myscope)` — the one-argument form expects command text and rejects handles.
+* Assigning the same address to the same variable again reuses the open connection.  
+  Assigning a different address, or any normal value, closes the old connection first.  
+  All handles are closed when playback ends.
+* A handle stores its device address as the variable value, so `print(myscope)` shows `192.168.1.100`.  
+  Use `cmd(myscope, "...")` rather than `cmd(myscope)` — the one-argument form expects command text and rejects handles.
 * A variable that merely contains an IP address string is not a handle: `cmd(addr, "...")` fails with "does not hold a device handle".
 
 #### 7.5.2 SCPI Commands
@@ -747,18 +852,28 @@ Sends a SCPI query and reads the response. The response is logged but not stored
 myVar=query("C1:VDIV?")
 ```
 
-Sends a SCPI query and stores the cleaned response in a variable named `myVar`. Variable names may contain alphanumeric characters and underscores (`[a-zA-Z0-9_]+`). Variables persist for the duration of the playback session and can be used in conditions and `print` statements.
+Sends a SCPI query and stores the cleaned response in a variable named `myVar`. Variable names may contain alphanumeric characters and underscores (`[a-zA-Z0-9_]+`).  
+Variables persist for the duration of the playback session and can be used in conditions and `print` statements.
 
-> **Note:** The oscilloscope echoes every command back. The macro engine automatically drains these echoes before queries to prevent buffer overflows. Query responses are cleaned by stripping the command echo and trailing unit suffixes (e.g. `V`, `mV`, `%`).
+> **Note:** The oscilloscope echoes every command back. The macro engine automatically drains these echoes before queries to prevent buffer overflows.  
+> Query responses are cleaned by stripping the command echo and trailing unit suffixes (e.g. `V`, `mV`, `%`).
 
 ```
 cmd(SIG, "SOUR1:FREQ 1KHZ")
 query(SIG, "SOUR1:FREQ?")
 ```
 
-The `SIG` selector sends the command to the signal generator connected with `connect(SIG, usb)` instead of the oscilloscope. These commands use the same SCPI driver as the [signal generator window](#911-signal-generator-window-ctrlj) and the Bode plot, so only headers defined by that driver are accepted; an undefined header stops playback with a SCPI error (e.g. `-113`). The complete command reference is in [section 14](#14-scpi-commands-signal-generator). `query(SIG, …)` returns the driver's response and can be used everywhere `query(…)` is allowed: as a statement, in assignments, in `print()`, and in conditions. Use `cmd(SIG, …)` for set commands and `query(SIG, …)` for queries.
+The `SIG` selector sends the command to the signal generator connected with `connect(SIG, usb)` instead of the oscilloscope.  
+These commands use the same SCPI driver as the [signal generator window](#911-signal-generator-window-ctrlj) and the Bode plot,  
+so only headers defined by that driver are accepted; an undefined header stops playback with a SCPI error (e.g. `-113`).  
+The complete command reference is in [14. SCPI Commands Signal Generator](#14-scpi-commands-signal-generator).  
+`query(SIG, …)` returns the driver's response and can be used everywhere `query(…)` is allowed: as a statement,  
+in assignments, in `print()`, and in conditions.  
+Use `cmd(SIG, …)` for set commands and `query(SIG, …)` for queries.
 
-A device handle opened with `myscope = connect("192.168.1.100")` can be used instead of `SIG` as the selector, for example `cmd(myscope, "ASET")` or `query(myscope, "*IDN?")`. See [section 7.5.1](#751-connection).
+A device handle opened with `myscope = connect("192.168.1.100")` can be used instead of `SIG` as the selector,  
+for example `cmd(myscope, "ASET")` or `query(myscope, "*IDN?")`.  
+See [7.5.1 Connection](#751-connection).
 
 #### 7.5.3 Timing
 
@@ -774,7 +889,8 @@ Pauses macro execution for the specified number of seconds. Fractional values (e
 loadProfile("/home/user/.local/share/sdsremote/profiles/my_setup.lss")
 ```
 
-Loads a previously saved device profile (`.lss` file) and sends its configuration to the oscilloscope. The path must be an absolute file path. This command is automatically recorded when you load a profile during macro recording.
+Loads a previously saved device profile (`.lss` file) and sends its configuration to the oscilloscope.  
+The path must be an absolute file path. This command is automatically recorded when you load a profile during macro recording.
 
 #### 7.5.5 Variables and Output
 
@@ -786,7 +902,8 @@ Logs the current value of the variable `myVar` to the application log. If the va
 
 ##### String Concatenation
 
-String arguments in `cmd()`, `connect()`, `query()`, `loadProfile()`, and `print()` can be built from multiple pieces joined by `+`. Each piece can be a quoted string literal or a variable reference:
+String arguments in `cmd()`, `connect()`, `query()`, `loadProfile()`, and `print()` can be built from multiple pieces joined by `+`.  
+Each piece can be a quoted string literal or a variable reference:
 
 ```
 val = 1
@@ -853,7 +970,8 @@ if(myVar >= 2.5) {
 | `&&` | Logical AND — true if both sides are true | `v > 3 && v < 5` |
 | `\|\|` | Logical OR — true if either side is true | `v < 3 \|\| v > 5` |
 
-> **Operator Precedence:** `!` binds first, then comparisons (`>` `>=` `<` `<=`), then `==` / `!=`, then `&&`, then `||`. Use parentheses `()` to override the default order.
+> **Operator Precedence:** `!` binds first, then comparisons (`>` `>=` `<` `<=`), then `==` / `!=`, then `&&`, then `||`.  
+> Use parentheses `()` to override the default order.
 
 **NOT operator examples:**
 
@@ -874,7 +992,8 @@ if(!flag) {
 }
 ```
 
-> **Note:** Comparison operators `<`, `<=`, `>`, `>=` require both operands to be valid numbers. An error is reported if either operand cannot be parsed as a number. Boolean operators `&&` and `||` use short-circuit evaluation — the right side is not evaluated if the left side already determines the result.
+> **Note:** Comparison operators `<`, `<=`, `>`, `>=` require both operands to be valid numbers.  
+> An error is reported if either operand cannot be parsed as a number. Boolean operators `&&` and `||` use short-circuit evaluation — the right side is not evaluated if the left side already determines the result.
 
 #### 7.5.7 Loops: while
 
@@ -884,12 +1003,14 @@ while(query("SAST?")!="Trig'd"){
 }
 ```
 
-In this example the while statement repeats the block as long as the condition isn't true. The condition is re-evaluated before each iteration. A maximum of **100 iterations** is enforced to prevent infinite loops. If the limit is exceeded, playback stops with an error.
+In this example the while statement repeats the block as long as the condition isn't true.  
+The condition is re-evaluated before each iteration. A maximum of **100 iterations** is enforced to prevent infinite loops. If the limit is exceeded, playback stops with an error.
 
 **Loop control:**
 
 * `break` — Immediately exits the innermost `while` loop. Using `break` outside a loop is an error.
-* `continue` — Skips the remaining commands in the current iteration and re-evaluates the loop condition. Using `continue` outside a loop is an error.
+* `continue` — Skips the remaining commands in the current iteration and re-evaluates the loop condition.  
+  Using `continue` outside a loop is an error.
 
 #### 7.5.8 Exit with Error: fail
 
@@ -903,7 +1024,8 @@ Immediately stops macro playback with the specified error message. The message i
 fail("Vpp:" + vpp + " exceeds limit of " + maxVpp)
 ```
 
-The message can be built from multiple pieces using string concatenation (`"text" + var + "text"`), just like `print()` and `cmd()`.
+The message can be built from multiple pieces using string concatenation (`"text" + var + "text"`),  
+just like `print()` and `cmd()`.
 
 **Example:**
 
@@ -923,7 +1045,8 @@ The `fail` statement is useful inside `if` blocks and `else` branches for early 
 assert("Channel 1 should be on", ch1State == ON)
 ```
 
-Evaluates a condition and stops playback with an error message if the condition is false. The first argument is a descriptive text shown in the error message. The remaining arguments form a condition using the same operators as `if`/`while`.
+Evaluates a condition and stops playback with an error message if the condition is false.  
+The first argument is a descriptive text shown in the error message. The remaining arguments form a condition using the same operators as `if`/`while`.
 
 Assertions are useful for validating oscilloscope state during automated test sequences:
 
@@ -960,12 +1083,13 @@ Detailed macro playback messages are available in your log file.
 
 ## 8. Acquire Waveform
 
-The Waveform Acquisition feature captures waveform data from the connected oscilloscope and displays it as an interactive chart. The waveform display supports cursor measurements, zoom and pan controls, [reference waveform](#86-reference-waveforms) overlays, and export of both PNG images and CSV data.
+The Waveform Acquisition feature captures waveform data from the connected oscilloscope and displays it as an interactive chart.  
+The waveform display supports cursor measurements, zoom and pan controls, [reference waveform](#86-reference-waveforms) overlays, and export of both PNG images and CSV data.
 
 ### 8.1 Acquiring Waveforms
 
 1. Ensure the oscilloscope is connected and online.
-2. Enable the channels you want to capture using the channel toggles in the [Control Panel](#9-control-panel) or the [Device Parameters](#83-device-parameters-panel) sidebar (see [section 8.2](#82-channel-selection)).
+2. Enable the channels you want to capture using the channel toggles in the [Control Panel](#9-control-panel) or the [Device Parameters](#83-device-parameters-panel) sidebar (see [8.2 Channel Selection](#82-channel-selection)).
 3. Click the **Acquire Waveform** button in the top toolbar. A progress indicator is shown during acquisition.
 4. After acquisition completes, the waveform chart is displayed in the main area with the **Device Parameters** panel on the right side.
 
@@ -975,7 +1099,8 @@ The Waveform Acquisition feature captures waveform data from the connected oscil
 
 Channel visibility can be toggled in two places:
 
-* **Control Panel** — The CH1 and CH2 buttons in the virtual front panel toggle each channel on or off. On four-channel instruments, CH3 and CH4 buttons appear below CH1 and CH2; the single scale (V <-> mV) and Position knobs then act on the selected channel.
+* **Control Panel** — The CH1 and CH2 buttons in the virtual front panel toggle each channel on or off.  
+  On four-channel instruments, CH3 and CH4 buttons appear below CH1 and CH2; the single scale (V <-> mV) and Position knobs then act on the selected channel.
 * **Device Parameters Panel** — The channel status indicators in the sidebar (CH1, CH2 and, on four-channel instruments, CH3 and CH4) also select which channels are acquired.
 
 Channel colors in the waveform display:
@@ -1049,7 +1174,8 @@ The zoom and pan controls allow detailed inspection of specific waveform regions
 
 #### Zoom
 
-Use the **Zoom** slider in the Device Parameters panel (range: 1.0× to 4.0×, in 0.25× steps). When zoom is greater than 1.0×, horizontal and vertical pan sliders appear at the bottom and right edges of the waveform display.
+Use the **Zoom** slider in the Device Parameters panel (range: 1.0× to 4.0×, in 0.25× steps).  
+When zoom is greater than 1.0×, horizontal and vertical pan sliders appear at the bottom and right edges of the waveform display.
 
 #### Pan
 
@@ -1085,7 +1211,8 @@ A PNG image of the current waveform display (including all enabled channels and 
 
 #### CSV Export
 
-A CSV file containing the raw waveform data points is saved alongside the PNG to the `waveform/csv/` subdirectory. The CSV format is:
+A CSV file containing the raw waveform data points is saved alongside the PNG to the `waveform/csv/` subdirectory.  
+The CSV format is:
 
 ```
 # SDS-Remote Waveform Data
@@ -1122,17 +1249,22 @@ Time (s),CH1 (V),CH2 (V),CH3 (V),CH4 (V)
 
 Time values start at 0 and increment by `1 / Sample Rate` for each row. Channel columns are empty (` `) when a channel was not acquired.
 
-> **Tip:** The exported CSV files can be reloaded later as reference waveforms using the **Load Reference** feature ([section 8.6](#86-reference-waveforms)).
+> **Tip:** The exported CSV files can be reloaded later as reference waveforms using the **Load Reference** feature ([8.6 Reference Waveforms](#86-reference-waveforms)).
 
 #### Filename Prefix
 
-If the **Ask for filename on save** option is enabled in Settings, a dialog prompts for a custom filename prefix before each save. The default prefix is `waveform` (image) and `waveform_data` (CSV). A numeric suffix is automatically appended to avoid overwriting existing files.
+If the **Ask for filename on save** option is enabled in Settings, a dialog prompts for a custom filename prefix before each save.  
+The default prefix is `waveform` (image) and `waveform_data` (CSV). A numeric suffix is automatically appended to avoid overwriting existing files.
 
 ## 9. Control Panel
 
-The Control Panel provides a virtual representation of the oscilloscope's physical front panel, allowing remote operation of the device. Click the **Control Panel** button in the top toolbar to open it — the current oscilloscope screen is captured and displayed with interactive control overlays. After each command, the screen is automatically refreshed.
+The Control Panel provides a virtual representation of the oscilloscope's physical front panel,  
+allowing remote operation of the device.  
+Click the **Control Panel** button in the top toolbar to open it — the current oscilloscope screen is captured and displayed with interactive control overlays.  
+After each command, the screen is automatically refreshed.
 
-The panel is divided into two main areas: the **Screen Display** on the left and the **Control Sidebar** on the right. When the device is offline, an "OFFLINE" overlay is shown over the control sidebar; the AI assistant button remains usable.
+The panel is divided into two main areas: the **Screen Display** on the left and the **Control Sidebar** on the right.  
+When the device is offline, an "OFFLINE" overlay is shown over the control sidebar; the AI assistant button remains usable.
 
 ### 9.1 Screen Display
 
@@ -1145,11 +1277,17 @@ The left portion shows the live oscilloscope screen as a captured image. Below t
 
 Click a soft key to activate the corresponding on-screen function. The soft keys update automatically after each screen refresh, reflecting the oscilloscope's current menu state.
 
-On four-channel instruments connected over the network, a **Live** toggle appears next to the automatic screen capture toggle below the screen. It streams the display directly from the oscilloscope's built-in web server and updates continuously. While live is active, automatic screen capture is disabled and no screen dumps are fetched after SCPI commands. The toggle is only offered while the web server is reachable; if the server stops responding, the application automatically returns to ordinary screen captures and disables the Live toggle until the server answers again. The live screen is not available over USB connections or on two-channel models.
+On four-channel instruments connected over the network, a **Live** toggle appears next to the automatic screen capture toggle below the screen.  
+It streams the display directly from the oscilloscope's built-in web server and updates continuously.  
+While live is active, automatic screen capture is disabled and no screen dumps are fetched after SCPI commands.  
+The toggle is only offered while the web server is reachable; if the server stops responding,  
+the application automatically returns to ordinary screen captures and disables the Live toggle until the server answers again.  
+The live screen is not available over USB connections or on two-channel models.
 
 ### 9.2 Control Sidebar
 
-The right side of the panel contains the virtual controls, organized into functional groups. All buttons and knobs are disabled when the device is offline or when the application is busy processing a previous command.
+The right side of the panel contains the virtual controls, organized into functional groups.  
+All buttons and knobs are disabled when the device is offline or when the application is busy processing a previous command.
 
 #### Intensity Adjust
 
@@ -1171,7 +1309,9 @@ A 3×3 grid of buttons corresponding to the oscilloscope's front-panel menu keys
 | **Display/Persist** | Opens display and persistence settings |
 | **Print** | Triggers a print/screenshot action |
 
-On **four-channel instruments**, an additional navigation row appears below the menu grid with **Navigate**, **Arrow Left**, **Square** and **Arrow Right**. The Horizontal section also shows **Search**, and the Trigger section shows **Digital**. These buttons are hidden on two-channel instruments.
+On **four-channel instruments**, an additional navigation row appears below the menu grid with **Navigate**, **Arrow Left**, **Square** and **Arrow Right**.  
+The Horizontal section also shows **Search**, and the Trigger section shows **Digital**.  
+These buttons are hidden on two-channel instruments.
 
 #### Vertical Buttons
 
@@ -1195,7 +1335,8 @@ Each channel has an independent set of controls in the **Vertical** section:
 | **CH1 / CH2 Button** | Toggles the channel on or off. CH1 is yellow, CH2 is magenta. |
 | **Position Knob** (bottom) | Adjusts the vertical position (offset) of the waveform. |
 
-Clicking a channel button while the **[Acquire Waveform](#8-acquire-waveform)** panel is also active toggles channel visibility in both the waveform chart and the Control Panel, keeping them synchronized.
+Clicking a channel button while the **[Acquire Waveform](#8-acquire-waveform)** panel is also active toggles channel visibility in both the waveform chart and the Control Panel,  
+keeping them synchronized.
 
 ### 9.4 Horizontal Controls
 
@@ -1223,10 +1364,12 @@ The **Trigger** section provides four trigger mode buttons and a level knob:
 
 Virtual knobs support two interaction modes:
 
-* **Drag** — Click and drag a knob up/down or left/right to adjust the value continuously. The knob rotates visually to reflect the change. Each drag gesture translates to a SCPI knob command sent to the oscilloscope.
+* **Drag** — Click and drag a knob up/down or left/right to adjust the value continuously.  
+  The knob rotates visually to reflect the change. Each drag gesture translates to a SCPI knob command sent to the oscilloscope.
 * **Tap** — Click a knob without dragging to set a specific value. This executes the knob specific tap function.
 
-Knobs are disabled while another command is being processed to prevent overlapping SCPI requests, which could cause command queue overflows on the oscilloscope.
+Knobs are disabled while another command is being processed to prevent overlapping SCPI requests,  
+which could cause command queue overflows on the oscilloscope.
 
 ### 9.7 Event Processing
 
@@ -1238,15 +1381,19 @@ To prevent command collisions, the Control Panel enforces a single-command-at-a-
 
 ### 9.8 Macro Recording Integration
 
-While the **[Macro Recorder](#7-macro-recorder)** is recording, every button press and knob adjustment in the Control Panel is automatically captured as a SCPI command line in the macro script. This allows you to build automation sequences by simply operating the virtual front panel normally.
+While the **[Macro Recorder](#7-macro-recorder)** is recording, every button press and knob adjustment in the Control Panel is automatically captured as a SCPI command line in the macro script.  
+This allows you to build automation sequences by simply operating the virtual front panel normally.
 
 ### 9.9 Saving Screenshots
 
-Press the **Save** button in the top toolbar while the Control Panel is active to save the current oscilloscope screen as a PNG file. Screenshots are stored in the `screenshots/` subdirectory of the application working directory. The image format is PNG.
+Press the **Save** button in the top toolbar while the Control Panel is active to save the current oscilloscope screen as a PNG file.  
+Screenshots are stored in the `screenshots/` subdirectory of the application working directory.  
+The image format is PNG.
 
 ### 9.10 AI Control Panel Assistant
 
-The Control Panel has its own AI assistant. A sparkle button at the bottom-left of the control sidebar — at the same height as the automatic screenshot toggle — opens a chat overlay that covers the control sidebar. The close button in the overlay header collapses it again; the conversation is kept while the Control Panel remains open.
+The Control Panel has its own AI assistant. A sparkle button at the bottom-left of the control sidebar — at the same height as the automatic screenshot toggle — opens a chat overlay that covers the control sidebar.  
+The close button in the overlay header collapses it again; the conversation is kept while the Control Panel remains open.
 
 Describe the desired setup in plain language, for example:
 
@@ -1257,9 +1404,12 @@ Describe the desired setup in plain language, for example:
 
 ### 9.11 Signal Generator Window (Ctrl+J)
 
-When **Settings → Signal Generator** is set to **JDS6600** or **FY6900** and the generator was detected, press **Ctrl+J** to open the signal generator window as a separate OS window. There is no toolbar button. Pressing Ctrl+J while the window is open brings it to the front.
+When **Settings → Signal Generator** is set to **JDS6600** or **FY6900** and the generator was detected,  
+press **Ctrl+J** to open the signal generator window as a separate OS window.  
+There is no toolbar button. Pressing Ctrl+J while the window is open brings it to the front.
 
-**Apply changes** sends only the modified values; **Refresh from device** re-reads all registers and **Use device values** discards pending edits. The output switch takes effect immediately and is independent of Apply. The confirmed device state and pending edits are displayed separately.
+**Apply changes** sends only the modified values; **Refresh from device** re-reads all registers and **Use device values** discards pending edits.  
+The output switch takes effect immediately and is independent of Apply. The confirmed device state and pending edits are displayed separately.
 
 ---
 
@@ -1270,7 +1420,7 @@ The **Bode Plot** measures the frequency response of a device under test (DUT). 
 ### 10.1 Prerequisites
 
 * The oscilloscope is connected and the status bar shows `ONLINE`.
-* A supported signal generator is selected in **Settings → Signal Generator** (see [section 3.6](#36-signal-generator)):
+* A supported signal generator is selected in **Settings → Signal Generator** (see [3.6 Signal Generator](#36-signal-generator)):
   * **JDS6600** — JOY-IT/Juntek JDS6600 and JDS6600-Lite
   * **FY6900** — FeelElec FY6900 series
   * **No Signal Generator** disables the Bode function.
@@ -1283,9 +1433,11 @@ The **Bode Plot** measures the frequency response of a device under test (DUT). 
 * The generator's serial port is accessible:
   * Linux: the user is a member of the `dialout` group.
   * Windows: the CH340 USB-serial driver is installed.
-* The desired frequency range and amplitude are within the limits of the detected model (see [section 10.2](#102-signal-generators-and-model-limits)). The configuration form shows the active limits.
+* The desired frequency range and amplitude are within the limits of the detected model (see [10.2 Signal Generators and Model Limits](#102-signal-generators-and-model-limits)).  
+  The configuration form shows the active limits.
 
-> **Note:** The Bode button is unavailable while a macro is playing or a waveform acquisition is running. While a sweep is running, the [signal generator window](#911-signal-generator-window-ctrlj) (Ctrl+J) is read-only.
+> **Note:** The Bode button is unavailable while a macro is playing or a waveform acquisition is running.  
+> While a sweep is running, the [signal generator window](#911-signal-generator-window-ctrlj) (Ctrl+J) is read-only.
 
 ### 10.2 Signal Generators and Model Limits
 
@@ -1309,7 +1461,8 @@ Amplitude and DC-offset limits:
 Generator-specific notes:
 
 * **JDS6600:** one global phase register (CH2 relative to CH1). Phase commands address this register regardless of the selected generator channel.
-* **FY6900:** per-channel phase; the selected generator channel is addressed. Waveform selection uses the FY6900's own shape list (Sine, Square, Rectangle, Trapezoid, Ramp, …). Duty cycle is adjustable on **Rectangle**; setting duty with **Square** selected switches the device to Rectangle.
+* **FY6900:** per-channel phase; the selected generator channel is addressed. Waveform selection uses the FY6900's own shape list (Sine, Square, Rectangle, Trapezoid, Ramp, …).  
+  Duty cycle is adjustable on **Rectangle**; setting duty with **Square** selected switches the device to Rectangle.
 * Arbitrary waveforms cannot be used for a Bode sweep.
 * The generator outputs are switched off automatically when the sweep completes, fails or is cancelled.
 
@@ -1353,7 +1506,8 @@ The form shows the active model limits below the waveform field, for example:
 5. The gain and, when enabled, the phase are calculated for each point; the plots update as the sweep progresses.
 6. **STOP** cancels the sweep. The generator outputs are switched off on completion, failure and cancellation.
 
-During the sweep, generator detection is paused and the signal generator window cannot change settings. Points with no usable measurement (Vin/Vout below 5 mV RMS, out-of-range values or an unstable input) are retried and, if they remain invalid, left out of the plot instead of appearing as spikes.
+During the sweep, generator detection is paused and the signal generator window cannot change settings.  
+Points with no usable measurement (Vin/Vout below 5 mV RMS, out-of-range values or an unstable input) are retried and, if they remain invalid, left out of the plot instead of appearing as spikes.
 
 ### 10.6 Reading the Results
 
@@ -1364,22 +1518,27 @@ During the sweep, generator detection is paused and the signal generator window 
 
 ### 10.7 Reports and CSV
 
-The **Save** action in the top toolbar captures the Bode plot and writes a PDF report to `bode/reports/`. The report contains the plot, the report name and the sweep configuration. When **Save csv data** is enabled in the Settings, the sweep points are additionally written as CSV to `bode/csv/`. The generator identity (for example `FeelElec,FY6900-60M`) and the oscilloscope name are included.
+The **Save** action in the top toolbar captures the Bode plot and writes a PDF report to `bode/reports/`.  
+The report contains the plot, the report name and the sweep configuration. When **Save csv data** is enabled in the Settings, the sweep points are additionally written as CSV to `bode/csv/`.  
+The generator identity (for example `FeelElec,FY6900-60M`) and the oscilloscope name are included.
 
 ### 10.8 Troubleshooting
 
 * **Bode button is missing** — the oscilloscope is offline, no generator is configured, the generator was not detected, or a macro is playing.
-* **START SWEEP is disabled** — the configuration is invalid; read the message below the fields. A common cause is a stop frequency above the limit of the detected model and selected waveform.
+* **START SWEEP is disabled** — the configuration is invalid; read the message below the fields.  
+  A common cause is a stop frequency above the limit of the detected model and selected waveform.
 * **Frequency write failed** — the generator did not confirm the frequency. Check the serial(USB) connection and the model limits. The FY6900 firmware can report frequencies with a small rounding error (~0.1 Hz); the driver tolerates this.
-* **No or unstable gain/phase** — increase the amplitude or settling time, reduce the frequency range, and verify that the oscilloscope inputs are not clipped. Below about 5 mV RMS the point is omitted; below 1 mV Vin the gain is not valid.
-* **Generator output stays on** — the application switches the outputs off when the sweep ends. If the application was interrupted, switch them off in the signal generator window (Ctrl+J) or on the device.
+* **No or unstable gain/phase** — increase the amplitude or settling time, reduce the frequency range, and verify that the oscilloscope inputs are not clipped.  
+  Below about 5 mV RMS the point is omitted; below 1 mV Vin the gain is not valid.
+* **Generator output stays on** — the application switches the outputs off when the sweep ends.  
+  If the application was interrupted, switch them off in the signal generator window (Ctrl+J) or on the device.
 * **Serial(USB) port cannot be opened** — on Linux add the user to the `dialout` group and log in again; on Windows install the CH340 driver.
 
 ---
 
 ## 11. Application Directory
 
-The application directory stores captured images, CSV exports, and device profile files.
+The application directory stores captured images, CSV exports, and device profile files.  
 The directory is OS specific:
 
 * **Linux:** `~/.local/share/sdsremote/`
@@ -1412,8 +1571,10 @@ Files are stored in various subfolders of the application directory, depending o
   * If in network mode, validate IP address, firewall (VXI-11 uses port 111)
 
 * **USB connection lost / `libusb bulk write error`**
-  * On IO_ERROR, PIPE and NO_DEVICE the application invalidates the shared USB connection and drops its cached instrument. If the oscilloscope is still enumerated, it reconnects automatically within a few seconds.
-  * If the device has disappeared from the bus (`lsusb` no longer lists it), unplug and replug the USB cable, or power-cycle the oscilloscope. After a replug no application restart is required.
+  * On IO_ERROR, PIPE and NO_DEVICE the application invalidates the shared USB connection and drops its cached instrument.  
+    If the oscilloscope is still enumerated, it reconnects automatically within a few seconds.
+  * If the device has disappeared from the bus (`lsusb` no longer lists it), unplug and replug the USB cable, or power-cycle the oscilloscope.  
+    After a replug no application restart is required.
   * USB is less reliable than VXI-11; use the network connection for long-running macros and profile uploads.
 
 * **Waveform Acquisition Failure**
@@ -1456,16 +1617,17 @@ Files are stored in various subfolders of the application directory, depending o
 
 ## 14. SCPI Commands Signal Generator
 
-The macros using `connect(SIG, usb)` share one SCPI layer. The JOY-IT/Juntek JDS6600 and the FeelElec FY6900 therefore accept the same command set; only the waveform names and the phase and duty handling differ (see [section 14.5](#145-waveform-names) and [section 14.6](#146-family-specific-behavior)).
+The macros using `connect(SIG, usb)` share one SCPI layer. The JOY-IT/Juntek JDS6600 and the FeelElec FY6900 therefore accept the same command set; only the waveform names and the phase and duty handling differ (see [14.5 Waveform Names](#145-waveform-names) and [14.6 Family-Specific Behavior](#146-family-specific-behavior)).
 
 This is a SCPI emulation subset, not a complete implementation:
 
 * One command per line. Command chaining with `;` is rejected.
 * `<n>` is the channel number: `1` or `2`.
-* Header segments and units are case-insensitive; whole segments may be abbreviated with the aliases in [section 14.4](#144-units-and-header-aliases).
-* Commands are sent to the generator from a macro with the `SIG` selector — `cmd(SIG, "…")` for set commands and `query(SIG, "…")` for queries; see [section 7.5.2](#752-scpi-commands).
+* Header segments and units are case-insensitive; whole segments may be abbreviated with the aliases in [14.4 Units and Header Aliases](#144-units-and-header-aliases).
+* Commands are sent to the generator from a macro with the `SIG` selector — `cmd(SIG, "…")` for set commands and `query(SIG, "…")` for queries; see [7.5.2 SCPI Commands](#752-scpi-commands).
 
-> **Note:** The generator must be selected in **Settings → Signal Generator** (see [section 3.6](#36-signal-generator)) and connected with `connect(SIG, usb)` before a command is accepted. An undefined header stops macro playback with a SCPI error.
+> **Note:** The generator must be selected in **Settings → Signal Generator** (see [3.6 Signal Generator](#36-signal-generator)) and connected with `connect(SIG, usb)` before a command is accepted.  
+> An undefined header stops macro playback with a SCPI error.
 
 ### 14.1 Common Commands
 
@@ -1486,9 +1648,9 @@ This is a SCPI emulation subset, not a complete implementation:
 
 | SCPI cmd/query | Documentation | Example |
 |:---------------|:--------------|:--------|
-| `SOUR<n>:FUNC <shape>` | Sets the waveform; accepted shapes in [section 14.5](#145-waveform-names). `ARB` is rejected with -113. | `SOUR1:FUNC SIN` |
+| `SOUR<n>:FUNC <shape>` | Sets the waveform; accepted shapes in [14.5 Waveform Names](#145-waveform-names). `ARB` is rejected with -113. | `SOUR1:FUNC SIN` |
 | `SOUR<n>:FUNC?` | Returns the waveform mnemonic. | `SIN` |
-| `SOUR<n>:FREQ <value>[unit]` | Sets the frequency; no unit means Hz. The value must be positive and within the model and waveform limit (see [section 10.2](#102-signal-generators-and-model-limits)). | `SOUR1:FREQ 1KHZ` |
+| `SOUR<n>:FREQ <value>[unit]` | Sets the frequency; no unit means Hz. The value must be positive and within the model and waveform limit (see [10.2 Signal Generators and Model Limits](#102-signal-generators-and-model-limits)). | `SOUR1:FREQ 1KHZ` |
 | `SOUR<n>:FREQ?` | Returns the frequency in Hz with two decimals. | `1000.00` |
 | `SOUR<n>:VOLT <value>[unit]` | Sets the amplitude in Vpp; no unit means V. | `SOUR1:VOLT 3.3VPP` |
 | `SOUR<n>:VOLT?` | Returns the amplitude in Vpp with three decimals. | `3.300` |
@@ -1516,7 +1678,8 @@ Set commands return no response.
 
 ### 14.4 Units and Header Aliases
 
-Units are optional and case-insensitive; the default applies when the unit is omitted. Units are accepted as a suffix of the value (`1KHZ`, `3.3VPP`) or separated by a space (`1 KHZ`).
+Units are optional and case-insensitive; the default applies when the unit is omitted.  
+Units are accepted as a suffix of the value (`1KHZ`, `3.3VPP`) or separated by a space (`1 KHZ`).
 
 | Parameter | Units | Default |
 |:----------|:------|:--------|
@@ -1526,7 +1689,9 @@ Units are optional and case-insensitive; the default applies when the unit is om
 | `PULS:DCYC`, `FUNC:SQU:DCYC` | `%`, `PCT` | % |
 | `PHAS` | `DEG`, `DEGREE` | Degrees |
 
-A whole header segment may be replaced by one of these aliases: `SOURCE` = `SOUR`, `OUTPUT` = `OUTP`, `VOLTAGE` = `VOLT`, `OFFSET` = `OFFS`, `FUNCTION` = `FUNC`, `DCYCLE` = `DCYC`, `PHASE` = `PHAS`, `STATE` = `STAT`, `FREQUENCY` = `FREQ`. `SQUARE` and `PULSE` are not header aliases — use `SQU` and `PULS`.
+A whole header segment may be replaced by one of these aliases: `SOURCE` = `SOUR`,  
+`OUTPUT` = `OUTP`, `VOLTAGE` = `VOLT`, `OFFSET` = `OFFS`, `FUNCTION` = `FUNC`, `DCYCLE` = `DCYC`, `PHASE` = `PHAS`, `STATE` = `STAT`, `FREQUENCY` = `FREQ`.  
+`SQUARE` and `PULSE` are not header aliases — use `SQU` and `PULS`.
 
 ### 14.5 Waveform Names
 
@@ -1536,14 +1701,18 @@ A whole header segment may be replaced by one of these aliases: `SOURCE` = `SOUR
 | FY6900 | `SIN`, `SQU`, `RECT`, `TRAP`, `CMOS`, `PULS`, `DC`, `TRI`, `RAMP`, `NRMP`, `STRG`, `STPS`, `NSTP`, `PEXP`, `NEXP`, `PFEX`, `NFEX`, `PLOG`, `NLOG`, `PFLO`, `NFLO`, `PFUL`, `NFUL`, `PHAL`, `NHAL`, `LOR`, `MTON`, `NOIS`, `ECG`, `SINC`, `IMPU`, `AWGN`, `AM`, `FM`, `CHIR` |
 
 * Both families also accept the long spellings `SINE`, `SQUARE`, `PULSE`, `TRIANGLE` and `NOISE`; the FY6900 additionally accepts `RECTANGLE`, `TRAPEZOID` and `RAMP`.
-* FY6900-only names (`RECT`, `TRAP`, `RAMP`, …) are rejected with -222 on the JDS6600. On the FY6900, JDS6600-only names are mapped to the closest preset (for example `PSIN` to sine); `PULS` on channel 2 becomes `RECT`.
+* FY6900-only names (`RECT`, `TRAP`, `RAMP`, …) are rejected with -222 on the JDS6600.  
+  On the FY6900, JDS6600-only names are mapped to the closest preset (for example `PSIN` to sine); `PULS` on channel 2 becomes `RECT`.
 * `ARB` is not available on either family: `SOUR<n>:FUNC ARB` and `SOUR<n>:FUNC:ARB` return -113.
 
 ### 14.6 Family-Specific Behavior
 
-* **Phase** — the JDS6600 has one global CH2-vs-CH1 phase register, so `SOUR1:PHAS` and `SOUR2:PHAS` address the same value and both queries return it. The FY6900 stores the phase per channel.
-* **Duty cycle** — on the JDS6600 the duty cycle applies to the pulse and square shape. On the FY6900 the square shape is fixed at 50 %; a duty command switches the channel to Rectangle (`RECT`) so the value takes effect.
-* **Limits** — values are checked against the detected model and the active waveform; the limits are listed in [section 10.2](#102-signal-generators-and-model-limits). Duty cycle is 0–100 % on the JDS6600 and 0.1–99.9 % on the FY6900; phase is 0–360° on both.
+* **Phase** — the JDS6600 has one global CH2-vs-CH1 phase register, so `SOUR1:PHAS` and `SOUR2:PHAS` address the same value and both queries return it.  
+  The FY6900 stores the phase per channel.
+* **Duty cycle** — on the JDS6600 the duty cycle applies to the pulse and square shape.  
+  On the FY6900 the square shape is fixed at 50 %; a duty command switches the channel to Rectangle (`RECT`) so the value takes effect.
+* **Limits** — values are checked against the detected model and the active waveform; the limits are listed in [10.2 Signal Generators and Model Limits](#102-signal-generators-and-model-limits).  
+  Duty cycle is 0–100 % on the JDS6600 and 0.1–99.9 % on the FY6900; phase is 0–360° on both.
 
 ### 14.7 Errors and Unsupported Commands
 
