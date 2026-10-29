@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -203,9 +204,25 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   static const double _minOutputSidebarWidth = 220;
   static const double _minChatWidth = 400;
 
+  /// Smallest width a side panel can be dragged to.
+  static const double _minResizablePanelWidth = 120;
+
+  /// Width of the draggable strip on each side of the editor column.
+  static const double _panelGripperWidth = 10;
+
   /// Width of one monospace character at [_editorTextStyle], measured on the
   /// first build and reused afterwards.
   double? _editorCharWidth;
+
+  /// Widths set by dragging a panel boundary; null restores the automatic
+  /// width for that panel.
+  double? _sidebarWidthOverride;
+  double? _chatWidthOverride;
+
+  /// Drag state of the active panel boundary.
+  double? _dragStartWidth;
+  double _dragDistance = 0;
+  double _dragMaxWidth = 0;
 
   /// Pre-computed line metrics measured by running the editor's text
   /// through the same [TextPainter] configuration that [RenderEditable]
@@ -532,6 +549,40 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     final width = tp.width / 10;
     _editorCharWidth = width;
     return width;
+  }
+
+  /// Starts dragging a panel boundary at [width].
+  ///
+  /// [maxWidth] keeps the editor at its 60-character minimum.
+  void _beginPanelDrag(double width, double maxWidth) {
+    _dragStartWidth = width;
+    _dragMaxWidth = maxWidth.clamp(_minResizablePanelWidth, double.infinity);
+    _dragDistance = 0;
+  }
+
+  /// Moves the dragged boundary by [dx].
+  ///
+  /// Resizes the sidebar when [left] is true, the chat panel otherwise.
+  void _updatePanelDrag(double dx, {required bool left}) {
+    final start = _dragStartWidth;
+    if (start == null) return;
+
+    _dragDistance += dx;
+    final width = (start + (left ? _dragDistance : -_dragDistance))
+        .clamp(_minResizablePanelWidth, _dragMaxWidth)
+        .toDouble();
+    setState(() {
+      if (left) {
+        _sidebarWidthOverride = width;
+      } else {
+        _chatWidthOverride = width;
+      }
+    });
+  }
+
+  void _endPanelDrag() {
+    _dragStartWidth = null;
+    _dragDistance = 0;
   }
 
   void _updateLineCount() {
@@ -1532,40 +1583,66 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
         // remaining space, so it grows with the window until it reaches 120
         // characters. Only when the window is too narrow does it drop below
         // 60 characters, instead of overflowing.
-        final editorWidth = (maxInnerWidth - panelMinWidth)
+        final autoEditorWidth = (maxInnerWidth - panelMinWidth)
             .clamp(minEditorWidth, maxEditorWidth)
             .clamp(0.0, maxInnerWidth)
             .toDouble();
         final showSidePanels = showChat || showOutputSidebar;
-        final panelWidth = showSidePanels ? double.infinity : editorWidth + 2;
-        final rowWidth = showSidePanels ? maxInnerWidth : editorWidth;
-        final sideSpace = (rowWidth - editorWidth)
+        final rowWidth = showSidePanels ? maxInnerWidth : autoEditorWidth;
+        final sideSpace = (rowWidth - autoEditorWidth)
             .clamp(0.0, double.infinity)
             .toDouble();
 
-        // The sidebar fills the left side region and the chat the right one.
-        // While the editor is below its maximum width, its growth consumes
-        // the extra space; afterwards the side panels grow.
-        double sidebarWidth = 0;
-        double chatWidth = 0;
+        // Automatic panel widths: the sidebar fills the left side region and
+        // the chat the right one. While the editor is below its maximum
+        // width, its growth consumes the extra space; afterwards the side
+        // panels grow.
+        double autoSidebarWidth = 0;
+        double autoChatWidth = 0;
         if (showOutputSidebar && showChat) {
           final minSum = _minOutputSidebarWidth + _minChatWidth;
           if (sideSpace >= minSum) {
             final extra = (sideSpace - minSum) / 2;
-            sidebarWidth = _minOutputSidebarWidth + extra;
-            chatWidth = _minChatWidth + extra;
+            autoSidebarWidth = _minOutputSidebarWidth + extra;
+            autoChatWidth = _minChatWidth + extra;
           } else {
             // Very narrow window: scale both minimum widths down instead of
             // overflowing.
             final scale = sideSpace / minSum;
-            sidebarWidth = _minOutputSidebarWidth * scale;
-            chatWidth = _minChatWidth * scale;
+            autoSidebarWidth = _minOutputSidebarWidth * scale;
+            autoChatWidth = _minChatWidth * scale;
           }
         } else if (showOutputSidebar) {
-          sidebarWidth = sideSpace;
+          autoSidebarWidth = sideSpace;
         } else if (showChat) {
-          chatWidth = sideSpace;
+          autoChatWidth = sideSpace;
         }
+
+        // Dragging a panel boundary overrides its automatic width. If the
+        // window has become too narrow since the drag, the panels shrink so
+        // that the editor keeps its 60-character minimum.
+        var sidebarWidth = showOutputSidebar
+            ? (_sidebarWidthOverride ?? autoSidebarWidth)
+            : 0.0;
+        var chatWidth = showChat ? (_chatWidthOverride ?? autoChatWidth) : 0.0;
+        final panelBudget = (rowWidth - minEditorWidth)
+            .clamp(0.0, double.infinity)
+            .toDouble();
+        if (sidebarWidth + chatWidth > panelBudget) {
+          if (sidebarWidth > 0 && chatWidth > 0) {
+            final scale = panelBudget / (sidebarWidth + chatWidth);
+            sidebarWidth *= scale;
+            chatWidth *= scale;
+          } else if (sidebarWidth > 0) {
+            sidebarWidth = panelBudget;
+          } else {
+            chatWidth = panelBudget;
+          }
+        }
+        final editorWidth = (rowWidth - sidebarWidth - chatWidth)
+            .clamp(0.0, rowWidth)
+            .toDouble();
+        final panelWidth = showSidePanels ? double.infinity : editorWidth + 2;
 
         return Container(
           // With an open side panel the panel fills the window so that the
@@ -1692,198 +1769,272 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                 ),
 
               Expanded(
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                child: Stack(
                   children: [
-                    // The output sidebar fills the space from the left window
-                    // edge to the editor column.
-                    SizedBox(
-                      width: sidebarWidth,
-                      child: showOutputSidebar
-                          ? _buildOutputSidebar(widget.debugVariables)
-                          : null,
-                    ),
-                    SizedBox(
-                      width: editorWidth,
-                      child: Column(
+                    Positioned.fill(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          _buildDebugBar(),
-                          // Editable text area with line numbers
-                          Expanded(
-                            child: Container(
-                              margin: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0D0D0D),
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: Colors.cyanAccent,
-                                  width: 1.0,
-                                ),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(7),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    // ── Line number gutter ──────────────
-                                    // Rendered via CustomPaint that uses the SAME
-                                    // scroll offset and line-height formula as
-                                    // the TextField, guaranteeing pixel-perfect
-                                    // alignment at any depth.
-                                    GestureDetector(
-                                      key: const ValueKey(
-                                        'macro-editor-gutter',
+                          // The output sidebar fills the space from the left
+                          // window edge to the editor column.
+                          SizedBox(
+                            width: sidebarWidth,
+                            child: showOutputSidebar
+                                ? _buildOutputSidebar(widget.debugVariables)
+                                : null,
+                          ),
+                          SizedBox(
+                            width: editorWidth,
+                            child: Column(
+                              children: [
+                                _buildDebugBar(),
+                                // Editable text area with line numbers
+                                Expanded(
+                                  child: Container(
+                                    margin: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF0D0D0D),
+                                      borderRadius: BorderRadius.circular(8),
+                                      border: Border.all(
+                                        color: Colors.cyanAccent,
+                                        width: 1.0,
                                       ),
-                                      behavior: HitTestBehavior.opaque,
-                                      onTapDown: (details) =>
-                                          _toggleBreakpointAt(
-                                            details.localPosition.dy,
-                                          ),
-                                      onSecondaryTapDown: _showBreakpointMenu,
-                                      child: Container(
-                                        width: gutterWidth,
-                                        color: const Color(0xFF080808),
-                                        child: ClipRect(
-                                          child: CustomPaint(
-                                            painter: _GutterPainter(
-                                              lineCount: _lineCount,
-                                              errorLines: _errorLines,
-                                              lineMetrics: _lineMetrics,
-                                              gutterBaselineOffset:
-                                                  _gutterBaselineOffset,
-                                              topPadding: _gutterTopPadding,
-                                              scrollOffset: _scrollOffset,
-                                              normalStyle: _gutterNormalStyle,
-                                              errorStyle: _gutterErrorStyle,
-                                              gutterWidth: gutterWidth,
-                                              rightPadding: 8.0,
-                                              breakpoints: widget.breakpoints,
-                                              inactiveBreakpoints:
-                                                  widget.inactiveBreakpoints,
-                                              currentLine:
-                                                  widget.debugCurrentLine,
+                                    ),
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(7),
+                                      child: Row(
+                                        crossAxisAlignment:
+                                            CrossAxisAlignment.start,
+                                        children: [
+                                          // ── Line number gutter ──────────────
+                                          // Rendered via CustomPaint that uses the SAME
+                                          // scroll offset and line-height formula as
+                                          // the TextField, guaranteeing pixel-perfect
+                                          // alignment at any depth.
+                                          GestureDetector(
+                                            key: const ValueKey(
+                                              'macro-editor-gutter',
                                             ),
-                                            size: Size.infinite,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    // Vertical divider
-                                    Container(
-                                      width: 1,
-                                      color: const Color(0xFF2A3A5A),
-                                    ),
-                                    // ── Text field ──────────────────────
-                                    Expanded(
-                                      child: ClipRect(
-                                        child: Stack(
-                                          fit: StackFit.expand,
-                                          children: [
-                                            if (widget.debugCurrentLine != null)
-                                              Positioned(
-                                                key: const ValueKey(
-                                                  'macro-debug-line-highlight',
+                                            behavior: HitTestBehavior.opaque,
+                                            onTapDown: (details) =>
+                                                _toggleBreakpointAt(
+                                                  details.localPosition.dy,
                                                 ),
-                                                left: 0,
-                                                right: 0,
-                                                top: _debugLineTop(
-                                                  widget.debugCurrentLine!,
-                                                ),
-                                                height: _editorLineHeight,
-                                                child: IgnorePointer(
-                                                  child: Container(
-                                                    color: Colors.cyanAccent
-                                                        .withValues(
-                                                          alpha: 0.10,
-                                                        ),
+                                            onSecondaryTapDown:
+                                                _showBreakpointMenu,
+                                            child: Container(
+                                              width: gutterWidth,
+                                              color: const Color(0xFF080808),
+                                              child: ClipRect(
+                                                child: CustomPaint(
+                                                  painter: _GutterPainter(
+                                                    lineCount: _lineCount,
+                                                    errorLines: _errorLines,
+                                                    lineMetrics: _lineMetrics,
+                                                    gutterBaselineOffset:
+                                                        _gutterBaselineOffset,
+                                                    topPadding:
+                                                        _gutterTopPadding,
+                                                    scrollOffset: _scrollOffset,
+                                                    normalStyle:
+                                                        _gutterNormalStyle,
+                                                    errorStyle:
+                                                        _gutterErrorStyle,
+                                                    gutterWidth: gutterWidth,
+                                                    rightPadding: 8.0,
+                                                    breakpoints:
+                                                        widget.breakpoints,
+                                                    inactiveBreakpoints: widget
+                                                        .inactiveBreakpoints,
+                                                    currentLine:
+                                                        widget.debugCurrentLine,
                                                   ),
+                                                  size: Size.infinite,
                                                 ),
                                               ),
-                                            Focus(
-                                              onKeyEvent: _onKeyEvent,
-                                              child: TextField(
-                                                controller: _controller,
-                                                focusNode: _editorFocusNode,
-                                                scrollController:
-                                                    _editorScrollController,
-                                                maxLines: null,
-                                                minLines: null,
-                                                textAlignVertical:
-                                                    TextAlignVertical.top,
-                                                style: _editorTextStyle,
-                                                decoration: const InputDecoration(
-                                                  hintText:
-                                                      'Enter macro commands...',
-                                                  hintStyle: TextStyle(
-                                                    color: Colors.white24,
-                                                    fontSize: 13,
-                                                  ),
-                                                  border: InputBorder.none,
-                                                  contentPadding:
-                                                      EdgeInsets.only(
-                                                        left: 8,
-                                                        top: 18,
-                                                        right: 12,
-                                                        bottom: 12,
+                                            ),
+                                          ),
+                                          // Vertical divider
+                                          Container(
+                                            width: 1,
+                                            color: const Color(0xFF2A3A5A),
+                                          ),
+                                          // ── Text field ──────────────────────
+                                          Expanded(
+                                            child: ClipRect(
+                                              child: Stack(
+                                                fit: StackFit.expand,
+                                                children: [
+                                                  if (widget.debugCurrentLine !=
+                                                      null)
+                                                    Positioned(
+                                                      key: const ValueKey(
+                                                        'macro-debug-line-highlight',
                                                       ),
-                                                ),
+                                                      left: 0,
+                                                      right: 0,
+                                                      top: _debugLineTop(
+                                                        widget
+                                                            .debugCurrentLine!,
+                                                      ),
+                                                      height: _editorLineHeight,
+                                                      child: IgnorePointer(
+                                                        child: Container(
+                                                          color: Colors
+                                                              .cyanAccent
+                                                              .withValues(
+                                                                alpha: 0.10,
+                                                              ),
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  Focus(
+                                                    onKeyEvent: _onKeyEvent,
+                                                    child: TextField(
+                                                      controller: _controller,
+                                                      focusNode:
+                                                          _editorFocusNode,
+                                                      scrollController:
+                                                          _editorScrollController,
+                                                      maxLines: null,
+                                                      minLines: null,
+                                                      textAlignVertical:
+                                                          TextAlignVertical.top,
+                                                      style: _editorTextStyle,
+                                                      decoration:
+                                                          const InputDecoration(
+                                                            hintText:
+                                                                'Enter macro commands...',
+                                                            hintStyle:
+                                                                TextStyle(
+                                                                  color: Colors
+                                                                      .white24,
+                                                                  fontSize: 13,
+                                                                ),
+                                                            border: InputBorder
+                                                                .none,
+                                                            contentPadding:
+                                                                EdgeInsets.only(
+                                                                  left: 8,
+                                                                  top: 18,
+                                                                  right: 12,
+                                                                  bottom: 12,
+                                                                ),
+                                                          ),
+                                                    ),
+                                                  ),
+                                                ],
                                               ),
                                             ),
-                                          ],
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+
+                                // Close button at bottom
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    0,
+                                    16,
+                                    16,
+                                  ),
+                                  child: Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF0A192F),
+                                      borderRadius: BorderRadius.circular(12),
+                                      border: Border.all(
+                                        color: Colors.cyanAccent,
+                                        width: 1.0,
+                                      ),
+                                    ),
+                                    child: ElevatedButton.icon(
+                                      onPressed: widget.onClose,
+                                      icon: const Icon(Icons.close, size: 18),
+                                      label: const Text("Close"),
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.cyan[800],
+                                        foregroundColor: Colors.white,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 12,
+                                          horizontal: 30,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
                                         ),
                                       ),
                                     ),
-                                  ],
+                                  ),
                                 ),
-                              ),
+                              ],
                             ),
                           ),
-
-                          // Close button at bottom
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: const Color(0xFF0A192F),
-                                borderRadius: BorderRadius.circular(12),
-                                border: Border.all(
-                                  color: Colors.cyanAccent,
-                                  width: 1.0,
-                                ),
-                              ),
-                              child: ElevatedButton.icon(
-                                onPressed: widget.onClose,
-                                icon: const Icon(Icons.close, size: 18),
-                                label: const Text("Close"),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Colors.cyan[800],
-                                  foregroundColor: Colors.white,
-                                  padding: const EdgeInsets.symmetric(
-                                    vertical: 12,
-                                    horizontal: 30,
-                                  ),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                ),
-                              ),
-                            ),
+                          // The chat fills the space from the editor column to
+                          // the right window edge.
+                          SizedBox(
+                            width: chatWidth,
+                            child: showChat
+                                ? Padding(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      0,
+                                      16,
+                                      0,
+                                      16,
+                                    ),
+                                    child: _buildMacroChatWindow(),
+                                  )
+                                : null,
                           ),
                         ],
                       ),
                     ),
-                    // The chat fills the space from the editor column to the
-                    // right window edge.
-                    SizedBox(
-                      width: chatWidth,
-                      child: showChat
-                          ? Padding(
-                              padding: const EdgeInsets.fromLTRB(0, 16, 0, 16),
-                              child: _buildMacroChatWindow(),
-                            )
-                          : null,
-                    ),
+                    // Drag handles on both sides of the editor column. The
+                    // cursor turns into a horizontal resizer over the
+                    // boundary; dragging moves it.
+                    if (showOutputSidebar)
+                      Positioned(
+                        left: sidebarWidth - _panelGripperWidth / 2,
+                        top: 16,
+                        bottom: 16,
+                        width: _panelGripperWidth,
+                        child: _PanelResizeHandle(
+                          key: const ValueKey('macro-sidebar-gripper'),
+                          onDragStart: () => _beginPanelDrag(
+                            sidebarWidth,
+                            rowWidth - chatWidth - minEditorWidth,
+                          ),
+                          onDragUpdate: (dx) =>
+                              _updatePanelDrag(dx, left: true),
+                          onDragEnd: _endPanelDrag,
+                          onDoubleTap: () =>
+                              setState(() => _sidebarWidthOverride = null),
+                        ),
+                      ),
+                    if (showChat)
+                      Positioned(
+                        left:
+                            sidebarWidth + editorWidth - _panelGripperWidth / 2,
+                        top: 16,
+                        bottom: 16,
+                        width: _panelGripperWidth,
+                        child: _PanelResizeHandle(
+                          key: const ValueKey('macro-chat-gripper'),
+                          onDragStart: () => _beginPanelDrag(
+                            chatWidth,
+                            rowWidth - sidebarWidth - minEditorWidth,
+                          ),
+                          onDragUpdate: (dx) =>
+                              _updatePanelDrag(dx, left: false),
+                          onDragEnd: _endPanelDrag,
+                          onDoubleTap: () =>
+                              setState(() => _chatWidthOverride = null),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -1891,6 +2042,63 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
           ),
         );
       },
+    );
+  }
+}
+
+// ============================================================================
+// Panel resize handle
+// ============================================================================
+
+/// Draggable strip on the boundary between a side panel and the editor.
+///
+/// The mouse cursor changes to a horizontal resizer while the pointer is over
+/// the boundary. Dragging moves the boundary; a double-click restores the
+/// panel's automatic width.
+class _PanelResizeHandle extends StatefulWidget {
+  const _PanelResizeHandle({
+    super.key,
+    required this.onDragStart,
+    required this.onDragUpdate,
+    required this.onDragEnd,
+    required this.onDoubleTap,
+  });
+
+  final VoidCallback onDragStart;
+  final ValueChanged<double> onDragUpdate;
+  final VoidCallback onDragEnd;
+  final VoidCallback onDoubleTap;
+
+  @override
+  State<_PanelResizeHandle> createState() => _PanelResizeHandleState();
+}
+
+class _PanelResizeHandleState extends State<_PanelResizeHandle> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.resizeColumn,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        dragStartBehavior: DragStartBehavior.down,
+        onHorizontalDragStart: (_) => widget.onDragStart(),
+        onHorizontalDragUpdate: (details) =>
+            widget.onDragUpdate(details.delta.dx),
+        onHorizontalDragEnd: (_) => widget.onDragEnd(),
+        onHorizontalDragCancel: widget.onDragEnd,
+        onDoubleTap: widget.onDoubleTap,
+        child: Center(
+          child: Container(
+            width: _hovered ? 3 : 1,
+            height: double.infinity,
+            color: _hovered ? Colors.cyanAccent : const Color(0xFF2A3A5A),
+          ),
+        ),
+      ),
     );
   }
 }
