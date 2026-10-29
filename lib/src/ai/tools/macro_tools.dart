@@ -1,5 +1,8 @@
+import 'dart:io';
+
 import 'package:dartantic_ai/dartantic_ai.dart';
 
+import '../../app/app_paths.dart';
 import '../../app/app_preferences.dart';
 import '../../core/logger.dart';
 import '../../macro/macro_linter.dart';
@@ -377,6 +380,77 @@ Tool<Map<String, dynamic>> createReadErrorLogTool({
         toolName: 'read_error_log',
       ).logToolCall(input: const {}, output: {'count': entries.length});
       return {'count': entries.length, 'entries': entries};
+    },
+  );
+}
+
+/// Creates the tool that reports the standard profile directory and the
+/// `.lss` profiles stored there.
+///
+/// The macro agent uses it to resolve a file name the user mentions into a
+/// full path for `loadProfile(...)` and to check whether the file exists.
+Tool<Map<String, dynamic>> createReadProfilesTool({
+  String agentName = 'unknown',
+}) {
+  return Tool<Map<String, dynamic>>(
+    name: 'read_profiles',
+    description:
+        'Return the standard profile directory, the profile files (.lss) '
+        'stored there, and the path style used by the current operating '
+        'system. Call this before writing a loadProfile(...) statement so the '
+        'file the user named can be resolved and checked for existence.',
+    inputSchema: Schema.fromMap({
+      'type': 'object',
+      'properties': <String, dynamic>{},
+    }),
+    onCall: (args) async {
+      final directory = AppPaths.profilesDirectory;
+      final files = <Map<String, dynamic>>[];
+      try {
+        if (directory.existsSync()) {
+          for (final entity in directory.listSync()) {
+            if (entity is! File) continue;
+            final name = entity.uri.pathSegments.last;
+            if (!name.toLowerCase().endsWith('.lss')) continue;
+            files.add({
+              'name': name,
+              'modified': entity.lastModifiedSync().toIso8601String(),
+            });
+          }
+        }
+      } catch (error) {
+        AppLogger(
+          agentName: agentName,
+          toolName: 'read_profiles',
+        ).warning('Could not list profiles: $error');
+      }
+      files.sort(
+        (a, b) => (a['name'] as String).compareTo(b['name'] as String),
+      );
+
+      final isWindows = Platform.isWindows;
+      final result = <String, dynamic>{
+        'directory': directory.path,
+        'platform': isWindows
+            ? 'windows'
+            : Platform.isMacOS
+            ? 'macos'
+            : 'linux',
+        'separator': Platform.pathSeparator,
+        'path_style': isWindows
+            ? r'Use an absolute Windows path with a drive letter, for example '
+                  r'C:\Users\me\Documents\profile.lss. Inside the macro source '
+                  r'the backslashes must be escaped: "C:\\Users\\..."'
+            : 'Use an absolute POSIX path starting with /, for example '
+                  '/home/me/profile.lss',
+        'count': files.length,
+        'files': files,
+      };
+      AppLogger(
+        agentName: agentName,
+        toolName: 'read_profiles',
+      ).logToolCall(input: const {}, output: {'count': files.length});
+      return result;
     },
   );
 }

@@ -26,6 +26,8 @@ import 'systemprompts.dart';
 ///   (the editor's Print Output panel).
 /// - `read_error_log` — returns the recent warning and error lines of the
 ///   application log, including macro and SCPI playback errors.
+/// - `read_profiles` — returns the standard profile directory, the profile
+///   files stored there and the path style of the current operating system.
 /// - `math_tool` — deterministic arithmetic, unit conversion and readable
 ///   value formatting.
 ///
@@ -114,6 +116,7 @@ class MacroAgent {
              readErrorLog: readErrorLog ?? () => AppLogger.recentErrors(),
              agentName: 'MacroAgent',
            ),
+           createReadProfilesTool(agentName: 'MacroAgent'),
            createMathTool(agentName: 'MacroAgent'),
          ],
        ) {

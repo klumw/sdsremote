@@ -203,7 +203,7 @@ class _ControlPanelChatOverlayState extends State<ControlPanelChatOverlay>
                 emptyStateText:
                     'Ask me to configure the oscilloscope.\n'
                     'Examples: "Set CH1 to 200 mV/div with 0.2 V offset, '
-                    'then autoset" or "Measure the frequency on CH3."',
+                    'then autoset"',
               ),
             ),
           ),
