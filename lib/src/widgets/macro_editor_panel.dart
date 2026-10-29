@@ -193,8 +193,15 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   static const double _editorContentTop = 18.0;
   static const double _gutterTopPadding = 12.0;
 
-  /// Maximum number of monospace characters the editor column is sized for.
-  static const int _editorVisibleChars = 120;
+  /// Minimum and maximum number of monospace characters the editor column is
+  /// sized for.
+  static const int _editorMinChars = 60;
+  static const int _editorMaxChars = 120;
+
+  /// Minimum widths of the side panels. The editor stays at its 60-character
+  /// floor before either panel drops below these widths.
+  static const double _minOutputSidebarWidth = 220;
+  static const double _minChatWidth = 400;
 
   /// Width of one monospace character at [_editorTextStyle], measured on the
   /// first build and reused afterwards.
@@ -1505,152 +1512,193 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
         widget.debugVariables.isNotEmpty ||
         (widget.printController?.hasMessages ?? false);
 
-    // Width of the editor column for about 120 monospace characters: the text
-    // area plus the text-field padding (8 + 12), the gutter, the divider and
-    // the editor box border.
-    final editorColumnWidth =
-        _editorVisibleChars * _measureEditorCharWidth() + gutterWidth + 55;
+    final charWidth = _measureEditorCharWidth();
+    // The editor column is sized for 60 to 120 monospace characters: the
+    // text area plus the text-field padding (8 + 12), the gutter, the divider
+    // and the editor box border.
+    final minEditorWidth = _editorMinChars * charWidth + gutterWidth + 55;
+    final maxEditorWidth = _editorMaxChars * charWidth + gutterWidth + 55;
 
-    return Container(
-      // With an open side panel the editor fills the window so that the
-      // sidebar reaches the left edge and the chat reaches the right edge.
-      // Without side panels the panel is only as wide as the editor column.
-      width: showChat || showOutputSidebar
-          ? double.infinity
-          : editorColumnWidth + 2,
-      decoration: BoxDecoration(
-        color: const Color(0xFF0A192F),
-        border: Border.all(color: const Color(0xFF475569)),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: const BoxDecoration(
-              color: Color(0xFF172A45),
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(12),
-                topRight: Radius.circular(12),
-              ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Row(
-                    children: [
-                      const Icon(
-                        Icons.edit,
-                        color: Colors.cyanAccent,
-                        size: 20,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              "Macro Editor",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            if (widget.loadedFileName != null)
-                              Text(
-                                '${widget.loadedFileName}${widget.isModified ? " *" : ""}',
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: const TextStyle(
-                                  color: Colors.cyanAccent,
-                                  fontSize: 12,
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Usable width inside the panel border.
+        final maxInnerWidth = (constraints.maxWidth - 2)
+            .clamp(0.0, double.infinity)
+            .toDouble();
+        final panelMinWidth =
+            (showOutputSidebar ? _minOutputSidebarWidth : 0.0) +
+            (showChat ? _minChatWidth : 0.0);
+        // The side panels keep their minimum widths; the editor takes the
+        // remaining space, so it grows with the window until it reaches 120
+        // characters. Only when the window is too narrow does it drop below
+        // 60 characters, instead of overflowing.
+        final editorWidth = (maxInnerWidth - panelMinWidth)
+            .clamp(minEditorWidth, maxEditorWidth)
+            .clamp(0.0, maxInnerWidth)
+            .toDouble();
+        final showSidePanels = showChat || showOutputSidebar;
+        final panelWidth = showSidePanels ? double.infinity : editorWidth + 2;
+        final rowWidth = showSidePanels ? maxInnerWidth : editorWidth;
+        final sideSpace = (rowWidth - editorWidth)
+            .clamp(0.0, double.infinity)
+            .toDouble();
+
+        // The sidebar fills the left side region and the chat the right one.
+        // While the editor is below its maximum width, its growth consumes
+        // the extra space; afterwards the side panels grow.
+        double sidebarWidth = 0;
+        double chatWidth = 0;
+        if (showOutputSidebar && showChat) {
+          final minSum = _minOutputSidebarWidth + _minChatWidth;
+          if (sideSpace >= minSum) {
+            final extra = (sideSpace - minSum) / 2;
+            sidebarWidth = _minOutputSidebarWidth + extra;
+            chatWidth = _minChatWidth + extra;
+          } else {
+            // Very narrow window: scale both minimum widths down instead of
+            // overflowing.
+            final scale = sideSpace / minSum;
+            sidebarWidth = _minOutputSidebarWidth * scale;
+            chatWidth = _minChatWidth * scale;
+          }
+        } else if (showOutputSidebar) {
+          sidebarWidth = sideSpace;
+        } else if (showChat) {
+          chatWidth = sideSpace;
+        }
+
+        return Container(
+          // With an open side panel the panel fills the window so that the
+          // sidebar reaches the left edge and the chat reaches the right edge.
+          // Without side panels it is only as wide as the editor column.
+          width: panelWidth,
+          decoration: BoxDecoration(
+            color: const Color(0xFF0A192F),
+            border: Border.all(color: const Color(0xFF475569)),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 12,
+                ),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF172A45),
+                  borderRadius: BorderRadius.only(
+                    topLeft: Radius.circular(12),
+                    topRight: Radius.circular(12),
                   ),
                 ),
-                const SizedBox(width: 12),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
+                child: Row(
                   children: [
-                    // AI Macro Assistant toggle. Disabled until the AI
-                    // provider, token and model are configured.
-                    IconButton(
-                      icon: Icon(
-                        Icons.auto_awesome,
-                        color: _isAiAvailable
-                            ? (_chat.isOpen
-                                  ? Colors.cyanAccent
-                                  : Colors.white70)
-                            : Colors.white24,
-                        size: 20,
+                    Expanded(
+                      child: Row(
+                        children: [
+                          const Icon(
+                            Icons.edit,
+                            color: Colors.cyanAccent,
+                            size: 20,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  "Macro Editor",
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                if (widget.loadedFileName != null)
+                                  Text(
+                                    '${widget.loadedFileName}${widget.isModified ? " *" : ""}',
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: const TextStyle(
+                                      color: Colors.cyanAccent,
+                                      fontSize: 12,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
-                      tooltip: _isAiAvailable
-                          ? (_chat.isOpen
-                                ? 'Close AI Macro Assistant'
-                                : 'AI Macro Assistant')
-                          : 'Configure AI settings first',
-                      onPressed: _isAiAvailable ? _toggleMacroChat : null,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
                     ),
                     const SizedBox(width: 12),
-                    IconButton(
-                      icon: const Icon(
-                        Icons.close,
-                        color: Colors.white70,
-                        size: 20,
-                      ),
-                      onPressed: widget.onClose,
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        // AI Macro Assistant toggle. Disabled until the AI
+                        // provider, token and model are configured.
+                        IconButton(
+                          icon: Icon(
+                            Icons.auto_awesome,
+                            color: _isAiAvailable
+                                ? (_chat.isOpen
+                                      ? Colors.cyanAccent
+                                      : Colors.white70)
+                                : Colors.white24,
+                            size: 20,
+                          ),
+                          tooltip: _isAiAvailable
+                              ? (_chat.isOpen
+                                    ? 'Close AI Macro Assistant'
+                                    : 'AI Macro Assistant')
+                              : 'Configure AI settings first',
+                          onPressed: _isAiAvailable ? _toggleMacroChat : null,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                        const SizedBox(width: 12),
+                        IconButton(
+                          icon: const Icon(
+                            Icons.close,
+                            color: Colors.white70,
+                            size: 20,
+                          ),
+                          onPressed: widget.onClose,
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
+                        ),
+                      ],
                     ),
                   ],
                 ),
-              ],
-            ),
-          ),
-          // Error banner — full width, below the filename line
-          if (widget.errorMessage != null)
-            Container(
-              width: double.infinity,
-              color: const Color(0xFF3D0000),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              child: Text(
-                widget.errorMessage!,
-                style: const TextStyle(
-                  color: Color(0xFFFF8888),
-                  fontSize: 12,
-                  fontFamily: 'monospace',
-                ),
               ),
-            ),
+              // Error banner — full width, below the filename line
+              if (widget.errorMessage != null)
+                Container(
+                  width: double.infinity,
+                  color: const Color(0xFF3D0000),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 8,
+                  ),
+                  child: Text(
+                    widget.errorMessage!,
+                    style: const TextStyle(
+                      color: Color(0xFFFF8888),
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+                ),
 
-          Expanded(
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final available = constraints.maxWidth;
-                // The editor keeps its 120-character width while there is
-                // room; the side panels share the rest equally and follow
-                // window resizes. On a narrow window the editor shrinks first
-                // instead of overflowing.
-                final editorWidth = editorColumnWidth
-                    .clamp(0.0, available)
-                    .toDouble();
-                final sideWidth = (available - editorWidth) / 2;
-
-                return Row(
+              Expanded(
+                child: Row(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     // The output sidebar fills the space from the left window
                     // edge to the editor column.
                     SizedBox(
-                      width: sideWidth,
+                      width: sidebarWidth,
                       child: showOutputSidebar
                           ? _buildOutputSidebar(widget.debugVariables)
                           : null,
@@ -1828,7 +1876,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                     // The chat fills the space from the editor column to the
                     // right window edge.
                     SizedBox(
-                      width: sideWidth,
+                      width: chatWidth,
                       child: showChat
                           ? Padding(
                               padding: const EdgeInsets.fromLTRB(0, 16, 0, 16),
@@ -1837,12 +1885,12 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                           : null,
                     ),
                   ],
-                );
-              },
-            ),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        );
+      },
     );
   }
 }
