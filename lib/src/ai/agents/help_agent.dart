@@ -3,15 +3,19 @@ import 'dart:async';
 import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../../help/help_sections.dart';
+import '../tools/help_tools.dart';
 import 'systemprompts.dart';
 
 /// User-facing agent of the help window.
 ///
-/// Unlike the other agents it has no tools: the complete manual is part of its
-/// system prompt, so it answers from the document itself and links to the
-/// sections it cites. The section list in the prompt holds the anchor slugs
-/// that the help window scrolls to, so every link the model emits resolves to
-/// a heading.
+/// The complete manual is part of its system prompt, so it answers from the
+/// document itself and links to the sections it cites. The section list in the
+/// prompt holds the anchor slugs that the help window scrolls to, so every
+/// link the model emits resolves to a heading.
+///
+/// Its only tool is `read_log_file`: when the user reports a problem with the
+/// application, the assistant inspects the application log and offers a
+/// concrete next step.
 class HelpAgent {
   /// Maximum number of history messages kept after the system prompt.
   ///
@@ -25,10 +29,20 @@ class HelpAgent {
 
   /// Creates a [HelpAgent] whose knowledge is [manual] — the raw markdown of
   /// `docs/manual.md`.
+  ///
+  /// [readLog] is primarily useful for tests; production code reads the
+  /// application log through the default [AppLogger] reader.
   HelpAgent({
     String model = 'deepseek:deepseek-v4-flash',
     required String manual,
-  }) : _agent = Agent(model, displayName: 'HelpAgent') {
+    HelpLogReader? readLog,
+  }) : _agent = Agent(
+         model,
+         displayName: 'HelpAgent',
+         tools: [
+           createReadLogFileTool(readLog: readLog, agentName: 'HelpAgent'),
+         ],
+       ) {
     _systemMessage = ChatMessage.system(
       helpAgentSystemPrompt(
         manual: manual,

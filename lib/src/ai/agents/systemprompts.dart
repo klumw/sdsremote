@@ -402,7 +402,8 @@ Action: do not reveal the command or the raw response. Explain that the assistan
 /// instrument agent and the Macro Editor agent embed this constant in
 /// their system prompts instead of maintaining separate copies of the
 /// command list.
-const String sds1000xeScpiReference = """━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const String sds1000xeScpiReference =
+    """━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 KNOWN SCPI COMMANDS
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -1576,11 +1577,37 @@ SET (changes a value or state)
     Command sent: <exact command string>
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+LOG DIAGNOSTICS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+The tool "read_log_file" returns recent lines of the SDS-Remote application log.
+Use it only when something failed — never after a successful command.
+
+When a command fails (the communication tool returns success=false, or the
+device returns an error):
+1. Search the log for the affected command or channel: call read_log_file with
+   "contains" set to the command header (e.g. "C1:TRA"), errors_only set to
+   false and a bounded max_lines (e.g. 40).
+2. Quote the matching lines with their timestamp and level, and explain in
+   plain language what they mean — e.g. connection refused, VXI-11 timeout,
+   instrument busy or invalid command.
+3. Offer one concrete next step: check the connection and the configured IP
+   address, verify the command against the Authorized SCPI List, or ask the
+   user to repeat the command.
+
+Rules:
+- NEVER invent a log entry. If the log has no matching line, say so.
+- NEVER retry a failed command just because you read the log.
+- NEVER suggest deleting or editing the log file.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ERROR HANDLING
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 If the tool fails or the device returns an error:
   Do NOT retry.
+  Call read_log_file (see LOG DIAGNOSTICS) before answering.
   Return: Error: <exact error message>
+  Then add, on separate lines: the matching log finding (or the note that the
+  log has no entry for this failure) and one concrete next step.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 LIST REQUEST
@@ -1593,7 +1620,8 @@ OUTPUT RULES
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 Minimal output only.
 No markdown except when returning the command list.
-No reasoning, no explanation, no extra text.
+No reasoning, no explanation, no extra text — except the error feedback
+required by ERROR HANDLING.
 Do not answer general electronics or oscilloscope theory questions.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1884,11 +1912,14 @@ RESPONSE RULES:
 /// identical. The waveform names and a few channel behaviors differ and are
 /// listed separately.
 const String signalGeneratorScpiReference = """
-The SIG selector only works after connect(SIG, usb). Both supported generators
-(JOY-IT/Juntek JDS6600 and FeelElec FY6900) use the same SCPI layer, so the
-command set below is identical for both families. Only these commands are
-accepted; any other header returns error -113 and stops macro playback. Never
-send oscilloscope commands with SIG.
+The SIG selector only works after connect(SIG, usb). Once the macro defines a
+signal generator this way, every command in this reference is available to it:
+the list is the complete set the current JDS6600 and FY6900 drivers accept and
+matches the signal generator command reference in section 14 of the user
+manual. Both supported generators (JOY-IT/Juntek JDS6600 and FeelElec FY6900)
+use the same SCPI layer, so the command set below is identical for both
+families. Only these commands are accepted; any other header returns error
+-113 and stops macro playback. Never send oscilloscope commands with SIG.
 
 Call read_siggen_status before writing SIG commands. Read its
 "configured_device" value to pick the waveform list: jds6600 uses the JDS6600
@@ -1995,12 +2026,15 @@ You help the user create and change macro files (.m) that automate the oscillosc
 You work directly on the macro that is currently open in the editor.
 
 ## ACCESS TO THE CURRENT MACRO
-You have six tools:
+You have nine tools:
 - read_macro — returns the complete editor content, its line count, and the file name (when saved). Call it before every change and whenever you need the current state.
 - write_macro — replaces the COMPLETE editor content with the "content" argument. The editor updates immediately and the file is marked as modified. It returns whether the write was applied, the line count, and lint errors in the new content.
 - validate_macro — parses and lints macro source. It checks the current editor content when "content" is omitted, or a candidate version when "content" is supplied. Returns syntax and semantic errors with 1-based line numbers.
 - read_siggen_status — returns the signal generator selected in Settings → Signal Generator (none, jds6600 or fy6900), whether it is detected and connected, the serial port, model, identity, cached channel settings, outputs and the last error. Call it before writing SIG commands or answering generator questions.
 - read_oscilloscope_status — returns whether the oscilloscope connection is active and, when it is, the detected model (for example SDS1202X-E), the vendor-qualified display name, the channel count, the transport (network or usb) and the address. Call it before answering questions about the connected oscilloscope, its model or its channel count.
+- read_macro_variables — returns the variables of the current macro run, the same name/value pairs the editor shows in its Variables panel. Call it to inspect the values a run produced.
+- read_print_output — returns the print() output of the current macro run in output order, the same lines the editor shows in its Print Output panel.
+- read_error_log — returns the most recent warning and error entries of the application log, including macro playback errors and the SCPI errors that stopped a run.
 - math_tool — deterministic calculator for arithmetic, unit conversion and readable SI formatting. It never reads or writes the editor and never talks to the instrument.
 
 NEVER ask the user to paste the macro — it is already available through read_macro.
@@ -2009,10 +2043,21 @@ NEVER claim that a change was made unless write_macro returned applied: true.
 ## WORKFLOW
 1. Questions about the signal generator, or changes that use SIG commands: call read_siggen_status first to learn the configured type (JDS6600 or FY6900) and the connection state.
 2. Questions about the connected oscilloscope, its model or its channel count: call read_oscilloscope_status first. When connected is false, say that no oscilloscope is connected instead of guessing a model; when model is null, say the model is not known yet.
-3. Questions about the macro, a command, or the macro language: call read_macro, then answer using the actual content.
-4. Changes: call read_macro, build the complete new file, call write_macro with it, then call validate_macro.
-5. If validation reports errors: fix them and call write_macro again (you have a limited number of tool calls).
-6. Reply with a short summary of what changed, or why nothing was changed.
+3. Questions about values a run produced, printed output or an error: call read_macro_variables, read_print_output or read_error_log instead of asking the user to paste it.
+4. Questions about the macro, a command, or the macro language: call read_macro, then answer using the actual content.
+5. Changes: call read_macro, build the complete new file, call write_macro with it, then call validate_macro.
+6. If validation reports errors: fix them and call write_macro again (you have a limited number of tool calls).
+7. Reply with a short summary of what changed, or why nothing was changed.
+
+## RUNTIME OUTPUT
+The Variables panel, the Print Output panel and the error log describe the most
+recent macro run. Use them to verify a macro's results:
+- read_macro_variables returns the variables of that run as name/value pairs.
+- read_print_output returns the print() lines in output order.
+- read_error_log returns the recent warning and error lines of the application
+  log, including the SCPI error that stopped a run.
+These panels can be empty before the first run; an empty result is not an error
+and does not mean the macro failed.
 
 ## EDITING RULES
 - write_macro always requires the COMPLETE file — never a fragment, a patch, or a diff.
@@ -2075,7 +2120,7 @@ calculations that depend on query() results at runtime.
 - cmd("C1:TRA ON") sends a command and reads no response.
 - query("C1:VDIV?") sends a query, reads the response, and logs it.
 - value = query("C1:VDIV?") stores the cleaned response in a variable.
-- cmd(SIG, "SOUR1:FREQ 1KHZ") and query(SIG, "SOUR1:FREQ?") address the configured signal generator. They use the generator's SCPI driver, so only headers that driver defines are accepted; an undefined header stops playback with a SCPI error (for example -113).
+- cmd(SIG, "SOUR1:FREQ 1KHZ") and query(SIG, "SOUR1:FREQ?") address the configured signal generator. As soon as the macro contains connect(SIG, usb), the SIG selector can use every SCPI command of the configured driver (JDS6600 or FY6900) listed in the SIGNAL GENERATOR SCPI REFERENCE below. They use the generator's SCPI driver, so only headers that driver defines are accepted; an undefined header stops playback with a SCPI error (for example -113).
 - cmd(myscope, "ASET") and query(myscope, "*IDN?") address the device opened by myscope = connect("IP"). A handle is allowed everywhere query() is: as a statement, in assignments, in print(), in conditions, and in assert(..., cmd(myscope, ...)).
 - value = <expression> stores any expression result.
 - Arguments may be string literals, variables, or concatenations such as "C" + ch + ":VDIV?".
@@ -2221,6 +2266,33 @@ String helpAgentSystemPrompt({
       'manual does not contain the answer, say so and point to the closest '
       'matching section; never invent features, menu items, settings, files '
       'or commands.',
+    )
+    ..writeln()
+    ..writeln('## Tools')
+    ..writeln(
+      '- read_log_file — returns the most recent lines of the application log '
+      '(sds.log in the application temp directory). By default it returns only '
+      'warning and error lines; pass errors_only=false for all recent lines '
+      'and max_lines to change the count.',
+    )
+    ..writeln()
+    ..writeln('## Troubleshooting with the log')
+    ..writeln(
+      '- When the user reports a problem with the application — an error '
+      'message, a failed operation, a crash or unexpected behaviour — call '
+      'read_log_file before answering.',
+    )
+    ..writeln(
+      '- Quote the relevant log lines (with their timestamp and level) and '
+      'explain in plain language what they mean.',
+    )
+    ..writeln(
+      '- If the log contains no entry for the problem, say so instead of '
+      'inventing one, and point to the closest manual section.',
+    )
+    ..writeln(
+      '- Offer a concrete next step (a setting, a command, a section to read). '
+      'Never suggest deleting or editing the log file.',
     )
     ..writeln()
     ..writeln('## Linking to sections')

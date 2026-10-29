@@ -115,6 +115,12 @@ Tool<Map<String, dynamic>> createVxi11Tool({
           'error': e.toString(),
           'host': effectiveHost,
         };
+        // Keep failures visible at the default log level: the agent's
+        // read_log_file tool can then analyze what went wrong, and the log
+        // still shows the cause after the chat is closed.
+        logger.warning(
+          'SCPI $operation failed: $command - $e (host: $effectiveHost)',
+        );
         logger.logToolCall(input: args, output: errorResult);
         return errorResult;
       } finally {

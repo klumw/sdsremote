@@ -365,6 +365,12 @@ class _OsciHomePageState extends State<OsciHomePage>
     super.initState();
     _macroChatController.attachSignalGeneratorStatus(_readMacroSiggenStatus);
     _macroChatController.attachOscilloscopeStatus(_readOscilloscopeStatus);
+    // The macro agent can inspect the same runtime output the editor shows:
+    // the debug variables and the print() output of the current run.
+    _macroChatController.attachMacroOutput(
+      readVariables: () => _macroDebugVariables,
+      readPrintOutput: () => _macroPrintController.messages,
+    );
     _controlPanelChatController.attachOscilloscopeStatus(
       _readOscilloscopeStatus,
     );

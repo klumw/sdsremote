@@ -148,6 +148,42 @@ class AppLogger {
   Future<void> severe(String message) async =>
       _writeLine(Level.SEVERE, message);
 
+  /// Returns the most recent lines of the application log, oldest first.
+  ///
+  /// Reads at most [maxLines] entries from the end of the log file, so a
+  /// long-running session stays cheap to inspect. With [errorsOnly] only
+  /// WARNING and ERROR entries are returned; otherwise every line is.
+  /// Returns an empty list when the log file does not exist yet or holds no
+  /// matching entries.
+  static Future<List<String>> recentLog({
+    int maxLines = 100,
+    bool errorsOnly = false,
+  }) async {
+    try {
+      final file = File(_logFile);
+      if (!await file.exists()) return const <String>[];
+      final lines = await file.readAsLines();
+      final matches = <String>[];
+      for (final line in lines.reversed) {
+        if (!errorsOnly ||
+            line.contains('[WARNING]') ||
+            line.contains('[ERROR]')) {
+          matches.add(line);
+          if (matches.length >= maxLines) break;
+        }
+      }
+      return matches.reversed.toList();
+    } catch (e) {
+      stderr.writeln('Failed to read the application log: $e');
+      return const <String>[];
+    }
+  }
+
+  /// Returns the most recent warning and error lines of the application log,
+  /// oldest first — see [recentLog].
+  static Future<List<String>> recentErrors({int maxLines = 50}) =>
+      recentLog(maxLines: maxLines, errorsOnly: true);
+
   /// Logs a tool call with structured input/output data.
   ///
   /// This is used by AI agent tools to log their invocations with the

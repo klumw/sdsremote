@@ -38,6 +38,9 @@ class MacroChatController extends ChangeNotifier {
   String? Function()? _macroFileName;
   MacroSiggenStatusReader? _readSiggenStatus;
   MacroOscilloscopeStatusReader? _readOscilloscopeStatus;
+  MacroVariablesReader? _readVariables;
+  MacroPrintOutputReader? _readPrintOutput;
+  MacroErrorLogReader? _readErrorLog;
 
   bool _isOpen = false;
   bool _isChatting = false;
@@ -112,6 +115,22 @@ class MacroChatController extends ChangeNotifier {
     _readOscilloscopeStatus = readStatus;
   }
 
+  /// Registers the live macro output sources used by the agent's
+  /// `read_macro_variables`, `read_print_output` and `read_error_log` tools.
+  ///
+  /// The callbacks are read dynamically, so they may be registered before or
+  /// after [configure]. Without them the first two tools report an empty
+  /// result and the error log falls back to the application log file.
+  void attachMacroOutput({
+    required MacroVariablesReader readVariables,
+    required MacroPrintOutputReader readPrintOutput,
+    MacroErrorLogReader? readErrorLog,
+  }) {
+    _readVariables = readVariables;
+    _readPrintOutput = readPrintOutput;
+    _readErrorLog = readErrorLog;
+  }
+
   /// Cancels an in-flight response without changing the transcript.
   ///
   /// Used when the agent is reconfigured or the controller is disposed. User
@@ -176,6 +195,9 @@ class MacroChatController extends ChangeNotifier {
         final reader = _readOscilloscopeStatus;
         return reader != null ? reader() : readUnavailableOscilloscopeStatus();
       },
+      readVariables: () => _readVariables?.call() ?? const <String, String>{},
+      readPrintOutput: () => _readPrintOutput?.call() ?? const <String>[],
+      readErrorLog: _readErrorLog,
     );
     _service = service;
     notifyListeners();

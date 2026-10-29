@@ -193,6 +193,13 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   static const double _editorContentTop = 18.0;
   static const double _gutterTopPadding = 12.0;
 
+  /// Maximum number of monospace characters the editor column is sized for.
+  static const int _editorVisibleChars = 120;
+
+  /// Width of one monospace character at [_editorTextStyle], measured on the
+  /// first build and reused afterwards.
+  double? _editorCharWidth;
+
   /// Pre-computed line metrics measured by running the editor's text
   /// through the same [TextPainter] configuration that [RenderEditable]
   /// uses internally.  The gutter painter uses these for pixel-perfect
@@ -504,6 +511,20 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     );
     tp.layout(maxWidth: double.infinity);
     _lineMetrics = tp.computeLineMetrics();
+  }
+
+  /// Width of one character in the editor's monospace font.
+  double _measureEditorCharWidth() {
+    final cached = _editorCharWidth;
+    if (cached != null) return cached;
+
+    final tp = TextPainter(
+      text: const TextSpan(text: '0000000000', style: _editorTextStyle),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final width = tp.width / 10;
+    _editorCharWidth = width;
+    return width;
   }
 
   void _updateLineCount() {
@@ -1150,30 +1171,25 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   /// print output below.
   Widget _buildOutputSidebar(Map<String, String> variables) {
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 0, 16),
-      child: SizedBox(
-        width: 220,
-        child: Container(
-          key: const ValueKey('macro-output-sidebar'),
-          decoration: BoxDecoration(
-            color: const Color(0xFF0D0D0D),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: const Color(0xFF475569)),
-          ),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(7),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Expanded(child: _buildVariablesSection(variables)),
-                const Divider(
-                  height: 1,
-                  thickness: 1,
-                  color: Color(0xFF2A3A5A),
-                ),
-                Expanded(child: _buildPrintOutputSection()),
-              ],
-            ),
+      // The sidebar fills the space from the left window edge to the editor
+      // column.
+      padding: const EdgeInsets.fromLTRB(0, 16, 0, 16),
+      child: Container(
+        key: const ValueKey('macro-output-sidebar'),
+        decoration: BoxDecoration(
+          color: const Color(0xFF0D0D0D),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: const Color(0xFF475569)),
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(7),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: _buildVariablesSection(variables)),
+              const Divider(height: 1, thickness: 1, color: Color(0xFF2A3A5A)),
+              Expanded(child: _buildPrintOutputSection()),
+            ],
           ),
         ),
       ),
@@ -1485,11 +1501,23 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     // digit beyond 2).
     final gutterWidth = 32.0 + (_lineCount.toString().length - 1) * 8.0;
     final showChat = _chat.isOpen && _isAiAvailable;
+    final showOutputSidebar =
+        widget.debugVariables.isNotEmpty ||
+        (widget.printController?.hasMessages ?? false);
+
+    // Width of the editor column for about 120 monospace characters: the text
+    // area plus the text-field padding (8 + 12), the gutter, the divider and
+    // the editor box border.
+    final editorColumnWidth =
+        _editorVisibleChars * _measureEditorCharWidth() + gutterWidth + 55;
 
     return Container(
-      // The AI chat needs room next to the 900 px editor column. The extra
-      // width keeps the editor itself at its usual size.
-      width: showChat ? 1328 : 900,
+      // With an open side panel the editor fills the window so that the
+      // sidebar reaches the left edge and the chat reaches the right edge.
+      // Without side panels the panel is only as wide as the editor column.
+      width: showChat || showOutputSidebar
+          ? double.infinity
+          : editorColumnWidth + 2,
       decoration: BoxDecoration(
         color: const Color(0xFF0A192F),
         border: Border.all(color: const Color(0xFF475569)),
@@ -1604,183 +1632,213 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
             ),
 
           Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                if (widget.debugVariables.isNotEmpty ||
-                    (widget.printController?.hasMessages ?? false))
-                  _buildOutputSidebar(widget.debugVariables),
-                Expanded(
-                  child: Column(
-                    children: [
-                      _buildDebugBar(),
-                      // Editable text area with line numbers
-                      Expanded(
-                        child: Container(
-                          margin: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0D0D0D),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(
-                              color: Colors.cyanAccent,
-                              width: 1.0,
-                            ),
-                          ),
-                          child: ClipRRect(
-                            borderRadius: BorderRadius.circular(7),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                // ── Line number gutter ──────────────
-                                // Rendered via CustomPaint that uses the SAME
-                                // scroll offset and line-height formula as
-                                // the TextField, guaranteeing pixel-perfect
-                                // alignment at any depth.
-                                GestureDetector(
-                                  key: const ValueKey('macro-editor-gutter'),
-                                  behavior: HitTestBehavior.opaque,
-                                  onTapDown: (details) => _toggleBreakpointAt(
-                                    details.localPosition.dy,
-                                  ),
-                                  onSecondaryTapDown: _showBreakpointMenu,
-                                  child: Container(
-                                    width: gutterWidth,
-                                    color: const Color(0xFF080808),
-                                    child: ClipRect(
-                                      child: CustomPaint(
-                                        painter: _GutterPainter(
-                                          lineCount: _lineCount,
-                                          errorLines: _errorLines,
-                                          lineMetrics: _lineMetrics,
-                                          gutterBaselineOffset:
-                                              _gutterBaselineOffset,
-                                          topPadding: _gutterTopPadding,
-                                          scrollOffset: _scrollOffset,
-                                          normalStyle: _gutterNormalStyle,
-                                          errorStyle: _gutterErrorStyle,
-                                          gutterWidth: gutterWidth,
-                                          rightPadding: 8.0,
-                                          breakpoints: widget.breakpoints,
-                                          inactiveBreakpoints:
-                                              widget.inactiveBreakpoints,
-                                          currentLine: widget.debugCurrentLine,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final available = constraints.maxWidth;
+                // The editor keeps its 120-character width while there is
+                // room; the side panels share the rest equally and follow
+                // window resizes. On a narrow window the editor shrinks first
+                // instead of overflowing.
+                final editorWidth = editorColumnWidth
+                    .clamp(0.0, available)
+                    .toDouble();
+                final sideWidth = (available - editorWidth) / 2;
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // The output sidebar fills the space from the left window
+                    // edge to the editor column.
+                    SizedBox(
+                      width: sideWidth,
+                      child: showOutputSidebar
+                          ? _buildOutputSidebar(widget.debugVariables)
+                          : null,
+                    ),
+                    SizedBox(
+                      width: editorWidth,
+                      child: Column(
+                        children: [
+                          _buildDebugBar(),
+                          // Editable text area with line numbers
+                          Expanded(
+                            child: Container(
+                              margin: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0D0D0D),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(
+                                  color: Colors.cyanAccent,
+                                  width: 1.0,
+                                ),
+                              ),
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(7),
+                                child: Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    // ── Line number gutter ──────────────
+                                    // Rendered via CustomPaint that uses the SAME
+                                    // scroll offset and line-height formula as
+                                    // the TextField, guaranteeing pixel-perfect
+                                    // alignment at any depth.
+                                    GestureDetector(
+                                      key: const ValueKey(
+                                        'macro-editor-gutter',
+                                      ),
+                                      behavior: HitTestBehavior.opaque,
+                                      onTapDown: (details) =>
+                                          _toggleBreakpointAt(
+                                            details.localPosition.dy,
+                                          ),
+                                      onSecondaryTapDown: _showBreakpointMenu,
+                                      child: Container(
+                                        width: gutterWidth,
+                                        color: const Color(0xFF080808),
+                                        child: ClipRect(
+                                          child: CustomPaint(
+                                            painter: _GutterPainter(
+                                              lineCount: _lineCount,
+                                              errorLines: _errorLines,
+                                              lineMetrics: _lineMetrics,
+                                              gutterBaselineOffset:
+                                                  _gutterBaselineOffset,
+                                              topPadding: _gutterTopPadding,
+                                              scrollOffset: _scrollOffset,
+                                              normalStyle: _gutterNormalStyle,
+                                              errorStyle: _gutterErrorStyle,
+                                              gutterWidth: gutterWidth,
+                                              rightPadding: 8.0,
+                                              breakpoints: widget.breakpoints,
+                                              inactiveBreakpoints:
+                                                  widget.inactiveBreakpoints,
+                                              currentLine:
+                                                  widget.debugCurrentLine,
+                                            ),
+                                            size: Size.infinite,
+                                          ),
                                         ),
-                                        size: Size.infinite,
                                       ),
                                     ),
-                                  ),
-                                ),
-                                // Vertical divider
-                                Container(
-                                  width: 1,
-                                  color: const Color(0xFF2A3A5A),
-                                ),
-                                // ── Text field ──────────────────────
-                                Expanded(
-                                  child: ClipRect(
-                                    child: Stack(
-                                      fit: StackFit.expand,
-                                      children: [
-                                        if (widget.debugCurrentLine != null)
-                                          Positioned(
-                                            key: const ValueKey(
-                                              'macro-debug-line-highlight',
-                                            ),
-                                            left: 0,
-                                            right: 0,
-                                            top: _debugLineTop(
-                                              widget.debugCurrentLine!,
-                                            ),
-                                            height: _editorLineHeight,
-                                            child: IgnorePointer(
-                                              child: Container(
-                                                color: Colors.cyanAccent
-                                                    .withValues(alpha: 0.10),
-                                              ),
-                                            ),
-                                          ),
-                                        Focus(
-                                          onKeyEvent: _onKeyEvent,
-                                          child: TextField(
-                                            controller: _controller,
-                                            focusNode: _editorFocusNode,
-                                            scrollController:
-                                                _editorScrollController,
-                                            maxLines: null,
-                                            minLines: null,
-                                            textAlignVertical:
-                                                TextAlignVertical.top,
-                                            style: _editorTextStyle,
-                                            decoration: const InputDecoration(
-                                              hintText:
-                                                  'Enter macro commands...',
-                                              hintStyle: TextStyle(
-                                                color: Colors.white24,
-                                                fontSize: 13,
-                                              ),
-                                              border: InputBorder.none,
-                                              contentPadding: EdgeInsets.only(
-                                                left: 8,
-                                                top: 18,
-                                                right: 12,
-                                                bottom: 12,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                      ],
+                                    // Vertical divider
+                                    Container(
+                                      width: 1,
+                                      color: const Color(0xFF2A3A5A),
                                     ),
+                                    // ── Text field ──────────────────────
+                                    Expanded(
+                                      child: ClipRect(
+                                        child: Stack(
+                                          fit: StackFit.expand,
+                                          children: [
+                                            if (widget.debugCurrentLine != null)
+                                              Positioned(
+                                                key: const ValueKey(
+                                                  'macro-debug-line-highlight',
+                                                ),
+                                                left: 0,
+                                                right: 0,
+                                                top: _debugLineTop(
+                                                  widget.debugCurrentLine!,
+                                                ),
+                                                height: _editorLineHeight,
+                                                child: IgnorePointer(
+                                                  child: Container(
+                                                    color: Colors.cyanAccent
+                                                        .withValues(
+                                                          alpha: 0.10,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ),
+                                            Focus(
+                                              onKeyEvent: _onKeyEvent,
+                                              child: TextField(
+                                                controller: _controller,
+                                                focusNode: _editorFocusNode,
+                                                scrollController:
+                                                    _editorScrollController,
+                                                maxLines: null,
+                                                minLines: null,
+                                                textAlignVertical:
+                                                    TextAlignVertical.top,
+                                                style: _editorTextStyle,
+                                                decoration: const InputDecoration(
+                                                  hintText:
+                                                      'Enter macro commands...',
+                                                  hintStyle: TextStyle(
+                                                    color: Colors.white24,
+                                                    fontSize: 13,
+                                                  ),
+                                                  border: InputBorder.none,
+                                                  contentPadding:
+                                                      EdgeInsets.only(
+                                                        left: 8,
+                                                        top: 18,
+                                                        right: 12,
+                                                        bottom: 12,
+                                                      ),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // Close button at bottom
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF0A192F),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.cyanAccent,
+                                  width: 1.0,
+                                ),
+                              ),
+                              child: ElevatedButton.icon(
+                                onPressed: widget.onClose,
+                                icon: const Icon(Icons.close, size: 18),
+                                label: const Text("Close"),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.cyan[800],
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                    vertical: 12,
+                                    horizontal: 30,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
                                 ),
-                              ],
-                            ),
-                          ),
-                        ),
-                      ),
-
-                      // Close button at bottom
-                      Padding(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF0A192F),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.cyanAccent,
-                              width: 1.0,
-                            ),
-                          ),
-                          child: ElevatedButton.icon(
-                            onPressed: widget.onClose,
-                            icon: const Icon(Icons.close, size: 18),
-                            label: const Text("Close"),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.cyan[800],
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                vertical: 12,
-                                horizontal: 30,
-                              ),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
                               ),
                             ),
                           ),
-                        ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-                // AI chat panel, to the right of the editor.
-                if (showChat) ...[
-                  const SizedBox(width: 12),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(0, 16, 16, 16),
-                    child: SizedBox(width: 400, child: _buildMacroChatWindow()),
-                  ),
-                ],
-              ],
+                    ),
+                    // The chat fills the space from the editor column to the
+                    // right window edge.
+                    SizedBox(
+                      width: sideWidth,
+                      child: showChat
+                          ? Padding(
+                              padding: const EdgeInsets.fromLTRB(0, 16, 0, 16),
+                              child: _buildMacroChatWindow(),
+                            )
+                          : null,
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ],

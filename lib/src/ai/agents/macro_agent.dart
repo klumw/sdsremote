@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 
+import '../../core/logger.dart';
 import '../tools/macro_tools.dart';
 import '../tools/math_tool.dart';
 import 'systemprompts.dart';
@@ -19,6 +20,12 @@ import 'systemprompts.dart';
 /// - `read_oscilloscope_status` — returns whether the oscilloscope connection
 ///   is active and, when it is, the detected model, display name, channel
 ///   count, transport and address.
+/// - `read_macro_variables` — returns the variables of the current run (the
+///   editor's Variables panel).
+/// - `read_print_output` — returns the `print()` output of the current run
+///   (the editor's Print Output panel).
+/// - `read_error_log` — returns the recent warning and error lines of the
+///   application log, including macro and SCPI playback errors.
 /// - `math_tool` — deterministic arithmetic, unit conversion and readable
 ///   value formatting.
 ///
@@ -65,6 +72,9 @@ class MacroAgent {
     String? Function()? macroFileName,
     MacroSiggenStatusReader? readSiggenStatus,
     MacroOscilloscopeStatusReader? readOscilloscopeStatus,
+    MacroVariablesReader? readVariables,
+    MacroPrintOutputReader? readPrintOutput,
+    MacroErrorLogReader? readErrorLog,
     this.maxToolCalls = defaultMaxToolCalls,
   }) : _agent = Agent(
          model,
@@ -90,6 +100,18 @@ class MacroAgent {
            ),
            createReadOscilloscopeStatusTool(
              readStatus: readOscilloscopeStatus,
+             agentName: 'MacroAgent',
+           ),
+           createReadMacroVariablesTool(
+             readVariables: readVariables ?? () => const <String, String>{},
+             agentName: 'MacroAgent',
+           ),
+           createReadPrintOutputTool(
+             readPrintOutput: readPrintOutput ?? () => const <String>[],
+             agentName: 'MacroAgent',
+           ),
+           createReadErrorLogTool(
+             readErrorLog: readErrorLog ?? () => AppLogger.recentErrors(),
              agentName: 'MacroAgent',
            ),
            createMathTool(agentName: 'MacroAgent'),

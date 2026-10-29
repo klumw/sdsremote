@@ -42,6 +42,9 @@ class MacroAiService {
     String? Function()? macroFileName,
     MacroSiggenStatusReader? readSiggenStatus,
     MacroOscilloscopeStatusReader? readOscilloscopeStatus,
+    MacroVariablesReader? readVariables,
+    MacroPrintOutputReader? readPrintOutput,
+    MacroErrorLogReader? readErrorLog,
     int maxToolCalls = MacroAgent.defaultMaxToolCalls,
   }) {
     if (_isDisposed) return;
@@ -69,6 +72,9 @@ class MacroAiService {
         macroFileName: macroFileName,
         readSiggenStatus: readSiggenStatus,
         readOscilloscopeStatus: readOscilloscopeStatus,
+        readVariables: readVariables,
+        readPrintOutput: readPrintOutput,
+        readErrorLog: readErrorLog,
         maxToolCalls: maxToolCalls,
       );
       logger.debug('SUCCESS: MacroAgent created, agent=${_agent != null}');

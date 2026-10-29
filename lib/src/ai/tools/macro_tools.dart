@@ -280,3 +280,103 @@ Tool<Map<String, dynamic>> createValidateMacroTool({
     },
   );
 }
+
+/// Reads the variables of the current macro run — the same name/value pairs
+/// the Macro Editor shows in its Variables panel.
+typedef MacroVariablesReader = Map<String, String> Function();
+
+/// Reads the `print()` output of the current macro run — the same lines the
+/// Macro Editor shows in its Print Output panel.
+typedef MacroPrintOutputReader = List<String> Function();
+
+/// Reads the recent warning and error lines of the application log.
+typedef MacroErrorLogReader = Future<List<String>> Function();
+
+/// Creates the tool that returns the variables of the current macro run.
+Tool<Map<String, dynamic>> createReadMacroVariablesTool({
+  required MacroVariablesReader readVariables,
+  String agentName = 'unknown',
+}) {
+  return Tool<Map<String, dynamic>>(
+    name: 'read_macro_variables',
+    description:
+        'Return the variables of the current macro run — the same name/value '
+        'pairs the Macro Editor shows in its Variables panel. Call this after '
+        'a playback or debug step to inspect the values a macro produced '
+        'instead of asking the user. Returns an empty list before any run has '
+        'assigned variables.',
+    inputSchema: Schema.fromMap({
+      'type': 'object',
+      'properties': <String, dynamic>{},
+    }),
+    onCall: (args) async {
+      final variables = readVariables();
+      final entries = [
+        for (final entry in variables.entries)
+          {'name': entry.key, 'value': entry.value},
+      ];
+      AppLogger(
+        agentName: agentName,
+        toolName: 'read_macro_variables',
+      ).logToolCall(
+        input: const {},
+        output: {'count': entries.length, 'names': variables.keys.toList()},
+      );
+      return {'count': entries.length, 'variables': entries};
+    },
+  );
+}
+
+/// Creates the tool that returns the print output of the current macro run.
+Tool<Map<String, dynamic>> createReadPrintOutputTool({
+  required MacroPrintOutputReader readPrintOutput,
+  String agentName = 'unknown',
+}) {
+  return Tool<Map<String, dynamic>>(
+    name: 'read_print_output',
+    description:
+        'Return the output of the print() statements of the current macro run '
+        '— the same lines the Macro Editor shows in its Print Output panel, in '
+        'output order. Call this to read computed or measured values a macro '
+        'logged. Returns an empty list before any print() statement ran.',
+    inputSchema: Schema.fromMap({
+      'type': 'object',
+      'properties': <String, dynamic>{},
+    }),
+    onCall: (args) async {
+      final messages = readPrintOutput();
+      AppLogger(
+        agentName: agentName,
+        toolName: 'read_print_output',
+      ).logToolCall(input: const {}, output: {'count': messages.length});
+      return {'count': messages.length, 'messages': messages};
+    },
+  );
+}
+
+/// Creates the tool that returns the current warning/error log.
+Tool<Map<String, dynamic>> createReadErrorLogTool({
+  required MacroErrorLogReader readErrorLog,
+  String agentName = 'unknown',
+}) {
+  return Tool<Map<String, dynamic>>(
+    name: 'read_error_log',
+    description:
+        'Return the most recent warning and error entries of the application '
+        'log, oldest first. This includes macro playback errors and the SCPI '
+        'errors that stopped a run. Call this when a macro failed or the user '
+        'reports an error, to quote the exact message instead of guessing.',
+    inputSchema: Schema.fromMap({
+      'type': 'object',
+      'properties': <String, dynamic>{},
+    }),
+    onCall: (args) async {
+      final entries = await readErrorLog();
+      AppLogger(
+        agentName: agentName,
+        toolName: 'read_error_log',
+      ).logToolCall(input: const {}, output: {'count': entries.length});
+      return {'count': entries.length, 'entries': entries};
+    },
+  );
+}

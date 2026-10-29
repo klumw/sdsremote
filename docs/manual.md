@@ -124,6 +124,7 @@ See [11. Application Directory](#11-application-directory) (Application Director
   * The sparkle icon next to the **SDS-Remote Help** title opens the AI Help Assistant.  
     It answers questions from this manual and links directly to the matching sections; clicking such a link closes the assistant and jumps to the section
   * The sparkle icon is only active while an AI provider, API token and model are configured (see [4. AI System](#4-ai-system))
+  * When you report a problem with the application, the assistant can inspect the application log and suggest a next step
 
 * **News**  
   * Displays application updates

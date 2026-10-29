@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 
+import '../tools/log_tool.dart';
 import '../tools/math_tool.dart';
 import '../tools/measurement_tool.dart';
 import '../tools/vxi11_tool.dart';
@@ -14,7 +15,8 @@ import 'max_tool_calls_handler.dart';
 /// console applications and Flutter apps.
 ///
 /// By default, the agent is equipped with a VXI-11 tool that allows it
-/// to send SCPI commands and queries to a remote instrument, plus two
+/// to send SCPI commands and queries to a remote instrument, a log tool that
+/// lets it inspect the application log when a command fails, plus two
 /// deterministic tools that need no instrument connection:
 /// [createMeasurementTool], which turns raw `PAVA` responses such as
 /// `C1:PAVA PKPK,3.000000E+00V` into structured values, and
@@ -57,6 +59,10 @@ class InstrumentAgent with MaxToolCallsHandler {
   ///
   /// The [tools] parameter allows adding additional custom tools.
   ///
+  /// The [readLog] parameter overrides how the `read_log_file` tool reads the
+  /// application log. It is primarily useful for tests; production code uses
+  /// the default reader for `sds/logging/sds.log`.
+  ///
   /// The [maxToolCalls] parameter limits the number of tool calls per
   /// user input. Defaults to [defaultMaxToolCalls] (10).
   InstrumentAgent({
@@ -65,6 +71,7 @@ class InstrumentAgent with MaxToolCallsHandler {
     String? vxi11Host,
     List<Tool>? tools,
     ScpiCommandCallback? onCommandSent,
+    LogReader? readLog,
     this.maxToolCalls = defaultMaxToolCalls,
   }) : _agent = Agent(
          model,
@@ -81,6 +88,22 @@ class InstrumentAgent with MaxToolCallsHandler {
            // Deterministic math on measured numbers (gain in dB, and any
            // operation added later); needs no instrument connection.
            createMathTool(agentName: 'InstrumentAgent'),
+           // Lets the agent inspect the application log when a SCPI command or
+           // the communication itself fails.
+           createLogFileTool(
+             readLog: readLog,
+             agentName: 'InstrumentAgent',
+             description:
+                 'Return the most recent lines of the SDS-Remote application '
+                 'log (sds.log in the application temp directory). Call this '
+                 'when a SCPI command fails, the communication tool returns an '
+                 'error, or the instrument reports an unexpected error: search '
+                 'for the failing command with "contains", quote the matching '
+                 'lines and explain the failure with one concrete next step. '
+                 'By default only warning and error lines are returned; set '
+                 'errors_only to false to include all recent lines for '
+                 'context.',
+           ),
            ...?tools,
          ],
          maxToolCalls: maxToolCalls,
