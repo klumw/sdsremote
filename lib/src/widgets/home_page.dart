@@ -1129,9 +1129,10 @@ class _OsciHomePageState extends State<OsciHomePage>
                         color: Colors.red,
                       )
                     : const Icon(Icons.movie, size: 25)),
-          onPressed: _isOnline
-              ? () => _togglePanel(ActivePanel.macroRecorder)
-              : null,
+          // Always available so a macro can be reviewed and edited while the
+          // oscilloscope is offline; the panel disables the device-dependent
+          // actions itself.
+          onPressed: () => _togglePanel(ActivePanel.macroRecorder),
         ),
       ],
     );

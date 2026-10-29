@@ -756,7 +756,7 @@ cmd(SIG, "SOUR1:FREQ 1KHZ")
 query(SIG, "SOUR1:FREQ?")
 ```
 
-The `SIG` selector sends the command to the signal generator connected with `connect(SIG, usb)` instead of the oscilloscope. These commands use the same SCPI driver as the [signal generator window](#911-signal-generator-window-ctrlj) and the Bode plot, so only headers defined by that driver are accepted; an undefined header stops playback with a SCPI error (e.g. `-113`). `query(SIG, …)` returns the driver's response and can be used everywhere `query(…)` is allowed: as a statement, in assignments, in `print()`, and in conditions. Use `cmd(SIG, …)` for set commands and `query(SIG, …)` for queries.
+The `SIG` selector sends the command to the signal generator connected with `connect(SIG, usb)` instead of the oscilloscope. These commands use the same SCPI driver as the [signal generator window](#911-signal-generator-window-ctrlj) and the Bode plot, so only headers defined by that driver are accepted; an undefined header stops playback with a SCPI error (e.g. `-113`). The complete command reference is in [section 14](#14-scpi-commands-signal-generator). `query(SIG, …)` returns the driver's response and can be used everywhere `query(…)` is allowed: as a statement, in assignments, in `print()`, and in conditions. Use `cmd(SIG, …)` for set commands and `query(SIG, …)` for queries.
 
 A device handle opened with `myscope = connect("192.168.1.100")` can be used instead of `SIG` as the selector, for example `cmd(myscope, "ASET")` or `query(myscope, "*IDN?")`. See [section 7.5.1](#751-connection).
 
@@ -1454,8 +1454,121 @@ Files are stored in various subfolders of the application directory, depending o
 
 ---
 
+## 14. SCPI Commands Signal Generator
 
-## 14. Support and Feedback
+The macros using `connect(SIG, usb)` share one SCPI layer. The JOY-IT/Juntek JDS6600 and the FeelElec FY6900 therefore accept the same command set; only the waveform names and the phase and duty handling differ (see [section 14.5](#145-waveform-names) and [section 14.6](#146-family-specific-behavior)).
+
+This is a SCPI emulation subset, not a complete implementation:
+
+* One command per line. Command chaining with `;` is rejected.
+* `<n>` is the channel number: `1` or `2`.
+* Header segments and units are case-insensitive; whole segments may be abbreviated with the aliases in [section 14.4](#144-units-and-header-aliases).
+* Commands are sent to the generator from a macro with the `SIG` selector — `cmd(SIG, "…")` for set commands and `query(SIG, "…")` for queries; see [section 7.5.2](#752-scpi-commands).
+
+> **Note:** The generator must be selected in **Settings → Signal Generator** (see [section 3.6](#36-signal-generator)) and connected with `connect(SIG, usb)` before a command is accepted. An undefined header stops macro playback with a SCPI error.
+
+### 14.1 Common Commands
+
+| SCPI cmd/query | Documentation | Example |
+|:---------------|:--------------|:--------|
+| `*IDN?` | Device identity as `manufacturer,model,serial,N/A`. Requires a detected generator. | `JOY-IT,JDS6600-LITE,12345,N/A` |
+| `*RST` | Safe reset of both channels: outputs off, sine, 1 kHz, 1 Vpp, 0 V offset, 50 % duty, 0° phase. | `*RST` |
+| `*CLS` | Clears the error queue. | `*CLS` |
+| `*OPC?` | Operation complete; always returns `1`. | `1` |
+| `SYST:ERR?` | Oldest queued error as `code,"message"` and removes it from the queue. An empty queue returns `0,"No error"`. | `0,"No error"` |
+| `SYST:ERR:COUN?` | Number of queued errors. | `0` |
+| `SYST:VERS?` | SCPI version. | `1999.0` |
+| `SYST:COMM:BAUD?` | Serial port baud rate. | `115200` |
+| `SYST:LOC` | Accepted without effect. | `SYST:LOC` |
+| `SYST:REM` | Accepted without effect. | `SYST:REM` |
+
+### 14.2 Source Commands
+
+| SCPI cmd/query | Documentation | Example |
+|:---------------|:--------------|:--------|
+| `SOUR<n>:FUNC <shape>` | Sets the waveform; accepted shapes in [section 14.5](#145-waveform-names). `ARB` is rejected with -113. | `SOUR1:FUNC SIN` |
+| `SOUR<n>:FUNC?` | Returns the waveform mnemonic. | `SIN` |
+| `SOUR<n>:FREQ <value>[unit]` | Sets the frequency; no unit means Hz. The value must be positive and within the model and waveform limit (see [section 10.2](#102-signal-generators-and-model-limits)). | `SOUR1:FREQ 1KHZ` |
+| `SOUR<n>:FREQ?` | Returns the frequency in Hz with two decimals. | `1000.00` |
+| `SOUR<n>:VOLT <value>[unit]` | Sets the amplitude in Vpp; no unit means V. | `SOUR1:VOLT 3.3VPP` |
+| `SOUR<n>:VOLT?` | Returns the amplitude in Vpp with three decimals. | `3.300` |
+| `SOUR<n>:VOLT:OFFS <value>[unit]` | Sets the DC offset; no unit means V. | `SOUR1:VOLT:OFFS -1.5V` |
+| `SOUR<n>:VOLT:OFFS?` | Returns the DC offset in V with two decimals. | `-1.50` |
+| `SOUR<n>:PHAS <value>[unit]` | Sets the phase; no unit means degrees. | `SOUR1:PHAS 90DEG` |
+| `SOUR<n>:PHAS?` | Returns the phase in degrees with one decimal. | `90.0` |
+| `SOUR<n>:PULS:DCYC <value>[unit]` | Sets the pulse duty cycle; no unit means %. | `SOUR1:PULS:DCYC 25` |
+| `SOUR<n>:PULS:DCYC?` | Returns the pulse duty cycle with one decimal. | `25.0` |
+| `SOUR<n>:FUNC:SQU:DCYC <value>[unit]` | Sets the square duty cycle; no unit means %. | `SOUR1:FUNC:SQU:DCYC 50` |
+| `SOUR<n>:FUNC:SQU:DCYC?` | Returns the square duty cycle with one decimal. | `50.0` |
+
+Set commands return no response.
+
+### 14.3 Output Commands
+
+| SCPI cmd/query | Documentation | Example |
+|:---------------|:--------------|:--------|
+| `OUTP<n>:STAT <state>` | Switches the channel output on or off. Accepts `ON`, `OFF`, `1` and `0`. | `OUTP1:STAT ON` |
+| `OUTP<n>:STAT?` | Returns `1` when the channel output is on, otherwise `0`. | `1` |
+| `OUTP<n> <state>` | Short form without the `STAT` node; equivalent to `OUTP<n>:STAT`. | `OUTP1 ON` |
+| `OUTP<n>?` | Short form; equivalent to `OUTP<n>:STAT?`. | `1` |
+| `OUTP:ALL <state>` | Switches both outputs together. | `OUTP:ALL OFF` |
+| `OUTP:ALL?` | Returns `1` only when both outputs are on, otherwise `0`. | `0` |
+
+### 14.4 Units and Header Aliases
+
+Units are optional and case-insensitive; the default applies when the unit is omitted. Units are accepted as a suffix of the value (`1KHZ`, `3.3VPP`) or separated by a space (`1 KHZ`).
+
+| Parameter | Units | Default |
+|:----------|:------|:--------|
+| `FREQ` | `HZ`, `KHZ`, `MHZ` | Hz |
+| `VOLT` | `V`, `VPP`, `MV` | V |
+| `VOLT:OFFS` | `V`, `VPP`, `MV` | V |
+| `PULS:DCYC`, `FUNC:SQU:DCYC` | `%`, `PCT` | % |
+| `PHAS` | `DEG`, `DEGREE` | Degrees |
+
+A whole header segment may be replaced by one of these aliases: `SOURCE` = `SOUR`, `OUTPUT` = `OUTP`, `VOLTAGE` = `VOLT`, `OFFSET` = `OFFS`, `FUNCTION` = `FUNC`, `DCYCLE` = `DCYC`, `PHASE` = `PHAS`, `STATE` = `STAT`, `FREQUENCY` = `FREQ`. `SQUARE` and `PULSE` are not header aliases — use `SQU` and `PULS`.
+
+### 14.5 Waveform Names
+
+| Generator | Waveform names |
+|:----------|:---------------|
+| JDS6600 | `SIN`, `SQU`, `PULS`, `TRI`, `PSIN`, `CMOS`, `DC`, `HALF`, `FULL`, `POSL`, `NEGL`, `NOIS`, `ERIS`, `EDEC`, `MTON`, `SINC`, `LOR` |
+| FY6900 | `SIN`, `SQU`, `RECT`, `TRAP`, `CMOS`, `PULS`, `DC`, `TRI`, `RAMP`, `NRMP`, `STRG`, `STPS`, `NSTP`, `PEXP`, `NEXP`, `PFEX`, `NFEX`, `PLOG`, `NLOG`, `PFLO`, `NFLO`, `PFUL`, `NFUL`, `PHAL`, `NHAL`, `LOR`, `MTON`, `NOIS`, `ECG`, `SINC`, `IMPU`, `AWGN`, `AM`, `FM`, `CHIR` |
+
+* Both families also accept the long spellings `SINE`, `SQUARE`, `PULSE`, `TRIANGLE` and `NOISE`; the FY6900 additionally accepts `RECTANGLE`, `TRAPEZOID` and `RAMP`.
+* FY6900-only names (`RECT`, `TRAP`, `RAMP`, …) are rejected with -222 on the JDS6600. On the FY6900, JDS6600-only names are mapped to the closest preset (for example `PSIN` to sine); `PULS` on channel 2 becomes `RECT`.
+* `ARB` is not available on either family: `SOUR<n>:FUNC ARB` and `SOUR<n>:FUNC:ARB` return -113.
+
+### 14.6 Family-Specific Behavior
+
+* **Phase** — the JDS6600 has one global CH2-vs-CH1 phase register, so `SOUR1:PHAS` and `SOUR2:PHAS` address the same value and both queries return it. The FY6900 stores the phase per channel.
+* **Duty cycle** — on the JDS6600 the duty cycle applies to the pulse and square shape. On the FY6900 the square shape is fixed at 50 %; a duty command switches the channel to Rectangle (`RECT`) so the value takes effect.
+* **Limits** — values are checked against the detected model and the active waveform; the limits are listed in [section 10.2](#102-signal-generators-and-model-limits). Duty cycle is 0–100 % on the JDS6600 and 0.1–99.9 % on the FY6900; phase is 0–360° on both.
+
+### 14.7 Errors and Unsupported Commands
+
+| Error code | Meaning |
+|:-----------|:--------|
+| -100 | Device error |
+| -113 | Undefined header |
+| -114 | Invalid channel suffix |
+| -222 | Value out of range |
+| -224 | Invalid parameter |
+
+Errors are queued and read with `SYST:ERR?` or counted with `SYST:ERR:COUN?`. During macro playback an error stops the playback.
+
+The following are not supported and return -113:
+
+* Command chaining with `;`
+* `MEAS`, `READ` and `CALC` subsystems
+* Sweep (`SOUR:SWE`), burst (`SOUR:BURS`) and arbitrary waveforms (`SOUR:FUNC:ARB`)
+* Pulse parameters other than `SOUR<n>:PULS:DCYC`
+* Channel suffixes other than `1` or `2` (returns -114)
+
+---
+
+
+## 15. Support and Feedback
 
 ### Logging Directory
 
@@ -1469,6 +1582,6 @@ The log directory  is at `/tmp/sds/logging/sds.log` (Linux) or `%TEMP%\sds\loggi
 
 ---
 
-## 15. License
+## 16. License
 
 This software is released under the terms and conditions of the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0.html).
