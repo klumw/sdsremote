@@ -219,6 +219,7 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
   Widget _buildPrintOutputPanel(MacroPrintController controller) {
     final messages = controller.messages;
     return Container(
+      key: const ValueKey('macro-recorder-print-panel'),
       decoration: BoxDecoration(
         color: const Color(0xFF0D0D0D),
         borderRadius: BorderRadius.circular(8),
@@ -300,9 +301,10 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
     final activePrintController = showPrint ? printController : null;
 
     return Container(
-      // The print panel sits to the left of the file list (300 px + 16 px
-      // left padding + 12 px gap). The recorder content keeps its 680 px.
-      width: showPrint ? 1008 : 680,
+      // With the print panel the recorder fills the window so the print
+      // panel can grow to the left; the file list keeps its 680 px. Without
+      // print output the recorder keeps its usual 680 px width.
+      width: showPrint ? double.infinity : 680,
       decoration: BoxDecoration(
         color: const Color(0xFF0A192F),
         border: Border.all(color: const Color(0xFF475569)),
@@ -415,317 +417,353 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
             ),
 
           Expanded(
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Print output, to the left of the file list. Hidden until
-                // the first print() statement produced output.
-                if (activePrintController != null) ...[
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(16, 16, 0, 16),
-                    child: SizedBox(
-                      width: 300,
-                      child: _buildPrintOutputPanel(activePrintController),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                ],
-                Expanded(
-                  child: Column(
-                    children: [
-                      // ==================================================
-                      // Action Buttons Row
-                      // ==================================================
-                      Padding(
-                        padding: const EdgeInsets.all(16),
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: const Color(
-                              0xFF1E1E1E,
-                            ).withValues(alpha: 0.95),
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.cyanAccent,
-                              width: 1.0,
-                            ),
-                          ),
-                          child: Row(
-                            children: [
-                              // New Record button
-                              Expanded(
-                                child: _buildActionButton(
-                                  label: widget.isRecording
-                                      ? "Recording..."
-                                      : "New Record",
-                                  icon: widget.isRecording
-                                      ? AnimatedBuilder(
-                                          animation: _blinkAnimation,
-                                          builder: (context, child) {
-                                            return Container(
-                                              width: 14,
-                                              height: 14,
-                                              decoration: BoxDecoration(
-                                                color: Colors.red.withValues(
-                                                  alpha: _blinkAnimation.value,
-                                                ),
-                                                shape: BoxShape.circle,
-                                              ),
-                                            );
-                                          },
-                                        )
-                                      : const Icon(
-                                          Icons.fiber_manual_record,
-                                          size: 18,
-                                        ),
-                                  onPressed:
-                                      (widget.isRecording || widget.isPlaying)
-                                      ? null
-                                      : _onNewRecordPressed,
-                                  color: widget.isRecording
-                                      ? Colors.grey[800]!
-                                      : Colors.red[800]!,
-                                  disabled:
-                                      widget.isRecording || widget.isPlaying,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              // Stop button (also active during playback to cancel it)
-                              Expanded(
-                                child: _buildActionButton(
-                                  label: widget.isPlaying
-                                      ? "Stop Playback"
-                                      : "Stop",
-                                  icon: const Icon(Icons.stop, size: 18),
-                                  onPressed:
-                                      (widget.isRecording || widget.isPlaying)
-                                      ? widget.onStop
-                                      : null,
-                                  color: widget.isPlaying
-                                      ? Colors.red[800]!
-                                      : Colors.orange[800]!,
-                                  disabled:
-                                      !widget.isRecording && !widget.isPlaying,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              // Play button
-                              Expanded(
-                                child: _buildActionButton(
-                                  label: "Play",
-                                  icon: const Icon(Icons.play_arrow, size: 18),
-                                  onPressed:
-                                      (widget.isPlaying || !widget.hasContent)
-                                      ? null
-                                      : widget.onPlay,
-                                  color: Colors.green[800]!,
-                                  disabled:
-                                      widget.isRecording ||
-                                      widget.isPlaying ||
-                                      !widget.hasContent,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              // Edit button
-                              Expanded(
-                                child: _buildActionButton(
-                                  label: "Edit",
-                                  icon: const Icon(Icons.edit, size: 18),
-                                  onPressed:
-                                      (widget.isRecording ||
-                                          widget.isPlaying ||
-                                          !widget.hasContent)
-                                      ? null
-                                      : widget.onEdit,
-                                  color: Colors.blue[800]!,
-                                  disabled:
-                                      widget.isRecording ||
-                                      widget.isPlaying ||
-                                      !widget.hasContent,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              // Save button
-                              Expanded(
-                                child: _buildActionButton(
-                                  label: "Save",
-                                  icon: const Icon(Icons.save, size: 18),
-                                  onPressed:
-                                      (widget.isRecording ||
-                                          widget.isPlaying ||
-                                          !widget.isSaveEnabled)
-                                      ? null
-                                      : widget.onSave,
-                                  color: Colors.cyan[800]!,
-                                  disabled:
-                                      widget.isRecording ||
-                                      widget.isPlaying ||
-                                      !widget.isSaveEnabled,
-                                ),
-                              ),
-                            ],
-                          ),
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                final available = constraints.maxWidth;
+                // The file list keeps its width; the print panel fills the
+                // space to its left and follows window resizes.
+                final recorderWidth = showPrint ? 680.0 : available;
+                final printWidth = showPrint
+                    ? (available - recorderWidth - 12)
+                          .clamp(0.0, double.infinity)
+                          .toDouble()
+                    : 0.0;
+
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Print output, to the left of the file list. Hidden until
+                    // the first print() statement produced output.
+                    if (activePrintController != null) ...[
+                      SizedBox(
+                        width: printWidth,
+                        child: Padding(
+                          // No left padding: the panel reaches the left edge
+                          // of the window.
+                          padding: const EdgeInsets.fromLTRB(0, 16, 0, 16),
+                          child: _buildPrintOutputPanel(activePrintController),
                         ),
                       ),
-
-                      const Divider(color: Colors.white12, height: 1),
-
-                      // ==================================================================
-                      // Sort Controls
-                      // ==================================================================
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 8,
-                        ),
-                        child: Row(
-                          children: [
-                            const Text(
-                              "Sort by:",
-                              style: TextStyle(
-                                color: Colors.white38,
-                                fontSize: 12,
+                      const SizedBox(width: 12),
+                    ],
+                    SizedBox(
+                      width: recorderWidth,
+                      child: Column(
+                        children: [
+                          // ==================================================
+                          // Action Buttons Row
+                          // ==================================================
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: const Color(
+                                  0xFF1E1E1E,
+                                ).withValues(alpha: 0.95),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Colors.cyanAccent,
+                                  width: 1.0,
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  // New Record button
+                                  Expanded(
+                                    child: _buildActionButton(
+                                      label: widget.isRecording
+                                          ? "Recording..."
+                                          : "New Record",
+                                      icon: widget.isRecording
+                                          ? AnimatedBuilder(
+                                              animation: _blinkAnimation,
+                                              builder: (context, child) {
+                                                return Container(
+                                                  width: 14,
+                                                  height: 14,
+                                                  decoration: BoxDecoration(
+                                                    color: Colors.red
+                                                        .withValues(
+                                                          alpha: _blinkAnimation
+                                                              .value,
+                                                        ),
+                                                    shape: BoxShape.circle,
+                                                  ),
+                                                );
+                                              },
+                                            )
+                                          : const Icon(
+                                              Icons.fiber_manual_record,
+                                              size: 18,
+                                            ),
+                                      onPressed:
+                                          (widget.isRecording ||
+                                              widget.isPlaying)
+                                          ? null
+                                          : _onNewRecordPressed,
+                                      color: widget.isRecording
+                                          ? Colors.grey[800]!
+                                          : Colors.red[800]!,
+                                      disabled:
+                                          widget.isRecording ||
+                                          widget.isPlaying,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Stop button (also active during playback to cancel it)
+                                  Expanded(
+                                    child: _buildActionButton(
+                                      label: widget.isPlaying
+                                          ? "Stop Playback"
+                                          : "Stop",
+                                      icon: const Icon(Icons.stop, size: 18),
+                                      onPressed:
+                                          (widget.isRecording ||
+                                              widget.isPlaying)
+                                          ? widget.onStop
+                                          : null,
+                                      color: widget.isPlaying
+                                          ? Colors.red[800]!
+                                          : Colors.orange[800]!,
+                                      disabled:
+                                          !widget.isRecording &&
+                                          !widget.isPlaying,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Play button
+                                  Expanded(
+                                    child: _buildActionButton(
+                                      label: "Play",
+                                      icon: const Icon(
+                                        Icons.play_arrow,
+                                        size: 18,
+                                      ),
+                                      onPressed:
+                                          (widget.isPlaying ||
+                                              !widget.hasContent)
+                                          ? null
+                                          : widget.onPlay,
+                                      color: Colors.green[800]!,
+                                      disabled:
+                                          widget.isRecording ||
+                                          widget.isPlaying ||
+                                          !widget.hasContent,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Edit button
+                                  Expanded(
+                                    child: _buildActionButton(
+                                      label: "Edit",
+                                      icon: const Icon(Icons.edit, size: 18),
+                                      onPressed:
+                                          (widget.isRecording ||
+                                              widget.isPlaying ||
+                                              !widget.hasContent)
+                                          ? null
+                                          : widget.onEdit,
+                                      color: Colors.blue[800]!,
+                                      disabled:
+                                          widget.isRecording ||
+                                          widget.isPlaying ||
+                                          !widget.hasContent,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // Save button
+                                  Expanded(
+                                    child: _buildActionButton(
+                                      label: "Save",
+                                      icon: const Icon(Icons.save, size: 18),
+                                      onPressed:
+                                          (widget.isRecording ||
+                                              widget.isPlaying ||
+                                              !widget.isSaveEnabled)
+                                          ? null
+                                          : widget.onSave,
+                                      color: Colors.cyan[800]!,
+                                      disabled:
+                                          widget.isRecording ||
+                                          widget.isPlaying ||
+                                          !widget.isSaveEnabled,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            _buildSortButton("Name", MacroSortType.name),
-                            const SizedBox(width: 8),
-                            _buildSortButton("Date", MacroSortType.date),
-                            const Spacer(),
-                            IconButton(
-                              icon: Icon(
-                                _isAscending
-                                    ? Icons.arrow_upward
-                                    : Icons.arrow_downward,
-                                color: Colors.cyanAccent,
-                                size: 16,
-                              ),
-                              tooltip: _isAscending
-                                  ? 'Ascending'
-                                  : 'Descending',
-                              onPressed: () =>
-                                  setState(() => _isAscending = !_isAscending),
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints(),
-                            ),
-                          ],
-                        ),
-                      ),
+                          ),
 
-                      // ==================================================================
-                      // Macro File List
-                      // ==================================================================
-                      Expanded(
-                        child: widget.macroFiles.isEmpty
-                            ? const Center(
-                                child: Text(
-                                  "No macro files found",
+                          const Divider(color: Colors.white12, height: 1),
+
+                          // ==================================================================
+                          // Sort Controls
+                          // ==================================================================
+                          Padding(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
+                            child: Row(
+                              children: [
+                                const Text(
+                                  "Sort by:",
                                   style: TextStyle(
                                     color: Colors.white38,
-                                    fontSize: 14,
+                                    fontSize: 12,
                                   ),
                                 ),
-                              )
-                            : ListView.builder(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 16,
-                                  vertical: 8,
+                                const SizedBox(width: 8),
+                                _buildSortButton("Name", MacroSortType.name),
+                                const SizedBox(width: 8),
+                                _buildSortButton("Date", MacroSortType.date),
+                                const Spacer(),
+                                IconButton(
+                                  icon: Icon(
+                                    _isAscending
+                                        ? Icons.arrow_upward
+                                        : Icons.arrow_downward,
+                                    color: Colors.cyanAccent,
+                                    size: 16,
+                                  ),
+                                  tooltip: _isAscending
+                                      ? 'Ascending'
+                                      : 'Descending',
+                                  onPressed: () => setState(
+                                    () => _isAscending = !_isAscending,
+                                  ),
+                                  padding: EdgeInsets.zero,
+                                  constraints: const BoxConstraints(),
                                 ),
-                                itemCount: sortedList.length,
-                                itemBuilder: (context, index) {
-                                  final macro = sortedList[index];
-                                  final displayName = _displayName(
-                                    macro.fileName,
-                                  );
+                              ],
+                            ),
+                          ),
 
-                                  return Container(
-                                    margin: const EdgeInsets.only(bottom: 8),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 12,
-                                      vertical: 10,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: const Color(
-                                        0xFF172A45,
-                                      ).withValues(alpha: 0.5),
-                                      borderRadius: BorderRadius.circular(8),
-                                      border: Border.all(
-                                        color: const Color(
-                                          0xFF475569,
-                                        ).withValues(alpha: 0.5),
+                          // ==================================================================
+                          // Macro File List
+                          // ==================================================================
+                          Expanded(
+                            child: widget.macroFiles.isEmpty
+                                ? const Center(
+                                    child: Text(
+                                      "No macro files found",
+                                      style: TextStyle(
+                                        color: Colors.white38,
+                                        fontSize: 14,
                                       ),
                                     ),
-                                    child: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.description,
-                                          color: Colors.white38,
-                                          size: 20,
-                                        ),
-                                        const SizedBox(width: 12),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment:
-                                                CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                displayName,
-                                                style: const TextStyle(
-                                                  color: Colors.white,
-                                                  fontSize: 14,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                              const SizedBox(height: 2),
-                                              Text(
-                                                _formatDate(macro.lastModified),
-                                                style: const TextStyle(
-                                                  color: Colors.white38,
-                                                  fontSize: 11,
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                        // Load button
-                                        IconButton(
-                                          icon: Icon(
-                                            Icons.file_upload,
-                                            color: widget.isOnline
-                                                ? Colors.greenAccent
-                                                : Colors.white24,
-                                            size: 20,
-                                          ),
-                                          tooltip: widget.isOnline
-                                              ? 'Load Macro'
-                                              : 'Device Offline',
-                                          onPressed: widget.isOnline
-                                              ? () => widget.onLoad(
-                                                  macro.fileName,
-                                                )
-                                              : null,
-                                        ),
-                                        // Delete button
-                                        IconButton(
-                                          icon: const Icon(
-                                            Icons.delete_outline,
-                                            color: Colors.redAccent,
-                                            size: 20,
-                                          ),
-                                          tooltip: 'Delete Macro',
-                                          onPressed: () =>
-                                              widget.onDelete(macro.fileName),
-                                        ),
-                                      ],
+                                  )
+                                : ListView.builder(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 16,
+                                      vertical: 8,
                                     ),
-                                  );
-                                },
-                              ),
+                                    itemCount: sortedList.length,
+                                    itemBuilder: (context, index) {
+                                      final macro = sortedList[index];
+                                      final displayName = _displayName(
+                                        macro.fileName,
+                                      );
+
+                                      return Container(
+                                        margin: const EdgeInsets.only(
+                                          bottom: 8,
+                                        ),
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 12,
+                                          vertical: 10,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: const Color(
+                                            0xFF172A45,
+                                          ).withValues(alpha: 0.5),
+                                          borderRadius: BorderRadius.circular(
+                                            8,
+                                          ),
+                                          border: Border.all(
+                                            color: const Color(
+                                              0xFF475569,
+                                            ).withValues(alpha: 0.5),
+                                          ),
+                                        ),
+                                        child: Row(
+                                          children: [
+                                            const Icon(
+                                              Icons.description,
+                                              color: Colors.white38,
+                                              size: 20,
+                                            ),
+                                            const SizedBox(width: 12),
+                                            Expanded(
+                                              child: Column(
+                                                crossAxisAlignment:
+                                                    CrossAxisAlignment.start,
+                                                children: [
+                                                  Text(
+                                                    displayName,
+                                                    style: const TextStyle(
+                                                      color: Colors.white,
+                                                      fontSize: 14,
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                                  ),
+                                                  const SizedBox(height: 2),
+                                                  Text(
+                                                    _formatDate(
+                                                      macro.lastModified,
+                                                    ),
+                                                    style: const TextStyle(
+                                                      color: Colors.white38,
+                                                      fontSize: 11,
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ),
+                                            // Load button
+                                            IconButton(
+                                              icon: Icon(
+                                                Icons.file_upload,
+                                                color: widget.isOnline
+                                                    ? Colors.greenAccent
+                                                    : Colors.white24,
+                                                size: 20,
+                                              ),
+                                              tooltip: widget.isOnline
+                                                  ? 'Load Macro'
+                                                  : 'Device Offline',
+                                              onPressed: widget.isOnline
+                                                  ? () => widget.onLoad(
+                                                      macro.fileName,
+                                                    )
+                                                  : null,
+                                            ),
+                                            // Delete button
+                                            IconButton(
+                                              icon: const Icon(
+                                                Icons.delete_outline,
+                                                color: Colors.redAccent,
+                                                size: 20,
+                                              ),
+                                              tooltip: 'Delete Macro',
+                                              onPressed: () => widget.onDelete(
+                                                macro.fileName,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      );
+                                    },
+                                  ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ),
-              ],
+                    ),
+                  ],
+                );
+              },
             ),
           ),
         ],

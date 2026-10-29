@@ -1446,10 +1446,10 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   bool _showMacroEditor = false;
 
-  /// Whether the user last worked in the Macro Editor rather than in the
-  /// recorder file list. Opening the macro recorder panel restores that mode,
-  /// so returning to the panel does not require pressing Edit again.
-  bool _macroEditorPreferred = false;
+  /// Whether the Macro Editor (rather than the recorder file list) was the
+  /// view shown when the macro panel was last left. Reopening the panel
+  /// restores exactly that view.
+  bool _lastMacroPanelWasEditor = false;
 
   Widget _buildMacroRecorderWindow() {
     if (_showMacroEditor) {
@@ -2058,7 +2058,6 @@ class _OsciHomePageState extends State<OsciHomePage>
       _macroStatus = null;
       _macroStatusMessage = null;
       _macroHadPlaybackError = false;
-      _macroEditorPreferred = true;
       _showMacroEditor = true;
     });
   }
@@ -2133,8 +2132,8 @@ class _OsciHomePageState extends State<OsciHomePage>
         _currentMacroContent = content;
         _loadedMacroFileName = fileName;
         _isMacroModified = false;
-        _macroEditorPreferred = true;
-        _showMacroEditor = true;
+        // Loading from the file list keeps the recorder view; the editor
+        // opens only when the user presses Edit.
       });
     } catch (e) {
       AppLogger().error('Load macro error: $e');
@@ -2233,6 +2232,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   void _togglePanel(ActivePanel panel) {
+    final previousActivePanel = _activePanel;
     final bool wasOnControlPanel =
         _activePanel == ActivePanel.none && !_waveformAcquired;
     // Leaving the Control Panel stops its periodic screen capture and the
@@ -2273,6 +2273,13 @@ class _OsciHomePageState extends State<OsciHomePage>
         _activePanel = panel;
       }
 
+      // Remember exactly which macro view (player or editor) was visible
+      // when the macro panel was left.
+      if (previousActivePanel == ActivePanel.macroRecorder &&
+          _activePanel != ActivePanel.macroRecorder) {
+        _lastMacroPanelWasEditor = _showMacroEditor;
+      }
+
       // Special logic for profiles
       if (_activePanel == ActivePanel.profiles) {
         _loadProfileFiles();
@@ -2280,9 +2287,8 @@ class _OsciHomePageState extends State<OsciHomePage>
 
       // Special logic for macro recorder
       if (_activePanel == ActivePanel.macroRecorder) {
-        // Return to the mode the user last worked in: the editor if it was
-        // used before, otherwise the recorder file list.
-        _showMacroEditor = _macroEditorPreferred;
+        // Restore the view the user left.
+        _showMacroEditor = _lastMacroPanelWasEditor;
         _loadMacroFiles();
       }
     });
