@@ -214,15 +214,22 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   /// first build and reused afterwards.
   double? _editorCharWidth;
 
+  /// Smallest height of the variables and print panes.
+  static const double _minVariablePaneHeight = 60;
+
   /// Widths set by dragging a panel boundary; null restores the automatic
   /// width for that panel.
   double? _sidebarWidthOverride;
   double? _chatWidthOverride;
 
+  /// Height of the variables pane set by dragging; null restores the
+  /// automatic 50/50 split.
+  double? _variablesPaneHeightOverride;
+
   /// Drag state of the active panel boundary.
-  double? _dragStartWidth;
+  double? _dragStartSize;
   double _dragDistance = 0;
-  double _dragMaxWidth = 0;
+  double _dragMaxSize = 0;
 
   /// Pre-computed line metrics measured by running the editor's text
   /// through the same [TextPainter] configuration that [RenderEditable]
@@ -551,12 +558,16 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     return width;
   }
 
-  /// Starts dragging a panel boundary at [width].
+  /// Starts dragging a panel boundary at [size].
   ///
-  /// [maxWidth] keeps the editor at its 60-character minimum.
-  void _beginPanelDrag(double width, double maxWidth) {
-    _dragStartWidth = width;
-    _dragMaxWidth = maxWidth.clamp(_minResizablePanelWidth, double.infinity);
+  /// [maxSize] keeps the editor at its 60-character minimum.
+  void _beginPanelDrag(
+    double size,
+    double maxSize, {
+    double minSize = _minResizablePanelWidth,
+  }) {
+    _dragStartSize = size;
+    _dragMaxSize = maxSize.clamp(minSize, double.infinity);
     _dragDistance = 0;
   }
 
@@ -564,12 +575,12 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   ///
   /// Resizes the sidebar when [left] is true, the chat panel otherwise.
   void _updatePanelDrag(double dx, {required bool left}) {
-    final start = _dragStartWidth;
+    final start = _dragStartSize;
     if (start == null) return;
 
     _dragDistance += dx;
     final width = (start + (left ? _dragDistance : -_dragDistance))
-        .clamp(_minResizablePanelWidth, _dragMaxWidth)
+        .clamp(_minResizablePanelWidth, _dragMaxSize)
         .toDouble();
     setState(() {
       if (left) {
@@ -580,8 +591,20 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     });
   }
 
+  /// Moves the dragged variables/print boundary by [dy].
+  void _updateVariablesDrag(double dy) {
+    final start = _dragStartSize;
+    if (start == null) return;
+
+    _dragDistance += dy;
+    final height = (start + _dragDistance)
+        .clamp(_minVariablePaneHeight, _dragMaxSize)
+        .toDouble();
+    setState(() => _variablesPaneHeightOverride = height);
+  }
+
   void _endPanelDrag() {
-    _dragStartWidth = null;
+    _dragStartSize = null;
     _dragDistance = 0;
   }
 
@@ -1225,8 +1248,8 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
       _editorContentTop + (line - 1) * _editorLineHeight - _scrollOffset;
 
   /// Left sidebar shown while the debugger has variables or print output
-  /// exists. It is split into two equally sized halves: variables on top and
-  /// print output below.
+  /// exists. It is split into variables on top and print output below; the
+  /// boundary can be dragged vertically.
   Widget _buildOutputSidebar(Map<String, String> variables) {
     return Padding(
       // The sidebar fills the space from the left window edge to the editor
@@ -1241,13 +1264,50 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
         ),
         child: ClipRRect(
           borderRadius: BorderRadius.circular(7),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Expanded(child: _buildVariablesSection(variables)),
-              const Divider(height: 1, thickness: 1, color: Color(0xFF2A3A5A)),
-              Expanded(child: _buildPrintOutputSection()),
-            ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final splitBudget = (constraints.maxHeight - _panelGripperWidth)
+                  .clamp(0.0, double.infinity)
+                  .toDouble();
+              final maxSplitHeight = (splitBudget - _minVariablePaneHeight)
+                  .clamp(0.0, splitBudget)
+                  .toDouble();
+              final minSplitHeight = _minVariablePaneHeight < maxSplitHeight
+                  ? _minVariablePaneHeight
+                  : 0.0;
+              // 50/50 by default; a drag overrides the variables height.
+              final variablesHeight =
+                  (_variablesPaneHeightOverride ?? splitBudget / 2)
+                      .clamp(minSplitHeight, maxSplitHeight)
+                      .toDouble();
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    height: variablesHeight,
+                    child: _buildVariablesSection(variables),
+                  ),
+                  SizedBox(
+                    height: _panelGripperWidth,
+                    child: _PanelResizeHandle(
+                      key: const ValueKey('macro-variables-gripper'),
+                      axis: Axis.vertical,
+                      onDragStart: () => _beginPanelDrag(
+                        variablesHeight,
+                        maxSplitHeight,
+                        minSize: _minVariablePaneHeight,
+                      ),
+                      onDragUpdate: _updateVariablesDrag,
+                      onDragEnd: _endPanelDrag,
+                      onDoubleTap: () =>
+                          setState(() => _variablesPaneHeightOverride = null),
+                    ),
+                  ),
+                  Expanded(child: _buildPrintOutputSection()),
+                ],
+              );
+            },
           ),
         ),
       ),
@@ -1713,25 +1773,40 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         // AI Macro Assistant toggle. Disabled until the AI
-                        // provider, token and model are configured.
-                        IconButton(
-                          icon: Icon(
-                            Icons.auto_awesome,
-                            color: _isAiAvailable
-                                ? (_chat.isOpen
-                                      ? Colors.cyanAccent
-                                      : Colors.white70)
-                                : Colors.white24,
-                            size: 20,
+                        // provider, token and model are configured. The frame
+                        // makes the icon read as a button rather than a
+                        // decoration, matching the help window.
+                        Container(
+                          key: const ValueKey('macro-ai-button-frame'),
+                          decoration: BoxDecoration(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            border: Border.all(
+                              color: _isAiAvailable
+                                  ? Colors.cyanAccent
+                                  : Colors.white24,
+                              width: 1,
+                            ),
+                            borderRadius: BorderRadius.circular(6),
                           ),
-                          tooltip: _isAiAvailable
-                              ? (_chat.isOpen
-                                    ? 'Close AI Macro Assistant'
-                                    : 'AI Macro Assistant')
-                              : 'Configure AI settings first',
-                          onPressed: _isAiAvailable ? _toggleMacroChat : null,
-                          padding: EdgeInsets.zero,
-                          constraints: const BoxConstraints(),
+                          child: IconButton(
+                            icon: Icon(
+                              Icons.auto_awesome,
+                              color: _isAiAvailable
+                                  ? (_chat.isOpen
+                                        ? Colors.cyanAccent
+                                        : Colors.white70)
+                                  : Colors.white24,
+                              size: 20,
+                            ),
+                            tooltip: _isAiAvailable
+                                ? (_chat.isOpen
+                                      ? 'Close AI Macro Assistant'
+                                      : 'AI Macro Assistant')
+                                : 'Configure AI settings first',
+                            onPressed: _isAiAvailable ? _toggleMacroChat : null,
+                            padding: const EdgeInsets.all(4),
+                            constraints: const BoxConstraints(),
+                          ),
                         ),
                         const SizedBox(width: 12),
                         IconButton(
@@ -2050,19 +2125,23 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
 // Panel resize handle
 // ============================================================================
 
-/// Draggable strip on the boundary between a side panel and the editor.
+/// Draggable strip on a panel boundary.
 ///
-/// The mouse cursor changes to a horizontal resizer while the pointer is over
-/// the boundary. Dragging moves the boundary; a double-click restores the
-/// panel's automatic width.
+/// The mouse cursor changes to a horizontal or vertical resizer while the
+/// pointer is over the boundary. Dragging moves the boundary; a double-click
+/// restores the panel's automatic size.
 class _PanelResizeHandle extends StatefulWidget {
   const _PanelResizeHandle({
     super.key,
+    this.axis = Axis.horizontal,
     required this.onDragStart,
     required this.onDragUpdate,
     required this.onDragEnd,
     required this.onDoubleTap,
   });
+
+  /// Direction in which the boundary can be dragged.
+  final Axis axis;
 
   final VoidCallback onDragStart;
   final ValueChanged<double> onDragUpdate;
@@ -2078,23 +2157,35 @@ class _PanelResizeHandleState extends State<_PanelResizeHandle> {
 
   @override
   Widget build(BuildContext context) {
+    final isHorizontal = widget.axis == Axis.horizontal;
     return MouseRegion(
-      cursor: SystemMouseCursors.resizeColumn,
+      cursor: isHorizontal
+          ? SystemMouseCursors.resizeColumn
+          : SystemMouseCursors.resizeRow,
       onEnter: (_) => setState(() => _hovered = true),
       onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         dragStartBehavior: DragStartBehavior.down,
-        onHorizontalDragStart: (_) => widget.onDragStart(),
-        onHorizontalDragUpdate: (details) =>
-            widget.onDragUpdate(details.delta.dx),
-        onHorizontalDragEnd: (_) => widget.onDragEnd(),
-        onHorizontalDragCancel: widget.onDragEnd,
+        onHorizontalDragStart: isHorizontal
+            ? (_) => widget.onDragStart()
+            : null,
+        onHorizontalDragUpdate: isHorizontal
+            ? (details) => widget.onDragUpdate(details.delta.dx)
+            : null,
+        onHorizontalDragEnd: isHorizontal ? (_) => widget.onDragEnd() : null,
+        onHorizontalDragCancel: isHorizontal ? widget.onDragEnd : null,
+        onVerticalDragStart: isHorizontal ? null : (_) => widget.onDragStart(),
+        onVerticalDragUpdate: isHorizontal
+            ? null
+            : (details) => widget.onDragUpdate(details.delta.dy),
+        onVerticalDragEnd: isHorizontal ? null : (_) => widget.onDragEnd(),
+        onVerticalDragCancel: isHorizontal ? null : widget.onDragEnd,
         onDoubleTap: widget.onDoubleTap,
         child: Center(
           child: Container(
-            width: _hovered ? 3 : 1,
-            height: double.infinity,
+            width: isHorizontal ? (_hovered ? 3 : 1) : double.infinity,
+            height: isHorizontal ? double.infinity : (_hovered ? 3 : 1),
             color: _hovered ? Colors.cyanAccent : const Color(0xFF2A3A5A),
           ),
         ),
