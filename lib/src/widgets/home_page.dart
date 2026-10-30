@@ -51,6 +51,7 @@ import '../data_logger/data_logger_service.dart';
 import '../data_logger/data_logger_report.dart';
 import '../calculator/calculator_shortcut.dart';
 import '../calculator/calculator_window_launcher.dart';
+import '../calculator/calculator_window_protocol.dart';
 import '../bode/bode_csv_writer.dart';
 import '../bode/bode_models.dart';
 import '../bode/bode_plot_service.dart';
@@ -788,7 +789,28 @@ class _OsciHomePageState extends State<OsciHomePage>
   void _ensureCalculatorWindowSupport() {
     _calculatorWindowLauncher ??= CalculatorWindowLauncher(
       backend: const WindowControllerBackend(),
+      positionProvider: _calculatorWindowPosition,
     );
+  }
+
+  /// Places the calculator window in the center of the main window.
+  Future<CalculatorWindowPosition?> _calculatorWindowPosition() async {
+    try {
+      final position = await windowManager.getPosition();
+      final size = await windowManager.getSize();
+      return CalculatorWindowArguments.centeredIn(
+        mainLeft: position.dx,
+        mainTop: position.dy,
+        mainWidth: size.width,
+        mainHeight: size.height,
+      );
+    } catch (error) {
+      AppLogger(
+        agentName: 'Calculator',
+        toolName: 'window-position',
+      ).debug('Could not read the main-window geometry: $error');
+      return null;
+    }
   }
 
   /// Creates the window bridge lazily for the current generator service.

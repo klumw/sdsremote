@@ -9,13 +9,18 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../ai/agents/calculator_agent.dart';
+import '../ai/ai_settings.dart';
+import '../ai/calculator_chat_controller.dart';
 import '../app/app_paths.dart';
+import '../app/app_preferences.dart';
 import '../app/app_theme.dart';
 import '../calculator/calc_format.dart';
 import '../calculator/calc_formulas.dart';
 import '../calculator/calc_session.dart';
 import '../calculator/calc_value.dart';
 import '../calculator/calculator_controller.dart';
+import 'calculator_chat_panel.dart';
 import 'calculator_dialogs.dart';
 import 'calculator_keypad.dart';
 import 'calculator_side_panels.dart';
@@ -32,11 +37,16 @@ class CalculatorPanel extends StatefulWidget {
 class _CalculatorPanelState extends State<CalculatorPanel>
     with SingleTickerProviderStateMixin {
   late final CalculatorController _controller;
+  late final CalculatorChatController _chatController;
   late final TabController _tabs;
   final TextEditingController _expression = TextEditingController();
-  final TextEditingController _program = TextEditingController();
+  final ProgramEditorController _program = ProgramEditorController();
   final UndoHistoryController _undo = UndoHistoryController();
   final FocusNode _focus = FocusNode();
+  final FocusNode _programFocus = FocusNode();
+  String _lastProgramText = '';
+  CalcOutcome? _programOutcome;
+  String? _programErrorMessage;
   int _historyCursor = -1;
 
   @override
@@ -44,26 +54,103 @@ class _CalculatorPanelState extends State<CalculatorPanel>
     super.initState();
     _controller = widget.controller;
     _controller.addListener(_onControllerChanged);
+    _chatController = CalculatorChatController();
+    _chatController.addListener(_onControllerChanged);
+    _lastProgramText = _program.text;
+    _program.addListener(_onProgramChanged);
     _tabs = TabController(length: 4, vsync: this);
     unawaited(_controller.initialize());
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _focus.requestFocus();
+      if (mounted) {
+        _focus.requestFocus();
+        unawaited(_loadAiSettings());
+      }
     });
   }
 
   @override
   void dispose() {
     _controller.removeListener(_onControllerChanged);
+    _chatController.removeListener(_onControllerChanged);
+    _chatController.dispose();
     _tabs.dispose();
     _expression.dispose();
+    _program.removeListener(_onProgramChanged);
     _program.dispose();
     _undo.dispose();
     _focus.dispose();
+    _programFocus.dispose();
     super.dispose();
   }
 
   void _onControllerChanged() {
     if (mounted) setState(() {});
+  }
+
+  void _onProgramChanged() {
+    if (_program.text == _lastProgramText) return;
+    _lastProgramText = _program.text;
+    _program.clearError();
+  }
+
+  CalculatorAgentContext get _aiContext => CalculatorAgentContext(
+    session: _controller.session,
+    readExpression: () => _expression.text,
+    readProgram: () => _program.text,
+    readVariables: _controller.session.listVariables,
+    readFunctions: _controller.session.listFunctions,
+    readSettings: () => _controller.session.settings,
+  );
+
+  Future<void> _loadAiSettings() async {
+    AppPreferences.invalidateCache();
+    final provider = await AppPreferences.getString('ai_provider') ?? '';
+    final token = await AppPreferences.getString('ai_api_token') ?? '';
+    final model = await AppPreferences.getString('llm_model') ?? '';
+    final settings =
+        provider.trim().isNotEmpty &&
+            token.trim().length >= 8 &&
+            model.trim().isNotEmpty
+        ? AiSettings.fromProviderConfig(
+            providerName: provider,
+            apiToken: token,
+            modelName: model,
+          )
+        : null;
+    if (!mounted) return;
+    _chatController.configure(settings, context: _aiContext);
+  }
+
+  void _toggleCalculatorChat() {
+    if (_chatController.isOpen) {
+      _closeCalculatorChat();
+      return;
+    }
+    unawaited(_loadAiSettings());
+    _chatController.toggleOpen();
+  }
+
+  void _closeCalculatorChat() {
+    _chatController.close();
+    _focus.requestFocus();
+  }
+
+  Future<void> _applyChatProgram(String code) async {
+    if (_program.text.trim().isNotEmpty) {
+      final replace = await showConfirmDialog(
+        context,
+        title: 'Replace program?',
+        message:
+            'The Programs editor already contains code. Replace it with the '
+            "assistant's code block? The previous program will be lost.",
+        confirmLabel: 'Replace',
+      );
+      if (!replace || !mounted) return;
+    }
+    _program.text = code;
+    _program.selection = TextSelection.collapsed(offset: code.length);
+    _tabs.animateTo(3);
+    _snack('Program inserted. Review it and press Run.');
   }
 
   // =========================================================================
@@ -77,7 +164,7 @@ class _CalculatorPanelState extends State<CalculatorPanel>
       body: SafeArea(
         child: CallbackShortcuts(
           bindings: {
-            const SingleActivator(LogicalKeyboardKey.escape): _clearAll,
+            const SingleActivator(LogicalKeyboardKey.escape): _handleEscape,
           },
           child: Padding(
             padding: const EdgeInsets.all(12),
@@ -112,24 +199,14 @@ class _CalculatorPanelState extends State<CalculatorPanel>
           const Icon(Icons.calculate, color: Colors.cyanAccent, size: 24),
           const SizedBox(width: 10),
           const Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'ENGINEERING CALCULATOR',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.1,
-                  ),
-                ),
-                SizedBox(height: 1),
-                Text(
-                  'Scientific · Units · Complex · Programs',
-                  style: TextStyle(color: Colors.white54, fontSize: 10),
-                ),
-              ],
+            child: Text(
+              'ENGINEERING CALCULATOR',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1.1,
+              ),
             ),
           ),
           if (!_controller.initialized)
@@ -144,6 +221,7 @@ class _CalculatorPanelState extends State<CalculatorPanel>
                 ),
               ),
             ),
+          _buildAiButton(),
           IconButton(
             tooltip: 'Syntax help',
             icon: const Icon(Icons.help_outline, size: 21),
@@ -161,9 +239,35 @@ class _CalculatorPanelState extends State<CalculatorPanel>
     );
   }
 
+  Widget _buildAiButton() {
+    final active = _chatController.isOpen;
+    return Container(
+      margin: const EdgeInsets.only(right: 4),
+      decoration: BoxDecoration(
+        color: active
+            ? Colors.cyanAccent.withValues(alpha: 0.14)
+            : Colors.transparent,
+        border: Border.all(
+          color: active ? Colors.cyanAccent : AppColors.border,
+        ),
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: IconButton(
+        tooltip: 'Calculator AI assistant',
+        visualDensity: VisualDensity.compact,
+        icon: const Icon(Icons.auto_awesome, size: 20),
+        color: active ? Colors.cyanAccent : Colors.white70,
+        onPressed: _toggleCalculatorChat,
+      ),
+    );
+  }
+
   Widget _buildDisplay() {
     final outcome = _controller.lastOutcome;
     final error = outcome?.error;
+    final errorMessage = identical(outcome, _programOutcome)
+        ? (_programErrorMessage ?? error?.formattedMessage)
+        : error?.formattedMessage;
     final result = _controller.lastSuccess?.display ?? '';
     final settings = _controller.session.settings;
 
@@ -177,8 +281,8 @@ class _CalculatorPanelState extends State<CalculatorPanel>
           Row(
             children: [
               _chip(
-                settings.angleMode == CalcAngleMode.degrees ? 'DEG' : 'RAD',
-                onTap: _controller.toggleAngleMode,
+                _angleChip(settings.angleMode),
+                onTap: _controller.cycleAngleMode,
               ),
               const SizedBox(width: 6),
               _chip(
@@ -259,7 +363,7 @@ class _CalculatorPanelState extends State<CalculatorPanel>
                 const SizedBox(width: 6),
                 Expanded(
                   child: SelectableText(
-                    error.formattedMessage,
+                    errorMessage ?? error.formattedMessage,
                     style: const TextStyle(
                       color: Colors.redAccent,
                       fontSize: 17,
@@ -433,25 +537,61 @@ class _CalculatorPanelState extends State<CalculatorPanel>
           onProgram: () => _tabs.animateTo(3),
         );
         final side = _buildSidePanel();
-        if (constraints.maxWidth >= 900) {
-          return Padding(
-            padding: const EdgeInsets.all(10),
-            child: Row(
-              children: [
-                Expanded(flex: 5, child: keypad),
-                const SizedBox(width: 10),
-                Expanded(flex: 4, child: side),
-              ],
-            ),
-          );
-        }
-        return Padding(
-          padding: const EdgeInsets.all(8),
-          child: Column(
+        final wide = constraints.maxWidth >= 900;
+        final content = wide
+            ? Padding(
+                padding: const EdgeInsets.all(10),
+                child: Row(
+                  children: [
+                    Expanded(flex: 5, child: keypad),
+                    const SizedBox(width: 10),
+                    Expanded(flex: 4, child: side),
+                  ],
+                ),
+              )
+            : Padding(
+                padding: const EdgeInsets.all(8),
+                child: Column(
+                  children: [
+                    Expanded(flex: 3, child: keypad),
+                    const SizedBox(height: 8),
+                    Expanded(flex: 2, child: side),
+                  ],
+                ),
+              );
+        final chatWidth = wide
+            ? (constraints.maxWidth * 0.55).clamp(480.0, 640.0).toDouble()
+            : constraints.maxWidth;
+        return ClipRect(
+          child: Stack(
             children: [
-              Expanded(flex: 3, child: keypad),
-              const SizedBox(height: 8),
-              Expanded(flex: 2, child: side),
+              Positioned.fill(child: content),
+              AnimatedPositioned(
+                duration: const Duration(milliseconds: 240),
+                curve: Curves.easeInOutCubic,
+                left: _chatController.isOpen ? 0 : -chatWidth - 16,
+                top: 0,
+                bottom: 0,
+                width: chatWidth,
+                child: IgnorePointer(
+                  ignoring: !_chatController.isOpen,
+                  child: CalculatorChatPanel(
+                    controller: _chatController,
+                    calculatorController: _controller,
+                    onClose: _closeCalculatorChat,
+                    onReloadSettings: () => unawaited(_loadAiSettings()),
+                    onInsertExpression: _useExpression,
+                    onStoreResult: (source) => unawaited(
+                      showStoreDialog(
+                        context,
+                        _controller,
+                        initialExpression: source,
+                      ),
+                    ),
+                    onApplyProgram: _applyChatProgram,
+                  ),
+                ),
+              ),
             ],
           ),
         );
@@ -504,6 +644,7 @@ class _CalculatorPanelState extends State<CalculatorPanel>
                   controller: _controller,
                   onInsert: _insert,
                   onAddVariable: _addVariable,
+                  onClearVariables: _confirmClearVariables,
                   onOpenSettings: () =>
                       showCalculatorSettingsDialog(context, _controller),
                 ),
@@ -514,8 +655,10 @@ class _CalculatorPanelState extends State<CalculatorPanel>
                 CalculatorProgramView(
                   controller: _controller,
                   editor: _program,
+                  focusNode: _programFocus,
                   onRun: _runProgram,
                   onSave: _saveProgram,
+                  onInsertUnit: _insertProgramUnit,
                   onLoad: _loadProgram,
                   onDelete: (id) => _controller.deleteProgram(id),
                   onExportWorkspace: _exportWorkspace,
@@ -596,6 +739,14 @@ class _CalculatorPanelState extends State<CalculatorPanel>
     _insert('-');
   }
 
+  void _handleEscape() {
+    if (_chatController.isOpen) {
+      _closeCalculatorChat();
+      return;
+    }
+    _clearAll();
+  }
+
   void _clearAll() {
     _expression.clear();
     _historyCursor = -1;
@@ -615,12 +766,12 @@ class _CalculatorPanelState extends State<CalculatorPanel>
     _focus.requestFocus();
   }
 
-  void _useExpression(String expression) {
+  void _useExpression(String expression, {bool resetHistoryCursor = true}) {
     _expression.value = TextEditingValue(
       text: expression,
       selection: TextSelection.collapsed(offset: expression.length),
     );
-    _historyCursor = -1;
+    if (resetHistoryCursor) _historyCursor = -1;
     _focus.requestFocus();
   }
 
@@ -638,7 +789,10 @@ class _CalculatorPanelState extends State<CalculatorPanel>
       _useExpression('');
       return;
     }
-    _useExpression(history[_historyCursor].expression);
+    _useExpression(
+      history[_historyCursor].expression,
+      resetHistoryCursor: false,
+    );
   }
 
   // =========================================================================
@@ -663,6 +817,25 @@ class _CalculatorPanelState extends State<CalculatorPanel>
     );
   }
 
+  void _confirmClearVariables() async {
+    final variables = _controller.session.listVariables();
+    if (variables.isEmpty) {
+      _snack('There are no variables to clear.');
+      return;
+    }
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Clear variables?',
+      message:
+          'All ${variables.length} stored variables will be removed. '
+          'User-defined functions and history are kept.',
+      confirmLabel: 'Clear variables',
+    );
+    if (!confirmed || !mounted) return;
+    _controller.clearAllVariables();
+    _snack('All variables cleared.');
+  }
+
   void _recall() async {
     final name = await showRecallDialog(context, _controller);
     if (name != null) _insert(name);
@@ -675,6 +848,22 @@ class _CalculatorPanelState extends State<CalculatorPanel>
     final needsSpace =
         text.isNotEmpty && !text.endsWith(' ') && !text.endsWith('(');
     _insert(needsSpace ? ' $unit' : unit);
+  }
+
+  Future<void> _insertProgramUnit() async {
+    final symbol = await showUnitPickerDialog(context, _controller);
+    if (!mounted) return;
+    if (symbol != null) {
+      final value = _program.value;
+      final selection = value.selection;
+      final start = selection.isValid ? selection.start : value.text.length;
+      final end = selection.isValid ? selection.end : value.text.length;
+      _program.value = TextEditingValue(
+        text: value.text.replaceRange(start, end, symbol),
+        selection: TextSelection.collapsed(offset: start + symbol.length),
+      );
+    }
+    _programFocus.requestFocus();
   }
 
   void _showConvert() async {
@@ -743,13 +932,84 @@ class _CalculatorPanelState extends State<CalculatorPanel>
   }
 
   void _runProgram() {
-    final source = _program.text.trim();
+    final original = _program.text;
+    final source = original.trim();
     if (source.isEmpty) {
       _snack('The program editor is empty.');
       return;
     }
-    _controller.evaluate(source);
+    final outcome = _controller.evaluate(source);
+    final error = outcome.error;
+    final location = _programErrorLocation(original, error?.position);
+    _programOutcome = outcome;
+    _programErrorMessage = error != null && location != null
+        ? 'Line ${location.line}, column ${location.column}: ${error.message}'
+        : null;
+    _program.setErrorRange(location?.start, location?.end);
   }
+
+  /// Maps an error offset in the trimmed program back to its source location
+  /// and expands it to the token that should be underlined.
+  ({int line, int column, int start, int end})? _programErrorLocation(
+    String original,
+    int? position,
+  ) {
+    if (position == null || original.isEmpty) return null;
+    final leading = original.length - original.trimLeft().length;
+    final offset = (leading + position).clamp(0, original.length).toInt();
+
+    var start = offset < original.length
+        ? offset
+        : _previousContentChar(original, original.length - 1);
+    if (start >= 0 && _isProgramWhitespace(original.codeUnitAt(start))) {
+      final previous = _previousContentChar(original, start);
+      final next = _nextContentChar(original, start);
+      start = previous >= 0 ? previous : next;
+    }
+    if (start < 0) return null;
+
+    var end = start + 1;
+    if (_isProgramWordChar(original.codeUnitAt(start))) {
+      while (end < original.length &&
+          _isProgramWordChar(original.codeUnitAt(end))) {
+        end++;
+      }
+    }
+
+    var line = 1;
+    for (var i = 0; i < start; i++) {
+      if (original.codeUnitAt(i) == 0x0A) line++;
+    }
+    final previousNewline = start == 0
+        ? -1
+        : original.lastIndexOf('\n', start - 1);
+    final column = start - previousNewline;
+    return (line: line, column: column, start: start, end: end);
+  }
+
+  int _previousContentChar(String text, int from) {
+    for (var i = from; i >= 0; i--) {
+      if (!_isProgramWhitespace(text.codeUnitAt(i))) return i;
+    }
+    return -1;
+  }
+
+  int _nextContentChar(String text, int from) {
+    for (var i = from; i < text.length; i++) {
+      if (!_isProgramWhitespace(text.codeUnitAt(i))) return i;
+    }
+    return -1;
+  }
+
+  bool _isProgramWhitespace(int code) =>
+      code == 0x20 || code == 0x09 || code == 0x0A || code == 0x0D;
+
+  bool _isProgramWordChar(int code) =>
+      (code >= 0x30 && code <= 0x39) ||
+      (code >= 0x41 && code <= 0x5A) ||
+      (code >= 0x61 && code <= 0x7A) ||
+      code == 0x5F ||
+      code > 0x7F;
 
   void _saveProgram() {
     final source = _program.text;
@@ -890,6 +1150,9 @@ UNITS AND PREFIXES
   value(20 dBm, dBm)     numeric level
   Prefixes: p n µ m k M G T (also f a z y and others).
   A prefixed unit is written without a space: mV, kHz, µF.
+  UNIT opens the unit list and a palette of Greek unit symbols:
+  µ (micro), μ (Greek mu), Ω (ohm), ° (degree), Å (angstrom).
+  The same picker is available in the Programs tab via the Ω button.
 
 COMPLEX NUMBERS
   50 + j25
@@ -915,7 +1178,12 @@ VARIABLES AND FUNCTIONS
   f(x) = x^2 + 1
   f(3)
   Several statements are separated by ";" or a new line.
-  Use the Programs tab for multi-line programs.
+  The Variables tab can add a variable or clear all stored variables;
+  functions and history are kept.
+  Use the Programs tab for multi-line programs. The editor has a line-
+  number gutter. If Run fails, the error names the line and column, the
+  failing line number turns red and the faulty token gets a wavy red
+  underline; editing clears the underline.
 
 CONTROL AND NUMERICAL FORMS
   if(condition, then, else)
@@ -942,8 +1210,8 @@ ENGINEERING FUNCTIONS (selection)
   crc8(bytes), crc16_ccitt(bytes), q_format(value, fractional_bits)
 
 DISPLAY
-  DEG/RAD selects the angle unit for plain numbers (unit-carrying angles
-  are always converted exactly). The format key cycles AUTO -> ENG -> FIXED
+  DEG/RAD/GRAD cycles degrees, radians and gradians (gon) for plain
+  numbers; unit-carrying angles are always converted exactly. The format key cycles AUTO -> ENG -> FIXED
   -> SCI: AUTO chooses the most readable form, ENG always uses engineering
   notation with SI prefixes, FIXED uses the configured decimal places and
   SCI uses scientific notation. DEC/HEX/OCT/BIN controls integer display.
@@ -951,14 +1219,33 @@ DISPLAY
 
 KEYBOARD AND SHORTCUTS (main application)
   Enter        evaluate
-  Esc          clear the expression and result
+  Esc          close the AI panel first; otherwise clear expression/result
   Ctrl+Z/Y     undo/redo in the expression field
   Ctrl+R       open or focus this calculator window (configurable in
                Settings → Calculator)
 
+AI ASSISTANT (optional)
+  The sparkle button next to this help button opens the Calculator AI
+  panel. Configure provider, token and model in SDS-Remote Settings.
+  The assistant uses the deterministic engine and asks for missing
+  values. It can read the current expression, program and variables
+  read-only. Results are applied only with Insert result, Store as
+  variable or Use in program.
+
 All results are recorded in the History tab with the normalized expression,
 unit, variables used and the formula (when a library formula was run).
 ''';
+}
+
+String _angleChip(CalcAngleMode mode) {
+  switch (mode) {
+    case CalcAngleMode.degrees:
+      return 'DEG';
+    case CalcAngleMode.radians:
+      return 'RAD';
+    case CalcAngleMode.gradians:
+      return 'GRAD';
+  }
 }
 
 String _formatChip(CalcNumberFormat format) {

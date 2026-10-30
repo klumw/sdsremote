@@ -79,6 +79,18 @@ class ChatWindow extends StatefulWidget {
   final bool isInitialized;
   final ValueChanged<String> onSendMessage;
 
+  /// Optional controller for the input field. When provided, the caller owns
+  /// the controller and may prefill it (for example with a variable name).
+  final TextEditingController? inputController;
+
+  /// Optional footer below a message bubble. The calculator uses it for copy
+  /// actions, structured result cards and "Use in program".
+  final Widget? Function(BuildContext context, int index)? messageFooterBuilder;
+
+  /// Whether the input field should take focus when it appears. Panels that
+  /// are built off-screen pass false and switch it on when they open.
+  final bool autofocus;
+
   /// Placeholder shown in the input field.
   final String hintText;
 
@@ -105,6 +117,9 @@ class ChatWindow extends StatefulWidget {
     required this.isChatting,
     required this.isInitialized,
     required this.onSendMessage,
+    this.inputController,
+    this.messageFooterBuilder,
+    this.autofocus = true,
     this.hintText = 'Ask about the oscilloscope or give a command...',
     this.emptyStateText,
     this.onCancel,
@@ -116,7 +131,8 @@ class ChatWindow extends StatefulWidget {
 }
 
 class _ChatWindowState extends State<ChatWindow> {
-  final TextEditingController _chatController = TextEditingController();
+  late final TextEditingController _chatController;
+  late final bool _ownsChatController;
   final ScrollController _chatScrollController = ScrollController();
   final FocusNode _chatFocusNode = FocusNode();
   int _previousMessageCount = 0;
@@ -125,38 +141,74 @@ class _ChatWindowState extends State<ChatWindow> {
   @override
   void initState() {
     super.initState();
+    _chatController = widget.inputController ?? TextEditingController();
+    _ownsChatController = widget.inputController == null;
     _previousMessageCount = widget.chatMessages.length;
     _previousLastMessageLength = _lastMessageContentLength();
+    if (widget.chatMessages.isNotEmpty) {
+      // An existing conversation opens at its latest answer.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _scrollToBottomNow(animate: false);
+      });
+    }
     // Request focus on the chat input field when the chat window opens
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _chatFocusNode.requestFocus();
-    });
+    if (widget.autofocus) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _chatFocusNode.requestFocus();
+      });
+    }
   }
 
   @override
   void didUpdateWidget(ChatWindow oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // Auto-scroll when a new message is added (either user or AI response)
-    if (widget.chatMessages.length > _previousMessageCount) {
-      _previousMessageCount = widget.chatMessages.length;
-      _previousLastMessageLength = _lastMessageContentLength();
-      _scrollToBottom();
-      return;
-    }
-    // Auto-scroll during streaming when the last message content grows
+
+    // Capture the old scroll position before the new content is laid out.
+    final wasNearBottom = _isNearBottom();
+    final previousCount = _previousMessageCount;
+    final previousLength = _previousLastMessageLength;
     final currentLength = _lastMessageContentLength();
-    if (currentLength > _previousLastMessageLength) {
-      _previousLastMessageLength = currentLength;
-      _scrollToBottom();
+    _previousMessageCount = widget.chatMessages.length;
+    _previousLastMessageLength = currentLength;
+
+    var shouldScroll = false;
+
+    // Auto-scroll when a new message is added (either user or AI response)
+    if (widget.chatMessages.length > previousCount) {
+      shouldScroll = true;
+    } else if (currentLength > previousLength) {
+      // Auto-scroll during streaming when the last message content grows
+      shouldScroll = true;
     }
+
+    // The final Markdown layout and result cards can change the height after
+    // the last text chunk arrived, so scroll again when streaming completes.
+    if (oldWidget.isChatting && !widget.isChatting) {
+      shouldScroll = true;
+    }
+
+    // A footer or result card may be added without changing the message text.
+    // Follow it only when the user was already reading the end of the answer.
+    if (wasNearBottom) shouldScroll = true;
+
+    if (shouldScroll) _scrollToBottom();
 
     // Re-focus the chat input field when streaming finishes, so the user can
     // immediately type the next message without manually clicking the field.
-    if (oldWidget.isChatting && !widget.isChatting) {
+    if (widget.autofocus &&
+        ((oldWidget.isChatting && !widget.isChatting) ||
+            (!oldWidget.autofocus && widget.autofocus))) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         _chatFocusNode.requestFocus();
       });
     }
+  }
+
+  /// Whether the message list is already at (or very close to) its end.
+  bool _isNearBottom() {
+    if (!_chatScrollController.hasClients) return true;
+    final position = _chatScrollController.position;
+    return position.maxScrollExtent - position.pixels <= 32;
   }
 
   /// Returns the content length of the last message, or 0 if no messages exist.
@@ -167,7 +219,7 @@ class _ChatWindowState extends State<ChatWindow> {
 
   @override
   void dispose() {
-    _chatController.dispose();
+    if (_ownsChatController) _chatController.dispose();
     _chatScrollController.dispose();
     _chatFocusNode.dispose();
     super.dispose();
@@ -196,16 +248,31 @@ class _ChatWindowState extends State<ChatWindow> {
     _scrollToBottom();
   }
 
-  void _scrollToBottom() {
+  void _scrollToBottom({bool animate = true}) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_chatScrollController.hasClients) {
-        _chatScrollController.animateTo(
-          _chatScrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
-        );
-      }
+      _scrollToBottomNow(animate: animate);
     });
+  }
+
+  /// Scrolls to the latest content after the current frame has been laid out.
+  ///
+  /// Streaming uses a jump instead of an animation: text arrives much faster
+  /// than an animation can finish, so repeated [ScrollController.animateTo]
+  /// calls would keep restarting and never reach the end of the answer.
+  void _scrollToBottomNow({required bool animate}) {
+    if (!mounted || !_chatScrollController.hasClients) return;
+    final position = _chatScrollController.position;
+    final target = position.maxScrollExtent;
+    if ((position.pixels - target).abs() < 0.5) return;
+    if (!animate || widget.isChatting) {
+      position.jumpTo(target);
+      return;
+    }
+    _chatScrollController.animateTo(
+      target,
+      duration: const Duration(milliseconds: 180),
+      curve: Curves.easeOut,
+    );
   }
 
   @override
@@ -255,7 +322,12 @@ class _ChatWindowState extends State<ChatWindow> {
                             color: isUser ? Colors.cyan[800] : Colors.grey[800],
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: _buildMessageContent(msg, index, isUser),
+                          child: _buildBubbleContent(
+                            context,
+                            msg,
+                            index,
+                            isUser,
+                          ),
                         ),
                       );
                     },
@@ -333,6 +405,24 @@ class _ChatWindowState extends State<ChatWindow> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildBubbleContent(
+    BuildContext context,
+    Map<String, String> message,
+    int index,
+    bool isUser,
+  ) {
+    final content = _buildMessageContent(message, index, isUser);
+    final footer = isUser
+        ? null
+        : widget.messageFooterBuilder?.call(context, index);
+    if (footer == null) return content;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [content, footer],
     );
   }
 

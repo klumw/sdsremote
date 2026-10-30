@@ -130,6 +130,10 @@ class _CalculatorSettingsDialogState extends State<_CalculatorSettingsDialog> {
                     value: CalcAngleMode.radians,
                     label: Text('Radians'),
                   ),
+                  ButtonSegment(
+                    value: CalcAngleMode.gradians,
+                    label: Text('Gradians'),
+                  ),
                 ],
                 selected: {_angleMode},
                 onSelectionChanged: (value) =>
@@ -222,6 +226,16 @@ const _sectionStyle = TextStyle(
 // Unit picker / converter
 // =============================================================================
 
+const List<String> _greekUnitSymbols = ['µ', 'μ', 'Ω', '°', 'Å'];
+
+const Map<String, String> _greekUnitSymbolTooltips = {
+  'µ': 'Micro prefix',
+  'μ': 'Greek mu (normalized to micro)',
+  'Ω': 'Ohm',
+  '°': 'Degree',
+  'Å': 'Angstrom',
+};
+
 Future<String?> showUnitPickerDialog(
   BuildContext context,
   CalculatorController controller,
@@ -263,7 +277,7 @@ class _UnitPickerDialogState extends State<_UnitPickerDialog> {
         children: [
           Icon(Icons.straighten, color: Colors.cyanAccent),
           SizedBox(width: 8),
-          Text('Insert unit'),
+          Text('Insert unit or symbol'),
         ],
       ),
       content: SizedBox(
@@ -280,6 +294,42 @@ class _UnitPickerDialogState extends State<_UnitPickerDialog> {
                 hintText: 'Search unit',
                 border: OutlineInputBorder(),
               ),
+            ),
+            const SizedBox(height: 8),
+            const Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'GREEK UNIT SYMBOLS',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 10,
+                  letterSpacing: 1.1,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
+            Wrap(
+              spacing: 6,
+              runSpacing: 4,
+              children: [
+                for (final symbol in _greekUnitSymbols)
+                  Tooltip(
+                    message: _greekUnitSymbolTooltips[symbol]!,
+                    child: ActionChip(
+                      key: ValueKey('unit-symbol-$symbol'),
+                      label: Text(
+                        symbol,
+                        style: const TextStyle(
+                          color: Colors.cyanAccent,
+                          fontFamily: 'monospace',
+                          fontSize: 15,
+                        ),
+                      ),
+                      onPressed: () => Navigator.of(context).pop(symbol),
+                    ),
+                  ),
+              ],
             ),
             const SizedBox(height: 8),
             Expanded(

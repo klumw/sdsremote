@@ -119,6 +119,11 @@ class CalculatorController extends ChangeNotifier {
     notifyListeners();
   }
 
+  void clearAllVariables() {
+    session.clearVariables();
+    notifyListeners();
+  }
+
   void deleteFunction(String name) {
     session.deleteFunction(name);
     notifyListeners();
@@ -149,15 +154,19 @@ class CalculatorController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void setAngleMode(bool degrees) {
-    session.setAngleMode(
-      degrees ? CalcAngleMode.degrees : CalcAngleMode.radians,
-    );
+  void setAngleMode(CalcAngleMode mode) {
+    session.setAngleMode(mode);
     notifyListeners();
   }
 
-  void toggleAngleMode() {
-    setAngleMode(session.settings.angleMode != CalcAngleMode.degrees);
+  void cycleAngleMode() {
+    const order = [
+      CalcAngleMode.degrees,
+      CalcAngleMode.radians,
+      CalcAngleMode.gradians,
+    ];
+    final index = order.indexOf(session.settings.angleMode);
+    setAngleMode(order[(index + 1) % order.length]);
   }
 
   void setNumberFormat(CalcNumberFormat format) {

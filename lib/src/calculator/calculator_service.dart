@@ -160,19 +160,20 @@ class CalculatorService {
 
   Map<String, dynamic> setAngleMode(String mode) {
     final parsed = mode.toLowerCase();
-    if (parsed != 'deg' &&
-        parsed != 'degrees' &&
-        parsed != 'rad' &&
-        parsed != 'radians') {
+    final CalcAngleMode value;
+    if (parsed == 'deg' || parsed == 'degrees') {
+      value = CalcAngleMode.degrees;
+    } else if (parsed == 'rad' || parsed == 'radians') {
+      value = CalcAngleMode.radians;
+    } else if (parsed == 'grad' || parsed == 'gradians' || parsed == 'gon') {
+      value = CalcAngleMode.gradians;
+    } else {
       return {
         'ok': false,
-        'error': 'angle mode must be "deg" or "rad"',
+        'error': 'angle mode must be "deg", "rad" or "grad"',
         'error_type': 'argument',
       };
     }
-    final value = parsed.startsWith('deg')
-        ? CalcAngleMode.degrees
-        : CalcAngleMode.radians;
     session.setAngleMode(value);
     return {'ok': true, 'angle_mode': value.name};
   }

@@ -284,6 +284,13 @@ class CalcSession {
     _scheduleSave();
   }
 
+  /// Removes every stored variable. Functions and history are kept.
+  void clearVariables() {
+    engine.variables.clear();
+    variableSources.clear();
+    _scheduleSave();
+  }
+
   void deleteFunction(String name) {
     engine.functions.remove(name);
     _scheduleSave();

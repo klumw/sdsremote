@@ -306,7 +306,7 @@ For the exact model name string required by your provider, consult your provider
 Click the **AI** button in the top toolbar to open or close the chat interface. The chat replaces the main content area ([Control Panel](#9-control-panel), Waveform, etc.) while open.  
 Your conversation history is preserved while the panel remains open; closing and reopening the chat clears the history.
 
-The Macro Editor ([7.2 Macro Editor](#72-macro-editor)) and the Control Panel ([9.10 AI Control Panel Assistant](#910-ai-control-panel-assistant)) have their own AI assistants that work directly in those panels without replacing them.
+The Macro Editor ([7.2 Macro Editor](#72-macro-editor)), the Control Panel ([9.10 AI Control Panel Assistant](#910-ai-control-panel-assistant)) and the Engineering Calculator ([11.8 Calculator AI Assistant](#118-calculator-ai-assistant-optional)) have their own AI assistants that work directly in those panels without replacing them.
 
 #### Interface Layout
 
@@ -1555,7 +1555,9 @@ The generator identity (for example `FeelElec,FY6900-60M`) and the oscilloscope 
 
 ## 11. Engineering Calculator (Ctrl+R)
 
-The Engineering Calculator is a separate OS window for electronics, measurement, audio, DSP, embedded and RF calculations. Open it with **Ctrl+R** or the configured alternative (see [3.9 Calculator Shortcut](#39-calculator-shortcut)). There is no toolbar button. Pressing the shortcut again focuses the existing window. The window is independent of the oscilloscope connection.
+The Engineering Calculator is a separate OS window for electronics, measurement, audio, DSP, embedded and RF calculations. Open it with **Ctrl+R** or the configured alternative (see [3.9 Calculator Shortcut](#39-calculator-shortcut)). There is no toolbar button. The window opens in the center of the main SDS-Remote window; pressing the shortcut again re-centers and focuses the existing calculator window. The window is independent of the oscilloscope connection.
+
+The optional Calculator AI assistant is opened with the bordered sparkle button in the calculator title bar, immediately left of the syntax-help question mark. It is described in [11.8 Calculator AI Assistant](#118-calculator-ai-assistant-optional). All calculator functions work without AI.
 
 ### 11.1 Display and Keypad
 
@@ -1567,7 +1569,7 @@ The top row of the keypad controls the mode:
 |:----|:-------|
 | `SHIFT` | Applies the amber secondary function printed above the keys |
 | `INV` | Applies the inverse/hyperbolic alternative (mutually exclusive with SHIFT) |
-| `DEG` / `RAD` | Toggles the angle unit for plain numbers |
+| `DEG` / `RAD` / `GRAD` | Cycles the angle unit for plain numbers: degrees → radians → gradians |
 | `AUTO` / `ENG` / `FIXED` / `SCI` | Cycles the number format: Auto → Engineering → Fixed-point → Scientific. Fixed-point uses the decimal places from Settings |
 | `DEC` / `HEX` / `OCT` / `BIN` | Cycles the integer display base; the extra row provides `0x`, `0b`, `0o` and `A`–`F` |
 | `CLR` | Clears the expression and the result |
@@ -1588,7 +1590,7 @@ Selected keys:
 | `ABS` | `abs(` | `mag(` | `arg(` |
 | `mod`, `∠`, `j`, `°`, `%` | Insert the corresponding operator or unit | — | — |
 | `STO` / `RCL` | Store the current result in a variable / recall a variable | — | — |
-| `UNIT` / `CONV` | Unit picker / unit conversion dialog | — | — |
+| `UNIT` / `CONV` | Unit picker with Greek unit symbols (`µ`, `μ`, `Ω`, `°`, `Å`) / unit conversion dialog | — | — |
 | `HIST` / `VAR` / `FORM` / `PROG` | Switch the side panel to history, variables, formulas or programs | — | — |
 | `FAV` | List favorites | — | — |
 | `ANS` | Insert the previous result | — | — |
@@ -1657,7 +1659,7 @@ rect(50 + j25)        rectangular display
 abs(z), arg(z), conj(z), re(z), im(z)
 ```
 
-`∠` reads the angle in the current DEG/RAD mode unless the angle carries a unit. Complex trigonometric functions use radians. Impedance, reflection coefficient, VSWR, return loss and mismatch loss formulas are available through the formula library.
+`∠` reads the angle in the current DEG/RAD/GRAD mode unless the angle carries a unit. Complex trigonometric functions use radians. Impedance, reflection coefficient, VSWR, return loss and mismatch loss formulas are available through the formula library.
 
 ### 11.5 Variables, Functions and Programs
 
@@ -1669,7 +1671,9 @@ f(x) = x^2 + 1
 f(3)
 ```
 
-The **Programs** tab accepts multi-line programs, saves them, runs them and exports/imports the whole workspace as JSON. The safe program forms are:
+The **Variables** tab lists stored variables and user functions. **Add** creates a variable; **Clear** removes all stored variables after confirmation. User-defined functions and the calculation history are kept.
+
+The **Programs** tab accepts multi-line programs, saves them, runs them and exports/imports the whole workspace as JSON. The **Ω** button in the program header opens the same unit picker and inserts the selected unit or Greek symbol at the caret. The editor has a line-number gutter; the number of the failing line is shown in red. When **Run** fails, the error message in the main display names the 1-based line and column, for example `Line 2, column 5`, and the faulty token is marked with the same wavy red underline used by the Macro Editor. Editing the program clears the underline. The safe program forms are:
 
 ```text
 if(condition, then, else)
@@ -1698,16 +1702,53 @@ The workspace (variables, functions, settings, history, favorites and programs) 
 * Linux: `~/.local/share/sdsremote/calculator/workspace.json`
 * Windows: `%LocalAppData%\sdsremote\calculator\workspace.json`
 
-### 11.8 AI Agent Tool
+### 11.8 Calculator AI Assistant (optional)
 
-The same engine is available to the AI assistants as `calculator_tool`. It supports `evaluate`, `define_variable`, `run_formula`, `convert`, `list_variables`, `list_formulas` and `history`. The tool reports the formatted value, unit, dimension, used variables and a structured error type (syntax, dimension, unit, division by zero, convergence, …). It never guesses when a calculation fails.
+The bordered sparkle button in the calculator title bar, immediately left of the syntax-help question mark, opens the **Calculator AI** panel. The panel slides in from the left over the keypad and can be closed with its close button or by pressing the sparkle button again. AI is optional: when it is not configured or the provider is unavailable, the keypad, formulas, programs, history and persistence remain fully usable.
+
+The assistant uses the same provider, API token and model as the other AI features (see [AI model configuration](#41-ai-model-configuration)). It reads them from the application settings; no API key is hardcoded in the calculator. If the configuration is incomplete, the panel shows a notice and a **Reload** button that re-reads the settings.
+
+**Working method**
+
+* The assistant asks for missing or ambiguous parameters instead of inventing values, measurements or component tolerances. Formula runs use strict inputs: library defaults are rejected when the assistant has not been given every value, and the missing input names are reported back so the assistant can ask for them.
+* All arithmetic is delegated to the deterministic calculator engine through the `calculator_tool` and math tools. Units and dimensions are checked by that engine; the assistant may not bypass it with mental arithmetic.
+* It distinguishes linear gain from logarithmic gain in dB, and states the reference for levels such as `dBm`, `dBV`, `dBu`, `dBFS`, `dBi` and `dBd`.
+* Answers explain the formula used, the assumptions and limits, and relevant alternatives when the result depends on them.
+* The assistant has its own private scratch workspace. It can evaluate expressions, define temporary variables and run library formulas without changing the calculator window.
+
+**Applying results**
+
+The assistant never writes to the calculator state on its own. Every calculator result is shown as a structured card with an explicit action:
+
+| Action | Effect |
+|:-------|:-------|
+| **Insert result** | Inserts the result value into the expression field; the calculation is not evaluated until you press `=` |
+| **Store as variable** | Opens the normal **Store** dialog with the result prefilled |
+| **Use in program** | Copies a code block from the answer into the Programs editor without running it; if the editor already contains code, a confirmation is required before replacing it |
+| **Copy** | Copies the result or the complete answer to the clipboard |
+
+The chat header also provides **Insert calculator variable** for inserting a variable name into the prompt.
+
+**Context access and privacy**
+
+The assistant can always read the current calculator context through a read-only tool: the current expression, all variables and user functions, the program text, and the display settings (angle mode, number format and number base). Reading context never modifies it. The assistant works on a private scratch copy that is rebuilt before every request, so assistant-created variables do not leak into later answers or into the calculator. The assistant's transcript exists only in the calculator window and is not written to the workspace file.
+
+SDS-Remote calls the configured AI provider directly from the desktop application; it does not route AI traffic through a separate SDS-Remote backend proxy. The token is stored in the application preferences, not in source code. When the assistant is used, prompts, answers and the current calculator context are sent to that provider and are subject to its retention policy. If your deployment requires a backend proxy or an external secret manager, configure that outside the calculator, or leave the assistant unused and disable AI features.
+
+**Operation**
+
+Answers are streamed while they are generated. While a response is running, the send button becomes a stop button. Provider errors, timeouts (120 seconds) and cancellations are reported in the transcript instead of being silently ignored. Answers support Markdown, tables, inline code and fenced code blocks; mathematical expressions are shown in readable notation. Press `Esc` to close the panel when it is open. Closing the panel keeps the transcript for this calculator window; closing the window discards it.
+
+**Tool API**
+
+The same engine is available to the other AI assistants as `calculator_tool`. It supports `evaluate`, `define_variable`, `run_formula`, `convert`, `list_variables`, `list_formulas` and `history`. Formula runs accept `strict_inputs`; with it, the tool returns a `missing_inputs` list instead of silently using formula defaults. The tool reports the formatted value, unit, dimension, used variables and a structured error type (syntax, dimension, unit, division by zero, convergence, …). It never guesses when a calculation fails.
 
 ### 11.9 Keyboard Shortcuts
 
 | Shortcut | Action |
 |:---------|:-------|
 | `Enter` | Evaluate the expression |
-| `Esc` | Clear the expression and result |
+| `Esc` | Close the Calculator AI panel when it is open; otherwise clear the expression and result |
 | `Ctrl` + `Z` / `Ctrl` + `Y` | Undo / redo in the expression field |
 | `Ctrl` + `R` (configurable) | Open or focus the calculator window from the main application |
 | `Ctrl` + `C` / `Ctrl` + `V` | Copy / paste text in the expression field |

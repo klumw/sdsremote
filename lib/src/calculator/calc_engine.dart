@@ -94,29 +94,73 @@ class CalcEngine {
     _callDepth = 0;
 
     CalcValue? value;
+    CalcNode? currentStatement;
     try {
       for (final statement in statements) {
+        currentStatement = statement;
         value = _eval(statement, null);
       }
-    } on CalcException {
+    } on CalcException catch (error) {
+      if (error.position == null && currentStatement != null) {
+        throw CalcException(
+          error.type,
+          error.message,
+          position: currentStatement.position,
+        );
+      }
       rethrow;
     } on ComplexDivisionByZero {
-      throw divisionByZero();
+      throw CalcException(
+        CalcErrorType.divisionByZero,
+        'Division by zero',
+        position: currentStatement?.position,
+      );
     } on ComplexDomainError catch (error) {
-      throw domainError(error.message);
+      throw CalcException(
+        CalcErrorType.domain,
+        error.message,
+        position: currentStatement?.position,
+      );
     } on UnitConversionError catch (error) {
-      throw unitError(error.message);
+      throw CalcException(
+        CalcErrorType.unit,
+        error.message,
+        position: currentStatement?.position,
+      );
     } on DimensionRootError catch (error) {
-      throw dimensionError(error.toString());
+      throw CalcException(
+        CalcErrorType.dimension,
+        error.toString(),
+        position: currentStatement?.position,
+      );
     } on DimensionPowerError catch (error) {
-      throw dimensionError(error.toString());
+      throw CalcException(
+        CalcErrorType.dimension,
+        error.toString(),
+        position: currentStatement?.position,
+      );
     } on ArgumentError catch (error) {
-      throw argumentError(error.message?.toString() ?? 'invalid argument');
+      throw CalcException(
+        CalcErrorType.argument,
+        error.message?.toString() ?? 'invalid argument',
+        position: currentStatement?.position,
+      );
     }
 
     final result = value;
     if (result == null) throw argumentError('expression is empty');
-    _checkFinite(result);
+    try {
+      _checkFinite(result);
+    } on CalcException catch (error) {
+      if (error.position == null) {
+        throw CalcException(
+          error.type,
+          error.message,
+          position: statements.last.position,
+        );
+      }
+      rethrow;
+    }
     lastAnswer = result;
 
     return CalcEvaluation(
@@ -209,6 +253,20 @@ class CalcEngine {
   // -------------------------------------------------------------------------
 
   CalcValue _eval(CalcNode node, _Scope? scope) {
+    try {
+      return _evalNode(node, scope);
+    } on CalcException catch (error) {
+      // Runtime errors such as division by zero carry no position of their
+      // own. Attach the innermost AST node that produced the error so the UI
+      // can point at the operator or function call within the line.
+      if (error.position == null) {
+        throw CalcException(error.type, error.message, position: node.position);
+      }
+      rethrow;
+    }
+  }
+
+  CalcValue _evalNode(CalcNode node, _Scope? scope) {
     switch (node) {
       case CalcNumberNode():
         return CalcQuantity.number(node.value);

@@ -711,9 +711,11 @@ extension on CalcEngine {
       return value.si.re;
     }
     if (value.isDimensionless) {
-      return settings.angleMode == CalcAngleMode.degrees
-          ? value.si.re * math.pi / 180
-          : value.si.re;
+      return switch (settings.angleMode) {
+        CalcAngleMode.degrees => value.si.re * math.pi / 180,
+        CalcAngleMode.radians => value.si.re,
+        CalcAngleMode.gradians => value.si.re * math.pi / 200,
+      };
     }
     throw dimensionError(
       'expected an angle, got ${value.dimension.describe()}',
@@ -721,9 +723,11 @@ extension on CalcEngine {
   }
 
   CalcValue _angleFromRadians(double radians) {
-    final value = settings.angleMode == CalcAngleMode.degrees
-        ? radians * 180 / math.pi
-        : radians;
+    final value = switch (settings.angleMode) {
+      CalcAngleMode.degrees => radians * 180 / math.pi,
+      CalcAngleMode.radians => radians,
+      CalcAngleMode.gradians => radians * 200 / math.pi,
+    };
     return CalcQuantity.number(value);
   }
 

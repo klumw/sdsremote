@@ -10,8 +10,16 @@ import 'dart:async';
 import '../signal_generator/siggen_window_launcher.dart';
 import 'calculator_window_protocol.dart';
 
+/// Supplies the calculator window's target position in the main window.
+typedef CalculatorWindowPositionProvider =
+    Future<CalculatorWindowPosition?> Function();
+
 class CalculatorWindowLauncher {
-  CalculatorWindowLauncher({required this.backend, this.onOpenChanged}) {
+  CalculatorWindowLauncher({
+    required this.backend,
+    this.onOpenChanged,
+    this.positionProvider,
+  }) {
     _subscription = backend.windowChanges.listen(
       (_) => unawaited(syncOpenState()),
     );
@@ -19,6 +27,7 @@ class CalculatorWindowLauncher {
 
   final MultiWindowBackend backend;
   final void Function(bool open)? onOpenChanged;
+  final CalculatorWindowPositionProvider? positionProvider;
 
   StreamSubscription<void>? _subscription;
   Future<bool>? _inFlight;
@@ -41,20 +50,43 @@ class CalculatorWindowLauncher {
 
   Future<bool> _openOrFocus() async {
     try {
+      final position = await _targetPosition();
       final existing = await _findWindow();
       if (existing != null) {
         await existing.show();
+        if (position != null) {
+          try {
+            await existing.invoke('positionWindow', {
+              'left': position.left,
+              'top': position.top,
+            });
+          } catch (_) {
+            // Older child engines may not provide the positioning handler.
+          }
+        }
         await existing.focus();
         _setOpen(true);
         return true;
       }
-      await backend.createWindow(CalculatorWindowArguments.toArguments());
+      await backend.createWindow(
+        CalculatorWindowArguments.toArguments(position: position),
+      );
       // The child engine shows itself after its first painted frame.
       _setOpen(true);
       return true;
     } catch (_) {
       await syncOpenState();
       return _open;
+    }
+  }
+
+  Future<CalculatorWindowPosition?> _targetPosition() async {
+    final provider = positionProvider;
+    if (provider == null) return null;
+    try {
+      return await provider();
+    } catch (_) {
+      return null;
     }
   }
 

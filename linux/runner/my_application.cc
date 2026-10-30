@@ -16,6 +16,27 @@ struct _MyApplication {
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 
+// Main application window. Auxiliary windows created by
+// desktop_multi_window are made transient for it so window managers that
+// support dialog placement (for example labwc on Wayland) center them over
+// the main window.
+static GtkWindow* g_main_window = nullptr;
+
+// Re-apply centering whenever an auxiliary window is shown again after being
+// hidden, so every open places it over the main window.
+static void center_auxiliary_window(GtkWidget* widget, gpointer user_data) {
+  if (!GTK_IS_WINDOW(widget)) {
+    return;
+  }
+  GtkWindow* main_window = GTK_WINDOW(user_data);
+  GtkWindow* window = GTK_WINDOW(widget);
+  if (main_window == nullptr || window == main_window) {
+    return;
+  }
+  gtk_window_set_transient_for(window, main_window);
+  gtk_window_set_position(window, GTK_WIN_POS_CENTER_ON_PARENT);
+}
+
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication* self, FlView* view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
@@ -147,6 +168,8 @@ static void my_application_activate(GApplication* application) {
   // Show the sdsremote icon in the window title bar and task bar.
   apply_window_icon(project, window, header_bar);
 
+  g_main_window = window;
+
   FlView* view = fl_view_new(project);
   GdkRGBA background_color;
   // Background defaults to black, override it here if necessary, e.g. #00000000
@@ -166,8 +189,35 @@ static void my_application_activate(GApplication* application) {
 
   // Register plugins for every child engine created by desktop_multi_window
   // (the signal generator window needs window_manager in its own engine).
+  // Make the new auxiliary window a transient child of the main window and ask
+  // the window manager to center it on its parent. This is required on Wayland,
+  // where a client cannot move a top-level window by absolute screen position.
   desktop_multi_window_plugin_set_window_created_callback(
-      [](FlPluginRegistry* registry) { fl_register_plugins(registry); });
+      [](FlPluginRegistry* registry) {
+        fl_register_plugins(registry);
+
+        if (g_main_window == nullptr) {
+          return;
+        }
+        g_autoptr(FlPluginRegistrar) registrar =
+            fl_plugin_registry_get_registrar_for_plugin(
+                registry, "DesktopMultiWindowPlugin");
+        FlView* view = fl_plugin_registrar_get_view(registrar);
+        if (view == nullptr) {
+          return;
+        }
+        GtkWidget* toplevel = gtk_widget_get_toplevel(GTK_WIDGET(view));
+        if (!GTK_IS_WINDOW(toplevel)) {
+          return;
+        }
+        GtkWindow* child = GTK_WINDOW(toplevel);
+        if (child == g_main_window) {
+          return;
+        }
+        center_auxiliary_window(GTK_WIDGET(child), g_main_window);
+        g_signal_connect(child, "show", G_CALLBACK(center_auxiliary_window),
+                         g_main_window);
+      });
 
   // Quit the application explicitly when the main window is destroyed. The
   // signal generator window is only hidden on close, so it would otherwise

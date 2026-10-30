@@ -15,7 +15,7 @@ import 'calc_value.dart';
 
 enum CalcNumberFormat { auto, fixed, scientific, engineering }
 
-enum CalcAngleMode { degrees, radians }
+enum CalcAngleMode { degrees, radians, gradians }
 
 /// User-selectable display settings.
 class CalcFormatSettings {
@@ -203,12 +203,16 @@ class CalcFormatter {
     final unit = quantity.displayUnit;
     var magnitude = quantity.si.magnitude;
     double phase = quantity.si.phase;
-    String phaseSuffix;
-    if (settings.angleMode == CalcAngleMode.degrees) {
-      phase = phase * 180 / math.pi;
-      phaseSuffix = '°';
-    } else {
-      phaseSuffix = ' rad';
+    final String phaseSuffix;
+    switch (settings.angleMode) {
+      case CalcAngleMode.degrees:
+        phase = phase * 180 / math.pi;
+        phaseSuffix = '°';
+      case CalcAngleMode.radians:
+        phaseSuffix = ' rad';
+      case CalcAngleMode.gradians:
+        phase = phase * 200 / math.pi;
+        phaseSuffix = ' grad';
     }
 
     String? unitText;

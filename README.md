@@ -214,10 +214,20 @@ The workspace is stored in `~/.local/share/sdsremote/calculator/workspace.json`
 (Windows: `%LocalAppData%\sdsremote\calculator\workspace.json`). History can be
 exported as CSV, JSON or Markdown, and the whole workspace as JSON.
 
+The optional Calculator AI assistant is opened with the bordered sparkle button
+next to the syntax-help icon. It slides in from the left over the keypad,
+reuses the application's chat panel, and uses the existing AI provider, token
+and model. It asks for missing parameters, calls the deterministic
+calculator/math tools, shows units and assumptions, and renders structured
+results. The assistant can always read the current expression, program and
+variables through a read-only context tool. **Insert result**, **Store as
+variable** and **Use in program** change the calculator only after an explicit
+click. If AI is not configured, the calculator remains fully usable.
+
 The same engine is exposed as the `calculator_tool` AI tool, so the assistant
 can evaluate unit-aware expressions and run library formulas. See
 [11. Engineering Calculator](#11-engineering-calculator-ctrlr) in the manual for
-the complete syntax and key reference.
+the complete syntax, key reference and AI assistant notes.
 
 ### Macro Recorder
 

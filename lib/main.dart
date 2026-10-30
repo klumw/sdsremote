@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:logging/logging.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:window_manager/window_manager.dart';
@@ -72,7 +73,7 @@ void main(List<String> args) async {
     return;
   }
   if (CalculatorWindowArguments.isCalculatorWindow(windowArguments)) {
-    await _runCalculatorWindow();
+    await _runCalculatorWindow(windowArguments);
     return;
   }
 
@@ -164,13 +165,19 @@ Future<void> _runSignalGeneratorWindow() async {
 }
 
 /// Starts the child engine's engineering-calculator window.
-Future<void> _runCalculatorWindow() async {
+Future<void> _runCalculatorWindow(String windowArguments) async {
   AppLogger().info('SDS-Remote: calculator window starting');
-  const windowOptions = WindowOptions(
-    size: Size(1240, 820),
-    minimumSize: Size(980, 640),
+  final targetPosition = CalculatorWindowArguments.positionFrom(
+    windowArguments,
+  );
+  final windowOptions = WindowOptions(
+    size: const Size(
+      CalculatorWindowArguments.windowWidth,
+      CalculatorWindowArguments.windowHeight,
+    ),
+    minimumSize: const Size(980, 640),
     title: 'Engineering Calculator',
-    center: true,
+    center: targetPosition == null,
   );
   try {
     await windowManager.waitUntilReadyToShow(windowOptions, () {});
@@ -181,15 +188,72 @@ Future<void> _runCalculatorWindow() async {
     ).log('window_manager setup failed: $error');
   }
 
+  try {
+    final windowController = await WindowController.fromCurrentEngine();
+    await windowController.setWindowMethodHandler((call) async {
+      switch (call.method) {
+        case 'positionWindow':
+          final arguments = call.arguments;
+          if (arguments is Map) {
+            final left = arguments['left'];
+            final top = arguments['top'];
+            if (left is num && top is num) {
+              await windowManager.setPosition(
+                Offset(left.toDouble(), top.toDouble()),
+              );
+            }
+          }
+          return null;
+        case 'focus':
+          await windowManager.show();
+          await windowManager.focus();
+          return null;
+        case 'closeWindow':
+          await windowManager.hide();
+          return null;
+        default:
+          throw MissingPluginException('Not implemented: ${call.method}');
+      }
+    });
+  } catch (error) {
+    AppLogger(
+      agentName: 'Calculator',
+      toolName: 'window',
+    ).log('Could not install the window method handler: $error');
+  }
+
   final controller = CalculatorController();
   var shown = false;
   Future<void> showWindow() async {
     if (shown) return;
     shown = true;
     final log = AppLogger(agentName: 'Calculator', toolName: 'window');
+    var positioned = false;
+    if (targetPosition != null) {
+      try {
+        await windowManager.setPosition(
+          Offset(targetPosition.left, targetPosition.top),
+        );
+        positioned = true;
+      } catch (error) {
+        log.log('Could not position calculator window: $error');
+      }
+    }
     try {
       await windowManager.show();
-      await windowManager.center();
+      if (targetPosition != null) {
+        // Repeat after showing in case the compositor ignored a move request
+        // for the still-hidden window.
+        try {
+          await windowManager.setPosition(
+            Offset(targetPosition.left, targetPosition.top),
+          );
+          positioned = true;
+        } catch (error) {
+          log.log('Could not position calculator window after showing: $error');
+        }
+      }
+      if (!positioned) await windowManager.center();
       await windowManager.focus();
       log.log('Calculator window shown');
     } catch (error) {

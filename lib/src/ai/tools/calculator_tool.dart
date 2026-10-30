@@ -12,6 +12,7 @@ import '../../core/logger.dart';
 Tool<Map<String, dynamic>> createCalculatorTool({
   String agentName = 'unknown',
   CalculatorService? service,
+  void Function(Map<String, dynamic> result)? onResult,
 }) {
   final calculator = service ?? CalculatorService();
 
@@ -30,8 +31,11 @@ Tool<Map<String, dynamic>> createCalculatorTool({
         'run_formula with a formula id from list_formulas; convert to a '
         'unit; list_variables; history. Use list_formulas to discover '
         'electronics, measurement, audio, digital and RF formula ids and '
-        'their input names. Never invent a result when the tool returns an '
-        'error; report the error or ask for the missing input.',
+        'their input names. For assistant use, set strict_inputs=true and '
+        'provide every value the user supplied; the tool then rejects '
+        'library defaults and reports missing_inputs. Never invent a result '
+        'when the tool returns an error; report the error or ask for the '
+        'missing input.',
     inputSchema: Schema.fromMap({
       'type': 'object',
       'properties': {
@@ -77,7 +81,15 @@ Tool<Map<String, dynamic>> createCalculatorTool({
           'description':
               'Formula input expressions keyed by input name, e.g. '
               '{"r": "10 kΩ", "c": "100 nF"}. Omitted inputs use the '
-              'library defaults.',
+              'library defaults unless strict_inputs is true.',
+        },
+        'strict_inputs': {
+          'type': 'boolean',
+          'description':
+              'For run_formula: when true, require an explicit value for '
+              'every formula input and return missing_inputs instead of '
+              'using library defaults. Use true unless the user explicitly '
+              'asked to use the defaults.',
         },
         'unit': {
           'type': 'string',
@@ -107,6 +119,16 @@ Tool<Map<String, dynamic>> createCalculatorTool({
         agentName: agentName,
         toolName: 'calculator_tool',
       );
+      Map<String, dynamic> finish(Map<String, dynamic> value) {
+        final enriched = {...value, 'operation': operation};
+        try {
+          onResult?.call(enriched);
+        } on Object catch (error) {
+          logger.error('calculator_tool result callback failed: $error');
+        }
+        return enriched;
+      }
+
       try {
         final Map<String, dynamic> result;
         switch (operation) {
@@ -133,7 +155,29 @@ Tool<Map<String, dynamic>> createCalculatorTool({
                   inputs['${entry.key}'] = '${entry.value}';
                 }
               }
-              result = calculator.runFormula(formulaId, inputs);
+              if (args['strict_inputs'] == true) {
+                final missing = _missingFormulaInputs(
+                  calculator,
+                  formulaId,
+                  inputs,
+                );
+                if (missing != null && missing.isNotEmpty) {
+                  result = {
+                    'ok': false,
+                    'error':
+                        'missing formula inputs: ${missing.join(', ')}. '
+                        'Ask the user for these values instead of assuming '
+                        'them.',
+                    'error_type': 'argument',
+                    'formula_id': formulaId,
+                    'missing_inputs': missing,
+                  };
+                } else {
+                  result = calculator.runFormula(formulaId, inputs);
+                }
+              } else {
+                result = calculator.runFormula(formulaId, inputs);
+              }
             }
           case 'convert':
             final expression = '${args['expression'] ?? ''}';
@@ -183,10 +227,10 @@ Tool<Map<String, dynamic>> createCalculatorTool({
           },
           output: {'ok': result['ok'] == true},
         );
-        return result;
+        return finish(result);
       } on Object catch (error) {
         logger.error('calculator_tool failed: $error');
-        return _error('calculator tool failed: $error');
+        return finish(_error('calculator tool failed: $error'));
       }
     },
   );
@@ -197,3 +241,32 @@ Map<String, dynamic> _error(String message) => {
   'error': message,
   'error_type': 'argument',
 };
+
+/// Returns the formula inputs that [inputs] does not provide explicitly.
+///
+/// A null result means the formula id is unknown; in that case the normal
+/// formula runner reports the structured "unknown formula" error.
+List<String>? _missingFormulaInputs(
+  CalculatorService calculator,
+  String formulaId,
+  Map<String, String> inputs,
+) {
+  Map<String, dynamic>? formula;
+  for (final candidate in calculator.listFormulas(query: formulaId)) {
+    if (candidate['id'] == formulaId) {
+      formula = candidate;
+      break;
+    }
+  }
+  if (formula == null) return null;
+
+  final rawInputs = formula['inputs'];
+  if (rawInputs is! List) return const [];
+  return [
+    for (final rawInput in rawInputs)
+      if (rawInput is Map &&
+          '${rawInput['name'] ?? ''}'.isNotEmpty &&
+          (inputs['${rawInput['name']}'] ?? '').trim().isEmpty)
+        '${rawInput['name']}',
+  ];
+}

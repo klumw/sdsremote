@@ -23,6 +23,7 @@ class _KeyData {
     this.inverseText,
     this.action,
     this.kind = _KeyKind.function,
+    this.description,
   });
 
   final String label;
@@ -33,6 +34,7 @@ class _KeyData {
   final String? inverseText;
   final VoidCallback? action;
   final _KeyKind kind;
+  final String? description;
 
   bool get hasAlternate =>
       shiftLabel != null ||
@@ -109,6 +111,9 @@ class CalculatorKeypad extends StatelessWidget {
           primary: 'sin(',
           shiftText: 'asin(',
           inverseText: 'sinh(',
+          description:
+              'Sine. SHIFT inserts the inverse sine; INV inserts the '
+              'hyperbolic sine.',
         ),
         _KeyData(
           label: 'cos',
@@ -117,6 +122,9 @@ class CalculatorKeypad extends StatelessWidget {
           primary: 'cos(',
           shiftText: 'acos(',
           inverseText: 'cosh(',
+          description:
+              'Cosine. SHIFT inserts the inverse cosine; INV inserts the '
+              'hyperbolic cosine.',
         ),
         _KeyData(
           label: 'tan',
@@ -125,6 +133,9 @@ class CalculatorKeypad extends StatelessWidget {
           primary: 'tan(',
           shiftText: 'atan(',
           inverseText: 'tanh(',
+          description:
+              'Tangent. SHIFT inserts the inverse tangent; INV inserts the '
+              'hyperbolic tangent.',
         ),
         _KeyData(
           label: 'ln',
@@ -133,6 +144,8 @@ class CalculatorKeypad extends StatelessWidget {
           primary: 'ln(',
           shiftText: 'exp(',
           inverseText: 'log2(',
+          description:
+              'Natural logarithm. SHIFT inserts exp(); INV inserts log2().',
         ),
         _KeyData(
           label: 'log',
@@ -141,6 +154,9 @@ class CalculatorKeypad extends StatelessWidget {
           primary: 'log10(',
           shiftText: '10^(',
           inverseText: 'log(',
+          description:
+              'Base-10 logarithm. SHIFT inserts 10^x; INV inserts a logarithm '
+              'with an explicit base.',
         ),
         _KeyData(
           label: 'exp',
@@ -149,6 +165,8 @@ class CalculatorKeypad extends StatelessWidget {
           primary: 'exp(',
           shiftText: 'e^(',
           inverseText: 'pi',
+          description:
+              'Exponential function. SHIFT inserts e^x; INV inserts pi.',
         ),
         _KeyData(
           label: 'xʸ',
@@ -158,6 +176,7 @@ class CalculatorKeypad extends StatelessWidget {
           shiftText: '^(1/',
           inverseText: '^2',
           kind: _KeyKind.operator,
+          description: 'Power. SHIFT inserts a root; INV inserts the square.',
         ),
       ],
       [
@@ -168,6 +187,9 @@ class CalculatorKeypad extends StatelessWidget {
           primary: 'sqrt(',
           shiftText: 'cbrt(',
           inverseText: '√(',
+          description:
+              'Square root. SHIFT inserts the cube root; INV inserts a root '
+              'with an explicit index.',
         ),
         _KeyData(
           label: 'x²',
@@ -176,6 +198,9 @@ class CalculatorKeypad extends StatelessWidget {
           primary: '^2',
           shiftText: '^3',
           inverseText: '^(1/2)',
+          description:
+              'Square. SHIFT inserts the cube; INV inserts the square root '
+              'using an exponent of 1/2.',
         ),
         _KeyData(
           label: '1/x',
@@ -184,6 +209,9 @@ class CalculatorKeypad extends StatelessWidget {
           primary: '1/(',
           shiftText: '%',
           inverseText: 'ppm',
+          description:
+              'Reciprocal. SHIFT inserts percent; INV inserts parts per '
+              'million.',
         ),
         _KeyData(
           label: 'n!',
@@ -192,6 +220,9 @@ class CalculatorKeypad extends StatelessWidget {
           primary: '!',
           shiftText: 'gamma(',
           inverseText: 'comb(',
+          description:
+              'Factorial. SHIFT inserts the gamma function; INV inserts the '
+              'combination function.',
         ),
         _KeyData(
           label: 'ABS',
@@ -200,54 +231,187 @@ class CalculatorKeypad extends StatelessWidget {
           primary: 'abs(',
           shiftText: 'mag(',
           inverseText: 'arg(',
+          description:
+              'Absolute value. SHIFT inserts the magnitude; INV inserts the '
+              'argument or phase.',
         ),
-        const _KeyData(label: 'π', primary: 'pi'),
-        const _KeyData(label: 'e', primary: 'e'),
+        const _KeyData(
+          label: 'π',
+          primary: 'pi',
+          description: 'Insert the constant pi.',
+        ),
+        const _KeyData(
+          label: 'e',
+          primary: 'e',
+          description: "Insert Euler's number e.",
+        ),
       ],
       const [
-        _KeyData(label: '(', primary: '(', kind: _KeyKind.function),
-        _KeyData(label: ')', primary: ')', kind: _KeyKind.function),
-        _KeyData(label: 'mod', primary: ' mod ', kind: _KeyKind.operator),
-        _KeyData(label: '∠', primary: '∠', kind: _KeyKind.operator),
-        _KeyData(label: 'j', primary: 'j', kind: _KeyKind.function),
-        _KeyData(label: '°', primary: '°', kind: _KeyKind.function),
-        _KeyData(label: '%', primary: '%', kind: _KeyKind.function),
+        _KeyData(
+          label: '(',
+          primary: '(',
+          kind: _KeyKind.function,
+          description: 'Open parenthesis.',
+        ),
+        _KeyData(
+          label: ')',
+          primary: ')',
+          kind: _KeyKind.function,
+          description: 'Close parenthesis.',
+        ),
+        _KeyData(
+          label: 'mod',
+          primary: ' mod ',
+          kind: _KeyKind.operator,
+          description: 'Modulo: insert the remainder operator.',
+        ),
+        _KeyData(
+          label: '∠',
+          primary: '∠',
+          kind: _KeyKind.operator,
+          description: 'Polar angle operator: magnitude∠angle.',
+        ),
+        _KeyData(
+          label: 'j',
+          primary: 'j',
+          kind: _KeyKind.function,
+          description: 'Insert the imaginary unit j.',
+        ),
+        _KeyData(
+          label: '°',
+          primary: '°',
+          kind: _KeyKind.function,
+          description: 'Insert the degree unit.',
+        ),
+        _KeyData(
+          label: '%',
+          primary: '%',
+          kind: _KeyKind.function,
+          description: 'Insert percent; plain numbers are divided by 100.',
+        ),
       ],
       [
         const _KeyData(label: '7', primary: '7', kind: _KeyKind.digit),
         const _KeyData(label: '8', primary: '8', kind: _KeyKind.digit),
         const _KeyData(label: '9', primary: '9', kind: _KeyKind.digit),
-        const _KeyData(label: '÷', primary: '/', kind: _KeyKind.operator),
-        _KeyData(label: 'STO', action: onStore, kind: _KeyKind.action),
-        _KeyData(label: 'RCL', action: onRecall, kind: _KeyKind.action),
-        _KeyData(label: 'HIST', action: onHistory, kind: _KeyKind.action),
+        const _KeyData(
+          label: '÷',
+          primary: '/',
+          kind: _KeyKind.operator,
+          description: 'Divide.',
+        ),
+        _KeyData(
+          label: 'STO',
+          action: onStore,
+          kind: _KeyKind.action,
+          description: 'Store the current result in a named variable.',
+        ),
+        _KeyData(
+          label: 'RCL',
+          action: onRecall,
+          kind: _KeyKind.action,
+          description: 'Recall a stored variable into the expression.',
+        ),
+        _KeyData(
+          label: 'HIST',
+          action: onHistory,
+          kind: _KeyKind.action,
+          description: 'Open the calculation history.',
+        ),
       ],
       [
         const _KeyData(label: '4', primary: '4', kind: _KeyKind.digit),
         const _KeyData(label: '5', primary: '5', kind: _KeyKind.digit),
         const _KeyData(label: '6', primary: '6', kind: _KeyKind.digit),
-        const _KeyData(label: '×', primary: '*', kind: _KeyKind.operator),
-        _KeyData(label: 'VAR', action: onVariables, kind: _KeyKind.action),
-        _KeyData(label: 'UNIT', action: onUnit, kind: _KeyKind.action),
-        _KeyData(label: 'CONV', action: onConvert, kind: _KeyKind.action),
+        const _KeyData(
+          label: '×',
+          primary: '*',
+          kind: _KeyKind.operator,
+          description: 'Multiply.',
+        ),
+        _KeyData(
+          label: 'VAR',
+          action: onVariables,
+          kind: _KeyKind.action,
+          description: 'Show variables and user-defined functions.',
+        ),
+        _KeyData(
+          label: 'UNIT',
+          action: onUnit,
+          kind: _KeyKind.action,
+          description: 'Insert a unit or Greek unit symbol from a list.',
+        ),
+        _KeyData(
+          label: 'CONV',
+          action: onConvert,
+          kind: _KeyKind.action,
+          description: 'Convert the expression to another unit.',
+        ),
       ],
       [
         const _KeyData(label: '1', primary: '1', kind: _KeyKind.digit),
         const _KeyData(label: '2', primary: '2', kind: _KeyKind.digit),
         const _KeyData(label: '3', primary: '3', kind: _KeyKind.digit),
-        const _KeyData(label: '−', primary: '-', kind: _KeyKind.operator),
-        _KeyData(label: 'FAV', action: onFavorites, kind: _KeyKind.action),
-        _KeyData(label: 'FORM', action: onFormulas, kind: _KeyKind.action),
-        _KeyData(label: 'PROG', action: onProgram, kind: _KeyKind.action),
+        const _KeyData(
+          label: '−',
+          primary: '-',
+          kind: _KeyKind.operator,
+          description: 'Subtract.',
+        ),
+        _KeyData(
+          label: 'FAV',
+          action: onFavorites,
+          kind: _KeyKind.action,
+          description: 'Open favorite calculations.',
+        ),
+        _KeyData(
+          label: 'FORM',
+          action: onFormulas,
+          kind: _KeyKind.action,
+          description: 'Open the formula library.',
+        ),
+        _KeyData(
+          label: 'PROG',
+          action: onProgram,
+          kind: _KeyKind.action,
+          description: 'Open the program editor.',
+        ),
       ],
       [
         const _KeyData(label: '0', primary: '0', kind: _KeyKind.digit),
         const _KeyData(label: '.', primary: '.', kind: _KeyKind.digit),
-        _KeyData(label: '±', action: onSign, kind: _KeyKind.function),
-        const _KeyData(label: '+', primary: '+', kind: _KeyKind.operator),
-        _KeyData(label: 'ANS', primary: 'ans', kind: _KeyKind.function),
-        _KeyData(label: '=', action: onEvaluate, kind: _KeyKind.accent),
-        _KeyData(label: '⌫', action: onBackspace, kind: _KeyKind.danger),
+        _KeyData(
+          label: '±',
+          action: onSign,
+          kind: _KeyKind.function,
+          description:
+              'Change the sign of the selection or insert a minus sign.',
+        ),
+        const _KeyData(
+          label: '+',
+          primary: '+',
+          kind: _KeyKind.operator,
+          description: 'Add.',
+        ),
+        _KeyData(
+          label: 'ANS',
+          primary: 'ans',
+          kind: _KeyKind.function,
+          description: 'Insert the previous result (ans).',
+        ),
+        _KeyData(
+          label: '=',
+          action: onEvaluate,
+          kind: _KeyKind.accent,
+          description: 'Evaluate the expression.',
+        ),
+        _KeyData(
+          label: '⌫',
+          action: onBackspace,
+          kind: _KeyKind.danger,
+          description:
+              'Delete the selection or the character before the cursor.',
+        ),
       ],
     ];
 
@@ -347,9 +511,11 @@ class CalculatorKeypad extends StatelessWidget {
   }
 
   List<_KeyData> _modeRow(CalcFormatSettings settings) {
-    final angleLabel = settings.angleMode == CalcAngleMode.degrees
-        ? 'DEG'
-        : 'RAD';
+    final angleLabel = switch (settings.angleMode) {
+      CalcAngleMode.degrees => 'DEG',
+      CalcAngleMode.radians => 'RAD',
+      CalcAngleMode.gradians => 'GRAD',
+    };
     final formatLabel = switch (settings.format) {
       CalcNumberFormat.auto => 'AUTO',
       CalcNumberFormat.fixed => 'FIXED',
@@ -367,16 +533,22 @@ class CalculatorKeypad extends StatelessWidget {
         label: 'SHIFT',
         action: controller.toggleShift,
         kind: _KeyKind.mode,
+        description: 'Apply the amber secondary function printed above a key.',
       ),
       _KeyData(
         label: 'INV',
         action: controller.toggleInverse,
         kind: _KeyKind.mode,
+        description:
+            'Apply the inverse or hyperbolic function printed above a key.',
       ),
       _KeyData(
         label: angleLabel,
-        action: controller.toggleAngleMode,
+        action: controller.cycleAngleMode,
         kind: _KeyKind.mode,
+        description:
+            'Cycle the angle unit for plain numbers: degrees, radians, '
+            'gradians (gon).',
       ),
       _KeyData(
         label: formatLabel,
@@ -391,13 +563,23 @@ class CalculatorKeypad extends StatelessWidget {
           controller.setNumberFormat(order[(index + 1) % order.length]);
         },
         kind: _KeyKind.mode,
+        description:
+            'Cycle the number format: Auto, Engineering, Fixed, Scientific.',
       ),
       _KeyData(
         label: baseLabel,
         action: controller.cycleNumberBase,
         kind: _KeyKind.mode,
+        description:
+            'Cycle the integer display base: decimal, hexadecimal, octal, '
+            'binary.',
       ),
-      _KeyData(label: 'CLR', action: onClear, kind: _KeyKind.danger),
+      _KeyData(
+        label: 'CLR',
+        action: onClear,
+        kind: _KeyKind.danger,
+        description: 'Clear the expression and the displayed result.',
+      ),
     ];
   }
 
@@ -451,12 +633,18 @@ class _CalcKeyButtonState extends State<_CalcKeyButton> {
         (key.label == 'INV' && widget.inverse);
     final highlight = modifierActive || (active && key.hasAlternate && !isMode);
 
-    final foreground = key.kind == _KeyKind.accent
+    final foreground = key.label == 'SHIFT'
+        ? Colors.amberAccent
+        : key.kind == _KeyKind.accent
         ? Colors.white
         : (key.kind == _KeyKind.operator ? Colors.cyanAccent : Colors.white);
 
+    final effectiveLabel = key.effectiveLabel(widget.shift, widget.inverse);
+    final description = key.description;
     return Tooltip(
-      message: key.effectiveLabel(widget.shift, widget.inverse),
+      message: description == null
+          ? effectiveLabel
+          : '$effectiveLabel\n$description',
       waitDuration: const Duration(milliseconds: 600),
       child: Material(
         color: Colors.transparent,
