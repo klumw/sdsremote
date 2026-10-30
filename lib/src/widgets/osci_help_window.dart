@@ -1040,7 +1040,7 @@ class _HelpWindowState extends State<HelpWindow>
                 _buildHelpAssistantButton(),
                 const SizedBox(width: 8),
                 _SmallIconButton(
-                  icon: Icons.arrow_back,
+                  icon: Icons.undo,
                   tooltip: 'Back to previous link',
                   onPressed: _linkHistory.canGoBack
                       ? _goBackInLinkHistory
@@ -1048,7 +1048,7 @@ class _HelpWindowState extends State<HelpWindow>
                 ),
                 const SizedBox(width: 2),
                 _SmallIconButton(
-                  icon: Icons.arrow_forward,
+                  icon: Icons.redo,
                   tooltip: 'Forward to next link',
                   onPressed: _linkHistory.canGoForward
                       ? _goForwardInLinkHistory
