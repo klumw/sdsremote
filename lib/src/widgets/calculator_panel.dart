@@ -1229,8 +1229,10 @@ AI ASSISTANT (optional)
   panel. Configure provider, token and model in SDS-Remote Settings.
   The assistant uses the deterministic engine and asks for missing
   values. It can read the current expression, program and variables
-  read-only. Results are applied only with Insert result, Store as
-  variable or Use in program.
+  read-only. Results appear as numbered footnotes [1], [2], ... in the
+  answer. Right-click a footnote for Copy, Insert result, Use in
+  program or Use as variable; hovering it shows the result and the
+  calculation.
 
 All results are recorded in the History tab with the normalized expression,
 unit, variables used and the formula (when a library formula was run).

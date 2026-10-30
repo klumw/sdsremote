@@ -12,7 +12,7 @@ import '../../core/logger.dart';
 Tool<Map<String, dynamic>> createCalculatorTool({
   String agentName = 'unknown',
   CalculatorService? service,
-  void Function(Map<String, dynamic> result)? onResult,
+  int? Function(Map<String, dynamic> result)? onResult,
 }) {
   final calculator = service ?? CalculatorService();
 
@@ -122,7 +122,8 @@ Tool<Map<String, dynamic>> createCalculatorTool({
       Map<String, dynamic> finish(Map<String, dynamic> value) {
         final enriched = {...value, 'operation': operation};
         try {
-          onResult?.call(enriched);
+          final footnote = onResult?.call(enriched);
+          if (footnote != null) enriched['footnote'] = footnote;
         } on Object catch (error) {
           logger.error('calculator_tool result callback failed: $error');
         }

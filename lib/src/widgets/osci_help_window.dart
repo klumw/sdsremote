@@ -8,6 +8,7 @@ import 'package:markdown/markdown.dart' as md;
 import '../ai/ai_settings.dart';
 import '../ai/help_chat_controller.dart';
 import '../core/logger.dart';
+import '../help/help_link_history.dart';
 import '../help/help_sections.dart';
 import 'osci_chat_window.dart';
 
@@ -114,6 +115,9 @@ class _HelpWindowState extends State<HelpWindow>
   /// The manual's main chapters, shown as the table of contents above it.
   final List<HelpChapter> _chapters = [];
 
+  /// Targets visited through in-document links and table-of-contents entries.
+  final HelpLinkHistory _linkHistory = HelpLinkHistory();
+
   /// Custom inline syntax that parses `@@term@@` into a `<mark>` AST element.
   /// This is used for search-highlighting instead of HTML tags (which the
   /// markdown parser treats as raw text).
@@ -215,6 +219,7 @@ class _HelpWindowState extends State<HelpWindow>
       // Anchors of a previously loaded manual are stale: the new content may
       // have a different set of headings.
       _headingAnchorKeys.clear();
+      _linkHistory.clear();
       // The help assistant answers from the manual, so its agent is created
       // once the text is available.
       _helpChatController.configure(widget.aiSettings, manual: _manualContent);
@@ -451,16 +456,23 @@ class _HelpWindowState extends State<HelpWindow>
   /// Scrolls the manual to the heading that the link fragment [fragment]
   /// points at, e.g. `41-ai-model-configuration` for
   /// "4.1 AI Model Configuration".
-  void _scrollToHeading(String fragment) {
+  void _scrollToHeading(String fragment, {bool recordHistory = true}) {
     final log = AppLogger(
       agentName: 'HelpWindow',
       toolName: '_scrollToHeading',
     );
     final slug = resolveHeadingAnchor(fragment, _headingAnchorKeys.keys);
-    final ctx = slug == null ? null : _headingAnchorKeys[slug]?.currentContext;
+    if (slug == null) {
+      log.log('No heading found for link target "#$fragment"');
+      return;
+    }
+    final ctx = _headingAnchorKeys[slug]?.currentContext;
     if (ctx == null) {
       log.log('No heading found for link target "#$fragment"');
       return;
+    }
+    if (recordHistory && _linkHistory.visit(slug)) {
+      setState(() {});
     }
     log.log('Scrolling to heading "#$slug"');
     Scrollable.ensureVisible(
@@ -469,6 +481,20 @@ class _HelpWindowState extends State<HelpWindow>
       duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
     );
+  }
+
+  void _goBackInLinkHistory() {
+    final target = _linkHistory.back();
+    if (target == null) return;
+    setState(() {});
+    _scrollToHeading(target, recordHistory: false);
+  }
+
+  void _goForwardInLinkHistory() {
+    final target = _linkHistory.forward();
+    if (target == null) return;
+    setState(() {});
+    _scrollToHeading(target, recordHistory: false);
   }
 
   /// Starts the slide-in or slide-out animation for the chat panel.
@@ -1012,6 +1038,22 @@ class _HelpWindowState extends State<HelpWindow>
                 // Opens the AI help assistant; sits directly left of the
                 // magnifier so both controls form one group.
                 _buildHelpAssistantButton(),
+                const SizedBox(width: 8),
+                _SmallIconButton(
+                  icon: Icons.arrow_back,
+                  tooltip: 'Back to previous link',
+                  onPressed: _linkHistory.canGoBack
+                      ? _goBackInLinkHistory
+                      : null,
+                ),
+                const SizedBox(width: 2),
+                _SmallIconButton(
+                  icon: Icons.arrow_forward,
+                  tooltip: 'Forward to next link',
+                  onPressed: _linkHistory.canGoForward
+                      ? _goForwardInLinkHistory
+                      : null,
+                ),
                 const SizedBox(width: 8),
                 const Icon(Icons.search, color: Colors.white70, size: 20),
                 const SizedBox(width: 8),

@@ -761,6 +761,8 @@ class _FormulaDialog extends StatefulWidget {
 
 class _FormulaDialogState extends State<_FormulaDialog> {
   late final Map<String, TextEditingController> _fields;
+  late final Map<String, FocusNode> _focusNodes;
+  String? _activeInput;
   String? _result;
   String? _source;
   String? _error;
@@ -772,6 +774,17 @@ class _FormulaDialogState extends State<_FormulaDialog> {
       for (final input in widget.formula.inputs)
         input.name: TextEditingController(text: input.defaultExpression),
     };
+    _focusNodes = {
+      for (final input in widget.formula.inputs) input.name: FocusNode(),
+    };
+    _activeInput = widget.formula.inputs.isEmpty
+        ? null
+        : widget.formula.inputs.first.name;
+    for (final entry in _focusNodes.entries) {
+      entry.value.addListener(() {
+        if (entry.value.hasFocus) _activeInput = entry.key;
+      });
+    }
   }
 
   @override
@@ -779,7 +792,26 @@ class _FormulaDialogState extends State<_FormulaDialog> {
     for (final field in _fields.values) {
       field.dispose();
     }
+    for (final focusNode in _focusNodes.values) {
+      focusNode.dispose();
+    }
     super.dispose();
+  }
+
+  Future<void> _insertUnit() async {
+    final symbol = await showUnitPickerDialog(context, widget.controller);
+    if (!mounted || symbol == null) return;
+    final name = _activeInput;
+    if (name == null || !_fields.containsKey(name)) return;
+    final field = _fields[name]!;
+    final selection = field.selection;
+    final start = selection.isValid ? selection.start : field.text.length;
+    final end = selection.isValid ? selection.end : field.text.length;
+    field.value = TextEditingValue(
+      text: field.text.replaceRange(start, end, symbol),
+      selection: TextSelection.collapsed(offset: start + symbol.length),
+    );
+    _focusNodes[name]?.requestFocus();
   }
 
   void _run() {
@@ -842,9 +874,29 @@ class _FormulaDialogState extends State<_FormulaDialog> {
                 ),
               ),
               const SizedBox(height: 12),
+              if (formula.inputs.isNotEmpty)
+                Row(
+                  children: [
+                    const Text('INPUTS', style: _sectionStyle),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: _insertUnit,
+                      icon: const Text(
+                        'Ω',
+                        style: TextStyle(
+                          color: Colors.white70,
+                          fontFamily: 'monospace',
+                          fontSize: 18,
+                        ),
+                      ),
+                      label: const Text('Unit'),
+                    ),
+                  ],
+                ),
               for (final input in formula.inputs) ...[
                 TextField(
                   controller: _fields[input.name],
+                  focusNode: _focusNodes[input.name],
                   style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
                   decoration: InputDecoration(
                     labelText: input.label,

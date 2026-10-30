@@ -91,6 +91,16 @@ class ChatWindow extends StatefulWidget {
   /// are built off-screen pass false and switch it on when they open.
   final bool autofocus;
 
+  /// Optional custom builders for inline Markdown elements. The calculator
+  /// uses this to render clickable footnote markers.
+  final Map<String, MarkdownElementBuilder> markdownBuilders;
+
+  /// Whether to wrap assistant messages in [SelectionArea].
+  ///
+  /// The calculator disables this so clickable inline footnote markers can
+  /// keep their hand cursor; MarkdownBody already provides selectable text.
+  final bool useSelectionArea;
+
   /// Placeholder shown in the input field.
   final String hintText;
 
@@ -120,6 +130,8 @@ class ChatWindow extends StatefulWidget {
     this.inputController,
     this.messageFooterBuilder,
     this.autofocus = true,
+    this.markdownBuilders = const {},
+    this.useSelectionArea = true,
     this.hintText = 'Ask about the oscilloscope or give a command...',
     this.emptyStateText,
     this.onCancel,
@@ -426,6 +438,9 @@ class _ChatWindowState extends State<ChatWindow> {
     );
   }
 
+  Widget _wrapSelection(Widget child) =>
+      widget.useSelectionArea ? SelectionArea(child: child) : child;
+
   /// Builds the content for a single chat message bubble.
   ///
   /// Shows a "Thinking..." spinner when the AI message is empty and streaming
@@ -467,10 +482,11 @@ class _ChatWindowState extends State<ChatWindow> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          SelectionArea(
-            child: MarkdownBody(
+          _wrapSelection(
+            MarkdownBody(
               selectable: true,
               data: _convertBareUrlsToMarkdownLinks(msg['content']!),
+              builders: widget.markdownBuilders,
               onTapLink: (text, href, title) => _handleLink(href),
               styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
                   .copyWith(
@@ -516,10 +532,11 @@ class _ChatWindowState extends State<ChatWindow> {
     }
 
     // Case 3: Not streaming → plain markdown content
-    return SelectionArea(
-      child: MarkdownBody(
+    return _wrapSelection(
+      MarkdownBody(
         selectable: true,
         data: _convertBareUrlsToMarkdownLinks(msg['content']!),
+        builders: widget.markdownBuilders,
         onTapLink: (text, href, title) => _handleLink(href),
         styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
           p: const TextStyle(color: Colors.white, fontSize: 15),

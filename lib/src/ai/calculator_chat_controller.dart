@@ -242,8 +242,11 @@ class CalculatorChatController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void _handleToolResult(Map<String, dynamic> result) {
-    if (_disposed || result['ok'] != true) return;
+  /// Adds a structured result to the current answer and returns its 1-based
+  /// footnote number. The number is passed back through calculator_tool so the
+  /// agent can cite the same marker in its answer text.
+  int? _handleToolResult(Map<String, dynamic> result) {
+    if (_disposed || result['ok'] != true) return null;
     final operation = '${result['operation'] ?? ''}';
     if (!const {
       'evaluate',
@@ -251,16 +254,18 @@ class CalculatorChatController extends ChangeNotifier {
       'convert',
       'define_variable',
     }.contains(operation)) {
-      return;
+      return null;
     }
     final index = _currentAiIndex;
-    if (index == null) return;
+    if (index == null) return null;
     final parsed = CalculatorChatResult.fromToolResult(result);
-    if (!parsed.isUsable) return;
+    if (!parsed.isUsable) return null;
     final existing = _results.putIfAbsent(index, () => []);
-    if (existing.any(parsed.matches)) return;
+    final duplicate = existing.indexWhere(parsed.matches);
+    if (duplicate >= 0) return duplicate + 1;
     existing.add(parsed);
     notifyListeners();
+    return existing.length;
   }
 
   void _cancelActiveRequest() {

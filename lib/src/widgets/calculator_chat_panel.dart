@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
+import 'package:markdown/markdown.dart' as md;
 
 import '../ai/calculator_chat_controller.dart';
 import '../app/app_theme.dart';
@@ -74,13 +76,20 @@ class _CalculatorChatPanelState extends State<CalculatorChatPanel> {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(6, 2, 6, 6),
                   child: ChatWindow(
-                    chatMessages: _chat.messages,
+                    chatMessages: _displayMessages(),
                     isChatting: _chat.isChatting,
                     isInitialized: _chat.isAvailable,
                     onSendMessage: _chat.send,
                     onCancel: _chat.cancel,
                     autofocus: _chat.isOpen,
                     inputController: _input,
+                    markdownBuilders: {
+                      'code': _CalculatorFootnoteBuilder(
+                        summaryFor: _footnoteSummary,
+                        onSecondaryTap: _showFootnoteMenu,
+                      ),
+                    },
+                    useSelectionArea: false,
                     messageFooterBuilder: _buildMessageFooter,
                     hintText: 'Ask the calculator assistant...',
                     emptyStateText:
@@ -96,6 +105,52 @@ class _CalculatorChatPanelState extends State<CalculatorChatPanel> {
         },
       ),
     );
+  }
+
+  /// Links `[n]` citations in an answer to the corresponding structured
+  /// result. Code blocks and inline code are left untouched.
+  List<Map<String, String>> _displayMessages() {
+    final messages = _chat.messages;
+    final display = <Map<String, String>>[];
+    for (var index = 0; index < messages.length; index++) {
+      final message = messages[index];
+      final resultCount = _chat.resultsFor(index).length;
+      if (message['role'] != 'ai' || resultCount == 0) {
+        display.add(message);
+        continue;
+      }
+      display.add({
+        ...message,
+        'content': _linkFootnotes(message['content'] ?? '', index, resultCount),
+      });
+    }
+    return display;
+  }
+
+  String _linkFootnotes(String content, int messageIndex, int resultCount) {
+    final code = RegExp(r'```[\s\S]*?```|`[^`\n]*`');
+    final counts = <int, int>{};
+    String replace(String text) {
+      return text.replaceAllMapped(RegExp(r'\[(\d+)\](?!\()'), (match) {
+        final footnote = int.tryParse(match.group(1)!);
+        if (footnote == null || footnote < 1 || footnote > resultCount) {
+          return match.group(0)!;
+        }
+        final occurrence = counts[footnote] ?? 0;
+        counts[footnote] = occurrence + 1;
+        return '`calc-fn:$messageIndex:$footnote:$occurrence`';
+      });
+    }
+
+    final output = StringBuffer();
+    var last = 0;
+    for (final match in code.allMatches(content)) {
+      output.write(replace(content.substring(last, match.start)));
+      output.write(match.group(0));
+      last = match.end;
+    }
+    output.write(replace(content.substring(last)));
+    return output.toString();
   }
 
   Widget _buildHeader() {
@@ -177,9 +232,8 @@ class _CalculatorChatPanelState extends State<CalculatorChatPanel> {
     if (index < 0 || index >= _chat.messages.length) return null;
     final message = _chat.messages[index];
     final content = message['content'] ?? '';
-    final results = _chat.resultsFor(index);
     final code = _extractLastCodeBlock(content);
-    if (content.isEmpty && results.isEmpty) return null;
+    if (content.isEmpty) return null;
 
     return Padding(
       padding: const EdgeInsets.only(top: 6),
@@ -205,7 +259,6 @@ class _CalculatorChatPanelState extends State<CalculatorChatPanel> {
                 ),
             ],
           ),
-          for (final result in results) _buildResultCard(result),
         ],
       ),
     );
@@ -228,64 +281,102 @@ class _CalculatorChatPanelState extends State<CalculatorChatPanel> {
     );
   }
 
-  Widget _buildResultCard(CalculatorChatResult result) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(top: 6),
-      padding: const EdgeInsets.fromLTRB(10, 8, 8, 6),
-      decoration: BoxDecoration(
-        color: const Color(0xFF0B1E35),
-        borderRadius: BorderRadius.circular(7),
-        border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.55)),
+  String _footnoteSummary(int messageIndex, int footnote) {
+    final results = _chat.resultsFor(messageIndex);
+    if (footnote < 1 || footnote > results.length) return 'Result [$footnote]';
+    final result = results[footnote - 1];
+    return '${result.result}\nCalculation: ${_calculationLabel(result)}';
+  }
+
+  Future<void> _showFootnoteMenu(
+    BuildContext anchorContext,
+    int messageIndex,
+    int footnote,
+    Offset globalPosition,
+  ) async {
+    final results = _chat.resultsFor(messageIndex);
+    if (footnote < 1 || footnote > results.length) return;
+    final result = results[footnote - 1];
+    final overlay =
+        Overlay.of(anchorContext).context.findRenderObject() as RenderBox?;
+    if (overlay == null) return;
+    final local = overlay.globalToLocal(globalPosition);
+    final action = await showMenu<_FootnoteAction>(
+      context: anchorContext,
+      position: RelativeRect.fromLTRB(
+        local.dx,
+        local.dy,
+        overlay.size.width - local.dx,
+        overlay.size.height - local.dy,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            result.result,
-            style: const TextStyle(
-              color: Colors.cyanAccent,
-              fontSize: 17,
-              fontFamily: 'monospace',
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          if (result.formulaName != null)
-            Text(
-              result.formulaName!,
-              style: const TextStyle(color: Colors.amberAccent, fontSize: 10),
-            ),
-          if (result.assumptions.isNotEmpty)
-            Text(
-              result.assumptions.first,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: const TextStyle(color: Colors.white38, fontSize: 10),
-            ),
-          const SizedBox(height: 2),
-          Wrap(
-            spacing: 4,
-            children: [
-              _smallAction(
-                icon: Icons.input,
-                label: 'Insert result',
-                onPressed: () => widget.onInsertExpression(result.value),
-              ),
-              _smallAction(
-                icon: Icons.save,
-                label: 'Store as variable',
-                onPressed: () => widget.onStoreResult(result.value),
-              ),
-              _smallAction(
-                icon: Icons.copy,
-                label: 'Copy',
-                onPressed: () => _copy(result.result, 'Result copied.'),
-              ),
-            ],
-          ),
-        ],
+      items: [
+        _footnoteMenuItem(
+          _FootnoteAction.copy,
+          'footnote-action-copy',
+          Icons.copy,
+          'Copy',
+        ),
+        _footnoteMenuItem(
+          _FootnoteAction.insertResult,
+          'footnote-action-insert-result',
+          Icons.input,
+          'Insert result',
+        ),
+        _footnoteMenuItem(
+          _FootnoteAction.useInProgram,
+          'footnote-action-use-in-program',
+          Icons.code,
+          'Use in program',
+        ),
+        _footnoteMenuItem(
+          _FootnoteAction.useAsVariable,
+          'footnote-action-use-as-variable',
+          Icons.save,
+          'Use as variable',
+        ),
+      ],
+    );
+    if (!mounted || action == null) return;
+
+    switch (action) {
+      case _FootnoteAction.copy:
+        await _copy(result.result, 'Result copied.');
+      case _FootnoteAction.insertResult:
+        widget.onInsertExpression(result.value);
+      case _FootnoteAction.useInProgram:
+        final content = _chat.messages[messageIndex]['content'] ?? '';
+        final code =
+            _extractLastCodeBlock(content) ?? _calculationLabel(result);
+        widget.onApplyProgram(code);
+      case _FootnoteAction.useAsVariable:
+        widget.onStoreResult(result.value);
+    }
+  }
+
+  PopupMenuItem<_FootnoteAction> _footnoteMenuItem(
+    _FootnoteAction action,
+    String key,
+    IconData icon,
+    String label,
+  ) {
+    return PopupMenuItem<_FootnoteAction>(
+      key: ValueKey(key),
+      value: action,
+      child: Row(
+        children: [Icon(icon, size: 16), const SizedBox(width: 8), Text(label)],
       ),
     );
+  }
+
+  String _calculationLabel(CalculatorChatResult result) {
+    final source = result.expression.trim().isNotEmpty
+        ? result.expression.trim()
+        : result.normalized.trim();
+    if (result.formulaInputs.isEmpty) return source;
+    final inputs = result.formulaInputs.entries
+        .map((entry) => '${entry.key}=${entry.value}')
+        .join(', ');
+    return '$source  ($inputs)';
   }
 
   Future<void> _copy(String text, String message) async {
@@ -309,5 +400,88 @@ class _CalculatorChatPanelState extends State<CalculatorChatPanel> {
     if (matches.isEmpty) return null;
     final code = matches.last.group(1)?.trim();
     return code == null || code.isEmpty ? null : code;
+  }
+}
+
+enum _FootnoteAction { copy, insertResult, useInProgram, useAsVariable }
+
+/// Renders the inline `calc-fn:…` code markers produced by
+/// [_CalculatorChatPanelState._linkFootnotes] as right-clickable footnote
+/// badges.
+class _CalculatorFootnoteBuilder extends MarkdownElementBuilder {
+  _CalculatorFootnoteBuilder({
+    required this.summaryFor,
+    required this.onSecondaryTap,
+  });
+
+  final String Function(int messageIndex, int footnote) summaryFor;
+  final void Function(
+    BuildContext context,
+    int messageIndex,
+    int footnote,
+    Offset globalPosition,
+  )
+  onSecondaryTap;
+
+  static final RegExp _pattern = RegExp(r'^calc-fn:(\d+):(\d+):(\d+)$');
+
+  @override
+  Widget? visitElementAfterWithContext(
+    BuildContext context,
+    md.Element element,
+    TextStyle? preferredStyle,
+    TextStyle? parentStyle,
+  ) {
+    final match = _pattern.firstMatch(element.textContent);
+    if (match == null) return null;
+    final messageIndex = int.parse(match.group(1)!);
+    final footnote = int.parse(match.group(2)!);
+
+    return Text.rich(
+      TextSpan(
+        children: [
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Tooltip(
+              message: summaryFor(messageIndex, footnote),
+              mouseCursor: SystemMouseCursors.click,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.click,
+                child: GestureDetector(
+                  onSecondaryTapUp: (details) => onSecondaryTap(
+                    context,
+                    messageIndex,
+                    footnote,
+                    details.globalPosition,
+                  ),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 3,
+                      vertical: 1,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.amberAccent.withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(3),
+                      border: Border.all(
+                        color: Colors.amberAccent.withValues(alpha: 0.55),
+                      ),
+                    ),
+                    child: Text(
+                      '[$footnote]',
+                      style: const TextStyle(
+                        color: Colors.amberAccent,
+                        fontSize: 10,
+                        fontFamily: 'monospace',
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

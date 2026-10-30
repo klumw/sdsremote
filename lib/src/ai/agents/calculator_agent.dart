@@ -55,7 +55,7 @@ class CalculatorAgent {
     String model = 'deepseek:deepseek-v4-flash',
     required CalculatorAgentContext context,
     required CalculatorService calculator,
-    void Function(Map<String, dynamic> result)? onToolResult,
+    int? Function(Map<String, dynamic> result)? onToolResult,
     int maxToolCalls = defaultMaxToolCalls,
   }) : _agent = Agent(
          model,

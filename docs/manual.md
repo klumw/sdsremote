@@ -124,6 +124,7 @@ See [12. Application Directory](#12-application-directory) (Application Director
   * The sparkle icon next to the **SDS-Remote Help** title opens the AI Help Assistant.  
     It answers questions from this manual and links directly to the matching sections; clicking such a link closes the assistant and jumps to the section
   * The sparkle icon is only active while an AI provider, API token and model are configured (see [4. AI System](#4-ai-system))
+  * The two arrow icons left of the search field move back and forward through visited in-document link targets. Each arrow is enabled only while a target exists in that direction
   * When you report a problem with the application, the assistant can inspect the application log and suggest a next step
 
 * **News**  
@@ -1691,7 +1692,7 @@ Loop and call limits prevent runaway programs. Functions can be defined only at 
 
 ### 11.6 Formula Library
 
-The **Formulas** tab provides a searchable library grouped into **Basic Electrical**, **Filters and Analog**, **Measurement and Uncertainty**, **Audio and DSP**, **Digital and Embedded**, **RF and Antennas** and **Math and Numerical**. Every formula has named inputs with runnable defaults; the dialog shows the formula, its assumptions and the result. Examples include voltage/current dividers, RC/RL/RLC filters, op-amp gains, resistor noise, ADC LSB/SNR/quantization, multimeter accuracy and tolerance chains, dBu/dBV/dBFS conversion, FFT and sampling, PWM/UART/CAN timing, CRC and Q-format helpers, FSPL, link budget, EIRP/ERP, VSWR/return loss, noise figure cascade, receiver sensitivity and Friis received power.
+The **Formulas** tab provides a searchable library grouped into **Basic Electrical**, **Filters and Analog**, **Measurement and Uncertainty**, **Audio and DSP**, **Digital and Embedded**, **RF and Antennas** and **Math and Numerical**. Every formula has named inputs with runnable defaults; the dialog shows the formula, its assumptions and the result. Its **Unit** button opens the same unit picker as the program editor and inserts the selected unit or Greek symbol at the caret of the last active input field. Examples include voltage/current dividers, RC/RL/RLC filters, op-amp gains, resistor noise, ADC LSB/SNR/quantization, multimeter accuracy and tolerance chains, dBu/dBV/dBFS conversion, FFT and sampling, PWM/UART/CAN timing, CRC and Q-format helpers, FSPL, link budget, EIRP/ERP, VSWR/return loss, noise figure cascade, receiver sensitivity and Friis received power.
 
 ### 11.7 History, Copy, Export and Persistence
 
@@ -1704,21 +1705,20 @@ The workspace (variables, functions, settings, history, favorites and programs) 
 
 ### 11.8 Calculator AI Assistant (optional)
 
-The bordered sparkle button in the calculator title bar, immediately left of the syntax-help question mark, opens the **Calculator AI** panel. The panel slides in from the left over the keypad and can be closed with its close button or by pressing the sparkle button again. AI is optional: when it is not configured or the provider is unavailable, the keypad, formulas, programs, history and persistence remain fully usable.
-
-The assistant uses the same provider, API token and model as the other AI features (see [AI model configuration](#41-ai-model-configuration)). It reads them from the application settings; no API key is hardcoded in the calculator. If the configuration is incomplete, the panel shows a notice and a **Reload** button that re-reads the settings.
+The AI button opens the **Calculator AI** panel that supports with complex calculations or questions regarding specific formulas.
 
 **Working method**
 
-* The assistant asks for missing or ambiguous parameters instead of inventing values, measurements or component tolerances. Formula runs use strict inputs: library defaults are rejected when the assistant has not been given every value, and the missing input names are reported back so the assistant can ask for them.
-* All arithmetic is delegated to the deterministic calculator engine through the `calculator_tool` and math tools. Units and dimensions are checked by that engine; the assistant may not bypass it with mental arithmetic.
+* You can ask questions or you can tell the assistant to compute a value using a specific formula.
+* Depending on the input the assistant asks for missing or ambiguous parameters, measurements or component tolerances.  
+* All arithmetic is delegated to the deterministic calculator engine. Units and dimensions are checked by that engine.
 * It distinguishes linear gain from logarithmic gain in dB, and states the reference for levels such as `dBm`, `dBV`, `dBu`, `dBFS`, `dBi` and `dBd`.
 * Answers explain the formula used, the assumptions and limits, and relevant alternatives when the result depends on them.
 * The assistant has its own private scratch workspace. It can evaluate expressions, define temporary variables and run library formulas without changing the calculator window.
 
 **Applying results**
 
-The assistant never writes to the calculator state on its own. Every calculator result is shown as a structured card with an explicit action:
+The assistant never writes to the calculator state on its own. Each calculator result is cited in the answer text as a numbered footnote marker `[1]`, `[2]`, …. Hovering a marker shows the result and the calculation that produced it; right-clicking it opens a context menu with **Copy**, **Insert result**, **Use in program** and **Use as variable**. The menu actions use the same explicit apply/store behavior as the rest of the calculator.
 
 | Action | Effect |
 |:-------|:-------|
@@ -1729,19 +1729,9 @@ The assistant never writes to the calculator state on its own. Every calculator 
 
 The chat header also provides **Insert calculator variable** for inserting a variable name into the prompt.
 
-**Context access and privacy**
-
-The assistant can always read the current calculator context through a read-only tool: the current expression, all variables and user functions, the program text, and the display settings (angle mode, number format and number base). Reading context never modifies it. The assistant works on a private scratch copy that is rebuilt before every request, so assistant-created variables do not leak into later answers or into the calculator. The assistant's transcript exists only in the calculator window and is not written to the workspace file.
-
-SDS-Remote calls the configured AI provider directly from the desktop application; it does not route AI traffic through a separate SDS-Remote backend proxy. The token is stored in the application preferences, not in source code. When the assistant is used, prompts, answers and the current calculator context are sent to that provider and are subject to its retention policy. If your deployment requires a backend proxy or an external secret manager, configure that outside the calculator, or leave the assistant unused and disable AI features.
-
 **Operation**
 
-Answers are streamed while they are generated. While a response is running, the send button becomes a stop button. Provider errors, timeouts (120 seconds) and cancellations are reported in the transcript instead of being silently ignored. Answers support Markdown, tables, inline code and fenced code blocks; mathematical expressions are shown in readable notation. Press `Esc` to close the panel when it is open. Closing the panel keeps the transcript for this calculator window; closing the window discards it.
-
-**Tool API**
-
-The same engine is available to the other AI assistants as `calculator_tool`. It supports `evaluate`, `define_variable`, `run_formula`, `convert`, `list_variables`, `list_formulas` and `history`. Formula runs accept `strict_inputs`; with it, the tool returns a `missing_inputs` list instead of silently using formula defaults. The tool reports the formatted value, unit, dimension, used variables and a structured error type (syntax, dimension, unit, division by zero, convergence, …). It never guesses when a calculation fails.
+While a response is running, the send button becomes a stop button. Press `Esc` to close the panel when it is open. Closing the panel keeps the transcript for this calculator window; closing the window discards it.
 
 ### 11.9 Keyboard Shortcuts
 

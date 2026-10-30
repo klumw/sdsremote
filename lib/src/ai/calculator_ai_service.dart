@@ -33,7 +33,7 @@ class CalculatorAiService {
     required String apiToken,
     required String model,
     required CalculatorAgentContext context,
-    required void Function(Map<String, dynamic> result) onToolResult,
+    required int? Function(Map<String, dynamic> result) onToolResult,
     int maxToolCalls = CalculatorAgent.defaultMaxToolCalls,
   }) {
     if (_isDisposed) return;
