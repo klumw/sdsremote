@@ -4,16 +4,16 @@
 
 Welcome to the SDS-Remote Help Center.
 
-***SDS-Remote*** delivers a comprehensive remote control solution designed specifically for the Siglent SDS 1000X-E series.  
-The platform streamlines device interaction by integrating robust instrument control and waveform analysis with advanced features like data logging,  
-macro recording/playback, and screen capture— supported by a built-in, AI-powered chat interface.
+***SDS-Remote*** is a remote control application for the Siglent SDS 1000X-E series.
+It combines instrument control and waveform analysis with data logging, macro recording and playback, screen capture and an optional AI-assisted chat interface.
 
 ### 1.1 Compatibility
 
-SDS-Remote is designed for the **Siglent SDS 1000X-E** series oscilloscopes (SDS1104X-E, SDS1204X-E, etc.).  
-It communicates with the instrument via the VXI-11 protocol over TCP/IP or via USBTMC (USB).  
-While the application may partially work with other Siglent oscilloscope series that share the same SCPI command set,  
-only the SDS 1000X-E series is tested and officially supported.
+SDS-Remote is designed for the **Siglent SDS 1000X-E** series oscilloscopes (SDS1104X-E, SDS1204X-E, etc.).
+It communicates with the instrument via VXI-11 over TCP/IP or via USBTMC (USB).
+
+The application may partially work with other Siglent series that share the same SCPI command set.
+Only the SDS 1000X-E series is tested and officially supported.
 
 **Minimum Requirements:**
 
@@ -57,7 +57,7 @@ All user data (screenshots, waveforms, profiles, macros, reports) is stored unde
 | Linux | `~/.local/share/sdsremote/` |
 | Windows | `%LocalAppData%\sdsremote` |
 
-See [12. Application Directory](#12-application-directory) (Application Directory) for a complete breakdown of subdirectories.
+See [12. Application Directory](#12-application-directory) for a complete breakdown of subdirectories.
 
 ### 1.3 Known Limitations
 
@@ -121,10 +121,12 @@ See [12. Application Directory](#12-application-directory) (Application Director
 
 * **Help**
   * Opens this documentation
-  * The sparkle icon next to the **SDS-Remote Help** title opens the AI Help Assistant.  
-    It answers questions from this manual and links directly to the matching sections; clicking such a link closes the assistant and jumps to the section
+  * The sparkle icon next to the **SDS-Remote Help** title opens the AI Help Assistant.
+    It answers questions from this manual and links directly to the matching sections.
+    Clicking such a link closes the assistant and jumps to the section.
   * The sparkle icon is only active while an AI provider, API token and model are configured (see [4. AI System](#4-ai-system))
-  * The two arrow icons left of the search field move back and forward through visited in-document link targets. Each arrow is enabled only while a target exists in that direction
+  * The two arrow icons left of the search field move back and forward through visited in-document link targets.
+    Each arrow is enabled only while a target exists in that direction.
   * When you report a problem with the application, the assistant can inspect the application log and suggest a next step
 
 * **News**  
@@ -250,7 +252,9 @@ The engineering calculator opens with **Ctrl+R** by default. In **Settings → C
 | `Ctrl` + `Alt` + `C` | Mnemonic alternative |
 | `F9` | Keyboard-only alternative |
 
-The selection is stored as `calculator_shortcut` and restored on the next launch. There is no toolbar button: the calculator is available only through the configured shortcut. The shortcut is handled globally in the main window; text fields do not use Ctrl+R natively.
+The selection is stored as `calculator_shortcut` and restored on the next launch.
+There is no toolbar button: the calculator is available only through the configured shortcut.
+The shortcut is handled globally in the main window; text fields do not use Ctrl+R natively.
 
 ---
 
@@ -338,8 +342,8 @@ The AI searches the built-in knowledge base and returns the relevant documentati
 * *"Explain the difference between Auto and Normal trigger mode."*
 * *"What SCPI command sets the timebase?"*
 
-The knowledge base is a curated Markdown document (`docs/knowledgebase.md`) bundled with the application.  
-The Search Agent queries it using semantic search and returns the most relevant sections.
+The knowledge base is bundled with the application.
+The Search Agent queries it and returns the most relevant sections.
 
 #### SCPI Command Execution
 
@@ -474,8 +478,8 @@ Click the **Profiles** button in the top toolbar to open the Profiles panel. The
 1. Ensure the oscilloscope is connected and online.
 2. Open the **Profiles** panel.
 3. Click the **Load** icon next to the desired profile.
-4. The profile's XML configuration is sent to the oscilloscope as a single atomic write via `profileWrite`.  
-   For USB connections, there might be problems under Linux, because of USB incompatabilities depending on the device USB firmware version.
+4. The profile's XML configuration is sent to the oscilloscope as a single atomic write via `profileWrite`.
+   USB connections may have problems under Linux depending on the device's USB firmware version.
 5. The oscilloscope screen automatically refreshes after the profile is applied.
 
 > **Note:** Loading a profile will overwrite the current oscilloscope configuration.  
@@ -643,9 +647,14 @@ The CSV contains a timestamp column and one column per measured parameter — `G
 
 ### 6.8 Probe Attenuation
 
-The Data Logger automatically queries the oscilloscope's probe attenuation settings before recording begins.  
-Voltage measurements (Vpp, Mean, Rms), as well as the RMS voltages that Gain (dB) is derived from, are scaled by the probe divider factor so that reported values match the actual signal levels at the probe tip.  
-Probe dividers are displayed in the configuration dialog after the initial query completes; the dividers of all channels with selected measurements are queried and shown.  
+The Data Logger automatically queries the oscilloscope's probe attenuation settings before recording begins.
+
+Voltage measurements (Vpp, Mean, Rms), as well as the RMS voltages that Gain (dB) is derived from, are scaled by the probe divider factor.
+Reported values therefore match the actual signal levels at the probe tip.
+
+Probe dividers are displayed in the configuration dialog after the initial query completes.
+The dividers of all channels with selected measurements are queried and shown.
+
 Gain (dB) always uses the CH1 and CH2 probe dividers, regardless of how many channels the instrument has.
 
 ## 7. Macro Recorder
@@ -823,7 +832,8 @@ Playback stops with an error when no type is configured or no matching generator
 A macro may contain one default oscilloscope `connect` and one `connect(SIG, usb)`; both connections are independent.
 
 ##### Device Handles
-Device Handles allow to control multiple scpi devices.
+
+Device handles allow control of multiple SCPI devices.
 
 ```
 myscope = connect("192.168.1.100")
@@ -881,12 +891,13 @@ cmd(SIG, "SOUR1:FREQ 1KHZ")
 query(SIG, "SOUR1:FREQ?")
 ```
 
-The `SIG` selector sends the command to the signal generator connected with `connect(SIG, usb)` instead of the oscilloscope.  
-These commands use the same SCPI driver as the [signal generator window](#911-signal-generator-window-ctrlj) and the Bode plot,  
-so only headers defined by that driver are accepted; an undefined header stops playback with a SCPI error (e.g. `-113`).  
-The complete command reference is in [15. SCPI Commands Signal Generator](#15-scpi-commands-signal-generator).  
-`query(SIG, …)` returns the driver's response and can be used everywhere `query(…)` is allowed: as a statement,  
-in assignments, in `print()`, and in conditions.  
+The `SIG` selector sends the command to the signal generator connected with `connect(SIG, usb)` instead of the oscilloscope.
+
+These commands use the same SCPI driver as the [signal generator window](#911-signal-generator-window-ctrlj) and the Bode plot.
+Only headers defined by that driver are accepted; an undefined header stops playback with a SCPI error (for example `-113`).
+The complete command reference is in [15. SCPI Commands Signal Generator](#15-scpi-commands-signal-generator).
+
+`query(SIG, …)` returns the driver's response and can be used everywhere `query(…)` is allowed: as a statement, in assignments, in `print()`, and in conditions.
 Use `cmd(SIG, …)` for set commands and `query(SIG, …)` for queries.
 
 A device handle opened with `myscope = connect("192.168.1.100")` can be used instead of `SIG` as the selector,  
@@ -1295,11 +1306,13 @@ The left portion shows the live oscilloscope screen as a captured image. Below t
 
 Click a soft key to activate the corresponding on-screen function. The soft keys update automatically after each screen refresh, reflecting the oscilloscope's current menu state.
 
-On four-channel instruments connected over the network, a **Live** toggle appears next to the automatic screen capture toggle below the screen.  
-It streams the display directly from the oscilloscope's built-in web server and updates continuously.  
-While live is active, automatic screen capture is disabled and no screen dumps are fetched after SCPI commands.  
-The toggle is only offered while the web server is reachable; if the server stops responding,  
-the application automatically returns to ordinary screen captures and disables the Live toggle until the server answers again.  
+On four-channel instruments connected over the network, a **Live** toggle appears next to the automatic screen capture toggle below the screen.
+It streams the display directly from the oscilloscope's built-in web server and updates continuously.
+
+While Live is active, automatic screen capture is disabled and no screen dumps are fetched after SCPI commands.
+The toggle is offered only while the web server is reachable.
+If the server stops responding, the application returns to ordinary screen captures and disables the Live toggle until the server answers again.
+
 The live screen is not available over USB connections or on two-channel models.
 
 ### 9.2 Control Sidebar
@@ -1426,14 +1439,21 @@ When **Settings → Signal Generator** is set to **JDS6600** or **FY6900** and t
 press **Ctrl+J** to open the signal generator window as a separate OS window.  
 There is no toolbar button. Pressing Ctrl+J while the window is open brings it to the front.
 
-**Apply changes** sends only the modified values; **Refresh from device** re-reads all registers and **Use device values** discards pending edits.  
-The output switch takes effect immediately and is independent of Apply. The confirmed device state and pending edits are displayed separately.
+**Apply changes** sends only the modified values.
+**Refresh from device** re-reads all registers.
+**Use device values** discards pending edits.
+
+The output switch takes effect immediately and is independent of Apply.
+The confirmed device state and pending edits are displayed separately.
 
 ---
 
 ## 10. Bode Plot
 
-The **Bode Plot** measures the frequency response of a device under test (DUT). The configured signal generator sweeps the frequency, the oscilloscope measures the RMS voltages at the DUT input and output and, optionally, the phase, and the application plots the gain in dB and the phase in degrees against a shared frequency axis.
+The **Bode Plot** measures the frequency response of a device under test (DUT).
+The configured signal generator sweeps the frequency.
+The oscilloscope measures the RMS voltages at the DUT input and output and, optionally, the phase.
+The application plots the gain in dB and the phase in degrees against a shared frequency axis.
 
 ### 10.1 Prerequisites
 
@@ -1556,26 +1576,42 @@ The generator identity (for example `FeelElec,FY6900-60M`) and the oscilloscope 
 
 ## 11. Engineering Calculator (Ctrl+R)
 
-The Engineering Calculator is a separate OS window for electronics, measurement, audio, DSP, embedded and RF calculations. Open it with **Ctrl+R** or the configured alternative (see [3.9 Calculator Shortcut](#39-calculator-shortcut)). There is no toolbar button. The window opens in the center of the main SDS-Remote window; pressing the shortcut again re-centers and focuses the existing calculator window. The window is independent of the oscilloscope connection.
+The Engineering Calculator is a separate window for electronics, measurement, audio, DSP, embedded and RF calculations.
 
-The optional Calculator AI assistant is opened with the bordered sparkle button in the calculator title bar, immediately left of the syntax-help question mark. It is described in [11.8 Calculator AI Assistant](#118-calculator-ai-assistant-optional). All calculator functions work without AI.
+Open it with **Ctrl+R** or the shortcut configured in [3.9 Calculator Shortcut](#39-calculator-shortcut).
+There is no toolbar button.
+The window opens in the center of the main SDS-Remote window.
+Pressing the shortcut again re-centers and focuses the existing calculator window.
+The calculator is independent of the oscilloscope connection.
+
+All calculator functions work without AI.
+The optional [Calculator AI Assistant](#118-calculator-ai-assistant-optional) is opened with the bordered sparkle button in the title bar, left of the syntax-help question mark.
 
 ### 11.1 Display and Keypad
 
-The display shows the current expression and the formatted result; the line below it shows the normalized expression, stored or used variables and the physical dimension. The keypad covers the scientific functions, memory and variables, units, conversion, formulas and programs.
+**Entering a calculation**
 
-The top row of the keypad controls the mode:
+1. Click the expression field or press a keypad key.
+2. Type an expression such as `2 mA * 10 kΩ`.
+3. Press `Enter` or click `=`.
+
+The large line shows the result, for example `20 V`.
+The line below shows the normalized expression, stored or used variables and the physical dimension when applicable.
+
+The small icons above the expression field provide undo, redo, previous/next calculation, paste and copy result.
+
+The top keypad row controls the operating modes:
 
 | Key | Action |
 |:----|:-------|
 | `SHIFT` | Applies the amber secondary function printed above the keys |
-| `INV` | Applies the inverse/hyperbolic alternative (mutually exclusive with SHIFT) |
+| `INV` | Applies the inverse or hyperbolic alternative; mutually exclusive with SHIFT |
 | `DEG` / `RAD` / `GRAD` | Cycles the angle unit for plain numbers: degrees → radians → gradians |
-| `AUTO` / `ENG` / `FIXED` / `SCI` | Cycles the number format: Auto → Engineering → Fixed-point → Scientific. Fixed-point uses the decimal places from Settings |
+| `AUTO` / `ENG` / `FIXED` / `SCI` | Cycles the number format: Auto → Engineering → Fixed-point → Scientific. Fixed-point uses the decimal places from the calculator settings |
 | `DEC` / `HEX` / `OCT` / `BIN` | Cycles the integer display base; the extra row provides `0x`, `0b`, `0o` and `A`–`F` |
 | `CLR` | Clears the expression and the result |
 
-Selected keys:
+Common keys:
 
 | Key | Primary | SHIFT | INV |
 |:----|:--------|:------|:----|
@@ -1601,137 +1637,273 @@ Selected keys:
 
 ### 11.2 Expression Syntax
 
-The calculator uses a typed expression language; no `eval` of user input is performed.
+Expressions are parsed by the calculator and never executed as code.
+Spaces are optional: `2mA*10kΩ` and `2 mA * 10 kΩ` produce the same result.
+Use a decimal point for fractional values; `1.5` is valid, while `1,5` is rejected.
+Commas separate the arguments of a function or the elements of a vector.
 
-| Form | Example |
-|:-----|:--------|
-| Point before dash | `2 + 3 * 4` → `14` |
-| Right-associative power | `2^3^2` → `512` |
-| Implicit multiplication | `2(3 + 4)`, `10 kΩ`, `2π` |
-| Implicit multiplication binds tighter than `/` | `1/2x` → `1/(2x)` |
-| Factorial | `5!` |
-| Percent | `50%` → `0.5` |
-| Vector / matrix | `[1, 2, 3]`, `[[1, 2], [3, 4]]` |
-| Index (1-based) | `v[1]`, `A[1][2]` |
-| Assignment | `R1 = 10 kΩ` |
-| Function definition | `f(x) = x^2 + 1`, then `f(3)` |
-| Program | `R1 = 10 kΩ; C1 = 100 nF; 1/(2*pi*R1*C1)` |
-| Conversion | `230 mV to V`, `to(20 dBm, W)` |
+| Form | Example | Result |
+|:-----|:--------|:-------|
+| Multiplication and division before addition and subtraction | `2 + 3 * 4` | `14` |
+| Parentheses | `(2 + 3) * 4` | `20` |
+| Power is right-associative and binds before unary minus | `2^3^2`, `-2^2` | `512`, `-4` |
+| Implicit multiplication | `2(3 + 4)`, `2π` | `14`, `6.2831853072` |
+| Implicit multiplication binds tighter than `/` | `x = 3; 1/2x` | `0.1666666667` |
+| Factorial | `5!` | `120` |
+| Percent | `200 * 50%` | `100` |
+| Vector and matrix | `[1, 2, 3]`, `[[1, 2], [3, 4]]` | `[1, 2, 3]` |
+| Index (1-based) | `[10, 20, 30][2]` | `20` |
+| Assignment | `R1 = 10 kΩ` | `10 kΩ`; stores `R1` |
+| Function definition | `f(x) = x^2 + 1`, then `f(3)` | `10` |
+| Several statements | `R1 = 10 kΩ; C1 = 100 nF; 1/(2*pi*R1*C1)` | `159.1549430919 Hz` |
+| Conversion | `230 mV to V`, `to(20 dBm, W)` | `0.23 V`, `0.1 W` |
+
+Use a semicolon to separate statements in the expression field.
+Programs may also use one statement per line.
+
+The selected angle mode applies to plain numbers:
+
+* In `DEG`, `sin(30)` returns `0.5`.
+* In `RAD`, `sin(30)` returns `-0.9880316241`; use `sin(30°)` for an angle that is explicitly in degrees.
+* In `GRAD`, `sin(30)` returns `0.4539904997`.
 
 ### 11.3 Units, Prefixes and Levels
 
-Values carry an SI dimension. Adding or comparing incompatible dimensions fails with a dimension error; multiplication and division combine units.
+Values carry an SI dimension.
+Adding or comparing incompatible dimensions produces a dimension error; multiplication and division combine units.
 
-```text
-230 mV / 10 kΩ              = 23 µA
-4.7 kΩ * 2.2 µF             = 10.34 ms
-3.3 V / 220 Ω               = 15 mA
-1 / (2*pi*10 kHz*100 nF)    = 159.15 Ω
-25 °C to °F                 = 77 °F
-1 kWh to J                  = 3 600 000 J
-```
+| Task | Input | Result |
+|:-----|:------|:-------|
+| Current from voltage and resistance | `230 mV / 10 kΩ` | `23 µA` |
+| RC time constant | `4.7 kΩ * 2.2 µF` | `10.34 ms` |
+| Ohm's law | `3.3 V / 220 Ω` | `15 mA` |
+| RC cutoff frequency | `1/(2*pi*10 kΩ*100 nF)` | `159.1549430919 Hz` |
+| Temperature conversion | `25 °C to °F` | `77 °F` |
+| Energy conversion | `1 kWh to J` | `3600000 J` |
 
-SI prefixes are written directly in front of the unit: `p n µ m k M G T` (and further prefixes). A bare `10k` also means 10 000, but `10m` is ten metres; use `10 mm` or `10e-3` for millimetres as a scalar. Prefixing is case-sensitive (`m` milli, `M` mega; `s` seconds, `S` siemens).
+Write prefixes directly before the unit: `mV`, `µF`, `kΩ`, `MHz`.
+Prefixes are case-sensitive: `m` means milli and `M` means mega; `s` means seconds and `S` means siemens.
 
-Logarithmic units are supported with their references:
+A bare `k` after a number means 1000, so `10k` is `10000`.
+A bare `m` means metres, so `10m` is ten metres; write `10 mm` for millimetres.
+
+The `UNIT` key opens the unit picker, including the Greek symbols `µ`, `μ`, `Ω`, `°` and `Å`.
+The `CONV` key opens the conversion dialog.
+
+Logarithmic units use fixed references:
 
 * `dBm` (1 mW power), `dBW` (1 W power), `dBV` (1 V RMS), `dBu` (0.775 V RMS), `dBµV` (1 µV RMS), `dBSPL` (20 µPa).
-* `dBFS` is an amplitude ratio relative to digital full scale; converting it to volts needs a full-scale reference (`dbfs_to_vrms(level, full_scale)`).
+* `dBFS` is an amplitude ratio relative to digital full scale. Converting it to volts requires a full-scale reference: `dbfs_to_vrms(level, full_scale)`.
 * `dBi` and `dBd` are antenna gains; `0 dBd = 2.15 dBi`.
 
 Level arithmetic follows physical rules:
 
 ```text
-20 dBm + 3 dB      = 23 dBm    (level plus gain)
-20 dBm - 3 dB      = 17 dBm    (level minus gain)
-20 dBm - 5 dBm     = 15 dB     (ratio of two levels)
-3 dB + 3 dB        = 6.02 dB   (cascaded gains)
+20 dBm + 3 dB      = 23 dBm    level plus gain
+20 dBm - 3 dB      = 17 dBm    level minus gain
+20 dBm - 5 dBm     = 15 dB     ratio of two levels
+3 dB + 3 dB        = 6 dB      cascaded logarithmic gains
 20 dBm + 20 dBm    → dimension error (two absolute levels)
 ```
 
 ### 11.4 Complex Numbers
 
-```text
-50 + j25
-(50 + j25) Ω
-75∠30° Ω
-polar(50 + j25)       polar display
-rect(50 + j25)        rectangular display
-abs(z), arg(z), conj(z), re(z), im(z)
-```
+Use `j` for the imaginary unit.
+`∠` enters a polar angle; the angle uses the current DEG/RAD/GRAD mode unless it carries a unit.
 
-`∠` reads the angle in the current DEG/RAD/GRAD mode unless the angle carries a unit. Complex trigonometric functions use radians. Impedance, reflection coefficient, VSWR, return loss and mismatch loss formulas are available through the formula library.
+| Input | Result |
+|:------|:-------|
+| `(50 + j25) Ω` | `(50 + j25) Ω` |
+| `75∠30° Ω` | `75∠30° Ω` |
+| `polar(50 + j25)` | `55.9016994375∠26.5650511771°` |
+| `rect(polar(3 + j4))` | `3 + j4` |
+| `abs(3 + j4)` | `5` |
+| `arg(3 + j4)` | `53.1301023542` |
+
+The functions `conj(z)`, `re(z)` and `im(z)` return the conjugate, real part and imaginary part.
+Complex trigonometric functions use radians.
+Impedance, reflection coefficient, VSWR, return loss and mismatch loss are also available through the formula library.
 
 ### 11.5 Variables, Functions and Programs
+
+#### Variables
+
+Store a value in one of three ways:
+
+* Type an assignment such as `R1 = 10 kΩ` and press `Enter`.
+* Evaluate a value, press `STO` and enter a name in the **Store variable** dialog.
+* Open the **Variables** tab, click **Add** and enter a name and expression.
+
+Use `RCL` to insert a stored variable into the expression.
+The **Variables** tab lists all stored variables.
+**Clear** removes all stored variables after confirmation; user functions and the calculation history are kept.
 
 ```text
 R1 = 10 kΩ
 C1 = 100 nF
 FC = 1 / (2*pi*R1*C1)
+FC
+```
+
+The result is `159.1549430919 Hz`.
+
+#### User Functions
+
+Define a function with an assignment and call it in later expressions:
+
+```text
 f(x) = x^2 + 1
 f(3)
 ```
 
-The **Variables** tab lists stored variables and user functions. **Add** creates a variable; **Clear** removes all stored variables after confirmation. User-defined functions and the calculation history are kept.
+The result is `10`.
+Functions can be defined only at the top level of a program.
+Delete a function in the **Variables** tab.
 
-The **Programs** tab accepts multi-line programs, saves them, runs them and exports/imports the whole workspace as JSON. The **Ω** button in the program header opens the same unit picker and inserts the selected unit or Greek symbol at the caret. The editor has a line-number gutter; the number of the failing line is shown in red. When **Run** fails, the error message in the main display names the 1-based line and column, for example `Line 2, column 5`, and the faulty token is marked with the same wavy red underline used by the Macro Editor. Editing the program clears the underline. The safe program forms are:
+#### Programs
+
+Open the **Programs** tab and enter a multi-line program.
+Press **Run** to execute it.
+The result of the last statement is shown in the display, and assignments remain available as variables.
 
 ```text
-if(condition, then, else)
-for(i, from, to, expression)
-while(condition, expression)
-sum(expression, variable, from, to)        e.g. sum(n^2, n, 1, 10)
-product(expression, variable, from, to)
-integrate(expression, variable, from, to)
-derivative(expression, variable, at)
-solve(expression, variable, guess)
-solve(expression, variable, low, high)
+R1 = 10 kΩ
+C1 = 100 nF
+fc = 1/(2*pi*R1*C1)
+fc
 ```
 
-Loop and call limits prevent runaway programs. Functions can be defined only at the top level of a program.
+The result is `159.1549430919 Hz`.
+
+Values can be supplied in the program itself, as above, or stored before **Run** in the expression field.
+For example, store `vin = 12 V`, then run:
+
+```text
+r1 = 10 kΩ
+r2 = 4.7 kΩ
+vin * r2 / (r1 + r2)
+```
+
+The result is `3.8367346939 V`.
+
+The **Ω** button in the program header opens the unit picker and inserts the selected unit or Greek symbol at the caret.
+**Save** stores the program under a name; the saved-program list provides **Load** and **Delete**.
+
+The editor has a line-number gutter.
+When **Run** fails, the error message in the main display names the 1-based line and column, for example `Line 2, column 5`.
+The failing line number turns red and the faulty token gets a wavy red underline; editing clears the underline.
+
+Programs support these control forms:
+
+| Form | Example |
+|:-----|:--------|
+| Conditional | `if(condition, then, else)` |
+| Counting loop | `for(i, from, to, expression)` |
+| Conditional loop | `while(condition, expression)` |
+| Sum | `sum(n^2, n, 1, 10)` → `385` |
+| Product | `product(expression, variable, from, to)` |
+| Integral | `integrate(expression, variable, from, to)` |
+| Derivative | `derivative(expression, variable, at)` |
+| Root finding | `solve(x^2 - 4, x, 1)` |
+
+Loop and call limits prevent runaway programs.
 
 ### 11.6 Formula Library
 
-The **Formulas** tab provides a searchable library grouped into **Basic Electrical**, **Filters and Analog**, **Measurement and Uncertainty**, **Audio and DSP**, **Digital and Embedded**, **RF and Antennas** and **Math and Numerical**. Every formula has named inputs with runnable defaults; the dialog shows the formula, its assumptions and the result. Its **Unit** button opens the same unit picker as the program editor and inserts the selected unit or Greek symbol at the caret of the last active input field. Examples include voltage/current dividers, RC/RL/RLC filters, op-amp gains, resistor noise, ADC LSB/SNR/quantization, multimeter accuracy and tolerance chains, dBu/dBV/dBFS conversion, FFT and sampling, PWM/UART/CAN timing, CRC and Q-format helpers, FSPL, link budget, EIRP/ERP, VSWR/return loss, noise figure cascade, receiver sensitivity and Friis received power.
+The **Formulas** tab provides a searchable library grouped into these categories:
 
-### 11.7 History, Copy, Export and Persistence
+* Basic Electrical
+* Filters and Analog
+* Measurement and Uncertainty
+* Audio and DSP
+* Digital and Embedded
+* RF and Antennas
+* Math and Numerical
 
-Every evaluation is recorded with its original expression, normalized form, result, unit, timestamp, variables used and the formula used (if any). History entries can be reused, copied or added to favorites. The history can be exported as CSV, JSON or a Markdown report; the complete workspace can be exported and imported as JSON.
+Every formula has named inputs with runnable defaults.
+The dialog shows the formula, its assumptions and the result.
 
-The workspace (variables, functions, settings, history, favorites and programs) is stored in `calculator/workspace.json` in the application working directory:
+**Example: RC cutoff frequency**
+
+1. Open **Formulas** and search for `RC cutoff frequency`.
+2. Keep the default inputs: resistance `10 kΩ`, capacitance `100 nF`.
+3. Click **Run**.
+
+The result is `159.1549430919 Hz`.
+
+The **Unit** button opens the same unit picker as the program editor.
+It inserts the selected unit or Greek symbol at the caret of the last active input field.
+Formula results are recorded in the history with the formula name.
+
+### 11.7 History, Favorites and Persistence
+
+Every successful evaluation records its expression, normalized form, result, unit, timestamp, variables used and formula name when applicable.
+
+**Example: reuse a calculation**
+
+1. Calculate `2 mA * 10 kΩ`.
+2. Open the **History** tab.
+3. Click `2 mA * 10 kΩ` to load the expression again.
+4. Click the result to copy it.
+5. Click the star to add the calculation to favorites.
+
+The arrow icons above the expression field move through previous and next calculations.
+The history can also be exported as CSV, JSON or a Markdown report.
+The **Programs** tab exports and imports the complete workspace as JSON.
+
+The workspace contains variables, functions, settings, history, favorites and programs.
+It is stored in `calculator/workspace.json` in the application working directory:
 
 * Linux: `~/.local/share/sdsremote/calculator/workspace.json`
 * Windows: `%LocalAppData%\sdsremote\calculator\workspace.json`
 
 ### 11.8 Calculator AI Assistant (optional)
 
-The AI button opens the **Calculator AI** panel that supports with complex calculations or questions regarding specific formulas.
+The bordered sparkle button in the title bar opens the **Calculator AI** panel from the left side over the keypad.
+The optional assistant uses the AI provider, token and model configured in the SDS-Remote settings.
+Without a complete configuration, the panel shows a configuration banner; the calculator itself remains fully usable.
 
-**Working method**
+The assistant can:
 
-* You can ask questions or you can tell the assistant to compute a value using a specific formula.
-* Depending on the input the assistant asks for missing or ambiguous parameters, measurements or component tolerances.  
-* All arithmetic is delegated to the deterministic calculator engine. Units and dimensions are checked by that engine.
-* It distinguishes linear gain from logarithmic gain in dB, and states the reference for levels such as `dBm`, `dBV`, `dBu`, `dBFS`, `dBi` and `dBd`.
-* Answers explain the formula used, the assumptions and limits, and relevant alternatives when the result depends on them.
-* The assistant has its own private scratch workspace. It can evaluate expressions, define temporary variables and run library formulas without changing the calculator window.
+* answer calculation questions and run engineering formulas;
+* ask for missing or ambiguous parameters instead of inventing values;
+* check units and dimensions with the deterministic calculator engine;
+* distinguish linear gain from logarithmic gain and state level references;
+* read the current expression, program, variables and display settings read-only;
+* use a private scratch workspace for temporary variables and formulas.
 
-**Applying results**
+**Example prompts**
 
-The assistant never writes to the calculator state on its own. Each calculator result is cited in the answer text as a numbered footnote marker `[1]`, `[2]`, …. Hovering a marker shows the result and the calculation that produced it; right-clicking it opens a context menu with **Copy**, **Insert result**, **Use in program** and **Use as variable**. The menu actions use the same explicit apply/store behavior as the rest of the calculator.
+* `What is the cutoff frequency of a 10 kΩ and 100 nF RC low-pass filter?`
+* `Convert 20 dBm to mW and add a 3 dB cable loss.`
+* `Design a voltage divider for 12 V to 3.3 V with a 10 kΩ upper resistor.`
+* `Check the program in the editor and explain the error.`
+
+#### Results and footnote actions
+
+The assistant never changes the calculator state on its own.
+Each calculator result is cited in the answer as a numbered footnote marker `[1]`, `[2]`, ….
+Hovering a marker shows the result and the calculation that produced it.
+Right-clicking a marker opens these actions:
 
 | Action | Effect |
 |:-------|:-------|
-| **Insert result** | Inserts the result value into the expression field; the calculation is not evaluated until you press `=` |
-| **Store as variable** | Opens the normal **Store** dialog with the result prefilled |
-| **Use in program** | Copies a code block from the answer into the Programs editor without running it; if the editor already contains code, a confirmation is required before replacing it |
-| **Copy** | Copies the result or the complete answer to the clipboard |
+| **Copy** | Copies the result |
+| **Insert result** | Inserts the result value and unit into the expression field; the expression is not evaluated until you press `=` |
+| **Use in program** | Inserts the last code block from the answer into the Programs editor without running it. Existing code requires confirmation before replacement |
+| **Use as variable** | Opens the normal **Store variable** dialog with the result prefilled |
 
-The chat header also provides **Insert calculator variable** for inserting a variable name into the prompt.
+If the answer has no code block, **Use in program** inserts the cited calculation instead.
+Results appear only as footnote markers; the assistant does not append a separate result card.
+The **Copy** button below an answer copies the complete answer.
 
-**Operation**
+The panel header also provides **Insert calculator variable** for inserting a variable name into the prompt.
 
-While a response is running, the send button becomes a stop button. Press `Esc` to close the panel when it is open. Closing the panel keeps the transcript for this calculator window; closing the window discards it.
+#### Operation
+
+While a response is running, the send button becomes a stop button.
+Press `Esc` to close the panel when it is open.
+Closing the panel keeps the transcript for the current calculator window; closing the calculator window discards it.
 
 ### 11.9 Keyboard Shortcuts
 
@@ -1745,36 +1917,44 @@ While a response is running, the send button becomes a stop button. Press `Esc` 
 
 ### 11.10 Limits and Conventions
 
-* Absolute temperatures are stored internally in kelvin; `°C` and `°F` conversions use their affine offsets. Do not multiply absolute temperatures as if they were temperature differences.
-* `dBFS` has no fixed full-scale voltage; use the `dbfs_to_vrms`/`vrms_to_dbfs` helpers with an explicit reference.
+* Absolute temperatures are stored internally in kelvin.
+  `°C` and `°F` conversions use their affine offsets.
+  Do not multiply absolute temperatures as if they were temperature differences.
+* `dBFS` has no fixed full-scale voltage.
+  Use `dbfs_to_vrms` or `vrms_to_dbfs` with an explicit reference.
 * Matrix indexes start at 1; a negative index counts from the end.
-* Function, variable and unit names share one namespace: unit symbols and built-in function names are reserved. Use `R1`, `C1`, `L1` rather than `R`, `C`, `L`.
-* Results are IEEE-754 double precision; very large or undefined results are reported as overflow/domain errors instead of NaN or infinity.
+* Function, variable and unit names share one namespace.
+  Unit symbols and built-in function names are reserved; use `R1`, `C1` and `L1` rather than `R`, `C` and `L`.
+* Adding incompatible dimensions fails.
+  For example, `230 mV + 10 kΩ` reports a dimension error; convert one operand or choose a compatible quantity.
+* Adding two absolute levels fails.
+  For example, `20 dBm + 20 dBm` is rejected; add a gain such as `20 dBm + 3 dB` or subtract two levels to obtain a ratio.
+* Results use IEEE-754 double precision.
+  Very large or undefined results are reported as overflow or domain errors instead of `NaN` or infinity.
 
 ---
 
 ## 12. Application Directory
 
-The application directory stores captured images, CSV exports, and device profile files.  
+The application directory stores captured images, CSV exports, profiles and the calculator workspace.
 The directory is OS specific:
 
 * **Linux:** `~/.local/share/sdsremote/`
 * **Windows:** `%LocalAppData%\sdsremote`
 
-Files are stored in various subfolders of the application directory, depending on their type.  
-
 | Subfolder | Description |
 | :-------- | :-------- |
-| preferences | Application settings |
-| screenshots | Display screenshots |
-| waveform/images | Waveform images |
-| waveform/csv | Waveform csv data |
-| logger/reports | Data logger reports |
-| logger/csv | Data logger csv data |
-| bode/reports | Bode plot PDF reports |
-| bode/csv | Bode plot CSV data |
-| profiles | Device profiles |
-| automation/macros | Macro (.m) files |
+| `preferences` | Application settings |
+| `screenshots` | Display screenshots |
+| `waveform/images` | Waveform images |
+| `waveform/csv` | Waveform CSV data |
+| `logger/reports` | Data Logger reports |
+| `logger/csv` | Data Logger CSV data |
+| `bode/reports` | Bode Plot PDF reports |
+| `bode/csv` | Bode Plot CSV data |
+| `profiles` | Device profiles |
+| `automation/macros` | Macro `.m` files |
+| `calculator` | Calculator workspace and exported history |
 
 ---
 
@@ -1834,7 +2014,9 @@ Files are stored in various subfolders of the application directory, depending o
 
 ## 15. SCPI Commands Signal Generator
 
-The macros using `connect(SIG, usb)` share one SCPI layer. The JOY-IT/Juntek JDS6600 and the FeelElec FY6900 therefore accept the same command set; only the waveform names and the phase and duty handling differ (see [15.5 Waveform Names](#155-waveform-names) and [15.6 Family-Specific Behavior](#156-family-specific-behavior)).
+Macros using `connect(SIG, usb)` share one SCPI layer.
+The JOY-IT/Juntek JDS6600 and the FeelElec FY6900 therefore accept the same command set.
+Only the waveform names and the phase and duty handling differ; see [15.5 Waveform Names](#155-waveform-names) and [15.6 Family-Specific Behavior](#156-family-specific-behavior).
 
 This is a SCPI emulation subset, not a complete implementation:
 
@@ -1958,7 +2140,7 @@ The following are not supported and return -113:
 
 ### Logging Directory
 
-The log directory  is at `/tmp/sds/logging/sds.log` (Linux) or `%TEMP%\sds\logging\sds.log` (Windows)
+The log directory is at `/tmp/sds/logging/sds.log` (Linux) or `%TEMP%\sds\logging\sds.log` (Windows).
 
 * Review the troubleshooting section
 * Check logs at the given log directory  

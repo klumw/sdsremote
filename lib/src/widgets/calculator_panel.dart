@@ -1131,14 +1131,15 @@ class _CalculatorPanelState extends State<CalculatorPanel>
 
   static const String _helpText = '''
 EXPRESSIONS
-  2 + 3 * 4              point before dash
+  2 + 3 * 4              multiplication before addition
   2^3^2                  power is right-associative (= 512)
   2(3 + 4)               implicit multiplication
-  1/2x                   implicit multiplication binds tighter = 1/(2x)
+  x = 4; 1/2x            implicit multiplication binds tighter = 1/(2x)
   3!                     factorial
-  50%                    percent (0.5)
+  200*50%                percent (= 100)
   [1, 2, 3]              vector; [[1,2],[3,4]] matrix
   v[1]                   first element (indexes start at 1)
+  Use "." for decimals; "1,5" is invalid. Commas separate arguments.
 
 UNITS AND PREFIXES
   230 mV / 10 kΩ         → 23 µA
