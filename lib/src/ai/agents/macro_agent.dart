@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../../core/logger.dart';
+import '../tools/calculator_tool.dart';
 import '../tools/macro_tools.dart';
 import '../tools/math_tool.dart';
 import 'systemprompts.dart';
@@ -118,6 +119,7 @@ class MacroAgent {
            ),
            createReadProfilesTool(agentName: 'MacroAgent'),
            createMathTool(agentName: 'MacroAgent'),
+           createCalculatorTool(agentName: 'MacroAgent'),
          ],
        ) {
     _history.add(ChatMessage.system(macroAgentSystemPrompt));

@@ -19,6 +19,7 @@ SDS-Remote enables remote control and AI-enhanced operation of Siglent SDS1202X-
 - **Data Logging**: Log key data points over a period of time. Generate PDF measurement reports containing charts and key metrics, or export all recorded measurement points as CSV files.
 - **Signal Generator & Bode Plot**: Choose **No Signal Generator**, **JDS6600** or **FY6900** in the settings. With JDS6600 or FY6900 selected, a **Bode** toolbar button appears once both the oscilloscope and the generator are detected; it runs a frequency sweep and plots gain and phase. The sweep limits are taken from the detected generator model and the selected waveform.
 - **Macro Recorder**: Record, edit and play back SCPI command sequences. Supports variables, conditionals, loops, and both network and USB connections for automated test procedures.
+- **Engineering Calculator**: A scientific/programmable calculator window (Ctrl+R) with unit-aware expressions, complex numbers, dB level arithmetic, electronics/RF/audio/digital formulas, variables, programs, history and export.
 - **AI Control Panel Assistant**: Configure the oscilloscope from the Control Panel in plain language. The assistant overlays the control sidebar, reads the connected model and channel count, and delegates the SCPI work to the instrument agent.
 
 ### Waveform Data Acquisition
@@ -185,6 +186,38 @@ buttons next to the fields.
 All hardware access stays in the main window; the second window only sends
 typed commands through a bridge. Settings cannot be changed while a Bode sweep
 is running, and the child window closes together with the main application.
+
+### Engineering Calculator (Ctrl+R)
+
+Press **Ctrl+R** (configurable in Settings → Calculator) to open the
+Engineering Calculator as a separate OS window. Pressing the shortcut again
+focuses the existing window. There is no toolbar button.
+
+The calculator combines a scientific keypad with a typed expression language:
+
+- units and SI prefixes with dimensional checking (`230 mV / 10 kΩ` → `23 µA`,
+  `4.7 kΩ * 2.2 µF` → `10.34 ms`), affine temperature conversion and
+  engineering/scientific notation;
+- complex numbers in rectangular and polar form (`(50 + j25) Ω`,
+  `75∠30° Ω`) with impedance and reflection helpers;
+- correct dB level arithmetic (`dBm`, `dBW`, `dBV`, `dBu`, `dBµV`, `dBFS`,
+  `dBi`, `dBd`); adding two absolute levels is rejected, while level plus gain
+  and level minus level produce the expected result and ratio;
+- variables, user functions and multi-line programs, history, favorites and a
+  large formula library covering basic electrical engineering, filters,
+  measurement/uncertainty, audio/DSP, digital/embedded and RF/antennas;
+- a small safe program language (`if`, `for`, `while`, symbolic `sum`/
+  `product`, numeric integration/differentiation, equation solving) with no
+  `eval` of user input.
+
+The workspace is stored in `~/.local/share/sdsremote/calculator/workspace.json`
+(Windows: `%LocalAppData%\sdsremote\calculator\workspace.json`). History can be
+exported as CSV, JSON or Markdown, and the whole workspace as JSON.
+
+The same engine is exposed as the `calculator_tool` AI tool, so the assistant
+can evaluate unit-aware expressions and run library formulas. See
+[11. Engineering Calculator](#11-engineering-calculator-ctrlr) in the manual for
+the complete syntax and key reference.
 
 ### Macro Recorder
 
@@ -515,6 +548,14 @@ Non-widget, domain-specific support code is grouped into subfolders under
   `siggen_window_server.dart` (main-window side) and
   `siggen_window_client.dart` / `siggen_window_controller.dart`
   (child-window side).
+- `lib/src/calculator/` — UI-independent engineering calculator:
+  `calc_complex.dart`, `calc_dimension.dart`, `calc_units.dart`,
+  `calc_value.dart`, `calc_lexer.dart`, `calc_parser.dart`, `calc_ast.dart`,
+  `calc_engine.dart` (+ built-in/special/list parts), `calc_format.dart`,
+  `calc_formulas.dart`, `calc_session.dart` (workspace and persistence),
+  `calculator_service.dart` (JSON API used by `calculator_tool`) and the
+  launcher/shortcut files for the Ctrl+R window. The Flutter UI lives in
+  `lib/src/widgets/calculator_*.dart`.
 - `lib/src/bode/` — Bode Plot domain and sweep: `bode_models.dart`,
   `bode_math.dart`, `bode_scope.dart`, `vxi11_bode_scope.dart`,
   `waveform_phase.dart`, `bode_plot_service.dart`, `bode_csv_writer.dart`,

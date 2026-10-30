@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../calculator/calculator_shortcut.dart';
+
 /// Callbacks for the settings panel to communicate with the parent state.
 class SettingsPanelCallbacks {
   final void Function(
@@ -27,6 +29,8 @@ class SettingsPanel extends StatefulWidget {
   final bool isUsb;
   final String signalGenerator;
   final ValueChanged<String> onSignalGeneratorChanged;
+  final String calculatorShortcut;
+  final ValueChanged<String>? onCalculatorShortcutChanged;
   final List<String> providerNames;
   final String selectedProvider;
   final String aiApiToken;
@@ -44,6 +48,8 @@ class SettingsPanel extends StatefulWidget {
     required this.isUsb,
     required this.signalGenerator,
     required this.onSignalGeneratorChanged,
+    this.calculatorShortcut = 'ctrl_r',
+    this.onCalculatorShortcutChanged,
     required this.providerNames,
     required this.selectedProvider,
     required this.aiApiToken,
@@ -66,6 +72,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   String? _selectedProvider;
   late bool _isUsb;
   late String _signalGenerator;
+  late String _calculatorShortcut;
 
   @override
   void initState() {
@@ -78,6 +85,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
         ? widget.selectedProvider
         : null;
     _signalGenerator = widget.signalGenerator;
+    _calculatorShortcut = CalculatorShortcut.fromPreference(
+      widget.calculatorShortcut,
+    ).id;
   }
 
   @override
@@ -88,6 +98,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
     }
     if (oldWidget.signalGenerator != widget.signalGenerator) {
       _signalGenerator = widget.signalGenerator;
+    }
+    if (oldWidget.calculatorShortcut != widget.calculatorShortcut) {
+      _calculatorShortcut = CalculatorShortcut.fromPreference(
+        widget.calculatorShortcut,
+      ).id;
     }
     if (oldWidget.ipAddress != widget.ipAddress) {
       _ipController.text = widget.ipAddress;
@@ -119,30 +134,30 @@ class _SettingsPanelState extends State<SettingsPanel> {
       left: widget.offset.dx,
       top: widget.offset.dy,
       child: Material(
-          elevation: 20,
-          color: Colors.transparent,
-          child: Container(
-            width: 400,
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E1E1E).withValues(alpha: 0.95),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.cyanAccent, width: 1.5),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.5),
-                  blurRadius: 20,
-                  spreadRadius: 5,
-                ),
-              ],
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Header (also the drag handle)
-                GestureDetector(
-                  onPanUpdate: (details) =>
-                      widget.callbacks.onDrag(details.delta),
-                  child: Container(
+        elevation: 20,
+        color: Colors.transparent,
+        child: Container(
+          width: 400,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1E1E1E).withValues(alpha: 0.95),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: Colors.cyanAccent, width: 1.5),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withValues(alpha: 0.5),
+                blurRadius: 20,
+                spreadRadius: 5,
+              ),
+            ],
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header (also the drag handle)
+              GestureDetector(
+                onPanUpdate: (details) =>
+                    widget.callbacks.onDrag(details.delta),
+                child: Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 12,
@@ -187,114 +202,116 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     ],
                   ),
                 ),
-                ),
-                // Body
-                Padding(
-                  padding: const EdgeInsets.all(20),
-                  child: ConstrainedBox(
-                    constraints: BoxConstraints(
-                      maxHeight: MediaQuery.sizeOf(context).height - 160,
-                    ),
-                    child: SingleChildScrollView(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                      _buildConnectionModeDropdown(),
-                      const SizedBox(height: 16),
-                      if (!_isUsb) ...[
+              ),
+              // Body
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(
+                    maxHeight: MediaQuery.sizeOf(context).height - 160,
+                  ),
+                  child: SingleChildScrollView(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _buildConnectionModeDropdown(),
+                        const SizedBox(height: 16),
+                        if (!_isUsb) ...[
+                          _buildSettingsField(
+                            _ipController,
+                            'Oscilloscope IP Address',
+                          ),
+                          const SizedBox(height: 16),
+                        ],
+                        _buildSignalGeneratorDropdown(),
+                        const SizedBox(height: 16),
+                        _buildCalculatorShortcutDropdown(),
+                        const SizedBox(height: 16),
+                        _buildProviderDropdown(),
+                        const SizedBox(height: 16),
                         _buildSettingsField(
-                          _ipController,
-                          'Oscilloscope IP Address',
+                          _aiApiTokenController,
+                          'AI API Token',
+                          hint: 'Your Provider API token',
+                          obscureText: true,
                         ),
                         const SizedBox(height: 16),
+                        _buildSettingsField(
+                          _llmModelController,
+                          'LLM Model',
+                          hint: 'e.g. gpt-4o',
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Save csv data',
+                                textAlign: TextAlign.end,
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                            Switch(
+                              value: widget.saveWithParams,
+                              onChanged: widget.onSaveWithParamsChanged,
+                              activeThumbColor: Colors.cyanAccent,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                'Ask for filename on save',
+                                textAlign: TextAlign.end,
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 13,
+                                ),
+                              ),
+                            ),
+                            Switch(
+                              value: widget.askForFilenamePrefix,
+                              onChanged: widget.onAskForFilenamePrefixChanged,
+                              activeThumbColor: Colors.cyanAccent,
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.cyan[800],
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                          ),
+                          onPressed: () => widget.callbacks.onSave(
+                            _ipController.text,
+                            _selectedProvider ?? '',
+                            _aiApiTokenController.text,
+                            _llmModelController.text,
+                            _isUsb,
+                          ),
+                          child: const Text(
+                            'SAVE CONFIGURATION',
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
                       ],
-                      _buildSignalGeneratorDropdown(),
-                      const SizedBox(height: 16),
-                      _buildProviderDropdown(),
-                      const SizedBox(height: 16),
-                      _buildSettingsField(
-                        _aiApiTokenController,
-                        'AI API Token',
-                        hint: 'Your Provider API token',
-                        obscureText: true,
-                      ),
-                      const SizedBox(height: 16),
-                      _buildSettingsField(
-                        _llmModelController,
-                        'LLM Model',
-                        hint: 'e.g. gpt-4o',
-                      ),
-                      const SizedBox(height: 16),
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              'Save csv data',
-                              textAlign: TextAlign.end,
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          Switch(
-                            value: widget.saveWithParams,
-                            onChanged: widget.onSaveWithParamsChanged,
-                            activeThumbColor: Colors.cyanAccent,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          const Expanded(
-                            child: Text(
-                              'Ask for filename on save',
-                              textAlign: TextAlign.end,
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 13,
-                              ),
-                            ),
-                          ),
-                          Switch(
-                            value: widget.askForFilenamePrefix,
-                            onChanged: widget.onAskForFilenamePrefixChanged,
-                            activeThumbColor: Colors.cyanAccent,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 20),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.cyan[800],
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                        onPressed: () => widget.callbacks.onSave(
-                          _ipController.text,
-                          _selectedProvider ?? '',
-                          _aiApiTokenController.text,
-                          _llmModelController.text,
-                          _isUsb,
-                        ),
-                        child: const Text(
-                          'SAVE CONFIGURATION',
-                          style: TextStyle(fontWeight: FontWeight.bold),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ),
               ),
-            ),
-              ],
-            ),
+            ],
           ),
         ),
+      ),
     );
   }
 
@@ -354,6 +371,54 @@ class _SettingsPanelState extends State<SettingsPanel> {
       onChanged: (v) {
         setState(() => _isUsb = v == 'USB');
       },
+    );
+  }
+
+  Widget _buildCalculatorShortcutDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Calculator',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          key: ValueKey('calculator-shortcut-$_calculatorShortcut'),
+          initialValue: _calculatorShortcut,
+          isExpanded: true,
+          dropdownColor: const Color(0xFF252525),
+          decoration: const InputDecoration(
+            labelText: 'Window shortcut',
+            floatingLabelBehavior: FloatingLabelBehavior.always,
+            labelStyle: TextStyle(color: Colors.white70, fontSize: 14),
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.white24),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.cyanAccent),
+            ),
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+          items: [
+            for (final preset in CalculatorShortcut.presets)
+              DropdownMenuItem<String>(
+                value: preset.id,
+                child: Text(preset.label),
+              ),
+          ],
+          onChanged: (value) {
+            if (value == null) return;
+            final shortcut = CalculatorShortcut.byId(value);
+            setState(() => _calculatorShortcut = shortcut.id);
+            widget.onCalculatorShortcutChanged?.call(shortcut.id);
+          },
+        ),
+      ],
     );
   }
 
@@ -417,24 +482,15 @@ class _SettingsPanelState extends State<SettingsPanel> {
             focusedBorder: OutlineInputBorder(
               borderSide: BorderSide(color: Colors.cyanAccent),
             ),
-            contentPadding: EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           ),
           items: const [
             DropdownMenuItem<String>(
               value: 'none',
               child: Text('No Signal Generator'),
             ),
-            DropdownMenuItem<String>(
-              value: 'jds6600',
-              child: Text('JDS6600'),
-            ),
-            DropdownMenuItem<String>(
-              value: 'fy6900',
-              child: Text('FY6900'),
-            ),
+            DropdownMenuItem<String>(value: 'jds6600', child: Text('JDS6600')),
+            DropdownMenuItem<String>(value: 'fy6900', child: Text('FY6900')),
           ],
           onChanged: (value) {
             if (value == null) return;

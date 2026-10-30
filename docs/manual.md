@@ -57,7 +57,7 @@ All user data (screenshots, waveforms, profiles, macros, reports) is stored unde
 | Linux | `~/.local/share/sdsremote/` |
 | Windows | `%LocalAppData%\sdsremote` |
 
-See [11. Application Directory](#11-application-directory) (Application Directory) for a complete breakdown of subdirectories.
+See [12. Application Directory](#12-application-directory) (Application Directory) for a complete breakdown of subdirectories.
 
 ### 1.3 Known Limitations
 
@@ -237,6 +237,19 @@ the window opens centered instead.
 
 > **Note:** The API token is stored in plain text in the preferences file (`preferences/preferences.json`) within the application directory.  
 > Ensure appropriate file system permissions if working in a shared environment.
+
+### 3.9 Calculator Shortcut
+
+The engineering calculator opens with **Ctrl+R** by default. In **Settings → Calculator → Window shortcut** choose one of:
+
+| Shortcut | Notes |
+|:---------|:------|
+| `Ctrl` + `R` | Default |
+| `Ctrl` + `Shift` + `R` | Alternative if Ctrl+R is reserved by the desktop |
+| `Ctrl` + `Alt` + `C` | Mnemonic alternative |
+| `F9` | Keyboard-only alternative |
+
+The selection is stored as `calculator_shortcut` and restored on the next launch. There is no toolbar button: the calculator is available only through the configured shortcut. The shortcut is handled globally in the main window; text fields do not use Ctrl+R natively.
 
 ---
 
@@ -870,7 +883,7 @@ query(SIG, "SOUR1:FREQ?")
 The `SIG` selector sends the command to the signal generator connected with `connect(SIG, usb)` instead of the oscilloscope.  
 These commands use the same SCPI driver as the [signal generator window](#911-signal-generator-window-ctrlj) and the Bode plot,  
 so only headers defined by that driver are accepted; an undefined header stops playback with a SCPI error (e.g. `-113`).  
-The complete command reference is in [14. SCPI Commands Signal Generator](#14-scpi-commands-signal-generator).  
+The complete command reference is in [15. SCPI Commands Signal Generator](#15-scpi-commands-signal-generator).  
 `query(SIG, …)` returns the driver's response and can be used everywhere `query(…)` is allowed: as a statement,  
 in assignments, in `print()`, and in conditions.  
 Use `cmd(SIG, …)` for set commands and `query(SIG, …)` for queries.
@@ -1540,7 +1553,176 @@ The generator identity (for example `FeelElec,FY6900-60M`) and the oscilloscope 
 
 ---
 
-## 11. Application Directory
+## 11. Engineering Calculator (Ctrl+R)
+
+The Engineering Calculator is a separate OS window for electronics, measurement, audio, DSP, embedded and RF calculations. Open it with **Ctrl+R** or the configured alternative (see [3.9 Calculator Shortcut](#39-calculator-shortcut)). There is no toolbar button. Pressing the shortcut again focuses the existing window. The window is independent of the oscilloscope connection.
+
+### 11.1 Display and Keypad
+
+The display shows the current expression and the formatted result; the line below it shows the normalized expression, stored or used variables and the physical dimension. The keypad covers the scientific functions, memory and variables, units, conversion, formulas and programs.
+
+The top row of the keypad controls the mode:
+
+| Key | Action |
+|:----|:-------|
+| `SHIFT` | Applies the amber secondary function printed above the keys |
+| `INV` | Applies the inverse/hyperbolic alternative (mutually exclusive with SHIFT) |
+| `DEG` / `RAD` | Toggles the angle unit for plain numbers |
+| `AUTO` / `ENG` / `SCI` | Cycles the number format; use Settings for fixed-point decimals |
+| `DEC` / `HEX` / `OCT` / `BIN` | Cycles the integer display base; the extra row provides `0x`, `0b`, `0o` and `A`–`F` |
+| `CLR` | Clears the expression and the result |
+
+Selected keys:
+
+| Key | Primary | SHIFT | INV |
+|:----|:--------|:------|:----|
+| `sin` / `cos` / `tan` | `sin(`, … | `asin(`, … | `sinh(`, … |
+| `ln` | `ln(` | `exp(` | `log2(` |
+| `log` | `log10(` | `10^(` | `log(` |
+| `exp` | `exp(` | `e^(` | `pi` |
+| `xʸ` | `^` | `^(1/` | `^2` |
+| `√` | `sqrt(` | `cbrt(` | `√(` |
+| `x²` | `^2` | `^3` | `^(1/2)` |
+| `1/x` | `1/(` | `%` | `ppm` |
+| `n!` | `!` | `gamma(` | `comb(` |
+| `ABS` | `abs(` | `mag(` | `arg(` |
+| `mod`, `∠`, `j`, `°`, `%` | Insert the corresponding operator or unit | — | — |
+| `STO` / `RCL` | Store the current result in a variable / recall a variable | — | — |
+| `UNIT` / `CONV` | Unit picker / unit conversion dialog | — | — |
+| `HIST` / `VAR` / `FORM` / `PROG` | Switch the side panel to history, variables, formulas or programs | — | — |
+| `FAV` | List favorites | — | — |
+| `ANS` | Insert the previous result | — | — |
+| `±` | Toggle the sign of the selection or insert a minus | — | — |
+| `=` | Evaluate | — | — |
+| `⌫` | Delete the selection or the character before the cursor | — | — |
+
+### 11.2 Expression Syntax
+
+The calculator uses a typed expression language; no `eval` of user input is performed.
+
+| Form | Example |
+|:-----|:--------|
+| Point before dash | `2 + 3 * 4` → `14` |
+| Right-associative power | `2^3^2` → `512` |
+| Implicit multiplication | `2(3 + 4)`, `10 kΩ`, `2π` |
+| Implicit multiplication binds tighter than `/` | `1/2x` → `1/(2x)` |
+| Factorial | `5!` |
+| Percent | `50%` → `0.5` |
+| Vector / matrix | `[1, 2, 3]`, `[[1, 2], [3, 4]]` |
+| Index (1-based) | `v[1]`, `A[1][2]` |
+| Assignment | `R1 = 10 kΩ` |
+| Function definition | `f(x) = x^2 + 1`, then `f(3)` |
+| Program | `R1 = 10 kΩ; C1 = 100 nF; 1/(2*pi*R1*C1)` |
+| Conversion | `230 mV to V`, `to(20 dBm, W)` |
+
+### 11.3 Units, Prefixes and Levels
+
+Values carry an SI dimension. Adding or comparing incompatible dimensions fails with a dimension error; multiplication and division combine units.
+
+```text
+230 mV / 10 kΩ              = 23 µA
+4.7 kΩ * 2.2 µF             = 10.34 ms
+3.3 V / 220 Ω               = 15 mA
+1 / (2*pi*10 kHz*100 nF)    = 159.15 Ω
+25 °C to °F                 = 77 °F
+1 kWh to J                  = 3 600 000 J
+```
+
+SI prefixes are written directly in front of the unit: `p n µ m k M G T` (and further prefixes). A bare `10k` also means 10 000, but `10m` is ten metres; use `10 mm` or `10e-3` for millimetres as a scalar. Prefixing is case-sensitive (`m` milli, `M` mega; `s` seconds, `S` siemens).
+
+Logarithmic units are supported with their references:
+
+* `dBm` (1 mW power), `dBW` (1 W power), `dBV` (1 V RMS), `dBu` (0.775 V RMS), `dBµV` (1 µV RMS), `dBSPL` (20 µPa).
+* `dBFS` is an amplitude ratio relative to digital full scale; converting it to volts needs a full-scale reference (`dbfs_to_vrms(level, full_scale)`).
+* `dBi` and `dBd` are antenna gains; `0 dBd = 2.15 dBi`.
+
+Level arithmetic follows physical rules:
+
+```text
+20 dBm + 3 dB      = 23 dBm    (level plus gain)
+20 dBm - 3 dB      = 17 dBm    (level minus gain)
+20 dBm - 5 dBm     = 15 dB     (ratio of two levels)
+3 dB + 3 dB        = 6.02 dB   (cascaded gains)
+20 dBm + 20 dBm    → dimension error (two absolute levels)
+```
+
+### 11.4 Complex Numbers
+
+```text
+50 + j25
+(50 + j25) Ω
+75∠30° Ω
+polar(50 + j25)       polar display
+rect(50 + j25)        rectangular display
+abs(z), arg(z), conj(z), re(z), im(z)
+```
+
+`∠` reads the angle in the current DEG/RAD mode unless the angle carries a unit. Complex trigonometric functions use radians. Impedance, reflection coefficient, VSWR, return loss and mismatch loss formulas are available through the formula library.
+
+### 11.5 Variables, Functions and Programs
+
+```text
+R1 = 10 kΩ
+C1 = 100 nF
+FC = 1 / (2*pi*R1*C1)
+f(x) = x^2 + 1
+f(3)
+```
+
+The **Programs** tab accepts multi-line programs, saves them, runs them and exports/imports the whole workspace as JSON. The safe program forms are:
+
+```text
+if(condition, then, else)
+for(i, from, to, expression)
+while(condition, expression)
+sum(expression, variable, from, to)        e.g. sum(n^2, n, 1, 10)
+product(expression, variable, from, to)
+integrate(expression, variable, from, to)
+derivative(expression, variable, at)
+solve(expression, variable, guess)
+solve(expression, variable, low, high)
+```
+
+Loop and call limits prevent runaway programs. Functions can be defined only at the top level of a program.
+
+### 11.6 Formula Library
+
+The **Formulas** tab provides a searchable library grouped into **Basic Electrical**, **Filters and Analog**, **Measurement and Uncertainty**, **Audio and DSP**, **Digital and Embedded**, **RF and Antennas** and **Math and Numerical**. Every formula has named inputs with runnable defaults; the dialog shows the formula, its assumptions and the result. Examples include voltage/current dividers, RC/RL/RLC filters, op-amp gains, resistor noise, ADC LSB/SNR/quantization, multimeter accuracy and tolerance chains, dBu/dBV/dBFS conversion, FFT and sampling, PWM/UART/CAN timing, CRC and Q-format helpers, FSPL, link budget, EIRP/ERP, VSWR/return loss, noise figure cascade, receiver sensitivity and Friis received power.
+
+### 11.7 History, Copy, Export and Persistence
+
+Every evaluation is recorded with its original expression, normalized form, result, unit, timestamp, variables used and the formula used (if any). History entries can be reused, copied or added to favorites. The history can be exported as CSV, JSON or a Markdown report; the complete workspace can be exported and imported as JSON.
+
+The workspace (variables, functions, settings, history, favorites and programs) is stored in `calculator/workspace.json` in the application working directory:
+
+* Linux: `~/.local/share/sdsremote/calculator/workspace.json`
+* Windows: `%LocalAppData%\sdsremote\calculator\workspace.json`
+
+### 11.8 AI Agent Tool
+
+The same engine is available to the AI assistants as `calculator_tool`. It supports `evaluate`, `define_variable`, `run_formula`, `convert`, `list_variables`, `list_formulas` and `history`. The tool reports the formatted value, unit, dimension, used variables and a structured error type (syntax, dimension, unit, division by zero, convergence, …). It never guesses when a calculation fails.
+
+### 11.9 Keyboard Shortcuts
+
+| Shortcut | Action |
+|:---------|:-------|
+| `Enter` | Evaluate the expression |
+| `Esc` | Clear the expression and result |
+| `Ctrl` + `Z` / `Ctrl` + `Y` | Undo / redo in the expression field |
+| `Ctrl` + `R` (configurable) | Open or focus the calculator window from the main application |
+| `Ctrl` + `C` / `Ctrl` + `V` | Copy / paste text in the expression field |
+
+### 11.10 Limits and Conventions
+
+* Absolute temperatures are stored internally in kelvin; `°C` and `°F` conversions use their affine offsets. Do not multiply absolute temperatures as if they were temperature differences.
+* `dBFS` has no fixed full-scale voltage; use the `dbfs_to_vrms`/`vrms_to_dbfs` helpers with an explicit reference.
+* Matrix indexes start at 1; a negative index counts from the end.
+* Function, variable and unit names share one namespace: unit symbols and built-in function names are reserved. Use `R1`, `C1`, `L1` rather than `R`, `C`, `L`.
+* Results are IEEE-754 double precision; very large or undefined results are reported as overflow/domain errors instead of NaN or infinity.
+
+---
+
+## 12. Application Directory
 
 The application directory stores captured images, CSV exports, and device profile files.  
 The directory is OS specific:
@@ -1565,7 +1747,7 @@ Files are stored in various subfolders of the application directory, depending o
 
 ---
 
-## 12. Troubleshooting (Non-AI)
+## 13. Troubleshooting (Non-AI)
 
 ### Connection Issues
 
@@ -1596,7 +1778,7 @@ Files are stored in various subfolders of the application directory, depending o
 
 ---
 
-## 13. Technical Details
+## 14. Technical Details
 
 ### Communication
 
@@ -1619,21 +1801,21 @@ Files are stored in various subfolders of the application directory, depending o
 
 ---
 
-## 14. SCPI Commands Signal Generator
+## 15. SCPI Commands Signal Generator
 
-The macros using `connect(SIG, usb)` share one SCPI layer. The JOY-IT/Juntek JDS6600 and the FeelElec FY6900 therefore accept the same command set; only the waveform names and the phase and duty handling differ (see [14.5 Waveform Names](#145-waveform-names) and [14.6 Family-Specific Behavior](#146-family-specific-behavior)).
+The macros using `connect(SIG, usb)` share one SCPI layer. The JOY-IT/Juntek JDS6600 and the FeelElec FY6900 therefore accept the same command set; only the waveform names and the phase and duty handling differ (see [15.5 Waveform Names](#155-waveform-names) and [15.6 Family-Specific Behavior](#156-family-specific-behavior)).
 
 This is a SCPI emulation subset, not a complete implementation:
 
 * One command per line. Command chaining with `;` is rejected.
 * `<n>` is the channel number: `1` or `2`.
-* Header segments and units are case-insensitive; whole segments may be abbreviated with the aliases in [14.4 Units and Header Aliases](#144-units-and-header-aliases).
+* Header segments and units are case-insensitive; whole segments may be abbreviated with the aliases in [15.4 Units and Header Aliases](#154-units-and-header-aliases).
 * Commands are sent to the generator from a macro with the `SIG` selector — `cmd(SIG, "…")` for set commands and `query(SIG, "…")` for queries; see [7.5.2 SCPI Commands](#752-scpi-commands).
 
 > **Note:** The generator must be selected in **Settings → Signal Generator** (see [3.6 Signal Generator](#36-signal-generator)) and connected with `connect(SIG, usb)` before a command is accepted.  
 > An undefined header stops macro playback with a SCPI error.
 
-### 14.1 Common Commands
+### 15.1 Common Commands
 
 | SCPI cmd/query | Documentation | Example |
 |:---------------|:--------------|:--------|
@@ -1648,11 +1830,11 @@ This is a SCPI emulation subset, not a complete implementation:
 | `SYST:LOC` | Accepted without effect. | `SYST:LOC` |
 | `SYST:REM` | Accepted without effect. | `SYST:REM` |
 
-### 14.2 Source Commands
+### 15.2 Source Commands
 
 | SCPI cmd/query | Documentation | Example |
 |:---------------|:--------------|:--------|
-| `SOUR<n>:FUNC <shape>` | Sets the waveform; accepted shapes in [14.5 Waveform Names](#145-waveform-names). `ARB` is rejected with -113. | `SOUR1:FUNC SIN` |
+| `SOUR<n>:FUNC <shape>` | Sets the waveform; accepted shapes in [15.5 Waveform Names](#155-waveform-names). `ARB` is rejected with -113. | `SOUR1:FUNC SIN` |
 | `SOUR<n>:FUNC?` | Returns the waveform mnemonic. | `SIN` |
 | `SOUR<n>:FREQ <value>[unit]` | Sets the frequency; no unit means Hz. The value must be positive and within the model and waveform limit (see [10.2 Signal Generators and Model Limits](#102-signal-generators-and-model-limits)). | `SOUR1:FREQ 1KHZ` |
 | `SOUR<n>:FREQ?` | Returns the frequency in Hz with two decimals. | `1000.00` |
@@ -1669,7 +1851,7 @@ This is a SCPI emulation subset, not a complete implementation:
 
 Set commands return no response.
 
-### 14.3 Output Commands
+### 15.3 Output Commands
 
 | SCPI cmd/query | Documentation | Example |
 |:---------------|:--------------|:--------|
@@ -1680,7 +1862,7 @@ Set commands return no response.
 | `OUTP:ALL <state>` | Switches both outputs together. | `OUTP:ALL OFF` |
 | `OUTP:ALL?` | Returns `1` only when both outputs are on, otherwise `0`. | `0` |
 
-### 14.4 Units and Header Aliases
+### 15.4 Units and Header Aliases
 
 Units are optional and case-insensitive; the default applies when the unit is omitted.  
 Units are accepted as a suffix of the value (`1KHZ`, `3.3VPP`) or separated by a space (`1 KHZ`).
@@ -1697,7 +1879,7 @@ A whole header segment may be replaced by one of these aliases: `SOURCE` = `SOUR
 `OUTPUT` = `OUTP`, `VOLTAGE` = `VOLT`, `OFFSET` = `OFFS`, `FUNCTION` = `FUNC`, `DCYCLE` = `DCYC`, `PHASE` = `PHAS`, `STATE` = `STAT`, `FREQUENCY` = `FREQ`.  
 `SQUARE` and `PULSE` are not header aliases — use `SQU` and `PULS`.
 
-### 14.5 Waveform Names
+### 15.5 Waveform Names
 
 | Generator | Waveform names |
 |:----------|:---------------|
@@ -1709,7 +1891,7 @@ A whole header segment may be replaced by one of these aliases: `SOURCE` = `SOUR
   On the FY6900, JDS6600-only names are mapped to the closest preset (for example `PSIN` to sine); `PULS` on channel 2 becomes `RECT`.
 * `ARB` is not available on either family: `SOUR<n>:FUNC ARB` and `SOUR<n>:FUNC:ARB` return -113.
 
-### 14.6 Family-Specific Behavior
+### 15.6 Family-Specific Behavior
 
 * **Phase** — the JDS6600 has one global CH2-vs-CH1 phase register, so `SOUR1:PHAS` and `SOUR2:PHAS` address the same value and both queries return it.  
   The FY6900 stores the phase per channel.
@@ -1718,7 +1900,7 @@ A whole header segment may be replaced by one of these aliases: `SOURCE` = `SOUR
 * **Limits** — values are checked against the detected model and the active waveform; the limits are listed in [10.2 Signal Generators and Model Limits](#102-signal-generators-and-model-limits).  
   Duty cycle is 0–100 % on the JDS6600 and 0.1–99.9 % on the FY6900; phase is 0–360° on both.
 
-### 14.7 Errors and Unsupported Commands
+### 15.7 Errors and Unsupported Commands
 
 | Error code | Meaning |
 |:-----------|:--------|
@@ -1741,7 +1923,7 @@ The following are not supported and return -113:
 ---
 
 
-## 15. Support and Feedback
+## 16. Support and Feedback
 
 ### Logging Directory
 
@@ -1755,6 +1937,7 @@ The log directory  is at `/tmp/sds/logging/sds.log` (Linux) or `%TEMP%\sds\loggi
 
 ---
 
-## 16. License
+## 17. License
 
 This software is released under the terms and conditions of the [Apache License 2.0](https://www.apache.org/licenses/LICENSE-2.0.html).
+

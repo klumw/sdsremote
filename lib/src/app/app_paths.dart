@@ -83,6 +83,15 @@ class AppPaths {
   static Directory get preferencesDirectory =>
       Directory('${defaultSaveDirectory.path}${_sep}preferences');
 
+  /// `  <app working dir>/calculator  `
+  static Directory get calculatorDirectory =>
+      Directory('${defaultSaveDirectory.path}${_sep}calculator');
+
+  /// `  <app working dir>/calculator/workspace.json  `
+  static File get calculatorWorkspaceFile => File(
+    '${defaultSaveDirectory.path}${_sep}calculator${_sep}workspace.json',
+  );
+
   // ---------------------------------------------------------------------------
   // Convenience: ensure-and-get
   // ---------------------------------------------------------------------------
@@ -131,6 +140,9 @@ class AppPaths {
 
   static Future<Directory> getOrCreatePreferencesDir() =>
       ensureDirectoryExists(preferencesDirectory);
+
+  static Future<Directory> getOrCreateCalculatorDir() =>
+      ensureDirectoryExists(calculatorDirectory);
 
   /// Returns a [File] with a unique filename in [directory].
   ///

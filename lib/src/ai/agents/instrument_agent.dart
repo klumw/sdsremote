@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 
+import '../tools/calculator_tool.dart';
 import '../tools/log_tool.dart';
 import '../tools/math_tool.dart';
 import '../tools/measurement_tool.dart';
@@ -16,12 +17,14 @@ import 'max_tool_calls_handler.dart';
 ///
 /// By default, the agent is equipped with a VXI-11 tool that allows it
 /// to send SCPI commands and queries to a remote instrument, a log tool that
-/// lets it inspect the application log when a command fails, plus two
+/// lets it inspect the application log when a command fails, plus three
 /// deterministic tools that need no instrument connection:
 /// [createMeasurementTool], which turns raw `PAVA` responses such as
-/// `C1:PAVA PKPK,3.000000E+00V` into structured values, and
+/// `C1:PAVA PKPK,3.000000E+00V` into structured values,
 /// [createMathTool], which calculates derived quantities such as the
-/// voltage gain in dB between two channels.
+/// voltage gain in dB between two channels, and [createCalculatorTool],
+/// which evaluates unit-aware, complex and dB expressions and runs the
+/// engineering formula library.
 ///
 /// The agent limits the number of tool calls per user input to
 /// [maxToolCalls] (default: 10). This prevents runaway tool loops.
@@ -88,6 +91,9 @@ class InstrumentAgent with MaxToolCallsHandler {
            // Deterministic math on measured numbers (gain in dB, and any
            // operation added later); needs no instrument connection.
            createMathTool(agentName: 'InstrumentAgent'),
+           // Unit-aware, complex-capable engineering calculator with the
+           // electronics, measurement, audio and RF formula library.
+           createCalculatorTool(agentName: 'InstrumentAgent'),
            // Lets the agent inspect the application log when a SCPI command or
            // the communication itself fails.
            createLogFileTool(

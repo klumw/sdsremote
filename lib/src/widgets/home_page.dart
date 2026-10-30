@@ -49,6 +49,8 @@ import '../data_logger/data_logger_models.dart';
 import 'data_logger_panel.dart';
 import '../data_logger/data_logger_service.dart';
 import '../data_logger/data_logger_report.dart';
+import '../calculator/calculator_shortcut.dart';
+import '../calculator/calculator_window_launcher.dart';
 import '../bode/bode_csv_writer.dart';
 import '../bode/bode_models.dart';
 import '../bode/bode_plot_service.dart';
@@ -130,6 +132,10 @@ class _OsciHomePageState extends State<OsciHomePage>
   SigGenWindowServer? _sigGenWindowServer;
   SigGenWindowLauncher? _sigGenWindowLauncher;
   bool _sigGenWindowOpen = false;
+
+  // Engineering calculator OS window (configurable, default Ctrl+R).
+  CalculatorWindowLauncher? _calculatorWindowLauncher;
+  CalculatorShortcut _calculatorShortcut = CalculatorShortcut.defaultShortcut;
 
   // AI
   String _aiProvider = '';
@@ -386,6 +392,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     windowManager.addListener(this);
     windowManager.setPreventClose(true);
     HardwareKeyboard.instance.addHandler(_onGlobalKeyEvent);
+    unawaited(_loadCalculatorShortcut());
     // Drop the cached instrument when a fatal USB error invalidates the
     // shared connection, so a replug can reconnect without an app restart.
     Vxi11Instrument.onUsbConnectionLost = _onUsbConnectionLost;
@@ -452,6 +459,8 @@ class _OsciHomePageState extends State<OsciHomePage>
     _macroDebugSession = null;
     debugSession?.cancel();
     _disposeSigGenWindowSupport();
+    _calculatorWindowLauncher?.dispose();
+    _calculatorWindowLauncher = null;
     final server = _sigGenWindowServer;
     _sigGenWindowServer = null;
     if (server != null) unawaited(server.dispose());
@@ -738,6 +747,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   ///
   /// The shortcut is intentionally not exposed as a toolbar button.
   bool _onGlobalKeyEvent(KeyEvent event) {
+    if (_handleCalculatorShortcut(event)) return true;
     if (event is! KeyDownEvent) return false;
     if (!HardwareKeyboard.instance.isControlPressed) return false;
     if (event.logicalKey != LogicalKeyboardKey.keyJ) return false;
@@ -753,6 +763,32 @@ class _OsciHomePageState extends State<OsciHomePage>
     _ensureSigGenWindowSupport();
     unawaited(_sigGenWindowLauncher?.openOrFocus());
     return true;
+  }
+
+  /// Restores the configured calculator shortcut from the preferences.
+  Future<void> _loadCalculatorShortcut() async {
+    final stored = await AppPreferences.getString('calculator_shortcut');
+    if (!mounted) return;
+    final shortcut = CalculatorShortcut.fromPreference(stored);
+    if (shortcut.id == _calculatorShortcut.id) return;
+    setState(() => _calculatorShortcut = shortcut);
+  }
+
+  bool _handleCalculatorShortcut(KeyEvent event) {
+    if (!_calculatorShortcut.matches(event)) return false;
+    _openCalculatorWindow();
+    return true;
+  }
+
+  void _openCalculatorWindow() {
+    _ensureCalculatorWindowSupport();
+    unawaited(_calculatorWindowLauncher?.openOrFocus());
+  }
+
+  void _ensureCalculatorWindowSupport() {
+    _calculatorWindowLauncher ??= CalculatorWindowLauncher(
+      backend: const WindowControllerBackend(),
+    );
   }
 
   /// Creates the window bridge lazily for the current generator service.
@@ -2458,6 +2494,13 @@ class _OsciHomePageState extends State<OsciHomePage>
           }
         }
         _configureSigGenDetection();
+      },
+      calculatorShortcut: _calculatorShortcut.id,
+      onCalculatorShortcutChanged: (value) async {
+        final shortcut = CalculatorShortcut.byId(value);
+        if (shortcut.id == _calculatorShortcut.id) return;
+        setState(() => _calculatorShortcut = shortcut);
+        await AppPreferences.setString('calculator_shortcut', shortcut.id);
       },
       providerNames: providerConfigs.map((c) => c.providerName).toList(),
       selectedProvider: _aiProvider,

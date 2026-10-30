@@ -9,9 +9,12 @@ import 'package:window_manager/window_manager.dart';
 
 import 'src/app/app_theme.dart';
 import 'src/app/window_state.dart';
+import 'src/calculator/calculator_controller.dart';
+import 'src/calculator/calculator_window_protocol.dart';
 import 'src/core/logger.dart';
 import 'src/signal_generator/siggen_window_client.dart';
 import 'src/signal_generator/siggen_window_protocol.dart';
+import 'src/widgets/calculator_window.dart';
 import 'src/widgets/home_page.dart';
 import 'src/widgets/signal_generator_window.dart';
 
@@ -66,6 +69,10 @@ void main(List<String> args) async {
   final windowArguments = await _currentWindowArguments();
   if (SigGenWindowArguments.isSigGenWindow(windowArguments)) {
     await _runSignalGeneratorWindow();
+    return;
+  }
+  if (CalculatorWindowArguments.isCalculatorWindow(windowArguments)) {
+    await _runCalculatorWindow();
     return;
   }
 
@@ -149,6 +156,50 @@ Future<void> _runSignalGeneratorWindow() async {
   runApp(
     SignalGeneratorWindowApp(
       client: client,
+      onReady: () => unawaited(showWindow()),
+    ),
+  );
+  // Failsafe: show even if the child never reports readiness.
+  Timer(const Duration(seconds: 3), () => unawaited(showWindow()));
+}
+
+/// Starts the child engine's engineering-calculator window.
+Future<void> _runCalculatorWindow() async {
+  AppLogger().info('SDS-Remote: calculator window starting');
+  const windowOptions = WindowOptions(
+    size: Size(1240, 820),
+    minimumSize: Size(980, 640),
+    title: 'Engineering Calculator',
+    center: true,
+  );
+  try {
+    await windowManager.waitUntilReadyToShow(windowOptions, () {});
+  } catch (error) {
+    AppLogger(
+      agentName: 'Calculator',
+      toolName: 'window',
+    ).log('window_manager setup failed: $error');
+  }
+
+  final controller = CalculatorController();
+  var shown = false;
+  Future<void> showWindow() async {
+    if (shown) return;
+    shown = true;
+    final log = AppLogger(agentName: 'Calculator', toolName: 'window');
+    try {
+      await windowManager.show();
+      await windowManager.center();
+      await windowManager.focus();
+      log.log('Calculator window shown');
+    } catch (error) {
+      log.log('Could not show calculator window: $error');
+    }
+  }
+
+  runApp(
+    CalculatorWindowApp(
+      controller: controller,
       onReady: () => unawaited(showWindow()),
     ),
   );
