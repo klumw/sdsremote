@@ -352,7 +352,7 @@ class CalculatorKeypad extends StatelessWidget {
         : 'RAD';
     final formatLabel = switch (settings.format) {
       CalcNumberFormat.auto => 'AUTO',
-      CalcNumberFormat.fixed => 'FIX',
+      CalcNumberFormat.fixed => 'FIXED',
       CalcNumberFormat.scientific => 'SCI',
       CalcNumberFormat.engineering => 'ENG',
     };
@@ -381,20 +381,14 @@ class CalculatorKeypad extends StatelessWidget {
       _KeyData(
         label: formatLabel,
         action: () {
-          final next = settings.format == CalcNumberFormat.engineering
-              ? CalcNumberFormat.auto
-              : CalcNumberFormat.engineering;
-          controller.setNumberFormat(next);
-        },
-        kind: _KeyKind.mode,
-      ),
-      _KeyData(
-        label: 'SCI',
-        action: () {
-          final next = settings.format == CalcNumberFormat.scientific
-              ? CalcNumberFormat.auto
-              : CalcNumberFormat.scientific;
-          controller.setNumberFormat(next);
+          const order = [
+            CalcNumberFormat.auto,
+            CalcNumberFormat.engineering,
+            CalcNumberFormat.fixed,
+            CalcNumberFormat.scientific,
+          ];
+          final index = order.indexOf(settings.format);
+          controller.setNumberFormat(order[(index + 1) % order.length]);
         },
         kind: _KeyKind.mode,
       ),

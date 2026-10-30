@@ -1568,7 +1568,7 @@ The top row of the keypad controls the mode:
 | `SHIFT` | Applies the amber secondary function printed above the keys |
 | `INV` | Applies the inverse/hyperbolic alternative (mutually exclusive with SHIFT) |
 | `DEG` / `RAD` | Toggles the angle unit for plain numbers |
-| `AUTO` / `ENG` / `SCI` | Cycles the number format; use Settings for fixed-point decimals |
+| `AUTO` / `ENG` / `FIXED` / `SCI` | Cycles the number format: Auto → Engineering → Fixed-point → Scientific. Fixed-point uses the decimal places from Settings |
 | `DEC` / `HEX` / `OCT` / `BIN` | Cycles the integer display base; the extra row provides `0x`, `0b`, `0o` and `A`–`F` |
 | `CLR` | Clears the expression and the result |
 

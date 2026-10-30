@@ -943,9 +943,11 @@ ENGINEERING FUNCTIONS (selection)
 
 DISPLAY
   DEG/RAD selects the angle unit for plain numbers (unit-carrying angles
-  are always converted exactly). ENG selects engineering notation with SI
-  prefixes; SCI selects scientific notation. DEC/HEX/OCT/BIN controls
-  integer display. hex(), bin(), oct() force a base for one result.
+  are always converted exactly). The format key cycles AUTO -> ENG -> FIXED
+  -> SCI: AUTO chooses the most readable form, ENG always uses engineering
+  notation with SI prefixes, FIXED uses the configured decimal places and
+  SCI uses scientific notation. DEC/HEX/OCT/BIN controls integer display.
+  hex(), bin(), oct() force a base for one result.
 
 KEYBOARD AND SHORTCUTS (main application)
   Enter        evaluate
@@ -964,7 +966,7 @@ String _formatChip(CalcNumberFormat format) {
     case CalcNumberFormat.auto:
       return 'AUTO';
     case CalcNumberFormat.fixed:
-      return 'FIX';
+      return 'FIXED';
     case CalcNumberFormat.scientific:
       return 'SCI';
     case CalcNumberFormat.engineering:
