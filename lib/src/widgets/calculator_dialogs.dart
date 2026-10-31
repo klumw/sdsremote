@@ -1281,10 +1281,10 @@ const List<({String label, String asset})> _valueCodeCharts = [
   (label: 'Resistor', asset: 'assets/ref/Resistor.png'),
   (label: 'Capacitor', asset: 'assets/ref/Capacitor.png'),
   (label: 'Inductor', asset: 'assets/ref/Inductor.png'),
-  (label: 'Inductor color dots', asset: 'assets/ref/InductorColorDot.png'),
+  (label: 'Inductor color codes', asset: 'assets/ref/InductorColorDot.png'),
 ];
 
-/// Shows the resistor, capacitor and inductor value-code reference charts.
+/// Shows the component value-code reference charts.
 Future<void> showValueCodeReferenceDialog(BuildContext context) {
   return showDialog<void>(
     context: context,
@@ -1314,6 +1314,8 @@ class _ValueCodeReferenceDialog extends StatelessWidget {
     return DefaultTabController(
       length: _valueCodeCharts.length,
       child: AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias,
         title: const Row(
           children: [
             Icon(Icons.menu_book_outlined, color: Colors.cyanAccent),
@@ -1328,6 +1330,8 @@ class _ValueCodeReferenceDialog extends StatelessWidget {
           child: Column(
             children: [
               TabBar(
+                isScrollable: true,
+                tabAlignment: TabAlignment.center,
                 tabs: [
                   for (final chart in _valueCodeCharts) Tab(text: chart.label),
                 ],
@@ -1385,13 +1389,16 @@ class _ValueCodeChartPage extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.black26,
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
       child: InteractiveViewer(
-        minScale: 0.5,
+        // Never shrink below the fitted size, and keep the chart inside the
+        // viewport: at scale 1 no offset is possible, so zooming out snaps
+        // back to the initial size and position.
+        minScale: 1,
         maxScale: 8,
-        boundaryMargin: const EdgeInsets.all(80),
+        boundaryMargin: EdgeInsets.zero,
         child: SizedBox.expand(
           child: Image.asset(
             chart.asset,
