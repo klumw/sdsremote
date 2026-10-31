@@ -41,6 +41,7 @@ flutter:
   uses-material-design: true
   assets:
     - assets/icons/
+    - assets/ref/
     - docs/manual.md
     - docs/knowledgebase.md
 

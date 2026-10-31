@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import 'animated_sync_icon.dart';
+
 /// Regular expression to match bare URLs (http, https, ftp).
 ///
 /// Uses a negative lookbehind `(?<!...)` to skip URLs already wrapped in
@@ -455,14 +457,7 @@ class _ChatWindowState extends State<ChatWindow> {
       return Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const SizedBox(
-            width: 14,
-            height: 14,
-            child: CircularProgressIndicator(
-              strokeWidth: 2,
-              color: Colors.cyanAccent,
-            ),
-          ),
+          const AnimatedSyncIcon(size: 14, color: Colors.cyanAccent),
           const SizedBox(width: 10),
           const Text(
             "Thinking...",

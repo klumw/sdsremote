@@ -106,6 +106,11 @@ enum KnobId {
 // Button Command Map
 // ===========================================================================
 
+/// Label of the Auto Setup button on the virtual front panel.
+///
+/// The two words are printed on separate lines on the physical button.
+const String autoSetupButtonLabel = 'Auto\nSetup';
+
 /// Maps button labels to their SCPI command strings.
 const Map<String, String> buttonCommands = {
   // Menu buttons
@@ -124,7 +129,7 @@ const Map<String, String> buttonCommands = {
   'History': r'$$SY_FP 48,1',
   'Decode': r'$$SY_FP 29,1',
   'Run/Stop': r'$$SY_FP 12,1',
-  'Auto\nSetup': r'$$SY_FP 11,1',
+  autoSetupButtonLabel: r'$$SY_FP 11,1',
   // Horizontal buttons
   'Roll': r'$$SY_FP 49,1',
   // Trigger buttons

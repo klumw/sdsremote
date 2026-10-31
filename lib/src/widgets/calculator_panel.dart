@@ -20,6 +20,7 @@ import '../calculator/calc_formulas.dart';
 import '../calculator/calc_session.dart';
 import '../calculator/calc_value.dart';
 import '../calculator/calculator_controller.dart';
+import 'animated_sync_icon.dart';
 import 'calculator_chat_panel.dart';
 import 'calculator_dialogs.dart';
 import 'calculator_keypad.dart';
@@ -212,16 +213,15 @@ class _CalculatorPanelState extends State<CalculatorPanel>
           if (!_controller.initialized)
             const Padding(
               padding: EdgeInsets.only(right: 12),
-              child: SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Colors.cyanAccent,
-                ),
-              ),
+              child: AnimatedSyncIcon(size: 16, color: Colors.cyanAccent),
             ),
           _buildAiButton(),
+          IconButton(
+            tooltip: 'Component value codes',
+            icon: const Icon(Icons.menu_book_outlined, size: 21),
+            color: Colors.white70,
+            onPressed: () => showValueCodeReferenceDialog(context),
+          ),
           IconButton(
             tooltip: 'Syntax help',
             icon: const Icon(Icons.help_outline, size: 21),

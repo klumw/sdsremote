@@ -1263,6 +1263,128 @@ Future<String?> showFavoritesDialog(
   );
 }
 
+/// The reference charts for component value codes.
+const List<({String label, String asset})> _valueCodeCharts = [
+  (label: 'Resistor', asset: 'assets/ref/Resistor.png'),
+  (label: 'Capacitor', asset: 'assets/ref/Capacitor.png'),
+  (label: 'Inductor', asset: 'assets/ref/Inductor.png'),
+];
+
+/// Shows the resistor, capacitor and inductor value-code reference charts.
+Future<void> showValueCodeReferenceDialog(BuildContext context) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) => const _ValueCodeReferenceDialog(),
+  );
+}
+
+class _ValueCodeReferenceDialog extends StatelessWidget {
+  const _ValueCodeReferenceDialog();
+
+  @override
+  Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final width = (size.width - 120).clamp(420.0, 1080.0);
+    final height = (size.height - 180).clamp(320.0, 760.0);
+    return DefaultTabController(
+      length: _valueCodeCharts.length,
+      child: AlertDialog(
+        title: const Row(
+          children: [
+            Icon(Icons.menu_book_outlined, color: Colors.cyanAccent),
+            SizedBox(width: 8),
+            Text('Component value codes'),
+          ],
+        ),
+        contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        content: SizedBox(
+          width: width,
+          height: height,
+          child: Column(
+            children: [
+              TabBar(
+                tabs: [
+                  for (final chart in _valueCodeCharts) Tab(text: chart.label),
+                ],
+                indicatorColor: Colors.cyanAccent,
+                labelColor: Colors.cyanAccent,
+                unselectedLabelColor: Colors.white70,
+                dividerColor: Colors.transparent,
+              ),
+              const SizedBox(height: 12),
+              Expanded(
+                child: Center(
+                  // The reference charts are 3:2. Matching that aspect in the
+                  // display area makes BoxFit.contain fill the width and avoids
+                  // the black side bars.
+                  child: AspectRatio(
+                    aspectRatio: 3 / 2,
+                    child: TabBarView(
+                      children: [
+                        for (final chart in _valueCodeCharts)
+                          _ValueCodeChartPage(chart: chart),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'Scroll to zoom, drag to pan.',
+                  style: TextStyle(color: Colors.white54, fontSize: 11),
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ValueCodeChartPage extends StatelessWidget {
+  const _ValueCodeChartPage({required this.chart});
+
+  final ({String label, String asset}) chart;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Colors.black26,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: InteractiveViewer(
+        minScale: 0.5,
+        maxScale: 8,
+        boundaryMargin: const EdgeInsets.all(80),
+        child: SizedBox.expand(
+          child: Image.asset(
+            chart.asset,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.medium,
+            errorBuilder: (context, error, stackTrace) => Center(
+              child: Text(
+                'Could not load ${chart.asset}',
+                style: const TextStyle(color: Colors.redAccent, fontSize: 13),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// Copies text to the system clipboard and returns a short status message.
 Future<String> copyToClipboard(String text) async {
   await Clipboard.setData(ClipboardData(text: text));

@@ -11,6 +11,7 @@ import '../app/app_theme.dart';
 import '../instrument/measurement.dart' show formatMeasurementValue;
 import '../signal_generator/models.dart';
 import '../signal_generator/siggen_window_controller.dart';
+import 'animated_sync_icon.dart';
 
 class SignalGeneratorPanel extends StatefulWidget {
   const SignalGeneratorPanel({super.key, required this.controller});
@@ -182,14 +183,7 @@ class _SignalGeneratorPanelState extends State<SignalGeneratorPanel> {
           ),
           if (_controller.busy) ...[
             const SizedBox(width: 12),
-            const SizedBox(
-              width: 16,
-              height: 16,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                color: Colors.cyanAccent,
-              ),
-            ),
+            const AnimatedSyncIcon(size: 16, color: Colors.cyanAccent),
           ],
         ],
       ),
@@ -469,9 +463,7 @@ class _SignalGeneratorPanelState extends State<SignalGeneratorPanel> {
         for (final waveform in selectable)
           DropdownMenuItem(
             value: waveform,
-            child: Text(
-              waveform.displayNameFor(_controller.generator.family),
-            ),
+            child: Text(waveform.displayNameFor(_controller.generator.family)),
           ),
       ],
       onChanged: enabled
@@ -806,8 +798,8 @@ class _SignalGeneratorPanelState extends State<SignalGeneratorPanel> {
   /// Panel label for a waveform; unsupported device waveforms read as Unknown.
   String _waveformLabel(Jds6600Waveform waveform) =>
       _controller.selectableWaveforms.contains(waveform)
-          ? waveform.displayNameFor(_controller.generator.family)
-          : 'Unknown';
+      ? waveform.displayNameFor(_controller.generator.family)
+      : 'Unknown';
 
   String _frequencyHint(SigGenChannelDraft draft) {
     final info = _controller.deviceInfo;

@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 
 import '../data_logger/data_logger_models.dart';
 import '../data_logger/data_logger_statistics.dart';
+import 'animated_sync_icon.dart';
 
 // =============================================================================
 // Data Logger Dialog
@@ -818,14 +819,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
             children: [
               const Row(
                 children: [
-                  SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.greenAccent,
-                    ),
-                  ),
+                  AnimatedSyncIcon(size: 16, color: Colors.greenAccent),
                   SizedBox(width: 8),
                   Text(
                     'Recording...',

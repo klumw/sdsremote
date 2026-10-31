@@ -46,6 +46,11 @@ void main() {
   });
 
   testWidgets('Bode panel renders the configuration form', (tester) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final transport = FakeJds6600Transport();
     final generator = SignalGeneratorService(
       transportFactory: (_) => transport,
@@ -80,6 +85,11 @@ void main() {
   testWidgets('Bode panel returns to the configuration form on error', (
     tester,
   ) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
     final transport = FakeJds6600Transport();
     final generator = SignalGeneratorService(
       transportFactory: (_) => transport,

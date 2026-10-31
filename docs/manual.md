@@ -141,7 +141,7 @@ See [12. Application Directory](#12-application-directory) for a complete breakd
 
 * **Timelapse** (clock icon)
   * Captures the oscilloscope screen at a fixed interval into a timestamped folder (see [8.11 Timelapse](#811-timelapse))
-  * While a run is active, the icon shows a progress spinner and pressing it stops the run
+  * While a run is active, the icon shows the rotating arrows indicator and pressing it stops the run
 
 * **Sensor Calibration** (linear-scale icon)
   * Opens the linear sensor calibration dialog with a fitted slope, intercept, R² and an Arduino/ESP32 snippet (see [8.10 Sensor Calibration](#810-sensor-calibration))
@@ -1439,7 +1439,7 @@ The clock icon in the top toolbar opens **Timelapse**:
 
 * Set the interval as a positive whole number of seconds (1–86400), the number of frames (1–10000) and the file-name prefix. The dialog shows the resulting total duration.
 * **Start** stops auto capture and the live screen and captures the oscilloscope screen at the chosen interval. Frames are written as PNG files into a timestamped run folder under `timelapse/` in the application directory, for example `timelapse/2026-10-31_14-30-05/timelapse_0001.png`.
-* A snackbar reports the current frame and offers **Stop**; the toolbar icon also turns into a spinner that stops the run.
+* A snackbar reports the current frame and offers **Stop**; the toolbar icon also turns into the rotating arrows indicator that stops the run.
 * Auto capture and the live screen cannot be started while a timelapse runs.
 * The run ends after the planned frame count, on **Stop**, or when a capture fails. The final snackbar names the number of frames and the output folder.
 
@@ -1759,6 +1759,7 @@ The calculator is independent of the oscilloscope connection.
 
 All calculator functions work without AI.
 The optional [Calculator AI Assistant](#118-calculator-ai-assistant-optional) is opened with the bordered sparkle button in the title bar, left of the syntax-help question mark.
+The **Component value codes** button (book icon) in the title bar opens reference charts for resistor, capacitor and inductor value codes. The dialog has one tab per component type; scroll to zoom into a chart and drag to pan.
 
 ### 11.1 Display and Keypad
 

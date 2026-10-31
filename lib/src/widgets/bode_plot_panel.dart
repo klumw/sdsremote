@@ -12,6 +12,7 @@ import '../bode/vxi11_bode_scope.dart';
 import '../instrument/dart_vxi11.dart';
 import '../signal_generator/models.dart';
 import '../signal_generator/signal_generator_service.dart';
+import 'animated_sync_icon.dart';
 
 /// Bode Plot panel in the same visual language as the Data Logger.
 class BodePlotPanel extends StatefulWidget {
@@ -328,11 +329,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
             ),
           const Spacer(),
           if (running)
-            const SizedBox(
-              width: 18,
-              height: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
+            const AnimatedSyncIcon(size: 18, color: Colors.cyanAccent),
           IconButton(
             onPressed: widget.onClose,
             icon: const Icon(Icons.close, color: Colors.white70),

@@ -17,6 +17,7 @@ import '../app/app_theme.dart';
 import '../app/app_preferences.dart';
 import '../app/window_state.dart';
 import '../waveform/cursor_geometry.dart';
+import 'animated_sync_icon.dart';
 import 'osci_toolbar_button.dart';
 import 'reference_file_picker_dialog.dart';
 import 'filename_prefix_dialog.dart';
@@ -377,6 +378,12 @@ class _OsciHomePageState extends State<OsciHomePage>
   bool _refreshPending = false;
   static const int _refreshDelayMs = 1758;
 
+  /// Extra settling time after Auto Setup before the screen is captured.
+  /// The instrument runs a complete acquisition setup; a live measurement
+  /// showed it stays busy for about 6.3 seconds before it serves the updated
+  /// display.
+  static const Duration _autoSetupExtraDelay = Duration(seconds: 5);
+
   /// Extra settling time for screen captures triggered by the Control Panel
   /// AI assistant. The instrument needs longer to render settings that were
   /// applied through the separate AI connection.
@@ -415,7 +422,6 @@ class _OsciHomePageState extends State<OsciHomePage>
   bool _chatCancelRequested = false;
 
   // Data Logger
-  late final AnimationController _dlAnimationController;
   bool _dlIsRunning = false;
 
   // Keys
@@ -455,10 +461,6 @@ class _OsciHomePageState extends State<OsciHomePage>
     // Drop the cached instrument when a fatal USB error invalidates the
     // shared connection, so a replug can reconnect without an app restart.
     Vxi11Instrument.onUsbConnectionLost = _onUsbConnectionLost;
-    _dlAnimationController = AnimationController(
-      vsync: this,
-      duration: const Duration(seconds: 2),
-    );
     _initialize();
   }
 
@@ -556,7 +558,6 @@ class _OsciHomePageState extends State<OsciHomePage>
     _macroChatController.dispose();
     _controlPanelChatController.dispose();
     _macroPrintController.dispose();
-    _dlAnimationController.dispose();
     super.dispose();
   }
 
@@ -1220,11 +1221,7 @@ class _OsciHomePageState extends State<OsciHomePage>
               !_waveformAcquired &&
               _screenDump != null,
           icon: _isAcquiring
-              ? const SizedBox(
-                  width: 25,
-                  height: 25,
-                  child: CircularProgressIndicator(color: Colors.white),
-                )
+              ? const AnimatedSyncIcon(size: 25, color: Colors.white)
               : const Icon(Icons.tune, size: 25),
           onPressed: (_isAcquiring || !_isOnline || _isMacroPlaying)
               ? null
@@ -1236,11 +1233,7 @@ class _OsciHomePageState extends State<OsciHomePage>
           label: _isAcquiringWaveform ? "Acquiring..." : "Acquire Waveform",
           active: _activePanel == ActivePanel.none && _waveformAcquired,
           icon: _isAcquiringWaveform
-              ? const SizedBox(
-                  width: 25,
-                  height: 25,
-                  child: CircularProgressIndicator(color: Colors.white),
-                )
+              ? const AnimatedSyncIcon(size: 25, color: Colors.white)
               : const Icon(Icons.show_chart, size: 25),
           onPressed: (_isAcquiringWaveform || !_isOnline || _isMacroPlaying)
               ? null
@@ -1373,14 +1366,7 @@ class _OsciHomePageState extends State<OsciHomePage>
           const SizedBox(width: 16),
           IconButton(
             icon: _timelapseRunning
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: Colors.cyanAccent,
-                    ),
-                  )
+                ? const AnimatedSyncIcon(size: 20, color: Colors.cyanAccent)
                 : const Icon(Icons.timelapse, size: 25),
             color: _isMacroPlaying ? Colors.white24 : Colors.white70,
             tooltip: _timelapseRunning ? 'Stop timelapse' : 'Timelapse',
@@ -2391,18 +2377,10 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   /// Builds the rotating arrows icon for the Data Logger toolbar button.
   Widget _buildDlButtonIcon() {
-    return AnimatedBuilder(
-      animation: _dlAnimationController,
-      builder: (context, child) {
-        return Transform.rotate(
-          angle: _dlIsRunning ? _dlAnimationController.value * 2 * 3.14159 : 0,
-          child: Icon(
-            Icons.sync,
-            size: 25,
-            color: _dlIsRunning ? Colors.greenAccent : Colors.white,
-          ),
-        );
-      },
+    return AnimatedSyncIcon(
+      size: 25,
+      color: _dlIsRunning ? Colors.greenAccent : Colors.white,
+      animate: _dlIsRunning,
     );
   }
 
@@ -2439,16 +2417,10 @@ class _OsciHomePageState extends State<OsciHomePage>
         if (mounted) setState(() {});
       },
       onRunningChanged: (running) {
-        if (running) {
-          _dlAnimationController.repeat();
-        } else {
-          _dlAnimationController.stop();
-        }
         _dlIsRunning = running;
         if (mounted) setState(() {});
       },
       onClose: () {
-        _dlAnimationController.stop();
         _dlIsRunning = false;
         if (mounted) setState(() {});
         _togglePanel(ActivePanel.dataLogger);
@@ -2460,7 +2432,6 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// and the background SCPI service. Safe to call when logger is not running.
   void _stopDataLoggerIfRunning() {
     if (_activePanel == ActivePanel.dataLogger) {
-      _dlAnimationController.stop();
       _dlIsRunning = false;
       _dlService?.stop();
     }
@@ -4865,7 +4836,11 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// refreshes the screen dump, and enforces a cooldown.
   ///
   /// Returns `true` if the command was sent and screen refreshed successfully.
-  Future<bool> _processScpiEvent(String command, {String? errorContext}) async {
+  Future<bool> _processScpiEvent(
+    String command, {
+    String? errorContext,
+    Duration extraProcessingDelay = Duration.zero,
+  }) async {
     if (_isProcessingEvent || !_isOnline) return false;
 
     _isProcessingEvent = true;
@@ -4873,8 +4848,13 @@ class _OsciHomePageState extends State<OsciHomePage>
 
     try {
       if (await _sendCommand(command)) {
-        // Wait for oscilloscope to process the command
-        await Future.delayed(const Duration(milliseconds: _refreshDelayMs));
+        // Wait for oscilloscope to process the command. Auto Setup passes a
+        // longer delay because a full acquisition setup takes extra time.
+        await Future.delayed(
+          Duration(
+            milliseconds: _refreshDelayMs + extraProcessingDelay.inMilliseconds,
+          ),
+        );
         // Fetch the screen dump synchronously — except while the live screen
         // is active: the VNC stream already reflects the new display state.
         if (!_vncLive) {
@@ -4955,7 +4935,15 @@ class _OsciHomePageState extends State<OsciHomePage>
       }
       return;
     }
-    await _processScpiEvent(command, errorContext: buttonLabel);
+    await _processScpiEvent(
+      command,
+      errorContext: buttonLabel,
+      // Auto Setup needs the instrument's full acquisition setup to finish
+      // before the display reflects the result.
+      extraProcessingDelay: buttonLabel == autoSetupButtonLabel
+          ? _autoSetupExtraDelay
+          : Duration.zero,
+    );
   }
 
   // =========================================================================

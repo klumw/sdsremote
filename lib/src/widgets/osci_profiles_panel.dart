@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'animated_sync_icon.dart';
+
 class ProfileInfo {
   final String fileName;
   final DateTime lastModified;
@@ -139,15 +141,9 @@ class _ProfilesPanelState extends State<ProfilesPanel> {
                     ),
                     if (widget.isLoading || _isSaving) ...[
                       const SizedBox(width: 10),
-                      const SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          valueColor: AlwaysStoppedAnimation<Color>(
-                            Colors.cyanAccent,
-                          ),
-                        ),
+                      const AnimatedSyncIcon(
+                        size: 16,
+                        color: Colors.cyanAccent,
                       ),
                     ],
                   ],

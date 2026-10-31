@@ -10,6 +10,7 @@ import '../ai/help_chat_controller.dart';
 import '../core/logger.dart';
 import '../help/help_link_history.dart';
 import '../help/help_sections.dart';
+import 'animated_sync_icon.dart';
 import 'osci_chat_window.dart';
 
 /// The slug helpers live in `help_sections.dart` because the AI help
@@ -22,18 +23,34 @@ export '../help/help_sections.dart'
 /// anchor slug that scrolls to its heading.
 typedef HelpChapter = ({String title, String slug});
 
+/// One rendered slice of the manual.
+///
+/// The manual is split at heading boundaries so the markdown parser and the
+/// widget builder only ever handle a few kilobytes per frame; [data] already
+/// contains the search markers when a search is active.
+class _ManualChunk {
+  const _ManualChunk(this.data, this.firstMatchIndex);
+
+  /// Markdown source of this chunk.
+  final String data;
+
+  /// Index into the global match list of the first match in this chunk.
+  final int firstMatchIndex;
+}
+
 /// Everything the help window derives from the raw manual: the code spans that
-/// keep search matches out of code, and the main chapters for the table of
-/// contents.
+/// keep search matches out of code, the main chapters for the table of
+/// contents and the heading offsets used to split the rendered page.
 typedef _ManualIndex = ({
   List<(int, int)> fencedCodeBlockSpans,
   List<(int, int)> inlineCodeSpans,
   List<HelpChapter> chapters,
+  List<int> headingStarts,
 });
 
-/// Parses fenced code block spans, inline code spans and the table of contents
-/// from [content] in a background isolate so the UI thread stays responsive
-/// during loading.
+/// Parses fenced code block spans, inline code spans, the table of contents
+/// and the heading offsets from [content] in a background isolate so the UI
+/// thread stays responsive during loading.
 _ManualIndex _indexManualInIsolate(String content) {
   // Parse fenced code block spans
   final fencedCodeBlockSpans = <(int, int)>[];
@@ -57,7 +74,31 @@ _ManualIndex _indexManualInIsolate(String content) {
     fencedCodeBlockSpans: fencedCodeBlockSpans,
     inlineCodeSpans: inlineCodeSpans,
     chapters: extractMainChapters(content),
+    headingStarts: _headingOffsets(content),
   );
+}
+
+/// Source offsets of every level-2 and level-3 heading in [content].
+///
+/// The help page splits the manual at these boundaries so the markdown parser
+/// and widget builder only handle a few kilobytes per frame. Fenced code
+/// blocks are skipped, and indented code never matches because the heading
+/// markers must start at the beginning of a line.
+List<int> _headingOffsets(String content) {
+  final offsets = <int>[];
+  var offset = 0;
+  var inFence = false;
+  for (final line in content.split('\n')) {
+    final trimmed = line.trimLeft();
+    if (trimmed.startsWith('```') || trimmed.startsWith('~~~')) {
+      inFence = !inFence;
+    } else if (!inFence &&
+        (line.startsWith('## ') || line.startsWith('### '))) {
+      offsets.add(offset);
+    }
+    offset += line.length + 1;
+  }
+  return offsets;
 }
 
 /// A help window that displays the user manual in markdown format
@@ -81,6 +122,29 @@ class _HelpWindowState extends State<HelpWindow>
     with SingleTickerProviderStateMixin {
   String _manualContent = '';
   bool _isLoading = true;
+
+  /// Target source size of one rendered chunk. Large enough to keep the
+  /// number of frames low, small enough that a chunk parses quickly.
+  static const int _chunkTargetChars = 8000;
+
+  /// Source offsets of the level-2/3 headings in [_manualContent].
+  List<int> _headingStarts = const [];
+
+  /// Chunks of the current display content; see [_ManualChunk].
+  List<_ManualChunk> _chunks = const [];
+
+  /// Number of chunks currently mounted in the scroll view.
+  int _mountedChunks = 0;
+
+  /// True while [_chunks] are being mounted one frame at a time.
+  bool _isRenderingChunks = false;
+
+  /// Guards against two post-frame chains mounting chunks in parallel.
+  bool _nextChunkScheduled = false;
+
+  /// Heading scroll request that arrived while chunks were still mounting.
+  String? _deferredHeadingFragment;
+  bool _deferredHeadingRecordHistory = true;
 
   /// Owns the AI help conversation. Created with the window, so closing and
   /// reopening the chat panel keeps the transcript; leaving the help page
@@ -162,8 +226,8 @@ class _HelpWindowState extends State<HelpWindow>
     // settings the panel can already be opened until then.
     _helpChatController.configure(widget.aiSettings, manual: '');
     // Defer loading until after the first frame is rendered so the
-    // CircularProgressIndicator is visible and its animation has started
-    // ticking before the async I/O and isolate work begin.
+    // loading indicator is visible and its animation has started ticking
+    // before the async I/O and isolate work begin.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _loadManual();
     });
@@ -206,7 +270,7 @@ class _HelpWindowState extends State<HelpWindow>
         '${sw.elapsedMilliseconds} ms',
       );
       // Derive code spans and chapters in a background isolate so the
-      // CircularProgressIndicator animation keeps spinning while loading.
+      // loading indicator animation keeps spinning while loading.
       // compute() passes the top-level function and argument directly to
       // Isolate.spawn — no closure, no captured `this`.
       final index = await compute(_indexManualInIsolate, _manualContent);
@@ -216,6 +280,7 @@ class _HelpWindowState extends State<HelpWindow>
       _inlineCodeSpans.addAll(index.inlineCodeSpans);
       _chapters.clear();
       _chapters.addAll(index.chapters);
+      _headingStarts = index.headingStarts;
       // Anchors of a previously loaded manual are stale: the new content may
       // have a different set of headings.
       _headingAnchorKeys.clear();
@@ -233,7 +298,13 @@ class _HelpWindowState extends State<HelpWindow>
       log.error('Manual load FAILED after ${sw.elapsedMilliseconds} ms: $e');
       _manualContent = 'Error loading manual: $e';
     }
-    if (mounted) setState(() => _isLoading = false);
+    if (mounted) {
+      setState(() {
+        _isLoading = false;
+        _rebuildChunks();
+      });
+      _scheduleNextChunk();
+    }
     log.log('Loading flag cleared after ${sw.elapsedMilliseconds} ms');
   }
 
@@ -300,35 +371,160 @@ class _HelpWindowState extends State<HelpWindow>
           _pendingScrollMatchIndex = -1;
         }
       }
+      // Re-chunk the highlighted content. The chunks mount progressively so
+      // a search stays responsive instead of re-laying out the whole manual
+      // in a single frame.
+      _rebuildChunks();
     });
+    _scheduleNextChunk();
   }
 
-  /// Build a version of the manual with all matches delimited by ASCII
-  /// STX / ETX control bytes that will be parsed into `<mark>` elements
-  /// by [_highlightSyntax].  These characters (\x02 / \x03) never appear
-  /// in the manual and cannot collide with any markdown syntax.
-  String _buildHighlightedContent() {
-    if (_searchTerm.isEmpty) return _manualContent;
+  /// Builds the markdown shown in the help page for the current search and
+  /// maps [sourceOffsets] — positions in [_manualContent] — into that string.
+  ///
+  /// Matches are wrapped in ASCII STX / ETX control bytes that
+  /// [_highlightSyntax] turns into `<mark>` elements. These characters never
+  /// appear in the manual and cannot collide with any markdown syntax.
+  ({String content, List<int> renderedOffsets}) _buildDisplayContent(
+    List<int> sourceOffsets,
+  ) {
+    if (_searchTerm.isEmpty) {
+      return (
+        content: _manualContent,
+        renderedOffsets: List<int>.of(sourceOffsets),
+      );
+    }
 
     final buffer = StringBuffer();
+    final renderedOffsets = List<int>.filled(sourceOffsets.length, 0);
     final pattern = RegExp.escape(_searchTerm);
     final regex = RegExp(pattern, caseSensitive: false);
-    int lastEnd = 0;
+    var boundary = 0;
+    var lastEnd = 0;
 
     for (final match in regex.allMatches(_manualContent)) {
+      // Map boundaries that lie before this match. `buffer.length - lastEnd`
+      // is the number of marker characters inserted so far; the source text
+      // up to this match has not been written yet, so only that shift counts.
+      while (boundary < sourceOffsets.length &&
+          sourceOffsets[boundary] <= match.start) {
+        renderedOffsets[boundary] =
+            sourceOffsets[boundary] + (buffer.length - lastEnd);
+        boundary++;
+      }
       buffer.write(_manualContent.substring(lastEnd, match.start));
       if (_isInsideCodeBlock(match.start)) {
         // Inside a fenced code block or inline code span: write the
         // matched text as-is (the markdown parser treats code content
-        // as literal text and would never apply _HighlightSyntax here).
+        // as literal text and would never apply _highlightSyntax here).
         buffer.write(match.group(0)!);
       } else {
         buffer.write('\x02${match.group(0)}\x03');
       }
       lastEnd = match.end;
     }
+    while (boundary < sourceOffsets.length) {
+      renderedOffsets[boundary] =
+          sourceOffsets[boundary] + (buffer.length - lastEnd);
+      boundary++;
+    }
     buffer.write(_manualContent.substring(lastEnd));
-    return buffer.toString();
+    return (content: buffer.toString(), renderedOffsets: renderedOffsets);
+  }
+
+  /// Splits the current display content into chunks and resets the
+  /// progressive mount state.
+  ///
+  /// Chunks end at heading boundaries and grow to roughly
+  /// [_chunkTargetChars] characters. Mounting them over several frames keeps
+  /// the loading indicator animating instead of blocking the UI thread on
+  /// one full-document parse and layout pass.
+  void _rebuildChunks() {
+    if (_manualContent.isEmpty) {
+      _chunks = const [];
+      _mountedChunks = 0;
+      _isRenderingChunks = false;
+      return;
+    }
+
+    final boundaries = <int>[
+      0,
+      for (final start in _headingStarts)
+        if (start > 0 && start < _manualContent.length) start,
+      _manualContent.length,
+    ];
+    final display = _buildDisplayContent(boundaries);
+
+    final chunks = <_ManualChunk>[];
+    var sourceStart = 0;
+    var renderedStart = 0;
+    var matchCursor = 0;
+    for (var i = 1; i < boundaries.length; i++) {
+      final sourceEnd = boundaries[i];
+      final isLast = i == boundaries.length - 1;
+      if (!isLast && sourceEnd - sourceStart < _chunkTargetChars) continue;
+
+      final renderedEnd = display.renderedOffsets[i];
+      if (renderedEnd <= renderedStart) continue;
+      var cursor = matchCursor;
+      while (cursor < _matchOffsets.length &&
+          _matchOffsets[cursor] < sourceStart) {
+        cursor++;
+      }
+      chunks.add(
+        _ManualChunk(
+          display.content.substring(renderedStart, renderedEnd),
+          cursor,
+        ),
+      );
+      matchCursor = cursor;
+      sourceStart = sourceEnd;
+      renderedStart = renderedEnd;
+    }
+
+    _chunks = chunks;
+    _mountedChunks = chunks.isEmpty ? 0 : 1;
+    _isRenderingChunks = _mountedChunks < chunks.length;
+    if (!_isRenderingChunks) {
+      _scrollToDeferredHeading();
+    }
+  }
+
+  /// Mounts the next chunk after the current frame.
+  ///
+  /// One chunk per frame keeps every layout pass short, so the loading
+  /// indicator and the rest of the page stay responsive while the manual
+  /// fills in.
+  void _scheduleNextChunk() {
+    if (!_isRenderingChunks || _nextChunkScheduled) return;
+    _nextChunkScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _nextChunkScheduled = false;
+      if (!mounted || !_isRenderingChunks) return;
+      setState(() {
+        _mountedChunks++;
+        if (_mountedChunks >= _chunks.length) {
+          _mountedChunks = _chunks.length;
+          _isRenderingChunks = false;
+        }
+      });
+      if (_isRenderingChunks) {
+        _scheduleNextChunk();
+      } else {
+        _scrollToDeferredHeading();
+      }
+    });
+  }
+
+  /// Retries a heading scroll that was requested while chunks were mounting.
+  void _scrollToDeferredHeading() {
+    final fragment = _deferredHeadingFragment;
+    if (fragment == null) return;
+    _deferredHeadingFragment = null;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _scrollToHeading(fragment, recordHistory: _deferredHeadingRecordHistory);
+    });
   }
 
   /// Schedules the scroll for the match at [index].
@@ -461,6 +657,13 @@ class _HelpWindowState extends State<HelpWindow>
       agentName: 'HelpWindow',
       toolName: '_scrollToHeading',
     );
+    // While chunks are still mounting, the target heading is neither in the
+    // tree nor registered yet. Retry once rendering has finished.
+    if (_isRenderingChunks) {
+      _deferredHeadingFragment = fragment;
+      _deferredHeadingRecordHistory = recordHistory;
+      return;
+    }
     final slug = resolveHeadingAnchor(fragment, _headingAnchorKeys.keys);
     if (slug == null) {
       log.log('No heading found for link target "#$fragment"');
@@ -634,11 +837,11 @@ class _HelpWindowState extends State<HelpWindow>
 
   @override
   Widget build(BuildContext context) {
-    final displayContent = _buildHighlightedContent();
-
     // Trigger the pending scroll via post-frame callback so the newly rebuilt
-    // MarkdownBody is laid out and the ScrollController has clients.
-    if (_pendingScrollMatchIndex >= 0) {
+    // MarkdownBody is laid out and the ScrollController has clients. While
+    // chunks are still mounting, the target may not be built yet, so the
+    // request stays pending until the last chunk is mounted.
+    if (_pendingScrollMatchIndex >= 0 && !_isRenderingChunks) {
       final idx = _pendingScrollMatchIndex;
       _pendingScrollMatchIndex = -1;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -699,13 +902,27 @@ class _HelpWindowState extends State<HelpWindow>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        const Text(
-                          'SDS-Remote Help',
-                          style: TextStyle(
-                            color: Colors.cyanAccent,
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Text(
+                              'SDS-Remote Help',
+                              style: TextStyle(
+                                color: Colors.cyanAccent,
+                                fontSize: 22,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            if (_isRenderingChunks) ...[
+                              const SizedBox(width: 10),
+                              // Keeps the busy feedback visible and
+                              // animating while the manual's chunks fill in.
+                              const AnimatedSyncIcon(
+                                size: 16,
+                                color: Colors.cyanAccent,
+                              ),
+                            ],
+                          ],
                         ),
                         _buildSearchBar(),
                       ],
@@ -737,7 +954,8 @@ class _HelpWindowState extends State<HelpWindow>
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [
-                                  CircularProgressIndicator(
+                                  AnimatedSyncIcon(
+                                    size: 36,
                                     color: Colors.cyanAccent,
                                   ),
                                   SizedBox(height: 16),
@@ -766,121 +984,13 @@ class _HelpWindowState extends State<HelpWindow>
                                       _buildContents(),
                                       const SizedBox(height: 24),
                                     ],
-                                    MarkdownBody(
-                                      data: displayContent,
-                                      // Selection is OFF for the manual as a whole.
-                                      // `selectable: true` wraps every text node of
-                                      // the ~58 KB manual in its own SelectableText
-                                      // plus selection bookkeeping, which measured
-                                      // 4767 ms to lay out versus 577 ms without —
-                                      // an 8x cost that blocked the UI thread for
-                                      // seconds and made the app look frozen when
-                                      // Help was opened. Code blocks stay selectable
-                                      // and copyable on their own (see
-                                      // CodeBlockElementBuilder).
-                                      selectable: false,
-                                      onTapLink: (text, href, title) {
-                                        _handleLinkTap(href);
-                                      },
-                                      // Custom block syntaxes are consulted before the
-                                      // GitHub-flavored extension set, so the stock
-                                      // heading syntax is shadowed by this one — which
-                                      // only adds the invisible anchors and renders
-                                      // headings exactly as before.
-                                      blockSyntaxes: const [
-                                        AnchorHeadingSyntax(),
-                                      ],
-                                      inlineSyntaxes: [_highlightSyntax],
-                                      builders: {
-                                        'code': InlineCodeElementBuilder(),
-                                        'pre': CodeBlockElementBuilder(),
-                                        'mark': MarkHighlightBuilder(
-                                          _matchKeys,
-                                        ),
-                                        _kAnchorTag: HeadingAnchorBuilder(
-                                          _headingAnchorKeys,
-                                        ),
-                                      },
-                                      styleSheet:
-                                          MarkdownStyleSheet.fromTheme(
-                                            Theme.of(context),
-                                          ).copyWith(
-                                            p: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 16,
-                                            ),
-                                            h1: const TextStyle(
-                                              color: Colors.cyanAccent,
-                                              fontSize: 28,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            h2: const TextStyle(
-                                              color: Colors.cyanAccent,
-                                              fontSize: 22,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            h3: const TextStyle(
-                                              color: Colors.white,
-                                              fontSize: 18,
-                                              fontWeight: FontWeight.bold,
-                                            ),
-                                            code: TextStyle(
-                                              backgroundColor: Colors.black54,
-                                              color: Colors.greenAccent[100],
-                                              fontFamily: 'Roboto Mono',
-                                              fontFamilyFallback: const [
-                                                'Consolas',
-                                                'Courier New',
-                                                'monospace',
-                                              ],
-                                            ),
-                                            codeblockDecoration:
-                                                const BoxDecoration(
-                                                  color: Colors.transparent,
-                                                ),
-                                            blockquote: const TextStyle(
-                                              color: Colors.white70,
-                                              fontSize: 15,
-                                              fontStyle: FontStyle.italic,
-                                            ),
-                                            blockquoteDecoration: BoxDecoration(
-                                              color: Colors.white.withValues(
-                                                alpha: 0.05,
-                                              ),
-                                              borderRadius:
-                                                  BorderRadius.circular(4),
-                                              border: Border(
-                                                left: BorderSide(
-                                                  color: Colors.cyanAccent
-                                                      .withValues(alpha: 0.6),
-                                                  width: 3,
-                                                ),
-                                              ),
-                                            ),
-                                            horizontalRuleDecoration:
-                                                const BoxDecoration(
-                                                  border: Border(
-                                                    top: BorderSide(
-                                                      color: Colors.white38,
-                                                      width: 1.3,
-                                                    ),
-                                                    bottom: BorderSide(
-                                                      color: Colors.black38,
-                                                      width: 1.3,
-                                                    ),
-                                                  ),
-                                                ),
-                                            tablePadding:
-                                                const EdgeInsets.fromLTRB(
-                                                  8,
-                                                  0,
-                                                  8,
-                                                  4,
-                                                ),
-                                            tableColumnWidth:
-                                                const IntrinsicColumnWidth(),
-                                          ),
-                                    ),
+                                    for (
+                                      var index = 0;
+                                      index < _mountedChunks &&
+                                          index < _chunks.length;
+                                      index++
+                                    )
+                                      _buildManualChunk(index),
                                   ],
                                 ),
                               ),
@@ -919,6 +1029,91 @@ class _HelpWindowState extends State<HelpWindow>
           ),
         ),
       ),
+    );
+  }
+
+  /// Builds one chunk of the manual.
+  Widget _buildManualChunk(int index) {
+    final chunk = _chunks[index];
+    return MarkdownBody(
+      key: ValueKey('help-chunk-$index'),
+      data: chunk.data,
+      // Selection is OFF for the manual as a whole. `selectable: true` wraps
+      // every text node in its own SelectableText plus selection bookkeeping,
+      // which measured 4767 ms to lay out versus 577 ms without — an 8x cost
+      // that blocked the UI thread for seconds. Code blocks stay selectable
+      // and copyable on their own (see CodeBlockElementBuilder).
+      selectable: false,
+      onTapLink: (text, href, title) {
+        _handleLinkTap(href);
+      },
+      // Custom block syntaxes are consulted before the GitHub-flavored
+      // extension set, so the stock heading syntax is shadowed by this one —
+      // which only adds the invisible anchors and renders headings exactly
+      // as before.
+      blockSyntaxes: const [AnchorHeadingSyntax()],
+      inlineSyntaxes: [_highlightSyntax],
+      builders: {
+        'code': InlineCodeElementBuilder(),
+        'pre': CodeBlockElementBuilder(),
+        // Each chunk starts at its own offset in the global match list;
+        // otherwise every chunk would claim the first highlight keys.
+        'mark': MarkHighlightBuilder(_matchKeys, start: chunk.firstMatchIndex),
+        _kAnchorTag: HeadingAnchorBuilder(_headingAnchorKeys),
+      },
+      styleSheet: _buildMarkdownStyleSheet(context),
+    );
+  }
+
+  /// Style sheet shared by all manual chunks.
+  MarkdownStyleSheet _buildMarkdownStyleSheet(BuildContext context) {
+    return MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+      p: const TextStyle(color: Colors.white, fontSize: 16),
+      h1: const TextStyle(
+        color: Colors.cyanAccent,
+        fontSize: 28,
+        fontWeight: FontWeight.bold,
+      ),
+      h2: const TextStyle(
+        color: Colors.cyanAccent,
+        fontSize: 22,
+        fontWeight: FontWeight.bold,
+      ),
+      h3: const TextStyle(
+        color: Colors.white,
+        fontSize: 18,
+        fontWeight: FontWeight.bold,
+      ),
+      code: TextStyle(
+        backgroundColor: Colors.black54,
+        color: Colors.greenAccent[100],
+        fontFamily: 'Roboto Mono',
+        fontFamilyFallback: const ['Consolas', 'Courier New', 'monospace'],
+      ),
+      codeblockDecoration: const BoxDecoration(color: Colors.transparent),
+      blockquote: const TextStyle(
+        color: Colors.white70,
+        fontSize: 15,
+        fontStyle: FontStyle.italic,
+      ),
+      blockquoteDecoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: 0.05),
+        borderRadius: BorderRadius.circular(4),
+        border: Border(
+          left: BorderSide(
+            color: Colors.cyanAccent.withValues(alpha: 0.6),
+            width: 3,
+          ),
+        ),
+      ),
+      horizontalRuleDecoration: const BoxDecoration(
+        border: Border(
+          top: BorderSide(color: Colors.white38, width: 1.3),
+          bottom: BorderSide(color: Colors.black38, width: 1.3),
+        ),
+      ),
+      tablePadding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
+      tableColumnWidth: const IntrinsicColumnWidth(),
     );
   }
 
@@ -1229,11 +1424,13 @@ class _SmallIconButton extends StatelessWidget {
 /// [WidgetSpan] (which a [Container] would require), preserving perfect
 /// baseline alignment with the surrounding text and preventing layout breakage.
 class MarkHighlightBuilder extends MarkdownElementBuilder {
-  MarkHighlightBuilder(this.keys);
+  MarkHighlightBuilder(this.keys, {int start = 0}) : _cursor = start;
 
   /// [GlobalKey]s, one per match, assigned in document order.
   final List<GlobalKey> keys;
-  int _cursor = 0;
+
+  /// Index of the first key this builder may claim.
+  int _cursor;
 
   @override
   Widget? visitElementAfterWithContext(

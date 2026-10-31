@@ -214,7 +214,9 @@ The calculator combines a scientific keypad with a typed expression language:
   measurement/uncertainty, audio/DSP, digital/embedded and RF/antennas;
 - a small safe program language (`if`, `for`, `while`, symbolic `sum`/
   `product`, numeric integration/differentiation, equation solving) with no
-  `eval` of user input.
+  `eval` of user input;
+- component value-code reference charts for resistors, capacitors and
+  inductors, opened from the book button in the calculator title bar.
 
 The workspace is stored in `~/.local/share/sdsremote/calculator/workspace.json`
 (Windows: `%LocalAppData%\sdsremote\calculator\workspace.json`). History can be

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'osci_knob_widgets.dart';
 import '../ai/ai_settings.dart';
 import '../ai/control_panel_chat_controller.dart';
-import '../app/app_config.dart' show KnobId;
+import '../app/app_config.dart' show KnobId, autoSetupButtonLabel;
 import 'control_panel_chat_overlay.dart';
 
 /// A widget that renders a physical oscilloscope control panel overlay
@@ -249,7 +249,7 @@ class PhysicalControlPanel extends StatelessWidget {
                                           'History',
                                           'Decode',
                                           'Run/Stop',
-                                          'Auto\nSetup',
+                                          autoSetupButtonLabel,
                                         ]),
                                       ),
                                     ),
@@ -746,7 +746,9 @@ class PhysicalControlPanel extends StatelessWidget {
               child: _buildOscButton(
                 labels[i],
                 height: 45,
-                color: labels[i] == 'Auto\nSetup' ? Colors.blue[900] : null,
+                color: labels[i] == autoSetupButtonLabel
+                    ? Colors.blue[900]
+                    : null,
                 onTap: canPress
                     ? () => onVerticalButtonPressed!(labels[i])
                     : null,
