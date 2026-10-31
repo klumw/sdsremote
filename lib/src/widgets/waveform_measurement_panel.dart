@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../instrument/measurement.dart' show formatMeasurementValue;
 import '../waveform/waveform_mask.dart';
 import '../waveform/waveform_measurements.dart';
+import '../waveform/waveform_models.dart';
 
 /// Settings of the software mask test as edited in the measurement panel.
 ///
@@ -35,6 +36,9 @@ class WaveformMeasurementPanel extends StatefulWidget {
   /// Statistics over the stored acquisition history, keyed by channel.
   final Map<String, WaveformChannelStatistics> statistics;
 
+  /// Device parameters; per-channel V/div and offset are shown in the cards.
+  final DeviceParams? deviceParams;
+
   /// Number of stored acquisitions used for [statistics].
   final int historyCount;
 
@@ -55,6 +59,7 @@ class WaveformMeasurementPanel extends StatefulWidget {
     super.key,
     required this.measurements,
     this.statistics = const {},
+    this.deviceParams,
     this.historyCount = 0,
     this.maskAvailable = false,
     this.referenceVppVolts = 0,
@@ -145,7 +150,7 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
   Widget build(BuildContext context) {
     return Container(
       // 46 = 44 px header + the 1 px border on each side.
-      height: _collapsed ? 46 : (_showDetails ? 300 : 220),
+      height: _collapsed ? 46 : (_showDetails ? 330 : 250),
       decoration: BoxDecoration(
         color: const Color(0xFF0A192F),
         border: Border.all(color: const Color(0xFF475569)),
@@ -335,6 +340,7 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
   }
 
   List<(String, String)> _measurementMetrics(WaveformMeasurements m) => [
+    ..._channelSettingMetrics(m.channel),
     ('Vpp', _formatVoltage(m.vPp)),
     ('RMS', _formatVoltage(m.vRms)),
     ('Frequency', _formatFrequency(m.frequencyHz)),
@@ -343,6 +349,17 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
     ('Fall', _formatSeconds(m.fallTimeSeconds)),
     ('Overshoot', _formatPercent(m.overshootPercent)),
   ];
+
+  /// V/div and offset of [channel], rendered in the same style as the
+  /// measurement values.
+  List<(String, String)> _channelSettingMetrics(String channel) {
+    final vdiv = widget.deviceParams?.vdivFor(channel);
+    if (vdiv == null) return const [];
+    return [
+      ('V/div', _formatVoltage(vdiv)),
+      ('Offset', _formatVoltage(widget.deviceParams?.voffsetFor(channel) ?? 0)),
+    ];
+  }
 
   List<(String, String)> _measurementDetailMetrics(WaveformMeasurements m) => [
     ('Vmax', _formatVoltage(m.vMax)),
@@ -357,6 +374,7 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
   ];
 
   List<(String, String)> _pwmMetrics(WaveformMeasurements m) => [
+    ..._channelSettingMetrics(m.channel),
     ('Frequency', _formatFrequency(m.frequencyHz)),
     ('Duty', _formatPercent(m.dutyPercent)),
     ('Pulse mean', _formatSeconds(m.pulseWidthSeconds)),

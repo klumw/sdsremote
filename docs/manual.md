@@ -1178,12 +1178,9 @@ When a waveform is displayed, a sidebar panel appears on the right side showing 
 | Trigger Delay | Trigger position offset |
 | Sample Rate | Current sampling rate in samples per second |
 
-**Per-Channel Parameters** (shown when the channel has data)
+**Per-Channel Parameters**
 
-| Parameter | Description |
-|:----------|:------------|
-| V/div | Vertical scale in volts per division |
-| Offset | Vertical offset in volts |
+The per-channel vertical settings (V/div and offset) are shown on each channel card in the [Measurements panel](#88-measurements-difference-and-mask) below the chart, together with the automatic measurements.
 
 **Controls**
 
@@ -1323,6 +1320,7 @@ After every acquisition the analysis panel below the chart is filled automatical
 
 The **Measurements** view shows per enabled channel:
 
+* The applied vertical settings **V/div** and **Offset** as metric cells, in the same style as the measurement values.
 * Vpp, RMS, frequency, duty cycle, rise time, fall time and overshoot.
 * **Details** adds Vmax, Vmin, Vmean, high level (Top), low level (Base), pulse width, number of complete periods, analysed sample count and the effective sample interval Δt.
 * Once more than one acquisition has been stored, a history line shows mean ± standard deviation of Vpp, RMS, frequency and duty over the last acquisitions.

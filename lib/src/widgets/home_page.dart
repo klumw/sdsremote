@@ -1013,6 +1013,7 @@ class _OsciHomePageState extends State<OsciHomePage>
           WaveformMeasurementPanel(
             measurements: _currentMeasurements(),
             statistics: _measurementStatistics(),
+            deviceParams: _deviceParams,
             historyCount: _measurementHistoryCount(),
             maskAvailable: _refWaveform != null,
             referenceVppVolts: _referenceVpp(),

@@ -198,58 +198,6 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
                   _paramRow("Timebase", _fmtSi(params.timebase, "s/div")),
                   _paramRow("Trig. Delay", _fmtSi(params.trdl, "s")),
                   _paramRow("Sample Rate", _fmtSi(params.sampleRate, "Sa/s")),
-                  if (params.vdivCh1 != null) ...[
-                    Divider(color: waveformChannelColors[0], height: 24),
-                    Text(
-                      "CH1",
-                      style: TextStyle(
-                        color: waveformChannelColors[0],
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _paramRow("V/div", _fmtSi(params.vdivCh1!, "V")),
-                    _paramRow("Offset", _fmtSi(params.voffsetCh1!, "V")),
-                  ],
-                  if (params.vdivCh2 != null) ...[
-                    Divider(color: waveformChannelColors[1], height: 24),
-                    Text(
-                      "CH2",
-                      style: TextStyle(
-                        color: waveformChannelColors[1],
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _paramRow("V/div", _fmtSi(params.vdivCh2!, "V")),
-                    _paramRow("Offset", _fmtSi(params.voffsetCh2!, "V")),
-                  ],
-                  if (params.vdivCh3 != null) ...[
-                    Divider(color: waveformChannelColors[2], height: 24),
-                    Text(
-                      "CH3",
-                      style: TextStyle(
-                        color: waveformChannelColors[2],
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _paramRow("V/div", _fmtSi(params.vdivCh3!, "V")),
-                    _paramRow("Offset", _fmtSi(params.voffsetCh3!, "V")),
-                  ],
-                  if (params.vdivCh4 != null) ...[
-                    Divider(color: waveformChannelColors[3], height: 24),
-                    Text(
-                      "CH4",
-                      style: TextStyle(
-                        color: waveformChannelColors[3],
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _paramRow("V/div", _fmtSi(params.vdivCh4!, "V")),
-                    _paramRow("Offset", _fmtSi(params.voffsetCh4!, "V")),
-                  ],
                   const SizedBox(height: 16),
                   const Divider(color: Color(0xFF475569), height: 24),
                   const Text(
