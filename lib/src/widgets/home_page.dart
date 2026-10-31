@@ -1358,16 +1358,6 @@ class _OsciHomePageState extends State<OsciHomePage>
                 ? null
                 : _saveCurrentView,
           ),
-          IconButton(
-            icon: const Icon(Icons.picture_as_pdf, size: 25),
-            color: (_isMacroPlaying || !_canSaveWaveformReport)
-                ? Colors.white24
-                : Colors.white70,
-            tooltip: 'Report',
-            onPressed: (_isMacroPlaying || !_canSaveWaveformReport)
-                ? null
-                : _saveWaveformReport,
-          ),
         ],
       ),
     );
@@ -3559,16 +3549,6 @@ class _OsciHomePageState extends State<OsciHomePage>
       _activePanel == ActivePanel.none &&
       (_screenDump != null || _waveformAcquired);
 
-  /// Whether a waveform measurement report can be saved.
-  bool get _canSaveWaveformReport =>
-      _activePanel == ActivePanel.none &&
-      _waveformAcquired &&
-      _deviceParams != null &&
-      (_waveformCh1 != null ||
-          _waveformCh2 != null ||
-          _waveformCh3 != null ||
-          _waveformCh4 != null);
-
   /// Whether a data logger report can be saved.
   bool get _canSaveDataLoggerReport =>
       _activePanel == ActivePanel.dataLogger &&
@@ -3736,82 +3716,16 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
   }
 
+  /// Saves the waveform measurement report (PDF) and the CSV data.
+  ///
+  /// The chart is captured only as the report image; no standalone image file
+  /// is written.
   Future<void> _saveWaveform() async {
     try {
       final prefix = await _askForFilenamePrefixIfNeeded();
       if (prefix == null) return; // user cancelled
-      final imageBaseName = prefix.isNotEmpty ? prefix : 'waveform';
+      final reportBaseName = prefix.isNotEmpty ? prefix : 'waveform_report';
       final csvBaseName = prefix.isNotEmpty ? prefix : 'waveform_data';
-
-      final boundary =
-          _waveformKey.currentContext?.findRenderObject()
-              as RenderRepaintBoundary?;
-      if (boundary == null) throw Exception('Waveform not rendered yet');
-
-      final uiImage = await boundary.toImage(pixelRatio: 1.0);
-      final byteData = await uiImage.toByteData(
-        format: ui.ImageByteFormat.rawRgba,
-      );
-      if (byteData == null) {
-        throw Exception('Failed to capture waveform image');
-      }
-
-      final rgba = byteData.buffer.asUint8List();
-
-      // Save waveform as PNG
-      final pngBytes = img.encodePng(
-        img.Image.fromBytes(
-          width: uiImage.width,
-          height: uiImage.height,
-          bytes: rgba.buffer,
-          numChannels: 4,
-        ),
-      );
-
-      final dir = await AppPaths.getOrCreateWaveformImagesDir();
-      final file = await AppPaths.getUniqueFilePath(dir, imageBaseName, 'png');
-      await file.writeAsBytes(pngBytes);
-      final pngName = file.uri.pathSegments.last;
-
-      // Build waveform CSV using the extracted pure function.
-      final csvContent = buildWaveformCsv(
-        ch1: _waveformCh1,
-        ch2: _waveformCh2,
-        ch3: _waveformCh3,
-        ch4: _waveformCh4,
-        params: _deviceParams!,
-        deviceName: _deviceName ?? _ipAddress,
-        cursorState: _cursorState,
-        channelCount: _numChannels,
-      );
-
-      final csvDir = await AppPaths.getOrCreateWaveformCsvDir();
-      final csvFile = await AppPaths.getUniqueFilePath(
-        csvDir,
-        csvBaseName,
-        'csv',
-      );
-      await csvFile.writeAsString(csvContent);
-      final csvName = csvFile.uri.pathSegments.last;
-
-      if (mounted) {
-        final msg = 'Saved $pngName + $csvName';
-        _showInfoSnackBar(msg);
-      }
-    } catch (e) {
-      _showErrorSnackBar('Save failed: $e');
-    }
-  }
-
-  /// Saves a PDF measurement report for the current waveform.
-  ///
-  /// The report contains the chart image, the automatic measurements, the
-  /// device settings and the reference/mask result (see [WaveformReport]).
-  Future<void> _saveWaveformReport() async {
-    try {
-      final prefix = await _askForFilenamePrefixIfNeeded();
-      if (prefix == null) return; // user cancelled
-      final baseName = prefix.isNotEmpty ? prefix : 'waveform_report';
 
       final boundary =
           _waveformKey.currentContext?.findRenderObject()
@@ -3842,12 +3756,41 @@ class _OsciHomePageState extends State<OsciHomePage>
         deviceName: _deviceName ?? _ipAddress,
       );
 
-      final dir = await AppPaths.getOrCreateWaveformReportsDir();
-      final file = await AppPaths.getUniqueFilePath(dir, baseName, 'pdf');
-      await file.writeAsBytes(pdfBytes);
-      _showInfoSnackBar('Saved ${file.uri.pathSegments.last}');
+      final reportDir = await AppPaths.getOrCreateWaveformReportsDir();
+      final reportFile = await AppPaths.getUniqueFilePath(
+        reportDir,
+        reportBaseName,
+        'pdf',
+      );
+      await reportFile.writeAsBytes(pdfBytes);
+      final reportName = reportFile.uri.pathSegments.last;
+
+      // Build waveform CSV using the extracted pure function.
+      final csvContent = buildWaveformCsv(
+        ch1: _waveformCh1,
+        ch2: _waveformCh2,
+        ch3: _waveformCh3,
+        ch4: _waveformCh4,
+        params: _deviceParams!,
+        deviceName: _deviceName ?? _ipAddress,
+        cursorState: _cursorState,
+        channelCount: _numChannels,
+      );
+
+      final csvDir = await AppPaths.getOrCreateWaveformCsvDir();
+      final csvFile = await AppPaths.getUniqueFilePath(
+        csvDir,
+        csvBaseName,
+        'csv',
+      );
+      await csvFile.writeAsString(csvContent);
+      final csvName = csvFile.uri.pathSegments.last;
+
+      if (mounted) {
+        _showInfoSnackBar('Saved $reportName + $csvName');
+      }
     } catch (e) {
-      _showErrorSnackBar('Report failed: $e');
+      _showErrorSnackBar('Save failed: $e');
     }
   }
 

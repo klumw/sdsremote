@@ -191,7 +191,7 @@ The AI chat feature is only enabled when all three fields are populated. If the 
 
 Two toggle switches control default export behavior across the application:
 
-* **Save CSV data** — When enabled, waveform acquisitions and data logger recordings automatically export a companion CSV file alongside the primary output (PNG image or PDF report).  
+* **Save CSV data** — When enabled, waveform acquisitions and data logger recordings automatically export a companion CSV file alongside the primary output (PDF report).  
   CSV files contain raw numerical data suitable for import into spreadsheet applications or analysis tools.  
   When disabled, only the primary output format is saved.
 * **Ask for filename on save** — When enabled, a dialog prompts for a custom filename prefix before each save operation.  
@@ -1137,7 +1137,7 @@ Detailed macro playback messages are available in your log file.
 ## 8. Acquire Waveform
 
 The Waveform Acquisition feature captures waveform data from the connected oscilloscope and displays it as an interactive chart.  
-The waveform display supports cursor measurements, zoom and pan controls, [reference waveform](#86-reference-waveforms) overlays, and export of both PNG images and CSV data.
+The waveform display supports cursor measurements, zoom and pan controls, [reference waveform](#86-reference-waveforms) overlays, and export of a PDF measurement report together with CSV data.
 
 ### 8.1 Acquiring Waveforms
 
@@ -1255,15 +1255,22 @@ Previously saved waveform data can be loaded as a reference overlay for comparis
 
 ### 8.7 Saving Waveform Data
 
-Click the **Save** button in the top toolbar while a waveform is displayed to export the data.
+Click the **Save** button in the top toolbar while a waveform is displayed to export the measurement data. **Save** writes a PDF measurement report and a CSV file; no separate image file is created.
 
-#### PNG Export
+#### PDF Report
 
-A PNG image of the current waveform display (including all enabled channels and cursors if enabled) is saved to the `waveform/images/` subdirectory of the application working directory.
+The PDF is saved to the `waveform/reports/` subdirectory and contains:
+
+* Title, optional report name (from the filename prefix dialog), date/time and device name.
+* An image of the waveform chart as it is currently displayed.
+* The automatic measurements per channel: Vpp, RMS, frequency, duty, rise, fall and overshoot.
+* Levels and timing: Vmax, Vmin, Vmean, Top, Base, pulse width, number of periods, sample count and Δt.
+* Device parameters: timebase, trigger delay, sample rate, and V/div plus offset per acquired channel.
+* The reference comparison (RMS error, maximum and mean deviation, coverage) and the mask-test result (PASS/FAIL, violations, first/last violation time, maximum deviation) when available.
 
 #### CSV Export
 
-A CSV file containing the raw waveform data points is saved alongside the PNG to the `waveform/csv/` subdirectory.  
+A CSV file containing the raw waveform data points is saved alongside the report to the `waveform/csv/` subdirectory.  
 The CSV format is:
 
 ```
@@ -1310,7 +1317,7 @@ Time values are the actual sample timestamps of the exported (downsampled) point
 #### Filename Prefix
 
 If the **Ask for filename on save** option is enabled in Settings, a dialog prompts for a custom filename prefix before each save.  
-The default prefix is `waveform` (image) and `waveform_data` (CSV). A numeric suffix is automatically appended to avoid overwriting existing files.
+The default prefix is `waveform_report` (PDF) and `waveform_data` (CSV). A numeric suffix is automatically appended to avoid overwriting existing files.
 
 ### 8.8 Measurements, Difference and Mask
 
@@ -1356,20 +1363,6 @@ A reference can define a tolerance band:
 * The mask test evaluates the current acquisition. Continuous monitoring is not part of this feature.
 
 > **Tip:** The **Measurements** panel can be collapsed with the chevron in its header to gain space for the chart.
-
-### 8.9 Waveform Report
-
-Click the **Report** button in the top toolbar (next to **Save**) while a waveform is displayed.  
-The PDF is saved to the `waveform/reports/` subdirectory and contains:
-
-* Title, optional report name (from the filename prefix dialog), date/time and device name.
-* An image of the waveform chart as it is currently displayed.
-* The automatic measurements per channel: Vpp, RMS, frequency, duty, rise, fall and overshoot.
-* Levels and timing: Vmax, Vmin, Vmean, Top, Base, pulse width, number of periods, sample count and Δt.
-* Device parameters: timebase, trigger delay, sample rate, and V/div plus offset per acquired channel.
-* The reference comparison (RMS error, maximum and mean deviation, coverage) and the mask-test result (PASS/FAIL, violations, first/last violation time, maximum deviation) when available.
-
-Existing PNG and CSV saving is unchanged.
 
 ## 9. Control Panel
 
@@ -2032,7 +2025,6 @@ The directory is OS specific:
 | :-------- | :-------- |
 | `preferences` | Application settings |
 | `screenshots` | Display screenshots |
-| `waveform/images` | Waveform images |
 | `waveform/csv` | Waveform CSV data |
 | `waveform/reports` | Waveform PDF measurement reports |
 | `logger/reports` | Data Logger reports |
@@ -2088,7 +2080,7 @@ The directory is OS specific:
 * **Screen Capture**: BMP (device) → PNG (application)
 * **Waveform Data**: Binary → voltage/time values
 * **[Device Profiles](#5-device-profiles)**: SCPI XML → .lss files
-* **Other Export Formats**: PNG ([Control Panel](#9-control-panel), Waveform), CSV (Waveform, [Data Logger](#6-data-logger)), PDF ([Data Logger](#6-data-logger))
+* **Other Export Formats**: PNG ([Control Panel](#9-control-panel)), CSV (Waveform, [Data Logger](#6-data-logger)), PDF (Waveform, [Data Logger](#6-data-logger))
 * **Macro Files**: Plain text `.m` files with one command per line
 
 ### Performance

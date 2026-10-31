@@ -396,15 +396,12 @@ class WaveformBasePainter extends CustomPainter {
     final double visibleVRange = visibleVMax - visibleVMin;
     if (visibleTRange <= 0 || visibleVRange <= 0) return;
 
-    // Use exact divisions to guarantee exactly _hDivisions × _vDivisions
-    // grid cells. Since the widget is constrained to aspectRatio: 14/8,
-    // this produces perfectly square grid cells at any zoom/pan level.
-    final double tMajorInterval = visibleTRange / _hDivisions;
-    final double vMajorInterval = visibleVRange / _vDivisions;
-    final double tMinorInterval = tMajorInterval / 5.0;
-    final double vMinorInterval = vMajorInterval / 5.0;
-
-    // Helper: map time → pixel X, voltage → pixel Y.
+    // The grid always covers exactly _hDivisions × _vDivisions cells. Since
+    // the widget is constrained to aspectRatio: 14/8, this produces perfectly
+    // square grid cells at any zoom/pan level.
+    //
+    // Helper: map time → pixel X, voltage → pixel Y (used by the centre
+    // crosshair; the grid lines themselves are placed by division index).
     double timeToPx(double t) => (t - visibleTMin) / visibleTRange * size.width;
     double voltageToPy(double v) =>
         (visibleVMax - v) / visibleVRange * size.height;
@@ -416,32 +413,22 @@ class WaveformBasePainter extends CustomPainter {
       ..isAntiAlias = true
       ..style = PaintingStyle.stroke;
 
-    // Find the first minor line inside the visible range.
-    final double tMinorStart =
-        (visibleTMin / tMinorInterval).ceil() * tMinorInterval;
-    for (double t = tMinorStart; t <= visibleTMax; t += tMinorInterval) {
-      // Skip positions that fall on a major line.
-      final double remainder = (t / tMajorInterval).roundToDouble();
-      if ((t - remainder * tMajorInterval).abs() < tMinorInterval * 0.01) {
-        continue;
-      }
-      final double x = timeToPx(t);
-      if (x >= 0 && x <= size.width) {
-        canvas.drawLine(Offset(x, 0), Offset(x, size.height), minorPaint);
-      }
+    // Positions are derived from the division index rather than accumulated
+    // floating-point intervals: the grid always covers exactly
+    // _hDivisions × _vDivisions cells, and the final right/bottom line can
+    // never fall a rounding error outside the canvas.
+    const int tMinorDivisions = _hDivisions * 5;
+    for (var i = 1; i < tMinorDivisions; i++) {
+      if (i % 5 == 0) continue; // major line
+      final double x = size.width * i / tMinorDivisions;
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), minorPaint);
     }
 
-    final double vMinorStart =
-        (visibleVMin / vMinorInterval).ceil() * vMinorInterval;
-    for (double v = vMinorStart; v <= visibleVMax; v += vMinorInterval) {
-      final double remainder = (v / vMajorInterval).roundToDouble();
-      if ((v - remainder * vMajorInterval).abs() < vMinorInterval * 0.01) {
-        continue;
-      }
-      final double y = voltageToPy(v);
-      if (y >= 0 && y <= size.height) {
-        canvas.drawLine(Offset(0, y), Offset(size.width, y), minorPaint);
-      }
+    const int vMinorDivisions = _vDivisions * 5;
+    for (var i = 1; i < vMinorDivisions; i++) {
+      if (i % 5 == 0) continue; // major line
+      final double y = size.height * i / vMinorDivisions;
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), minorPaint);
     }
 
     // --- Major grid lines ---
@@ -451,24 +438,30 @@ class WaveformBasePainter extends CustomPainter {
       ..isAntiAlias = true
       ..style = PaintingStyle.stroke;
 
-    // Vertical major lines (time divisions at nice intervals)
-    final double tMajorStart =
-        (visibleTMin / tMajorInterval).ceil() * tMajorInterval;
-    for (double t = tMajorStart; t <= visibleTMax; t += tMajorInterval) {
-      final double x = timeToPx(t);
-      if (x >= 0 && x <= size.width) {
-        canvas.drawLine(Offset(x, 0), Offset(x, size.height), majorPaint);
-      }
+    // The outermost lines are inset by half a stroke so the full 1 px line
+    // stays inside the canvas instead of being clipped in half.
+    double gridX(int division) {
+      if (division == 0) return 0.5;
+      if (division == _hDivisions) return size.width - 0.5;
+      return size.width * division / _hDivisions;
     }
 
-    // Horizontal major lines (voltage divisions at nice intervals)
-    final double vMajorStart =
-        (visibleVMin / vMajorInterval).ceil() * vMajorInterval;
-    for (double v = vMajorStart; v <= visibleVMax; v += vMajorInterval) {
-      final double y = voltageToPy(v);
-      if (y >= 0 && y <= size.height) {
-        canvas.drawLine(Offset(0, y), Offset(size.width, y), majorPaint);
-      }
+    double gridY(int division) {
+      if (division == 0) return 0.5;
+      if (division == _vDivisions) return size.height - 0.5;
+      return size.height * division / _vDivisions;
+    }
+
+    // Vertical major lines, including both plot borders.
+    for (var i = 0; i <= _hDivisions; i++) {
+      final double x = gridX(i);
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), majorPaint);
+    }
+
+    // Horizontal major lines, including both plot borders.
+    for (var i = 0; i <= _vDivisions; i++) {
+      final double y = gridY(i);
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), majorPaint);
     }
 
     // --- Center crosshair (slightly brighter) ---

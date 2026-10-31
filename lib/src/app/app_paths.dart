@@ -9,8 +9,8 @@ import 'dart:io';
 /// File-type-specific subdirectories within the working directory:
 ///   screenshots/        Screen dump images
 ///   profiles/           Instrument profile (.lss) files
-///   waveform/images/    Waveform chart PNG images
 ///   waveform/csv/       Waveform data CSV files (save & reference load)
+///   waveform/reports/   Waveform PDF measurement reports
 ///   logger/reports/     Data logger PDF reports
 ///   logger/csv/         Data logger CSV data files
 ///   bode/reports/       Bode plot PDF reports
@@ -46,10 +46,6 @@ class AppPaths {
   /// `  <app working dir>/profiles  `
   static Directory get profilesDirectory =>
       Directory('${defaultSaveDirectory.path}${_sep}profiles');
-
-  /// `  <app working dir>/waveform/images  `
-  static Directory get waveformImagesDirectory =>
-      Directory('${defaultSaveDirectory.path}${_sep}waveform${_sep}images');
 
   /// `  <app working dir>/waveform/csv  `
   static Directory get waveformCsvDirectory =>
@@ -117,9 +113,6 @@ class AppPaths {
 
   static Future<Directory> getOrCreateProfilesDir() =>
       ensureDirectoryExists(profilesDirectory);
-
-  static Future<Directory> getOrCreateWaveformImagesDir() =>
-      ensureDirectoryExists(waveformImagesDirectory);
 
   static Future<Directory> getOrCreateWaveformCsvDir() =>
       ensureDirectoryExists(waveformCsvDirectory);
