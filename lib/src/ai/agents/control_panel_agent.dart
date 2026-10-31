@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../tools/macro_tools.dart';
 import '../tools/vxi11_tool.dart';
+import '../tools/waveform_summary_tool.dart';
 import 'frontend_agent.dart';
 import 'systemprompts.dart';
 
@@ -14,6 +15,8 @@ import 'systemprompts.dart';
 ///   connected and, while it is, the detected model, display name and channel
 ///   count.
 /// - `search_agent` — answers knowledgebase questions about the oscilloscope.
+/// - `read_waveform_summary` — returns the automatic measurements of the
+///   currently displayed waveform for explanation.
 ///
 /// It is built on [FrontendAgent] because that class already composes the
 /// instrument and knowledgebase sub-agents and implements the buffered
@@ -35,6 +38,7 @@ class ControlPanelAgent {
     String? vxi11Host,
     MacroOscilloscopeStatusReader? readOscilloscopeStatus,
     ScpiCommandCallback? onCommandSent,
+    WaveformSummaryProvider? readWaveformSummary,
     int instrumentToolCalls = FrontendAgent.defaultInstrumentToolCalls,
     int searchToolCalls = FrontendAgent.defaultSearchToolCalls,
   }) : _agent = FrontendAgent(
@@ -47,6 +51,10 @@ class ControlPanelAgent {
          tools: [
            createReadOscilloscopeStatusTool(
              readStatus: readOscilloscopeStatus,
+             agentName: 'ControlPanelAgent',
+           ),
+           createWaveformSummaryTool(
+             readSummary: readWaveformSummary,
              agentName: 'ControlPanelAgent',
            ),
          ],

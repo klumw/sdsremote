@@ -26,6 +26,7 @@ class BodeConfig {
     this.vinChannel = 1,
     this.voutChannel = 2,
     this.generatorChannel = 1,
+    this.turnOffOutputsAfterSweep = true,
     this.reportName = '',
   });
 
@@ -41,6 +42,12 @@ class BodeConfig {
   final int vinChannel;
   final int voutChannel;
   final int generatorChannel;
+
+  /// Whether both generator outputs are switched off when the sweep ends.
+  ///
+  /// When false the selected output stays enabled at the last sweep frequency
+  /// after completion, cancellation or failure.
+  final bool turnOffOutputsAfterSweep;
 
   /// Optional free-text report name (max 150 characters).
   /// Shown in the configuration mask and included in the PDF report.
@@ -59,6 +66,7 @@ class BodeConfig {
     int? vinChannel,
     int? voutChannel,
     int? generatorChannel,
+    bool? turnOffOutputsAfterSweep,
     String? reportName,
   }) {
     return BodeConfig(
@@ -74,6 +82,8 @@ class BodeConfig {
       vinChannel: vinChannel ?? this.vinChannel,
       voutChannel: voutChannel ?? this.voutChannel,
       generatorChannel: generatorChannel ?? this.generatorChannel,
+      turnOffOutputsAfterSweep:
+          turnOffOutputsAfterSweep ?? this.turnOffOutputsAfterSweep,
       reportName: reportName ?? this.reportName,
     );
   }
@@ -93,6 +103,7 @@ class BodeConfig {
         other.vinChannel == vinChannel &&
         other.voutChannel == voutChannel &&
         other.generatorChannel == generatorChannel &&
+        other.turnOffOutputsAfterSweep == turnOffOutputsAfterSweep &&
         other.reportName == reportName;
   }
 
@@ -110,6 +121,7 @@ class BodeConfig {
     vinChannel,
     voutChannel,
     generatorChannel,
+    turnOffOutputsAfterSweep,
     reportName,
   );
 }

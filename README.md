@@ -17,7 +17,8 @@ SDS-Remote enables remote control and AI-enhanced operation of Siglent SDS1202X-
 - **Waveform Acquisition & Data Export**: Capture and display waveform data from enabled channels. Save screen captures as images, write waveform PDF measurement reports and CSV data, and export waveforms as LTspice PWL, WAV or VCD files (or copy the measurement table to the clipboard).
 - **Device Parameter Monitoring**: View real-time parameters such as timebase, sample rate, and voltage settings. Cursor-based measurements are supported.
 - **Data Logging**: Log key data points over a period of time. Generate PDF measurement reports containing charts, key metrics, per-parameter statistics and alarm events, or export all recorded measurement points as CSV files. Optional lower/upper alarm rules per parameter raise one event per threshold crossing; threshold lines and event markers are drawn in the plot.
-- **Signal Generator & Bode Plot**: Choose **No Signal Generator**, **JDS6600** or **FY6900** in the settings. With JDS6600 or FY6900 selected, a **Bode** toolbar button appears once both the oscilloscope and the generator are detected; it runs a frequency sweep and plots gain and phase. The sweep limits are taken from the detected generator model and the selected waveform. The completed sweep is analysed automatically: peak gain/frequency, −3 dB frequency, bandwidth, Q factor and 0 dB crossover, with markers in the gain plot and a table in the PDF report.
+- **Analysis Tools**: A ripple/noise preset measures AC-coupled, bandwidth-limited supply noise and restores the previous channel settings. Clock detection recognises a stable 50 % clock and suggests the matching 1-2-5 timebase. A linear sensor calibration dialog fits measured/reference pairs, reports slope, intercept and R², and copies an Arduino/ESP32 correction snippet. Timelapse mode captures the screen into a timestamped folder at a fixed interval. The measurement cards explain every metric with an offline info text.
+- **Signal Generator & Bode Plot**: Choose **No Signal Generator**, **JDS6600** or **FY6900** in the settings. With JDS6600 or FY6900 selected, a **Bode** toolbar button appears once both the oscilloscope and the generator are detected; it runs a frequency sweep and plots gain and phase. The sweep limits are taken from the detected generator model and the selected waveform. The completed sweep is analysed automatically: peak gain/frequency, −3 dB frequency, bandwidth, Q factor and 0 dB crossover, with markers in the gain plot and a table in the PDF report. A toggle in the configuration form decides whether the generator outputs are switched off after the sweep (default) or stay on at the last frequency.
 - **Macro Recorder**: Record, edit and play back SCPI command sequences. Supports variables, conditionals, loops, and both network and USB connections for automated test procedures.
 - **Engineering Calculator**: A scientific/programmable calculator window (Ctrl+R) with unit-aware expressions, complex numbers, dB level arithmetic, electronics/RF/audio/digital formulas, variables, programs, history and export.
 - **AI Control Panel Assistant**: Configure the oscilloscope from the Control Panel in plain language. The assistant overlays the control sidebar, reads the connected model and channel count, and delegates the SCPI work to the instrument agent.
@@ -26,7 +27,7 @@ SDS-Remote enables remote control and AI-enhanced operation of Siglent SDS1202X-
 
 Acquire and visualize waveform data. Perform advanced measurements using X/Y cursors and zoom controls for detailed waveform analysis. Export waveform data as PDF measurement reports or CSV datasets. Exported CSV files use the actual sample timestamps of the displayed points (format version 2), so the time axis stays aligned with the on-screen waveform.
 
-The analysis panel below the chart shows automatic time-domain measurements per channel (Vpp, RMS, frequency, duty, rise/fall, overshoot), a PWM/signal-integrity view (pulse-width statistics, jitter, edge counts, undershoot) and history statistics over the last acquisitions. A loaded or captured reference can be compared as an orange difference trace with RMS/max/mean deviation and coverage, and a software mask test with percent/Vpp or volt and time tolerances returns PASS/FAIL with red violation markers.
+The analysis panel below the chart shows automatic time-domain measurements per channel (Vpp, RMS, frequency, duty, rise/fall, overshoot), a PWM/signal-integrity view (pulse-width statistics, jitter, edge counts, undershoot) and history statistics over the last acquisitions. Every metric label carries a short offline explanation. A loaded or captured reference can be compared as an orange difference trace with RMS/max/mean deviation and coverage, and a software mask test with percent/Vpp or volt and time tolerances returns PASS/FAIL with red violation markers. A **Ripple & Noise** action in the measurement header applies AC coupling and the 20 MHz bandwidth limit, reads RMS/PKPK and restores the previous channel settings. When the signal looks like a stable 50 % clock, a banner suggests the nearest 1-2-5 timebase and applies it only on request.
 
 ![Waveform Acquisition](docs/sdsremote_wf.png)
 
@@ -89,7 +90,10 @@ working, the send button turns into a square stop button that aborts the
 response immediately and marks it as `terminated by user`. After the assistant
 changes a setting, the screen capture next to the chat refreshes automatically.
 It is available whenever the AI settings are configured; see section 9.10 of
-the manual for details.
+the manual for details. It can also read a compact summary of the currently
+displayed waveform — automatic measurements, device parameters and any active
+difference or mask result — through the `read_waveform_summary` tool, so it can
+explain measurement values and suggest better settings without inventing data.
 
 ### Device Profile Management
 
@@ -233,7 +237,7 @@ the complete syntax, key reference and AI assistant notes.
 
 ### Macro Recorder
 
-Record, edit and play back SCPI command sequences to automate repetitive measurement and configuration tasks. Supports variables, conditionals (`if`/`else`), loops (`while`), assertions, and both network (`connect("IP")`) and USB (`connect(usb)`) connections. A macro can additionally address the configured signal generator over USB with `connect(SIG, usb)`, `cmd(SIG, …)` and `query(SIG, …)`.
+Record, edit and play back SCPI command sequences to automate repetitive measurement and configuration tasks. Supports variables, conditionals (`if`/`else`), loops (`while`), assertions, and both network (`connect("IP")`) and USB (`connect(usb)`) connections. A macro can additionally address the configured signal generator over USB with `connect(SIG, usb)`, `cmd(SIG, …)` and `query(SIG, …)`. Four templates (5 V supply check, UART baud rate, PWM duty cycle, clock signal present) are available from the file-list header as a starting point.
 
 > ⚠️ USB connection support in macros is experimental.
 

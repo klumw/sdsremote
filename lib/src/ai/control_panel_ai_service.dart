@@ -6,6 +6,7 @@ import '../core/logger.dart';
 import 'agents/control_panel_agent.dart';
 import 'tools/macro_tools.dart';
 import 'tools/vxi11_tool.dart';
+import 'tools/waveform_summary_tool.dart';
 
 /// Service that wraps a [ControlPanelAgent] and streams the Control Panel AI
 /// conversation into the chat overlay.
@@ -39,6 +40,7 @@ class ControlPanelAiService {
     String? vxi11Host,
     MacroOscilloscopeStatusReader? readOscilloscopeStatus,
     ScpiCommandCallback? onCommandSent,
+    WaveformSummaryProvider? readWaveformSummary,
   }) {
     if (_isDisposed) return;
 
@@ -63,6 +65,7 @@ class ControlPanelAiService {
         vxi11Host: vxi11Host,
         readOscilloscopeStatus: readOscilloscopeStatus,
         onCommandSent: onCommandSent,
+        readWaveformSummary: readWaveformSummary,
       );
       logger.debug(
         'SUCCESS: ControlPanelAgent created, agent=${_agent != null}',

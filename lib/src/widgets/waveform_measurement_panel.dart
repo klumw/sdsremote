@@ -24,6 +24,47 @@ const MaskSettings defaultMaskSettings = (
   timeToleranceSeconds: 0,
 );
 
+/// Short offline explanations for the measurement labels shown in the cards.
+const Map<String, String> measurementExplanations = {
+  'Vpp':
+      'Peak-to-peak voltage: the difference between the highest and '
+      'lowest sampled voltage.',
+  'RMS':
+      'Root-mean-square voltage: the equivalent DC voltage that would '
+      'produce the same heating power.',
+  'Frequency':
+      'Reciprocal of the mean period between rising mid-level '
+      'crossings.',
+  'Duty':
+      'High time as a percentage of the period, measured between '
+      'mid-level crossings.',
+  'Rise':
+      '10-90 % rise time: time to go from 10 % to 90 % of the '
+      'top-base amplitude.',
+  'Fall':
+      '90-10 % fall time: time to go from 90 % down to 10 % of the '
+      'top-base amplitude.',
+  'Overshoot':
+      'Amount by which the maximum exceeds the high level (Top), '
+      'relative to the top-base amplitude.',
+  'Undershoot':
+      'Amount by which the minimum falls below the low level '
+      '(Base), relative to the top-base amplitude.',
+  'Vmax': 'Highest sampled voltage.',
+  'Vmin': 'Lowest sampled voltage.',
+  'Vmean': 'Arithmetic mean of all analysed samples.',
+  'Top': 'High level estimate from the 95 % voltage percentile.',
+  'Base': 'Low level estimate from the 5 % voltage percentile.',
+  'Pulse mean': 'Mean high pulse width over all complete periods.',
+  'Pulse min': 'Shortest high pulse width in the analysed record.',
+  'Pulse max': 'Longest high pulse width in the analysed record.',
+  'Pulse σ': 'Standard deviation of the high pulse widths.',
+  'Jitter σ': 'Standard deviation of the measured periods (period jitter).',
+  'Periods': 'Number of complete periods used for the periodic measurements.',
+  'Samples': 'Number of samples that contributed to the measurement.',
+  'Δt': 'Effective interval between the analysed samples.',
+};
+
 /// Measurement panel shown below the waveform chart.
 ///
 /// It lists the automatic measurements of every acquired channel, switches
@@ -55,6 +96,10 @@ class WaveformMeasurementPanel extends StatefulWidget {
   final MaskResult? maskResult;
   final ValueChanged<MaskSettings>? onMaskSettingsChanged;
 
+  /// Opens the ripple/noise measurement dialog. The header button is hidden
+  /// when this is null.
+  final VoidCallback? onRippleNoise;
+
   const WaveformMeasurementPanel({
     super.key,
     required this.measurements,
@@ -67,6 +112,7 @@ class WaveformMeasurementPanel extends StatefulWidget {
     this.maskSettings = defaultMaskSettings,
     this.maskResult,
     this.onMaskSettingsChanged,
+    this.onRippleNoise,
   });
 
   @override
@@ -205,6 +251,16 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
             onTap: () => setState(() => _pwmMode = true),
           ),
           const Spacer(),
+          if (widget.onRippleNoise != null)
+            IconButton(
+              tooltip: 'Ripple & Noise measurement',
+              onPressed: widget.onRippleNoise,
+              icon: const Icon(
+                Icons.graphic_eq,
+                size: 18,
+                color: Colors.white70,
+              ),
+            ),
           TextButton.icon(
             onPressed: () => setState(() => _showDetails = !_showDetails),
             icon: Icon(
@@ -307,7 +363,11 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
                     in _pwmMode
                         ? _pwmMetrics(measurement)
                         : _measurementMetrics(measurement))
-                  _MetricCell(label: metric.$1, value: metric.$2),
+                  _MetricCell(
+                    label: metric.$1,
+                    value: metric.$2,
+                    explanation: measurementExplanations[metric.$1],
+                  ),
               ],
             ),
             if (_showDetails) ...[
@@ -320,7 +380,11 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
                       in _pwmMode
                           ? _pwmDetailMetrics(measurement)
                           : _measurementDetailMetrics(measurement))
-                    _MetricCell(label: metric.$1, value: metric.$2),
+                    _MetricCell(
+                      label: metric.$1,
+                      value: metric.$2,
+                      explanation: measurementExplanations[metric.$1],
+                    ),
                 ],
               ),
             ],
@@ -581,8 +645,13 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
 class _MetricCell extends StatelessWidget {
   final String label;
   final String value;
+  final String? explanation;
 
-  const _MetricCell({required this.label, required this.value});
+  const _MetricCell({
+    required this.label,
+    required this.value,
+    this.explanation,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -592,11 +661,29 @@ class _MetricCell extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white54, fontSize: 9),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Flexible(
+                child: Text(
+                  label,
+                  style: const TextStyle(color: Colors.white54, fontSize: 9),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              if (explanation != null) ...[
+                const SizedBox(width: 2),
+                Tooltip(
+                  message: explanation!,
+                  child: const Icon(
+                    Icons.info_outline,
+                    size: 9,
+                    color: Colors.white38,
+                  ),
+                ),
+              ],
+            ],
           ),
           Text(
             value,

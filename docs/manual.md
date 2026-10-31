@@ -139,6 +139,16 @@ See [12. Application Directory](#12-application-directory) for a complete breakd
   * Saves images, reports and csv data for the different app functionalities
   * All files are saved in the application working directory
 
+* **Timelapse** (clock icon)
+  * Captures the oscilloscope screen at a fixed interval into a timestamped folder (see [8.11 Timelapse](#811-timelapse))
+  * While a run is active, the icon shows a progress spinner and pressing it stops the run
+
+* **Sensor Calibration** (linear-scale icon)
+  * Opens the linear sensor calibration dialog with a fitted slope, intercept, R² and an Arduino/ESP32 snippet (see [8.10 Sensor Calibration](#810-sensor-calibration))
+  * Can prefill measured values from the last Data Logger recording
+
+> **Tip:** The toolbar button of the currently open view is highlighted with a cyan border: **Control Panel** or **Acquire Waveform**, and the open panel (AI, Profiles, Data Logger, Bode, Macro Recorder or Help).
+
 ---
 
 ### 2.2 Status Bar
@@ -1130,7 +1140,18 @@ freq = query("C1:PAVA? FREQ")
 assert("C1 frequency must be > 990 Hz and < 1010 but was " + freq, !(freq <= 990) && !(freq >= 1010))
 ```
 
-Detailed macro playback messages are available in your log file.  
+Detailed macro playback messages are available in your log file.
+
+### 7.6 Macro Templates
+
+The Macro Recorder panel offers ready-made templates through the template icon in the file-list header. Choosing one loads its commands into the editor as an unsaved macro, which can be reviewed, adjusted and saved like any other macro:
+
+* **5 V power supply check** — measures Vpp, mean and RMS on CH1.
+* **UART baud rate** — measures the frequency and duty cycle of a UART line.
+* **PWM duty cycle** — measures frequency, duty cycle and pulse width.
+* **Clock signal present** — checks for a periodic clock with a 50 % duty cycle.
+
+Templates are a starting point, not a measurement guarantee: channel numbers, trigger settings and thresholds may need to be adapted to the actual setup.
 
 ---
 
@@ -1343,6 +1364,27 @@ The **PWM** toggle switches the cards to the PWM/signal-integrity view:
 
 For non-periodic signals (flatline, noise or an unstable period) the PWM values stay empty instead of showing invented numbers.
 
+#### Measurement Explanations
+
+Every metric label in the cards has an info icon. Hovering over it shows a short offline explanation of how the value is defined — for example that RMS is the root-mean-square voltage, that frequency is derived from rising mid-level crossings, or that duty cycle is the high time as a share of the period. The texts come with the application and need no AI configuration.
+
+#### Ripple & Noise Measurement
+
+The wave icon in the **Measurements** header opens the **Ripple & Noise** dialog:
+
+* Choose the channel, V/div and offset, and whether the 20 MHz bandwidth limit should be enabled.
+* The preset switches the channel to AC coupling (`A1M`), applies the bandwidth limit, V/div and offset, then reads RMS and Vpp.
+* With **Restore previous channel settings** enabled (default), the coupling, bandwidth limit, V/div and offset observed before the preset are written back afterwards.
+* The result shows the RMS ripple/noise and the peak-to-peak value. Values below a few hundred µV are usually dominated by the probe ground lead and the probe attenuation.
+
+#### Clock Detection
+
+After every acquisition the measurements are checked for a clock signal: a stable frequency, a duty cycle within ±5 % of 50 % and a period jitter of at most 2 %.
+
+* When a clock is detected, a banner above the measurement panel names the channel, frequency and duty cycle and suggests the nearest standard 1-2-5 timebase that puts about four periods on the screen.
+* **Apply** sends the suggested timebase to the oscilloscope; **Dismiss** hides the banner.
+* The timebase is never changed automatically.
+
 #### Difference Trace
 
 A loaded or captured reference can be compared against the live waveform:
@@ -1379,6 +1421,27 @@ Click the **Export** button in the top toolbar while a waveform is displayed to 
 * Non-uniform point lists (for example a loaded reference) are linearly resampled onto a uniform grid for WAV.
 * VCD timestamps are normalised so the earliest sample starts at 0.
 * For external CSV data as a reference, place the file in `waveform/csv/` and use **Load Reference** ([8.6 Reference Waveforms](#86-reference-waveforms)); no separate file picker is required.
+
+### 8.10 Sensor Calibration
+
+The linear-scale icon in the top toolbar opens **Sensor Calibration**. It maps a measured sensor output (for example the mean voltage on CH1) to a known reference value:
+
+1. Enter at least two point pairs — measured value and reference value. Use **Add point** for more pairs; empty rows are ignored.
+2. The dialog fits `reference = slope * measured + intercept` live and shows the slope, intercept, R² and the number of points.
+3. **From Data Logger** adds the mean of a parameter from the last saved Data Logger recording as a measured value; enter the matching reference value.
+4. **Copy snippet** copies an Arduino/ESP32-ready correction function with the fitted constants to the clipboard.
+
+The dialog reports an error when fewer than two complete points exist or when all measured values are identical (undefined slope).
+
+### 8.11 Timelapse
+
+The clock icon in the top toolbar opens **Timelapse**:
+
+* Set the interval as a positive whole number of seconds (1–86400), the number of frames (1–10000) and the file-name prefix. The dialog shows the resulting total duration.
+* **Start** stops auto capture and the live screen and captures the oscilloscope screen at the chosen interval. Frames are written as PNG files into a timestamped run folder under `timelapse/` in the application directory, for example `timelapse/2026-10-31_14-30-05/timelapse_0001.png`.
+* A snackbar reports the current frame and offers **Stop**; the toolbar icon also turns into a spinner that stops the run.
+* Auto capture and the live screen cannot be started while a timelapse runs.
+* The run ends after the planned frame count, on **Stop**, or when a capture fails. The final snackbar names the number of frames and the output folder.
 
 ## 9. Control Panel
 
@@ -1525,6 +1588,9 @@ Describe the desired setup in plain language, for example:
 
 * "Set channel 1 to 200 mV per division with an offset of 0.2 V, then do an autoset."
 * "Give me the frequency on channel 3 and the RMS voltage."
+* "Why is the signal on CH1 so noisy? Suggest better settings."
+
+For the last question the assistant can call the `read_waveform_summary` tool. It returns the automatic measurements of the waveform currently displayed in the Waveform view (per channel: Vpp, RMS, mean, frequency, duty, rise/fall, overshoot, sample interval and notes) plus device parameters and any active difference or mask result. The assistant explains these values and suggests settings; it never invents or recalculates measurements. If no waveform is displayed, it says so and asks for an acquisition first.
 
 ---
 
@@ -1623,6 +1689,7 @@ The Bode panel is not available when no generator is configured or no generator 
 | Vin channel | Oscilloscope channel connected to the DUT input (default CH1). |
 | Vout channel | Oscilloscope channel connected to the DUT output (default CH2). |
 | Measure phase | Enables phase measurement in addition to gain. |
+| Outputs off after sweep | When enabled (default), both generator outputs are switched off after completion, failure or cancellation. Turn it off to leave the generator output running at the last sweep frequency. |
 
 The form shows the active model limits below the waveform field, for example:
 
@@ -1637,7 +1704,7 @@ The form shows the active model limits below the waveform field, for example:
 3. Click **START SWEEP**.
 4. The generator output is enabled. The oscilloscope is prepared (including automatic vertical scaling) and each point is measured after the settling time.
 5. The gain and, when enabled, the phase are calculated for each point; the plots update as the sweep progresses.
-6. **STOP** cancels the sweep. The generator outputs are switched off on completion, failure and cancellation.
+6. **STOP** cancels the sweep. By default the generator outputs are switched off on completion, failure and cancellation; the **Outputs off after sweep** button in the configuration form keeps them on instead.
 
 During the sweep, generator detection is paused and the signal generator window cannot change settings.  
 Points with no usable measurement (Vin/Vout below 5 mV RMS, out-of-range values or an unstable input) are retried and, if they remain invalid, left out of the plot instead of appearing as spikes.
@@ -2057,6 +2124,7 @@ The directory is OS specific:
 | `waveform/exports` | Waveform export files (PWL, WAV, VCD) |
 | `logger/reports` | Data Logger reports |
 | `logger/csv` | Data Logger CSV data |
+| `timelapse` | Timelapse run folders with PNG frames |
 | `bode/reports` | Bode Plot PDF reports |
 | `bode/csv` | Bode Plot CSV data |
 | `profiles` | Device profiles |

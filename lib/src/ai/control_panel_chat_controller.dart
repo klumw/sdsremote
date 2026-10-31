@@ -7,6 +7,7 @@ import 'ai_settings.dart';
 import 'control_panel_ai_service.dart';
 import 'tools/macro_tools.dart';
 import 'tools/vxi11_tool.dart';
+import 'tools/waveform_summary_tool.dart';
 
 /// Owns the Control Panel's AI conversation.
 ///
@@ -35,6 +36,7 @@ class ControlPanelChatController extends ChangeNotifier {
   String? _vxi11Host;
   MacroOscilloscopeStatusReader? _readOscilloscopeStatus;
   ScpiCommandCallback? _onCommandSent;
+  WaveformSummaryProvider? _readWaveformSummary;
 
   bool _isOpen = false;
   bool _isChatting = false;
@@ -82,6 +84,15 @@ class ControlPanelChatController extends ChangeNotifier {
   /// after the agent changed a setting.
   void attachCommandListener(ScpiCommandCallback onCommandSent) {
     _onCommandSent = onCommandSent;
+  }
+
+  /// Registers the source of the waveform summary used by the
+  /// `read_waveform_summary` tool.
+  ///
+  /// The callback is read dynamically, so it may be registered before or after
+  /// [configure]. It returns null when no waveform is displayed.
+  void attachWaveformSummary(WaveformSummaryProvider readSummary) {
+    _readWaveformSummary = readSummary;
   }
 
   /// Cancels an in-flight response without changing the transcript.
@@ -148,6 +159,7 @@ class ControlPanelChatController extends ChangeNotifier {
       onCommandSent: (command, operation) {
         _onCommandSent?.call(command, operation);
       },
+      readWaveformSummary: () => _readWaveformSummary?.call(),
     );
     _service = service;
     notifyListeners();

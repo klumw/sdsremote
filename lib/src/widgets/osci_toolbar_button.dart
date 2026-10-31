@@ -8,17 +8,23 @@ class OsciToolbarButton extends StatelessWidget {
   final VoidCallback? onPressed;
   final bool alwaysEnabled;
 
+  /// Whether this button belongs to the currently open panel. An active
+  /// button gets a cyan border and a subtle glow.
+  final bool active;
+
   const OsciToolbarButton({
     super.key,
     required this.label,
     required this.icon,
     this.onPressed,
     this.alwaysEnabled = false,
+    this.active = false,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDisabled = !alwaysEnabled && onPressed == null;
+    final isActive = active && !isDisabled;
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -34,6 +40,11 @@ class OsciToolbarButton extends StatelessWidget {
             boxShadow: isDisabled
                 ? []
                 : [
+                    if (isActive)
+                      BoxShadow(
+                        color: Colors.cyanAccent.withValues(alpha: 0.35),
+                        blurRadius: 8,
+                      ),
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.4),
                       offset: const Offset(1, 1),
@@ -41,10 +52,12 @@ class OsciToolbarButton extends StatelessWidget {
                     ),
                   ],
             border: Border.all(
-              color: const Color(
-                0xFF475569,
-              ).withValues(alpha: isDisabled ? 0.3 : 1.0),
-              width: 1.0,
+              color: isActive
+                  ? Colors.cyanAccent
+                  : const Color(
+                      0xFF475569,
+                    ).withValues(alpha: isDisabled ? 0.3 : 1.0),
+              width: isActive ? 2.0 : 1.0,
             ),
           ),
           child: Row(

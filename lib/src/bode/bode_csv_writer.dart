@@ -27,7 +27,10 @@ String buildBodeCsv({
   buffer.writeln('# Vin channel: CH${config.vinChannel}');
   buffer.writeln('# Vout channel: CH${config.voutChannel}');
   buffer.writeln('# Generator channel: CH${config.generatorChannel}');
-  buffer.writeln('# Generator outputs: off');
+  buffer.writeln(
+    '# Generator outputs: '
+    '${config.turnOffOutputsAfterSweep ? 'off' : 'on'}',
+  );
 
   final columns = <String>[
     'Frequency (Hz)',

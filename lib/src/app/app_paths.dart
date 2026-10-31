@@ -14,6 +14,7 @@ import 'dart:io';
 ///   waveform/exports/   Waveform export files (PWL, WAV, VCD)
 ///   logger/reports/     Data logger PDF reports
 ///   logger/csv/         Data logger CSV data files
+///   timelapse/          Timelapse run folders with PNG frames
 ///   bode/reports/       Bode plot PDF reports
 ///   bode/csv/           Bode plot CSV data files
 ///   automation/macros/  Macro (.m) files
@@ -67,6 +68,10 @@ class AppPaths {
   /// `  <app working dir>/logger/csv  `
   static Directory get loggerCsvDirectory =>
       Directory('${defaultSaveDirectory.path}${_sep}logger${_sep}csv');
+
+  /// `  <app working dir>/timelapse  `
+  static Directory get timelapseDirectory =>
+      Directory('${defaultSaveDirectory.path}${_sep}timelapse');
 
   /// `  <app working dir>/bode/reports  `
   static Directory get bodeReportsDirectory =>
@@ -133,6 +138,9 @@ class AppPaths {
 
   static Future<Directory> getOrCreateLoggerCsvDir() =>
       ensureDirectoryExists(loggerCsvDirectory);
+
+  static Future<Directory> getOrCreateTimelapseDir() =>
+      ensureDirectoryExists(timelapseDirectory);
 
   static Future<Directory> getOrCreateBodeReportsDir() =>
       ensureDirectoryExists(bodeReportsDirectory);

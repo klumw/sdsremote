@@ -61,6 +61,9 @@ class MacroRecorderPanel extends StatefulWidget {
   final MacroPrintController? printController;
 
   final VoidCallback onRecord;
+
+  /// Opens the template picker for a new macro.
+  final VoidCallback? onNewFromTemplate;
   final VoidCallback onStop;
   final VoidCallback onPlay;
   final VoidCallback onEdit;
@@ -83,6 +86,7 @@ class MacroRecorderPanel extends StatefulWidget {
     this.macroStatusMessage,
     this.printController,
     required this.onRecord,
+    this.onNewFromTemplate,
     required this.onStop,
     required this.onPlay,
     required this.onEdit,
@@ -619,6 +623,19 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                                 const SizedBox(width: 8),
                                 _buildSortButton("Date", MacroSortType.date),
                                 const Spacer(),
+                                if (widget.onNewFromTemplate != null)
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.library_add_outlined,
+                                      color: Colors.cyanAccent,
+                                      size: 18,
+                                    ),
+                                    tooltip: 'New from template',
+                                    onPressed: widget.onNewFromTemplate,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints(),
+                                  ),
+                                const SizedBox(width: 8),
                                 IconButton(
                                   icon: Icon(
                                     _isAscending

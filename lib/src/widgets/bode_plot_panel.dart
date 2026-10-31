@@ -663,6 +663,39 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
               style: const TextStyle(color: Colors.redAccent, fontSize: 12),
             ),
           ],
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: OutlinedButton.icon(
+              key: const ValueKey('bode_output_off_toggle'),
+              onPressed: () => setState(
+                () => _draft = _draft.copyWith(
+                  turnOffOutputsAfterSweep: !_draft.turnOffOutputsAfterSweep,
+                ),
+              ),
+              icon: Icon(
+                _draft.turnOffOutputsAfterSweep
+                    ? Icons.power_settings_new
+                    : Icons.power,
+                size: 16,
+              ),
+              label: Text(
+                _draft.turnOffOutputsAfterSweep
+                    ? 'Outputs off after sweep'
+                    : 'Outputs stay on after sweep',
+              ),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: _draft.turnOffOutputsAfterSweep
+                    ? Colors.cyanAccent
+                    : Colors.orangeAccent,
+                side: BorderSide(
+                  color: _draft.turnOffOutputsAfterSweep
+                      ? Colors.cyanAccent
+                      : Colors.orangeAccent,
+                ),
+              ),
+            ),
+          ),
           if (!ready) ...[
             const SizedBox(height: 6),
             Text(

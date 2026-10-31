@@ -307,19 +307,22 @@ class BodePlotService extends ChangeNotifier {
 
   Future<void> _safeGeneratorState() async {
     final generator = signalGenerator;
-    try {
-      await generator.setOutput(1, false);
-    } catch (_) {}
-    try {
-      await generator.setOutput(2, false);
-    } catch (_) {}
+    if (_config?.turnOffOutputsAfterSweep ?? true) {
+      try {
+        await generator.setOutput(1, false);
+      } catch (_) {}
+      try {
+        await generator.setOutput(2, false);
+      } catch (_) {}
+    }
     try {
       await generator.stopActions();
     } catch (_) {}
   }
 
   /// Requests cancellation. The current settle delay is interrupted; the
-  /// running sweep turns the generator outputs off and stops.
+  /// running sweep turns the generator outputs off (unless the configuration
+  /// keeps them on) and stops.
   Future<void> stop() async {
     _stopRequested = true;
     final completer = _settleCompleter;

@@ -24,6 +24,7 @@ import 'unsaved_changes_dialog.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../instrument/dart_vxi11.dart';
+import '../instrument/measurement.dart' show formatMeasurementValue;
 import '../instrument/vnc_screen_service.dart';
 import '../waveform/waveform_acquisition.dart';
 import '../waveform/waveform_processing.dart';
@@ -38,8 +39,14 @@ import '../waveform/waveform_painter.dart';
 import '../waveform/waveform_export.dart';
 import '../waveform/waveform_report.dart';
 import '../waveform/waveform_view_transform.dart';
+import '../waveform/ripple_noise.dart';
+import '../waveform/clock_detection.dart';
 import 'waveform_export_dialog.dart';
 import 'waveform_measurement_panel.dart';
+import 'ripple_noise_dialog.dart';
+import 'sensor_calibration_dialog.dart';
+import 'timelapse_dialog.dart';
+import '../timelapse/timelapse.dart';
 import '../ai/ai_chat_service.dart';
 import '../ai/ai_settings.dart';
 import '../ai/control_panel_chat_controller.dart';
@@ -56,6 +63,7 @@ import '../data_logger/data_logger_models.dart';
 import 'data_logger_panel.dart';
 import '../data_logger/data_logger_service.dart';
 import '../data_logger/data_logger_report.dart';
+import '../data_logger/data_logger_statistics.dart';
 import '../calculator/calculator_shortcut.dart';
 import '../calculator/calculator_window_launcher.dart';
 import '../calculator/calculator_window_protocol.dart';
@@ -85,6 +93,7 @@ import '../macro/macro_evaluator.dart';
 import '../macro/macro_oscope_status.dart';
 import '../macro/macro_siggen.dart';
 import '../macro/macro_siggen_app.dart';
+import '../macro/macro_templates.dart';
 import '../ai/tools/vxi11_tool.dart' show onScpiCommandSent;
 
 class OsciHomePage extends StatefulWidget {
@@ -227,6 +236,10 @@ class _OsciHomePageState extends State<OsciHomePage>
   MaskSettings _maskSettings = defaultMaskSettings;
   MaskBand? _maskBand;
   MaskResult? _maskResult;
+
+  /// Timebase suggestion for a detected clock signal.
+  ClockSuggestion? _clockSuggestion;
+  bool _clockSuggestionDismissed = false;
 
   /// Cached geometry of the loaded reference, used by the mask slider ranges.
   double _referenceVppCache = 0;
@@ -373,6 +386,13 @@ class _OsciHomePageState extends State<OsciHomePage>
   bool _autoCaptureEnabled = false;
   static const Duration _autoCaptureInterval = Duration(seconds: 4);
 
+  /// Timelapse capture state. The session tracks the planned frames; the
+  /// completer wakes the delay early when the user presses Stop.
+  bool _timelapseRunning = false;
+  TimelapseSession? _timelapseSession;
+  Completer<void>? _timelapseStop;
+  ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _timelapseSnackBar;
+
   /// Minimum delay between two VNC reachability probes. The probe runs on the
   /// 5 s ping tick and only while the Control Panel is visible.
   static const Duration _vncProbeInterval = Duration(seconds: 10);
@@ -427,6 +447,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       _readOscilloscopeStatus,
     );
     _controlPanelChatController.attachCommandListener(_onControlPanelAiCommand);
+    _controlPanelChatController.attachWaveformSummary(_waveformSummaryForAi);
     windowManager.addListener(this);
     windowManager.setPreventClose(true);
     HardwareKeyboard.instance.addHandler(_onGlobalKeyEvent);
@@ -1011,6 +1032,10 @@ class _OsciHomePageState extends State<OsciHomePage>
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Expanded(child: Center(child: _buildWaveformView())),
+          if (_clockSuggestion != null && !_clockSuggestionDismissed) ...[
+            const SizedBox(height: 8),
+            _buildClockSuggestionBanner(_clockSuggestion!),
+          ],
           const SizedBox(height: 8),
           WaveformMeasurementPanel(
             measurements: _currentMeasurements(),
@@ -1023,6 +1048,7 @@ class _OsciHomePageState extends State<OsciHomePage>
             maskSettings: _maskSettings,
             maskResult: _maskResult,
             onMaskSettingsChanged: _onMaskSettingsChanged,
+            onRippleNoise: _showRippleNoiseDialog,
           ),
         ],
       ),
@@ -1189,6 +1215,10 @@ class _OsciHomePageState extends State<OsciHomePage>
         // Control Panel
         OsciToolbarButton(
           label: _isAcquiring ? "Acquiring..." : "Control Panel",
+          active:
+              _activePanel == ActivePanel.none &&
+              !_waveformAcquired &&
+              _screenDump != null,
           icon: _isAcquiring
               ? const SizedBox(
                   width: 25,
@@ -1204,6 +1234,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         // Acquire Waveform
         OsciToolbarButton(
           label: _isAcquiringWaveform ? "Acquiring..." : "Acquire Waveform",
+          active: _activePanel == ActivePanel.none && _waveformAcquired,
           icon: _isAcquiringWaveform
               ? const SizedBox(
                   width: 25,
@@ -1220,6 +1251,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         OsciToolbarButton(
           label: "AI",
           icon: const Icon(Icons.auto_awesome, size: 25),
+          active: _activePanel == ActivePanel.chat,
           onPressed: (_isAiEnabled && !_isMacroPlaying)
               ? () => _togglePanel(ActivePanel.chat)
               : null,
@@ -1229,6 +1261,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         OsciToolbarButton(
           label: "Profiles",
           icon: const Icon(Icons.save, size: 25),
+          active: _activePanel == ActivePanel.profiles,
           onPressed: (_isOnline && !_isMacroPlaying)
               ? () => _togglePanel(ActivePanel.profiles)
               : null,
@@ -1238,6 +1271,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         OsciToolbarButton(
           label: "Data Logger",
           icon: _buildDlButtonIcon(),
+          active: _activePanel == ActivePanel.dataLogger,
           onPressed: (_isOnline && !_isMacroPlaying)
               ? () => _togglePanel(ActivePanel.dataLogger)
               : null,
@@ -1247,6 +1281,7 @@ class _OsciHomePageState extends State<OsciHomePage>
           OsciToolbarButton(
             label: 'Bode',
             icon: const Icon(Icons.analytics_outlined, size: 25),
+            active: _activePanel == ActivePanel.bode,
             onPressed:
                 (_isOnline &&
                     _sigGenDetected &&
@@ -1263,6 +1298,7 @@ class _OsciHomePageState extends State<OsciHomePage>
           label: _isMacroPlaying
               ? "Playback"
               : (_isMacroRecording ? "Recording..." : "Macro Recorder"),
+          active: _activePanel == ActivePanel.macroRecorder,
           icon: _isMacroPlaying
               ? const Icon(
                   Icons.play_circle,
@@ -1304,6 +1340,7 @@ class _OsciHomePageState extends State<OsciHomePage>
           OsciToolbarButton(
             label: "Help",
             icon: const Icon(Icons.help_outline, size: 25),
+            active: _activePanel == ActivePanel.help,
             onPressed: _isMacroPlaying
                 ? null
                 : () => _togglePanel(ActivePanel.help),
@@ -1335,6 +1372,29 @@ class _OsciHomePageState extends State<OsciHomePage>
           ),
           const SizedBox(width: 16),
           IconButton(
+            icon: _timelapseRunning
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Colors.cyanAccent,
+                    ),
+                  )
+                : const Icon(Icons.timelapse, size: 25),
+            color: _isMacroPlaying ? Colors.white24 : Colors.white70,
+            tooltip: _timelapseRunning ? 'Stop timelapse' : 'Timelapse',
+            onPressed: _isMacroPlaying
+                ? null
+                : (_timelapseRunning ? _stopTimelapse : _showTimelapseDialog),
+          ),
+          IconButton(
+            icon: const Icon(Icons.linear_scale, size: 25),
+            color: _isMacroPlaying ? Colors.white24 : Colors.white70,
+            tooltip: 'Sensor calibration',
+            onPressed: _isMacroPlaying ? null : _showSensorCalibrationDialog,
+          ),
+          IconButton(
             icon: const Icon(Icons.settings, size: 25),
             color: _isMacroPlaying ? Colors.white24 : Colors.white70,
             tooltip: 'Settings',
@@ -1364,7 +1424,7 @@ class _OsciHomePageState extends State<OsciHomePage>
             IconButton(
               icon: const Icon(Icons.ios_share, size: 25),
               color: _isMacroPlaying ? Colors.white24 : Colors.white70,
-              tooltip: 'Export',
+              tooltip: 'Export Data',
               onPressed: _isMacroPlaying ? null : _showWaveformExportDialog,
             ),
         ],
@@ -1703,6 +1763,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       loadedFileName: _loadedMacroFileName,
       isModified: _isMacroModified,
       onRecord: _onMacroStart,
+      onNewFromTemplate: _showMacroTemplatePicker,
       onStop: _onMacroStop,
       onPlay: _onMacroPlay,
       onEdit: _onMacroEdit,
@@ -2202,6 +2263,37 @@ class _OsciHomePageState extends State<OsciHomePage>
       _macroStatusMessage = null;
       _macroHadPlaybackError = false;
       _showMacroEditor = true;
+    });
+  }
+
+  /// Opens the template picker and loads the selected template into the editor.
+  Future<void> _showMacroTemplatePicker() async {
+    final template = await showDialog<MacroTemplate>(
+      context: context,
+      builder: (ctx) => SimpleDialog(
+        title: const Text('New macro from template'),
+        children: [
+          for (final template in macroTemplates)
+            SimpleDialogOption(
+              onPressed: () => Navigator.pop(ctx, template),
+              child: ListTile(
+                contentPadding: EdgeInsets.zero,
+                title: Text(template.name),
+                subtitle: Text(template.description),
+              ),
+            ),
+        ],
+      ),
+    );
+    if (template == null || !mounted) return;
+    setState(() {
+      _currentMacroContent = template.content;
+      _loadedMacroFileName = null;
+      _isMacroModified = true;
+      _showMacroEditor = true;
+      _macroStatus = null;
+      _macroStatusMessage = null;
+      _macroHadPlaybackError = false;
     });
   }
 
@@ -3076,7 +3168,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   Future<void> _acquireScreenDump({bool keepPanels = false}) async {
-    if (_isAcquiring) return;
+    if (_isAcquiring || _timelapseRunning) return;
 
     // Stop the Data Logger immediately when switching away from it
     if (!keepPanels && _activePanel == ActivePanel.dataLogger) {
@@ -3153,6 +3245,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   void _acquireWaveform() async {
+    if (_timelapseRunning) return;
     // Stop the Data Logger immediately when switching away from it
     _stopDataLoggerIfRunning();
     _stopBodeIfRunning();
@@ -3165,6 +3258,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       _isAcquiringWaveform = true;
       _activePanel = ActivePanel.none;
       _previousPanel = ActivePanel.none;
+      _clockSuggestion = null;
     });
 
     try {
@@ -3205,6 +3299,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         // waveform (14 divisions) instead of a zoomed-in view from a previous
         // interaction that showed only ~4 waves.
         _zoomState = const ZoomState();
+        _updateClockSuggestion();
       });
       _logWaveformMeasurements();
       _recomputeReferenceAnalysis();
@@ -3344,6 +3439,81 @@ class _OsciHomePageState extends State<OsciHomePage>
     'ch4': ?_measurementsCh4,
   };
 
+  /// Compact description of the displayed waveform for the Control Panel AI's
+  /// `read_waveform_summary` tool.
+  ///
+  /// Returns null while no waveform is displayed so the tool can tell the user
+  /// to acquire one first. The values are the already computed measurements;
+  /// the assistant only explains them and never recalculates them.
+  Map<String, dynamic>? _waveformSummaryForAi() {
+    if (!_waveformAcquired) return null;
+    final measurements = _currentMeasurements();
+    if (measurements.isEmpty) return null;
+
+    final params = _deviceParams;
+    final comparison = _comparison;
+    final mask = _maskResult;
+
+    return <String, dynamic>{
+      'displayed': true,
+      'channels': {
+        for (final entry in measurements.entries)
+          entry.key: _measurementSummaryForAi(entry.value, params),
+      },
+      if (params != null)
+        'device': {
+          'timebaseSecondsPerDiv': params.timebase,
+          'triggerDelaySeconds': params.trdl,
+          'sampleRatePerSecond': params.sampleRate,
+        },
+      if (comparison != null)
+        'referenceComparison': {
+          'rmsErrorVolts': comparison.rmsErrorVolts,
+          'maxAbsDeviationVolts': comparison.maxAbsDeviationVolts,
+          'meanErrorVolts': comparison.meanErrorVolts,
+          'coveragePercent': comparison.coveragePercent,
+        },
+      if (_maskSettings.enabled && mask != null)
+        'mask': {
+          'passed': mask.passed,
+          'violations': mask.violations,
+          'checkedPoints': mask.checkedPoints,
+          'maxViolationVolts': mask.maxViolationVolts,
+          'toleranceValue': _maskSettings.toleranceValue,
+          'toleranceIsPercentOfVpp': _maskSettings.usePercent,
+        },
+    };
+  }
+
+  /// Serializes one channel's measurements for [_waveformSummaryForAi].
+  Map<String, dynamic> _measurementSummaryForAi(
+    WaveformMeasurements measurement,
+    DeviceParams? params,
+  ) => {
+    'verticalScaleVoltsPerDiv': params?.vdivFor(measurement.channel),
+    'offsetVolts': params?.voffsetFor(measurement.channel),
+    'vMaxVolts': measurement.vMax,
+    'vMinVolts': measurement.vMin,
+    'vppVolts': measurement.vPp,
+    'meanVolts': measurement.vMean,
+    'rmsVolts': measurement.vRms,
+    'topVolts': measurement.vTop,
+    'baseVolts': measurement.vBase,
+    'frequencyHz': measurement.frequencyHz,
+    'periodSeconds': measurement.periodSeconds,
+    'dutyPercent': measurement.dutyPercent,
+    'pulseWidthSeconds': measurement.pulseWidthSeconds,
+    'riseTimeSeconds': measurement.riseTimeSeconds,
+    'fallTimeSeconds': measurement.fallTimeSeconds,
+    'overshootPercent': measurement.overshootPercent,
+    'undershootPercent': measurement.undershootPercent,
+    'risingEdgeCount': measurement.risingEdgeCount,
+    'fallingEdgeCount': measurement.fallingEdgeCount,
+    'sampleCount': measurement.sampleCount,
+    'sampleIntervalSeconds': measurement.sampleIntervalSeconds,
+    'notes': measurement.notes,
+  };
+
   /// Statistics over the stored measurement history.
   ///
   /// Channels with only one stored acquisition are omitted: a standard
@@ -3436,6 +3606,326 @@ class _OsciHomePageState extends State<OsciHomePage>
   void _onMaskSettingsChanged(MaskSettings settings) {
     setState(() => _maskSettings = settings);
     _recomputeReferenceAnalysis();
+  }
+
+  /// Picks the first displayed channel whose measurements look like a clock.
+  void _updateClockSuggestion() {
+    _clockSuggestion = null;
+    _clockSuggestionDismissed = false;
+    for (final measurement in _currentMeasurements().values) {
+      final suggestion = detectClock(measurement);
+      if (suggestion != null) {
+        _clockSuggestion = suggestion;
+        return;
+      }
+    }
+  }
+
+  /// Applies the suggested timebase through the normal command path.
+  Future<void> _applyClockSuggestion() async {
+    final suggestion = _clockSuggestion;
+    if (suggestion == null) return;
+    final value = suggestion.suggestedTimebaseSeconds
+        .toStringAsExponential(2)
+        .toUpperCase();
+    if (!await _sendCommand('TDIV $value')) return;
+    if (!mounted) return;
+    setState(() => _clockSuggestionDismissed = true);
+    _showInfoSnackBar(
+      'Timebase set to ${formatTimebase(suggestion.suggestedTimebaseSeconds)}',
+    );
+  }
+
+  /// Banner for a detected clock signal. It only suggests a timebase; the
+  /// setting is applied when the user presses Apply.
+  Widget _buildClockSuggestionBanner(ClockSuggestion suggestion) {
+    final channel = suggestion.channel.toUpperCase();
+    final frequency = formatMeasurementValue(suggestion.frequencyHz, 'Hz');
+    final timebase = formatTimebase(suggestion.suggestedTimebaseSeconds);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+      decoration: BoxDecoration(
+        color: const Color(0xFF172A45),
+        border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.5)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.schedule, size: 16, color: Colors.cyanAccent),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Clock signal on $channel: $frequency, '
+              '${suggestion.dutyPercent.toStringAsFixed(1)} % duty. '
+              'Suggested timebase: $timebase '
+              '(${suggestion.periodsOnScreen.toStringAsFixed(1)} periods).',
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          TextButton(
+            onPressed: _applyClockSuggestion,
+            child: const Text('Apply'),
+          ),
+          IconButton(
+            tooltip: 'Dismiss',
+            onPressed: () => setState(() => _clockSuggestionDismissed = true),
+            icon: const Icon(Icons.close, size: 16, color: Colors.white54),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Opens the timelapse settings dialog and starts the run.
+  Future<void> _showTimelapseDialog() async {
+    if (!_isOnline) {
+      _showErrorSnackBar('Device is offline');
+      return;
+    }
+    final plan = await showDialog<TimelapsePlan>(
+      context: context,
+      builder: (_) =>
+          TimelapseDialog(targetDirectory: AppPaths.timelapseDirectory.path),
+    );
+    if (plan == null || !mounted) return;
+    await _runTimelapse(plan);
+  }
+
+  /// Aborts a running timelapse immediately, including the current interval
+  /// wait.
+  void _stopTimelapse() {
+    _timelapseSession?.abort();
+    final stop = _timelapseStop;
+    if (stop != null && !stop.isCompleted) stop.complete();
+  }
+
+  /// Captures [plan] frames into a timestamped folder under
+  /// [AppPaths.timelapseDirectory].
+  ///
+  /// Auto capture and the live screen are stopped first; both stay blocked
+  /// while the run is active.
+  Future<void> _runTimelapse(TimelapsePlan plan) async {
+    if (_timelapseRunning) return;
+    if (_isAcquiring || _isAcquiringWaveform || _bodeIsRunning) {
+      _showInfoSnackBar('Another capture is running. Try again afterwards.');
+      return;
+    }
+    _stopAutoCapture();
+    _restoreLiveOnPanelReturn = false;
+    _stopVncLive(fetchScreen: false, restoreAutoCapture: false);
+    _clearVncAvailability();
+
+    final Directory runDirectory;
+    try {
+      final base = await AppPaths.getOrCreateTimelapseDir();
+      runDirectory = await Directory(
+        '${base.path}${Platform.pathSeparator}'
+        '${timelapseRunFolderName(DateTime.now())}',
+      ).create(recursive: true);
+    } catch (e) {
+      AppLogger().error('Timelapse folder error: $e');
+      _showErrorSnackBar('Timelapse folder error: $e');
+      return;
+    }
+
+    if (!mounted) return;
+
+    final session = TimelapseSession(plan: plan);
+    final stop = Completer<void>();
+    final progress = ValueNotifier<int>(0);
+    _timelapseSession = session;
+    _timelapseStop = stop;
+    setState(() => _timelapseRunning = true);
+
+    _timelapseSnackBar = ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        duration: const Duration(days: 1),
+        content: ValueListenableBuilder<int>(
+          valueListenable: progress,
+          builder: (_, value, _) =>
+              Text('Timelapse: frame $value / ${plan.frameCount}'),
+        ),
+        action: SnackBarAction(label: 'Stop', onPressed: _stopTimelapse),
+      ),
+    );
+
+    try {
+      while (session.isActive) {
+        final fileName = session.nextFileName;
+        if (fileName == null) break;
+        final instr = await _getInstrument();
+        if (instr == null) throw Exception('Device is offline');
+        final data = await instr.getScreenDump();
+        final processed = await compute(processScreenDump, data);
+        await File(
+          '${runDirectory.path}${Platform.pathSeparator}$fileName',
+        ).writeAsBytes(processed);
+        session.recordCaptured();
+        progress.value = session.captured;
+        if (!session.isActive) break;
+        final delay = Future<void>.delayed(plan.interval);
+        await Future.any<void>([delay, stop.future]);
+      }
+    } catch (e) {
+      AppLogger().error('Timelapse frame failed: $e');
+      session.abort();
+      if (mounted) _showErrorSnackBar('Timelapse stopped: $e');
+    } finally {
+      _timelapseSnackBar?.close();
+      _timelapseSnackBar = null;
+      _timelapseSession = null;
+      _timelapseStop = null;
+      // The snackbar animates out while it may still rebuild its content.
+      unawaited(
+        Future<void>.delayed(const Duration(seconds: 1), progress.dispose),
+      );
+      if (mounted) {
+        setState(() => _timelapseRunning = false);
+        final frames = session.captured;
+        if (session.isComplete) {
+          _showInfoSnackBar(
+            'Timelapse finished: $frames frames saved in ${runDirectory.path}',
+            duration: const Duration(seconds: 8),
+          );
+        } else if (frames > 0) {
+          _showInfoSnackBar('Timelapse stopped after $frames frames');
+        }
+      } else {
+        _timelapseRunning = false;
+      }
+    }
+  }
+
+  /// Opens the sensor calibration dialog. The measured column can be filled
+  /// with mean values from the last Data Logger recording.
+  Future<void> _showSensorCalibrationDialog() async {
+    await showDialog<void>(
+      context: context,
+      builder: (_) =>
+          SensorCalibrationDialog(readLoggerValues: _calibrationLoggerValues),
+    );
+  }
+
+  /// Mean values of the last saved Data Logger recording, offered as measured
+  /// calibration inputs.
+  List<(String, double)> _calibrationLoggerValues() {
+    final points = _savedDlPoints;
+    final config = _savedDlConfig;
+    if (points == null || config == null || points.isEmpty) return const [];
+    final statistics = computeDataLoggerStatistics(
+      config: config,
+      points: points,
+    );
+    final values = <(String, double)>[];
+    for (final parameter in dataLoggerParameters) {
+      final mean = statistics[parameter.id]?.mean;
+      if (mean != null && mean.isFinite) {
+        values.add(('${parameter.label} mean', mean));
+      }
+    }
+    return values;
+  }
+
+  /// Opens the ripple/noise dialog for the connected instrument.
+  Future<void> _showRippleNoiseDialog() async {
+    if (!_isOnline) {
+      _showErrorSnackBar('Device is offline');
+      return;
+    }
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => RippleNoiseDialog(
+        channels: _numChannels >= 4 ? const [1, 2, 3, 4] : const [1, 2],
+        run: _runRippleNoiseMeasurement,
+      ),
+    );
+  }
+
+  /// Applies the ripple/noise preset, reads RMS and Vpp, then restores the
+  /// previous channel settings.
+  ///
+  /// The previous coupling, bandwidth limit, V/div and offset are queried
+  /// first; a failed query falls back to the documented defaults instead of
+  /// aborting the measurement.
+  Future<String> _runRippleNoiseMeasurement({
+    required int channel,
+    required double vdiv,
+    required double offset,
+    required bool bandwidthLimit,
+    required bool restore,
+  }) async {
+    final instr = await _getInstrument();
+    if (instr == null) throw Exception('Device is offline');
+
+    Future<String?> queryOrNull(String command) async {
+      try {
+        return await instr.queryString(command);
+      } catch (e) {
+        AppLogger().warning('Ripple preset: $command failed: $e');
+        return null;
+      }
+    }
+
+    var previousCoupling = 'D1M';
+    var previousBandwidthLimit = false;
+    double? previousVdiv;
+    double? previousOffset;
+    if (restore) {
+      previousCoupling =
+          parseCouplingResponse(await queryOrNull('C$channel:CPL?') ?? '') ??
+          previousCoupling;
+      previousBandwidthLimit =
+          parseBandwidthLimitResponse(
+            await queryOrNull('BWL?') ?? '',
+            channel,
+          ) ??
+          previousBandwidthLimit;
+      previousVdiv = parseVoltageResponse(
+        await queryOrNull('C$channel:VDIV?') ?? '',
+      );
+      previousOffset = parseVoltageResponse(
+        await queryOrNull('C$channel:OFST?') ?? '',
+      );
+    }
+
+    final plan = buildRippleNoisePlan(
+      channel: channel,
+      vdiv: vdiv,
+      offset: offset,
+      bandwidthLimit: bandwidthLimit,
+      previousCoupling: previousCoupling,
+      previousBandwidthLimit: previousBandwidthLimit,
+      previousVdiv: previousVdiv,
+      previousOffset: previousOffset,
+    );
+
+    final responses = <String>[];
+    try {
+      for (final command in plan.applyCommands) {
+        await instr.writeString(command);
+      }
+      // Give the acquisition a moment to settle on the new scale.
+      await Future.delayed(const Duration(milliseconds: 300));
+      for (final command in plan.measureCommands) {
+        responses.add(await instr.queryString(command));
+      }
+    } finally {
+      if (restore) {
+        for (final command in plan.restoreCommands) {
+          try {
+            await instr.writeString(command);
+          } catch (e) {
+            AppLogger().warning('Ripple restore failed: $e');
+          }
+        }
+      }
+    }
+
+    return formatRippleNoiseResult(
+      rms: responses.isEmpty ? null : parseVoltageResponse(responses[0]),
+      vpp: responses.length < 2 ? null : parseVoltageResponse(responses[1]),
+    );
   }
 
   /// Copies the current waveform of an enabled channel into the reference.
@@ -4267,6 +4757,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     // The periodic capture and the live screen are mutually exclusive; the
     // toggle is disabled in the UI while live, this guards programmatic calls.
     if (enabled && _vncLive) return;
+    if (enabled && _timelapseRunning) return;
     _autoCaptureTimer?.cancel();
     _autoCaptureTimer = null;
     setState(() => _autoCaptureEnabled = enabled);
@@ -4278,6 +4769,7 @@ class _OsciHomePageState extends State<OsciHomePage>
           _isAcquiring ||
           _isAcquiringWaveform ||
           _bodeIsRunning ||
+          _timelapseRunning ||
           _screenDump == null ||
           _activePanel != ActivePanel.none) {
         return;

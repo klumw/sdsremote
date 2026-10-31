@@ -61,6 +61,22 @@ void main() {
     expect(generator.outputs.ch2, isFalse);
   });
 
+  test('keeps the generator output on when configured', () async {
+    await service.start(
+      const BodeConfig(
+        startFrequencyHz: 100,
+        stopFrequencyHz: 1000,
+        pointCount: 3,
+        turnOffOutputsAfterSweep: false,
+      ),
+    );
+
+    expect(service.status, BodeStatus.completed);
+    expect(generator.outputs.ch1, isTrue);
+    expect(generator.outputs.ch2, isFalse);
+    expect(transport.sentCommands, isNot(contains(':w20=0,0.')));
+  });
+
   test(
     'rejects an invalid configuration before touching the devices',
     () async {
