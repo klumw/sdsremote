@@ -1748,7 +1748,7 @@ The calculator is independent of the oscilloscope connection.
 
 All calculator functions work without AI.
 The optional [Calculator AI Assistant](#118-calculator-ai-assistant-optional) is opened with the bordered sparkle button in the title bar, left of the syntax-help question mark.
-The **Component value codes** button (book icon) in the title bar opens reference charts for resistor, capacitor and inductor value codes. The dialog has one tab per component type; scroll to zoom into a chart and drag to pan.
+The **Component value codes** button (book icon) in the title bar opens reference charts for resistor and capacitor color codes, inductor value codes and inductor color-dot markings. The dialog has one tab per chart; scroll to zoom into a chart and drag to pan.
 
 ### 11.1 Display and Keypad
 

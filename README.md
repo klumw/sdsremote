@@ -216,7 +216,8 @@ The calculator combines a scientific keypad with a typed expression language:
   `product`, numeric integration/differentiation, equation solving) with no
   `eval` of user input;
 - component value-code reference charts for resistors, capacitors and
-  inductors, opened from the book button in the calculator title bar;
+  inductors (including inductor color-dot markings), opened from the book
+  button in the calculator title bar;
 - a linear sensor calibration dialog that fits measured/reference pairs,
   reports slope, intercept and R², and copies an Arduino/ESP32 correction
   snippet, opened from the linear-scale button in the calculator title bar.

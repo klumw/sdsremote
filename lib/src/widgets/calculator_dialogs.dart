@@ -1281,6 +1281,7 @@ const List<({String label, String asset})> _valueCodeCharts = [
   (label: 'Resistor', asset: 'assets/ref/Resistor.png'),
   (label: 'Capacitor', asset: 'assets/ref/Capacitor.png'),
   (label: 'Inductor', asset: 'assets/ref/Inductor.png'),
+  (label: 'Inductor color dots', asset: 'assets/ref/InductorColorDot.png'),
 ];
 
 /// Shows the resistor, capacitor and inductor value-code reference charts.
