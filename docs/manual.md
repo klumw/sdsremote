@@ -1364,6 +1364,22 @@ A reference can define a tolerance band:
 
 > **Tip:** The **Measurements** panel can be collapsed with the chevron in its header to gain space for the chart.
 
+### 8.9 Waveform Export
+
+Click the **Export** button in the top toolbar while a waveform is displayed to open the export dialog. Formats and options:
+
+| Format | Content | Options |
+|:-------|:--------|:--------|
+| **LTspice PWL** | `time value` pairs, one per line | Channel; optional `PWL(...)` wrapper |
+| **WAV** | 16-bit PCM mono, uniform grid, normalised to full scale | Channel |
+| **VCD** | Digital state changes, 1 ns timescale, all acquired channels | High threshold in volts |
+| **Clipboard** | Measurement table as tab-separated text | — |
+
+* Files are written to the `waveform/exports/` subdirectory.
+* Non-uniform point lists (for example a loaded reference) are linearly resampled onto a uniform grid for WAV.
+* VCD timestamps are normalised so the earliest sample starts at 0.
+* For external CSV data as a reference, place the file in `waveform/csv/` and use **Load Reference** ([8.6 Reference Waveforms](#86-reference-waveforms)); no separate file picker is required.
+
 ## 9. Control Panel
 
 The Control Panel provides a virtual representation of the oscilloscope's physical front panel,  
@@ -1633,10 +1649,21 @@ Points with no usable measurement (Vin/Vout below 5 mV RMS, out-of-range values 
 * Both plots share the same logarithmic frequency axis.
 * The sweep progress and the current/last point are shown above the plots. After a sweep, **NEW** returns to the configuration form.
 
+**Automatic Analysis**
+
+When valid gain points are available, the panel below the plots and the gain chart show:
+
+* **Peak** — highest gain and its frequency.
+* **−3 dB** — upper roll-off frequency (interpolated on the logarithmic frequency axis, relative to the peak gain).
+* **Bandwidth** and **Q factor** — when the curve also has a lower −3 dB crossing (resonant/band-pass response). `Q = peak frequency / bandwidth`.
+* **0 dB** — first frequency where the gain crosses 0 dB.
+* Dashed markers with labels in the gain plot at the peak, −3 dB and 0 dB frequencies.
+* Notes explain values that cannot be determined (for example no −3 dB crossing or a gain that never reaches 0 dB).
+
 ### 10.7 Reports and CSV
 
 The **Save** action in the top toolbar captures the Bode plot and writes a PDF report to `bode/reports/`.  
-The report contains the plot, the report name and the sweep configuration. When **Save csv data** is enabled in the Settings, the sweep points are additionally written as CSV to `bode/csv/`.  
+The report contains the plot, the report name, the sweep configuration and an **Analysis** table with peak, −3 dB, bandwidth, Q factor and 0 dB crossover. When **Save csv data** is enabled in the Settings, the sweep points are additionally written as CSV to `bode/csv/`.  
 The generator identity (for example `FeelElec,FY6900-60M`) and the oscilloscope name are included.
 
 ### 10.8 Troubleshooting
@@ -2027,6 +2054,7 @@ The directory is OS specific:
 | `screenshots` | Display screenshots |
 | `waveform/csv` | Waveform CSV data |
 | `waveform/reports` | Waveform PDF measurement reports |
+| `waveform/exports` | Waveform export files (PWL, WAV, VCD) |
 | `logger/reports` | Data Logger reports |
 | `logger/csv` | Data Logger CSV data |
 | `bode/reports` | Bode Plot PDF reports |

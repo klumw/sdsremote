@@ -11,6 +11,7 @@ import 'dart:io';
 ///   profiles/           Instrument profile (.lss) files
 ///   waveform/csv/       Waveform data CSV files (save & reference load)
 ///   waveform/reports/   Waveform PDF measurement reports
+///   waveform/exports/   Waveform export files (PWL, WAV, VCD)
 ///   logger/reports/     Data logger PDF reports
 ///   logger/csv/         Data logger CSV data files
 ///   bode/reports/       Bode plot PDF reports
@@ -54,6 +55,10 @@ class AppPaths {
   /// `  <app working dir>/waveform/reports  `
   static Directory get waveformReportsDirectory =>
       Directory('${defaultSaveDirectory.path}${_sep}waveform${_sep}reports');
+
+  /// `  <app working dir>/waveform/exports  `
+  static Directory get waveformExportsDirectory =>
+      Directory('${defaultSaveDirectory.path}${_sep}waveform${_sep}exports');
 
   /// `  <app working dir>/logger/reports  `
   static Directory get loggerReportsDirectory =>
@@ -119,6 +124,9 @@ class AppPaths {
 
   static Future<Directory> getOrCreateWaveformReportsDir() =>
       ensureDirectoryExists(waveformReportsDirectory);
+
+  static Future<Directory> getOrCreateWaveformExportsDir() =>
+      ensureDirectoryExists(waveformExportsDirectory);
 
   static Future<Directory> getOrCreateLoggerReportsDir() =>
       ensureDirectoryExists(loggerReportsDirectory);

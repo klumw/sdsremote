@@ -15,6 +15,7 @@ import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
 import '../signal_generator/models.dart';
+import 'bode_analysis.dart';
 import 'bode_models.dart';
 
 /// Generates a PDF report for a completed Bode sweep.
@@ -38,6 +39,7 @@ class BodeReport {
   }) async {
     final pdf = pw.Document();
     final chartImage = pw.MemoryImage(chartImageBytes);
+    final analysis = analyzeBode(points);
 
     pdf.addPage(
       pw.MultiPage(
@@ -121,6 +123,32 @@ class BodeReport {
             headers: ['Parameter', 'Value'],
             data: _buildResultRows(config, points),
           ),
+          pw.SizedBox(height: 24),
+
+          // ---- Automatic Analysis ----
+          pw.Header(
+            text: 'Analysis',
+            level: 1,
+            textStyle: pw.TextStyle(
+              fontSize: 16,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.SizedBox(height: 12),
+          if (analysis.hasData)
+            pw.TableHelper.fromTextArray(
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              headerAlignment: pw.Alignment.centerLeft,
+              cellAlignment: pw.Alignment.centerLeft,
+              columnWidths: {
+                0: const pw.FlexColumnWidth(2),
+                1: const pw.FlexColumnWidth(3),
+              },
+              headers: ['Parameter', 'Value'],
+              data: _buildAnalysisRows(analysis),
+            )
+          else
+            pw.Text('No valid gain points for an automatic analysis.'),
         ],
       ),
     );
@@ -147,9 +175,7 @@ class BodeReport {
       ['Offset', '${_fmtNumber(config.offsetV)} V'],
       [
         'Waveform',
-        config.waveform.displayNameFor(
-          generatorFamily ?? SiggenFamily.jds6600,
-        ),
+        config.waveform.displayNameFor(generatorFamily ?? SiggenFamily.jds6600),
       ],
       ['Settling Time', '${config.settling.inMilliseconds} ms'],
       ['Phase Measurement', config.measurePhase ? 'Enabled' : 'Disabled'],
@@ -211,6 +237,43 @@ class BodeReport {
       }
     }
 
+    return rows;
+  }
+
+  /// Builds the table rows of the automatic gain analysis.
+  static List<List<String>> _buildAnalysisRows(BodeAnalysisSummary analysis) {
+    final rows = <List<String>>[];
+    if (analysis.peakGainDb != null && analysis.peakFrequencyHz != null) {
+      rows.add([
+        'Peak Gain',
+        '${_fmtValue(analysis.peakGainDb!, 'dB')} at '
+            '${_fmtFrequency(analysis.peakFrequencyHz!)}',
+      ]);
+    }
+    if (analysis.minus3DbFrequencyHz != null) {
+      rows.add([
+        '-3 dB Frequency',
+        _fmtFrequency(analysis.minus3DbFrequencyHz!),
+      ]);
+    }
+    if (analysis.lowerMinus3DbFrequencyHz != null) {
+      rows.add([
+        'Lower -3 dB Frequency',
+        _fmtFrequency(analysis.lowerMinus3DbFrequencyHz!),
+      ]);
+    }
+    if (analysis.bandwidthHz != null) {
+      rows.add(['Bandwidth', _fmtFrequency(analysis.bandwidthHz!)]);
+    }
+    if (analysis.qFactor != null) {
+      rows.add(['Q Factor', _fmtNumber(analysis.qFactor!)]);
+    }
+    if (analysis.unityCrossoverHz != null) {
+      rows.add(['0 dB Crossover', _fmtFrequency(analysis.unityCrossoverHz!)]);
+    }
+    if (analysis.notes.isNotEmpty) {
+      rows.add(['Notes', analysis.notes.join('; ')]);
+    }
     return rows;
   }
 

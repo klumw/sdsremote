@@ -14,10 +14,10 @@ SDS-Remote enables remote control and AI-enhanced operation of Siglent SDS1202X-
 ### Key Features
 
 - **Remote Oscilloscope Control**: Control supported oscilloscopes remotely over a network using the VXI-11 protocol or through USB connectivity (USB support is currently experimental).
-- **Waveform Acquisition & Data Export**: Capture and display waveform data from enabled channels. Save screen captures as images and export waveform data as CSV files.
+- **Waveform Acquisition & Data Export**: Capture and display waveform data from enabled channels. Save screen captures as images, write waveform PDF measurement reports and CSV data, and export waveforms as LTspice PWL, WAV or VCD files (or copy the measurement table to the clipboard).
 - **Device Parameter Monitoring**: View real-time parameters such as timebase, sample rate, and voltage settings. Cursor-based measurements are supported.
 - **Data Logging**: Log key data points over a period of time. Generate PDF measurement reports containing charts, key metrics, per-parameter statistics and alarm events, or export all recorded measurement points as CSV files. Optional lower/upper alarm rules per parameter raise one event per threshold crossing; threshold lines and event markers are drawn in the plot.
-- **Signal Generator & Bode Plot**: Choose **No Signal Generator**, **JDS6600** or **FY6900** in the settings. With JDS6600 or FY6900 selected, a **Bode** toolbar button appears once both the oscilloscope and the generator are detected; it runs a frequency sweep and plots gain and phase. The sweep limits are taken from the detected generator model and the selected waveform.
+- **Signal Generator & Bode Plot**: Choose **No Signal Generator**, **JDS6600** or **FY6900** in the settings. With JDS6600 or FY6900 selected, a **Bode** toolbar button appears once both the oscilloscope and the generator are detected; it runs a frequency sweep and plots gain and phase. The sweep limits are taken from the detected generator model and the selected waveform. The completed sweep is analysed automatically: peak gain/frequency, −3 dB frequency, bandwidth, Q factor and 0 dB crossover, with markers in the gain plot and a table in the PDF report.
 - **Macro Recorder**: Record, edit and play back SCPI command sequences. Supports variables, conditionals, loops, and both network and USB connections for automated test procedures.
 - **Engineering Calculator**: A scientific/programmable calculator window (Ctrl+R) with unit-aware expressions, complex numbers, dB level arithmetic, electronics/RF/audio/digital formulas, variables, programs, history and export.
 - **AI Control Panel Assistant**: Configure the oscilloscope from the Control Panel in plain language. The assistant overlays the control sidebar, reads the connected model and channel count, and delegates the SCPI work to the instrument agent.
@@ -571,7 +571,8 @@ Non-widget, domain-specific support code is grouped into subfolders under
   launcher/shortcut files for the Ctrl+R window. The Flutter UI lives in
   `lib/src/widgets/calculator_*.dart`.
 - `lib/src/bode/` — Bode Plot domain and sweep: `bode_models.dart`,
-  `bode_math.dart`, `bode_scope.dart`, `vxi11_bode_scope.dart`,
+  `bode_math.dart`, `bode_analysis.dart` (peak, −3 dB, bandwidth, Q factor,
+  gain crossover), `bode_scope.dart`, `vxi11_bode_scope.dart`,
   `waveform_phase.dart`, `bode_plot_service.dart`, `bode_csv_writer.dart`,
   `bode_report.dart`.
 - `lib/src/macro/` — Macro language and recorder logic: `macro_ast.dart`,
@@ -585,6 +586,7 @@ Non-widget, domain-specific support code is grouped into subfolders under
   duty, rise/fall, overshoot, multi-acquisition statistics),
   `waveform_compare.dart` (reference resampling, difference trace, deviation
   metrics), `waveform_mask.dart` (tolerance band and mask evaluation),
+  `waveform_export.dart` (LTspice PWL, WAV, VCD, clipboard TSV),
   `waveform_report.dart` (waveform PDF measurement report),
   `waveform_painter.dart`, `cursor_geometry.dart`, plus the CSV/processing
   helpers `waveform_csv_parser.dart`, `waveform_csv_writer.dart`,

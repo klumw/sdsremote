@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../app/app_theme.dart';
+import '../bode/bode_analysis.dart';
 import '../bode/bode_math.dart';
 import '../bode/bode_models.dart';
 import '../bode/bode_plot_service.dart';
@@ -247,6 +248,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
         _status == BodeStatus.configuring ||
         _status == BodeStatus.idle ||
         _status == BodeStatus.error;
+    final analysis = analyzeBode(_points);
     return Container(
       width: showConfig ? 700 : double.infinity,
       height: showConfig ? null : double.infinity,
@@ -270,13 +272,14 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                       points: _points,
                       config: _runConfig ?? _draft,
                       status: _status,
+                      analysis: analysis,
                     ),
                     child: const SizedBox.expand(),
                   ),
                 ),
               ),
             ),
-          _buildBottom(showConfig),
+          _buildBottom(showConfig, analysis),
         ],
       ),
     );
@@ -339,7 +342,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
     );
   }
 
-  Widget _buildBottom(bool showConfig) {
+  Widget _buildBottom(bool showConfig, BodeAnalysisSummary analysis) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(16),
@@ -350,7 +353,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (showConfig) _buildConfigForm() else _buildRunningState(),
+          if (showConfig) _buildConfigForm() else _buildRunningState(analysis),
           if (_message != null) ...[
             const SizedBox(height: 10),
             Container(
@@ -687,7 +690,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
     );
   }
 
-  Widget _buildRunningState() {
+  Widget _buildRunningState(BodeAnalysisSummary analysis) {
     final service = _service;
     final last = _points.isNotEmpty ? _points.last : null;
     final progress = service == null
@@ -728,6 +731,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                     fontFamily: 'monospace',
                   ),
                 ),
+              if (analysis.hasData) _buildAnalysisSummary(analysis),
             ],
           ),
         ),
@@ -752,6 +756,67 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
             ),
           ),
       ],
+    );
+  }
+
+  /// Compact analysis result shown below the sweep status.
+  Widget _buildAnalysisSummary(BodeAnalysisSummary analysis) {
+    Widget item(String label, String value) => Padding(
+      padding: const EdgeInsets.only(right: 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(color: Colors.white38, fontSize: 9),
+          ),
+          Text(
+            value,
+            style: const TextStyle(
+              color: Colors.cyanAccent,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              fontFamily: 'monospace',
+            ),
+          ),
+        ],
+      ),
+    );
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Wrap(
+            spacing: 4,
+            runSpacing: 4,
+            children: [
+              if (analysis.peakGainDb != null &&
+                  analysis.peakFrequencyHz != null)
+                item(
+                  'Peak',
+                  '${analysis.peakGainDb!.toStringAsFixed(2)} dB @ '
+                      '${formatFrequencyHz(analysis.peakFrequencyHz!)}',
+                ),
+              if (analysis.minus3DbFrequencyHz != null)
+                item('−3 dB', formatFrequencyHz(analysis.minus3DbFrequencyHz!)),
+              if (analysis.bandwidthHz != null)
+                item('Bandwidth', formatFrequencyHz(analysis.bandwidthHz!)),
+              if (analysis.qFactor != null)
+                item('Q factor', analysis.qFactor!.toStringAsFixed(2)),
+              if (analysis.unityCrossoverHz != null)
+                item('0 dB', formatFrequencyHz(analysis.unityCrossoverHz!)),
+            ],
+          ),
+          if (analysis.notes.isNotEmpty)
+            Text(
+              analysis.notes.join(' · '),
+              style: const TextStyle(color: Colors.white38, fontSize: 10),
+            ),
+        ],
+      ),
     );
   }
 
@@ -863,11 +928,13 @@ class _BodePlotPainter extends CustomPainter {
     required this.points,
     required this.config,
     required this.status,
+    required this.analysis,
   });
 
   final List<BodePoint> points;
   final BodeConfig config;
   final BodeStatus status;
+  final BodeAnalysisSummary analysis;
 
   static const double _left = 72;
   static const double _right = 20;
@@ -1000,6 +1067,68 @@ class _BodePlotPainter extends CustomPainter {
     }
 
     _drawSeries(canvas, rect, start, stop, yMin, yMax, isPhase: isPhase);
+    if (!isPhase) {
+      _drawAnalysisMarkers(canvas, rect, start, stop);
+    }
+  }
+
+  /// Draws dashed vertical markers for the analysis frequencies.
+  void _drawAnalysisMarkers(
+    Canvas canvas,
+    Rect rect,
+    double start,
+    double stop,
+  ) {
+    final markers = <(String, double, Color)>[
+      if (analysis.peakFrequencyHz != null)
+        ('Peak', analysis.peakFrequencyHz!, Colors.greenAccent),
+      if (analysis.minus3DbFrequencyHz != null)
+        ('−3 dB', analysis.minus3DbFrequencyHz!, Colors.yellowAccent),
+      if (analysis.lowerMinus3DbFrequencyHz != null)
+        (
+          '−3 dB',
+          analysis.lowerMinus3DbFrequencyHz!,
+          Colors.yellowAccent.withValues(alpha: 0.6),
+        ),
+      if (analysis.unityCrossoverHz != null)
+        ('0 dB', analysis.unityCrossoverHz!, Colors.white70),
+    ];
+    if (markers.isEmpty) return;
+
+    var labelY = rect.top + 4;
+    for (final (label, frequency, color) in markers) {
+      if (frequency < start || frequency > stop) continue;
+      final x = _xFor(frequency, start, stop, rect);
+      final paint = Paint()
+        ..color = color.withValues(alpha: 0.6)
+        ..strokeWidth = 1.0;
+      _drawDashedVertical(canvas, x, rect.top, rect.bottom, paint);
+      _drawText(
+        canvas,
+        '$label ${formatFrequencyHz(frequency)}',
+        Offset(x + 3, labelY),
+        color,
+        10,
+      );
+      labelY += 13;
+    }
+  }
+
+  void _drawDashedVertical(
+    Canvas canvas,
+    double x,
+    double top,
+    double bottom,
+    Paint paint,
+  ) {
+    const dash = 6.0;
+    const gap = 4.0;
+    var y = top;
+    while (y < bottom) {
+      final end = math.min(y + dash, bottom);
+      canvas.drawLine(Offset(x, y), Offset(x, end), paint);
+      y += dash + gap;
+    }
   }
 
   void _drawSeries(
@@ -1156,6 +1285,13 @@ class _BodePlotPainter extends CustomPainter {
     return oldDelegate.points.length != points.length ||
         !identical(oldDelegate.points, points) ||
         oldDelegate.config != config ||
-        oldDelegate.status != status;
+        oldDelegate.status != status ||
+        oldDelegate.analysis.peakFrequencyHz != analysis.peakFrequencyHz ||
+        oldDelegate.analysis.peakGainDb != analysis.peakGainDb ||
+        oldDelegate.analysis.minus3DbFrequencyHz !=
+            analysis.minus3DbFrequencyHz ||
+        oldDelegate.analysis.lowerMinus3DbFrequencyHz !=
+            analysis.lowerMinus3DbFrequencyHz ||
+        oldDelegate.analysis.unityCrossoverHz != analysis.unityCrossoverHz;
   }
 }

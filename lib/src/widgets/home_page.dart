@@ -35,8 +35,10 @@ import '../waveform/waveform_compare.dart';
 import '../waveform/waveform_mask.dart';
 import '../waveform/waveform_measurements.dart';
 import '../waveform/waveform_painter.dart';
+import '../waveform/waveform_export.dart';
 import '../waveform/waveform_report.dart';
 import '../waveform/waveform_view_transform.dart';
+import 'waveform_export_dialog.dart';
 import 'waveform_measurement_panel.dart';
 import '../ai/ai_chat_service.dart';
 import '../ai/ai_settings.dart';
@@ -1358,6 +1360,13 @@ class _OsciHomePageState extends State<OsciHomePage>
                 ? null
                 : _saveCurrentView,
           ),
+          if (_canExportWaveform)
+            IconButton(
+              icon: const Icon(Icons.ios_share, size: 25),
+              color: _isMacroPlaying ? Colors.white24 : Colors.white70,
+              tooltip: 'Export',
+              onPressed: _isMacroPlaying ? null : _showWaveformExportDialog,
+            ),
         ],
       ),
     );
@@ -3549,6 +3558,15 @@ class _OsciHomePageState extends State<OsciHomePage>
       _activePanel == ActivePanel.none &&
       (_screenDump != null || _waveformAcquired);
 
+  /// Whether the current waveform can be exported in an external format.
+  bool get _canExportWaveform =>
+      _activePanel == ActivePanel.none &&
+      _waveformAcquired &&
+      (_waveformCh1 != null ||
+          _waveformCh2 != null ||
+          _waveformCh3 != null ||
+          _waveformCh4 != null);
+
   /// Whether a data logger report can be saved.
   bool get _canSaveDataLoggerReport =>
       _activePanel == ActivePanel.dataLogger &&
@@ -3792,6 +3810,88 @@ class _OsciHomePageState extends State<OsciHomePage>
     } catch (e) {
       _showErrorSnackBar('Save failed: $e');
     }
+  }
+
+  /// Acquired waveform channels with their display points.
+  Map<String, WaveformData> _acquiredWaveformChannels() => {
+    'ch1': ?_waveformCh1,
+    'ch2': ?_waveformCh2,
+    'ch3': ?_waveformCh3,
+    'ch4': ?_waveformCh4,
+  };
+
+  Future<void> _showWaveformExportDialog() async {
+    final channels = _acquiredWaveformChannels();
+    if (channels.isEmpty) {
+      _showInfoSnackBar('No waveform data available.');
+      return;
+    }
+    final request = await showDialog<WaveformExportRequest>(
+      context: context,
+      builder: (_) => WaveformExportDialog(channels: channels.keys.toList()),
+    );
+    if (request == null || !mounted) return;
+    await _performWaveformExport(request);
+  }
+
+  Future<void> _performWaveformExport(WaveformExportRequest request) async {
+    try {
+      if (request.format == WaveformExportFormat.clipboard) {
+        await Clipboard.setData(
+          ClipboardData(text: buildClipboardText(_acquiredMeasurements())),
+        );
+        _showInfoSnackBar('Measurements copied to the clipboard.');
+        return;
+      }
+
+      final channels = _acquiredWaveformChannels();
+      final String extension;
+      Uint8List? bytes;
+      String? text;
+      switch (request.format) {
+        case WaveformExportFormat.ltspicePwl:
+          final points = channels[request.channel]?.points ?? const [];
+          text = buildLtspicePwl(points, wrap: request.wrapPwl);
+          extension = 'txt';
+          break;
+        case WaveformExportFormat.wav:
+          final points = channels[request.channel]?.points ?? const [];
+          bytes = buildWav(points, sampleRate: _waveformPointRate(points));
+          extension = 'wav';
+          break;
+        case WaveformExportFormat.vcd:
+          text = buildVcd({
+            for (final entry in channels.entries) entry.key: entry.value.points,
+          }, thresholdVolts: request.thresholdVolts);
+          extension = 'vcd';
+          break;
+        case WaveformExportFormat.clipboard:
+          throw StateError('clipboard export is handled above');
+      }
+
+      final dir = await AppPaths.getOrCreateWaveformExportsDir();
+      final base = request.fileName.trim().isEmpty
+          ? 'waveform_export'
+          : request.fileName.trim();
+      final file = await AppPaths.getUniqueFilePath(dir, base, extension);
+      if (bytes != null) {
+        await file.writeAsBytes(bytes);
+      } else {
+        await file.writeAsString(text ?? '');
+      }
+      if (mounted) _showInfoSnackBar('Saved ${file.uri.pathSegments.last}');
+    } catch (e) {
+      _showErrorSnackBar('Export failed: $e');
+    }
+  }
+
+  /// Effective sample rate of the displayed points (1 / first interval).
+  double _waveformPointRate(List<(double, double)> points) {
+    if (points.length >= 2) {
+      final dt = points[1].$1 - points[0].$1;
+      if (dt.isFinite && dt > 0) return 1 / dt;
+    }
+    return _deviceParams?.sampleRate ?? 1000;
   }
 
   /// Captures the Data Logger chart as a PNG image, generates a PDF report,
