@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../tools/date_time_tool.dart';
 import '../tools/macro_tools.dart';
 import '../tools/vxi11_tool.dart';
 import '../tools/waveform_summary_tool.dart';
@@ -17,6 +18,9 @@ import 'systemprompts.dart';
 /// - `search_agent` — answers knowledgebase questions about the oscilloscope.
 /// - `read_waveform_summary` — returns the automatic measurements of the
 ///   currently displayed waveform for explanation.
+/// - `current_date_time` — returns the current local date and time in the
+///   application log format, plus the timezone and UTC, for placing events
+///   in time.
 ///
 /// It is built on [FrontendAgent] because that class already composes the
 /// instrument and knowledgebase sub-agents and implements the buffered
@@ -57,6 +61,7 @@ class ControlPanelAgent {
              readSummary: readWaveformSummary,
              agentName: 'ControlPanelAgent',
            ),
+           createDateTimeTool(agentName: 'ControlPanelAgent'),
          ],
        );
 

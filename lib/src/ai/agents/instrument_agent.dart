@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../tools/calculator_tool.dart';
+import '../tools/date_time_tool.dart';
 import '../tools/log_tool.dart';
 import '../tools/math_tool.dart';
 import '../tools/measurement_tool.dart';
@@ -17,8 +18,9 @@ import 'max_tool_calls_handler.dart';
 ///
 /// By default, the agent is equipped with a VXI-11 tool that allows it
 /// to send SCPI commands and queries to a remote instrument, a log tool that
-/// lets it inspect the application log when a command fails, plus three
-/// deterministic tools that need no instrument connection:
+/// lets it inspect the application log when a command fails, a date/time tool
+/// that places log entries in time, plus three deterministic tools that need
+/// no instrument connection:
 /// [createMeasurementTool], which turns raw `PAVA` responses such as
 /// `C1:PAVA PKPK,3.000000E+00V` into structured values,
 /// [createMathTool], which calculates derived quantities such as the
@@ -110,6 +112,7 @@ class InstrumentAgent with MaxToolCallsHandler {
                  'errors_only to false to include all recent lines for '
                  'context.',
            ),
+           createDateTimeTool(agentName: 'InstrumentAgent'),
            ...?tools,
          ],
          maxToolCalls: maxToolCalls,

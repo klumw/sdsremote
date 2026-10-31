@@ -324,6 +324,7 @@ You are the Control Panel assistant; do not answer unrelated general electronics
 ## TOOLS
 - read_oscilloscope_status — returns whether the oscilloscope connection is active and, when it is, the detected model, display name, channel count, transport and address. Use it before acting when the request depends on the model, the channel count or the connection state.
 - read_waveform_summary — returns the automatic measurements (frequency, Vpp, RMS, mean, duty cycle, rise time, ...) of the waveform currently displayed in the Waveform view, per channel, including the sample interval. Use it to explain what the current signal shows and to suggest settings that improve the measurement. If it returns an error, say that no waveform is displayed and ask the user to acquire one first. Never invent or recalculate measurement values; quote the returned values with their units.
+- current_date_time — returns the current local date and time in the application log format, plus the timezone and UTC. Use it when the user asks when an event happened or whether a log entry is recent.
 - scpi_instrument_agent — delegates an instrument action or measurement to the instrument agent. It owns the authorized SCPI command list, sends the commands and verifies set values. Describe the desired action in natural language; never write raw SCPI yourself.
 - search_agent — searches the oscilloscope knowledgebase. Use it only for questions about features or operation, never to perform an action.
 
@@ -1583,6 +1584,11 @@ LOG DIAGNOSTICS
 The tool "read_log_file" returns recent lines of the SDS-Remote application log.
 Use it only when something failed — never after a successful command.
 
+The tool "current_date_time" returns the current local date and time in the
+same format as the log timestamps (plus timezone and UTC). Call it when the
+user asks when a failure occurred or whether a log entry is recent; compare
+its date_time with the quoted log lines.
+
 When a command fails (the communication tool returns success=false, or the
 device returns an error):
 1. Search the log for the affected command or channel: call read_log_file with
@@ -2043,7 +2049,7 @@ You help the user create and change macro files (.m) that automate the oscillosc
 You work directly on the macro that is currently open in the editor.
 
 ## ACCESS TO THE CURRENT MACRO
-You have eleven tools:
+You have twelve tools:
 - read_macro — returns the complete editor content, its line count, and the file name (when saved). Call it before every change and whenever you need the current state.
 - write_macro — replaces the COMPLETE editor content with the "content" argument. The editor updates immediately and the file is marked as modified. It returns whether the write was applied, the line count, and lint errors in the new content.
 - validate_macro — parses and lints macro source. It checks the current editor content when "content" is omitted, or a candidate version when "content" is supplied. Returns syntax and semantic errors with 1-based line numbers.
@@ -2055,6 +2061,7 @@ You have eleven tools:
 - read_profiles — returns the standard profile directory, the .lss profile files that exist there, and the path style the current operating system requires. Call it before writing any loadProfile(...) statement.
 - math_tool — deterministic calculator for arithmetic, unit conversion and readable SI formatting. It never reads or writes the editor and never talks to the instrument.
 - calculator_tool — unit-aware engineering calculator with complex numbers, dB levels and the electronics/RF/audio/digital formula library. Use it for quantities with units, level arithmetic and the named formulas; it never reads or writes the editor and never talks to the instrument.
+- current_date_time — returns the current local date and time in the same format as the application log timestamps, plus the timezone and UTC. Use it to place log entries or macro runs in time.
 
 NEVER ask the user to paste the macro — it is already available through read_macro.
 NEVER claim that a change was made unless write_macro returned applied: true.
@@ -2318,6 +2325,11 @@ String helpAgentSystemPrompt({
       'warning and error lines; pass errors_only=false for all recent lines '
       'and max_lines to change the count.',
     )
+    ..writeln(
+      '- current_date_time — returns the current local date and time in the '
+      'same format as the sds.log timestamps, plus the timezone and UTC. Use '
+      'it to place log entries in time or to compare them with "now".',
+    )
     ..writeln()
     ..writeln('## Troubleshooting with the log')
     ..writeln(
@@ -2328,6 +2340,11 @@ String helpAgentSystemPrompt({
     ..writeln(
       '- Quote the relevant log lines (with their timestamp and level) and '
       'explain in plain language what they mean.',
+    )
+    ..writeln(
+      '- When the user asks whether an entry is recent or how long ago it '
+      'happened, call current_date_time and compare its date_time with the '
+      'log timestamps.',
     )
     ..writeln(
       '- If the log contains no entry for the problem, say so instead of '

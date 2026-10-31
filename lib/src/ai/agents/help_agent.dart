@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../../help/help_sections.dart';
+import '../tools/date_time_tool.dart';
 import '../tools/help_tools.dart';
 import 'systemprompts.dart';
 
@@ -13,9 +14,10 @@ import 'systemprompts.dart';
 /// prompt holds the anchor slugs that the help window scrolls to, so every
 /// link the model emits resolves to a heading.
 ///
-/// Its only tool is `read_log_file`: when the user reports a problem with the
-/// application, the assistant inspects the application log and offers a
-/// concrete next step.
+/// Its tools are `read_log_file` and `current_date_time`: when the user
+/// reports a problem with the application, the assistant inspects the
+/// application log, places the entries in time and offers a concrete next
+/// step.
 class HelpAgent {
   /// Maximum number of history messages kept after the system prompt.
   ///
@@ -41,6 +43,7 @@ class HelpAgent {
          displayName: 'HelpAgent',
          tools: [
            createReadLogFileTool(readLog: readLog, agentName: 'HelpAgent'),
+           createDateTimeTool(agentName: 'HelpAgent'),
          ],
        ) {
     _systemMessage = ChatMessage.system(

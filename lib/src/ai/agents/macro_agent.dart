@@ -4,6 +4,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../../core/logger.dart';
 import '../tools/calculator_tool.dart';
+import '../tools/date_time_tool.dart';
 import '../tools/macro_tools.dart';
 import '../tools/math_tool.dart';
 import 'systemprompts.dart';
@@ -31,6 +32,9 @@ import 'systemprompts.dart';
 ///   files stored there and the path style of the current operating system.
 /// - `math_tool` — deterministic arithmetic, unit conversion and readable
 ///   value formatting.
+/// - `current_date_time` — returns the current local date and time in the
+///   same format as the application log timestamps, plus the timezone and
+///   UTC, for placing log entries in time.
 ///
 /// The complete macro language reference is part of
 /// [macroAgentSystemPrompt], so the model does not need a documentation tool.
@@ -120,6 +124,7 @@ class MacroAgent {
            createReadProfilesTool(agentName: 'MacroAgent'),
            createMathTool(agentName: 'MacroAgent'),
            createCalculatorTool(agentName: 'MacroAgent'),
+           createDateTimeTool(agentName: 'MacroAgent'),
          ],
        ) {
     _history.add(ChatMessage.system(macroAgentSystemPrompt));
