@@ -12,7 +12,9 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import 'data_logger_alarms.dart';
 import 'data_logger_models.dart';
+import 'data_logger_statistics.dart';
 
 /// Generates a PDF report for a completed Data Logger recording session.
 class DataLoggerReport {
@@ -36,6 +38,11 @@ class DataLoggerReport {
 
     // Build the measurement rows for all enabled parameters.
     final measurementRows = _buildMeasurementRows(config, points, first, last);
+    final statistics = computeDataLoggerStatistics(
+      config: config,
+      points: points,
+    );
+    final alarmEvents = dataLoggerAlarmEvents(config: config, points: points);
 
     // Format total recording time.
     final totalSeconds = config.durationMinutes * 60.0;
@@ -99,6 +106,69 @@ class DataLoggerReport {
             data: measurementRows,
           ),
           pw.SizedBox(height: 24),
+
+          // ---- Statistics ----
+          if (statistics.isNotEmpty) ...[
+            pw.Header(
+              text: 'Statistics',
+              level: 1,
+              textStyle: pw.TextStyle(
+                fontSize: 16,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.SizedBox(height: 12),
+            pw.TableHelper.fromTextArray(
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              headerAlignment: pw.Alignment.centerLeft,
+              cellAlignment: pw.Alignment.centerLeft,
+              columnWidths: {
+                0: const pw.FlexColumnWidth(2),
+                1: const pw.FlexColumnWidth(1.2),
+                2: const pw.FlexColumnWidth(1.2),
+                3: const pw.FlexColumnWidth(1.2),
+                4: const pw.FlexColumnWidth(1.4),
+                5: const pw.FlexColumnWidth(1.2),
+              },
+              headers: [
+                'Parameter',
+                'Mean',
+                'Median',
+                'Std Dev',
+                'Trend/min',
+                'Drift',
+              ],
+              data: _buildStatisticsRows(statistics),
+            ),
+            pw.SizedBox(height: 24),
+          ],
+
+          // ---- Alarm Events ----
+          if (alarmEvents.isNotEmpty) ...[
+            pw.Header(
+              text: 'Alarm Events',
+              level: 1,
+              textStyle: pw.TextStyle(
+                fontSize: 16,
+                fontWeight: pw.FontWeight.bold,
+              ),
+            ),
+            pw.SizedBox(height: 12),
+            pw.TableHelper.fromTextArray(
+              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+              headerAlignment: pw.Alignment.centerLeft,
+              cellAlignment: pw.Alignment.centerLeft,
+              columnWidths: {
+                0: const pw.FlexColumnWidth(1),
+                1: const pw.FlexColumnWidth(2),
+                2: const pw.FlexColumnWidth(1.2),
+                3: const pw.FlexColumnWidth(2),
+              },
+              headers: ['Time', 'Parameter', 'Value', 'Rule'],
+              data: _buildAlarmRows(alarmEvents),
+            ),
+            pw.SizedBox(height: 24),
+          ],
 
           // ---- Total Recording Time ----
           pw.Text(
@@ -314,6 +384,69 @@ class DataLoggerReport {
     }
 
     return rows;
+  }
+
+  /// Statistics rows in the parameter registry order.
+  static List<List<String>> _buildStatisticsRows(
+    Map<String, ParameterStatistics> statistics,
+  ) {
+    final rows = <List<String>>[];
+    for (final parameter in dataLoggerParameters) {
+      final stats = statistics[parameter.id];
+      if (stats == null) continue;
+      rows.add([
+        parameter.label,
+        _fmtUnit(stats.mean, stats.unit),
+        _fmtUnit(stats.median, stats.unit),
+        _fmtUnit(stats.standardDeviation, stats.unit),
+        stats.trendPerMinute == null
+            ? 'N/A'
+            : '${_fmtUnit(stats.trendPerMinute, stats.unit)}/min',
+        stats.driftPercent == null
+            ? 'N/A'
+            : '${stats.driftPercent!.toStringAsFixed(2)} %',
+      ]);
+    }
+    return rows;
+  }
+
+  /// Alarm event rows with the configured bound as the rule description.
+  static List<List<String>> _buildAlarmRows(List<DataLoggerAlarmEvent> events) {
+    return [
+      for (final event in events)
+        [
+          _formatDuration(event.elapsedSeconds),
+          event.parameterLabel,
+          _fmtUnit(
+            event.value,
+            dataLoggerParameterById(event.parameterId)?.unit ?? '',
+          ),
+          _alarmRuleText(event),
+        ],
+    ];
+  }
+
+  static String _alarmRuleText(DataLoggerAlarmEvent event) {
+    final unit = dataLoggerParameterById(event.parameterId)?.unit ?? '';
+    if (event.direction == DataLoggerAlarmDirection.belowLower) {
+      return 'below ${_fmtUnit(event.lower, unit)}';
+    }
+    return 'above ${_fmtUnit(event.upper, unit)}';
+  }
+
+  /// Formats a value with the unit conventions used by the Data Logger.
+  static String _fmtUnit(double? value, String unit) {
+    if (value == null) return 'N/A';
+    switch (unit) {
+      case 'Hz':
+        return _fmtFreq(value);
+      case '%':
+        return '${value.toStringAsFixed(1)} %';
+      case 'dB':
+        return '${value.toStringAsFixed(2)} dB';
+      default:
+        return '${value.toStringAsFixed(3)} $unit';
+    }
   }
 
   /// Returns the minimum non-null double from the iterable, or null if empty.

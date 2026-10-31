@@ -10,8 +10,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
+import '../data_logger/data_logger_alarms.dart';
 import '../data_logger/data_logger_models.dart';
 import '../data_logger/data_logger_service.dart';
+import '../data_logger/data_logger_statistics.dart';
 import 'data_logger_plot.dart';
 import 'data_logger_dialog.dart';
 import '../instrument/dart_vxi11.dart';
@@ -98,6 +100,8 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
   List<DataLoggerPoint> _points = [];
   DataLoggerService? _service;
   StreamSubscription<DataLoggerPoint>? _subscription;
+  StreamSubscription<DataLoggerAlarmEvent>? _alarmSubscription;
+  List<DataLoggerAlarmEvent> _alarmEvents = [];
   int _elapsedSeconds = 0;
   Set<String> _hiddenLines = {};
   double? _hoveredTime;
@@ -124,6 +128,11 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       _config = const DataLoggerConfig();
     }
     _config = _sanitizeConfig(_config!);
+    // Restored recordings replay their alarm events from the stored samples
+    // and rules; the live stream only feeds a running session.
+    if (_points.isNotEmpty && _config!.hasActiveAlarms) {
+      _alarmEvents = dataLoggerAlarmEvents(config: _config!, points: _points);
+    }
     if (widget.savedStatus != null) {
       _status = widget.savedStatus!;
     } else {
@@ -149,6 +158,7 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       _service?.stop();
     }
     _subscription?.cancel();
+    _alarmSubscription?.cancel();
     _service?.dispose();
     _service = null;
     _pulseController.dispose();
@@ -168,6 +178,7 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     if (_service != null) return;
     _service = DataLoggerService(widget.getInstrument);
     _subscription = _service!.pointStream.listen(_onDataPoint);
+    _alarmSubscription = _service!.alarmStream.listen(_onAlarmEvent);
     widget.onServiceCreated?.call(_service!);
     // Listen for probe divider updates from the service so we can
     // propagate them to _config and rebuild the dialog with real values.
@@ -240,6 +251,13 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     });
   }
 
+  void _onAlarmEvent(DataLoggerAlarmEvent event) {
+    if (!mounted) return;
+    setState(() {
+      _alarmEvents = [..._alarmEvents, event];
+    });
+  }
+
   // ---------- Callbacks ----------
 
   /// Clears CH3/CH4 selections when the connected instrument only has two
@@ -275,6 +293,7 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     // doesn't feel unresponsive.
     setState(() {
       _points.clear();
+      _alarmEvents.clear();
       _elapsedSeconds = 0;
       _status = DataLoggerStatus.running;
     });
@@ -305,6 +324,7 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     widget.onRunningChanged?.call(false);
     setState(() {
       _points.clear();
+      _alarmEvents.clear();
       _elapsedSeconds = 0;
       _status = DataLoggerStatus.configuring;
       // Keep _config as-is so the form shows previously entered values
@@ -318,6 +338,7 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     _ensureService();
     setState(() {
       _points.clear();
+      _alarmEvents.clear();
       _elapsedSeconds = 0;
       _status = DataLoggerStatus.running;
     });
@@ -444,6 +465,9 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
                                             (_config?.durationMinutes ?? 1) *
                                             60.0,
                                         hiddenLines: _hiddenLines,
+                                        alarmRules:
+                                            _config?.alarmRules ?? const {},
+                                        alarmEvents: _alarmEvents,
                                         onToggleLine: (id) {
                                           setState(() {
                                             if (_hiddenLines.contains(id)) {
@@ -487,6 +511,22 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
                     Padding(
                       padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
                       child: _buildLegendToggleRow(),
+                    ),
+                  if ((_status == DataLoggerStatus.running ||
+                          _status == DataLoggerStatus.stopped) &&
+                      _points.length > 1)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                      child: _buildStatisticsRow(),
+                    ),
+                  if ((_status == DataLoggerStatus.running ||
+                          _status == DataLoggerStatus.stopped) &&
+                      (_alarmEvents.isNotEmpty ||
+                          (_points.isNotEmpty &&
+                              _points.last.activeAlarms.isNotEmpty)))
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                      child: _buildAlarmStatusRow(),
                     ),
                 ],
               ),
@@ -928,6 +968,148 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
         ),
       ),
     );
+  }
+
+  /// Compact per-parameter statistics strip shown above the controls.
+  Widget _buildStatisticsRow() {
+    final config = _config;
+    if (config == null) return const SizedBox.shrink();
+    final statistics = computeDataLoggerStatistics(
+      config: config,
+      points: _points,
+    );
+    if (statistics.isEmpty) return const SizedBox.shrink();
+
+    final items = <Widget>[];
+    for (final parameter in dataLoggerParameters) {
+      final stats = statistics[parameter.id];
+      if (stats == null) continue;
+      if (items.isNotEmpty) items.add(const SizedBox(width: 8));
+      final mean = stats.mean;
+      final deviation = stats.standardDeviation;
+      final trend = stats.trendPerMinute;
+      final drift = stats.driftPercent;
+      items.add(
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+          decoration: BoxDecoration(
+            color: const Color(0xFF172A45).withValues(alpha: 0.5),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: const Color(0xFF475569)),
+          ),
+          child: Text(
+            '${parameter.label}: μ ${_fmtStat(mean, stats.unit)}'
+            '${deviation == null ? '' : ' · σ ${_fmtStat(deviation, stats.unit)}'}'
+            '${trend == null ? '' : ' · ${_fmtSignedStat(trend, stats.unit)}/min'}'
+            '${drift == null ? '' : ' · ${drift >= 0 ? '+' : ''}${drift.toStringAsFixed(1)}%'}',
+            style: const TextStyle(color: Colors.white70, fontSize: 10),
+          ),
+        ),
+      );
+    }
+    if (items.isEmpty) return const SizedBox.shrink();
+    return SizedBox(
+      height: 26,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(children: items),
+      ),
+    );
+  }
+
+  /// Active alarms and the most recent alarm events.
+  Widget _buildAlarmStatusRow() {
+    final active = _points.isNotEmpty
+        ? _points.last.activeAlarms
+        : const <String>{};
+    final recent = _alarmEvents.length > 20
+        ? _alarmEvents.sublist(_alarmEvents.length - 20)
+        : _alarmEvents;
+
+    return SizedBox(
+      height: 26,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            const Icon(
+              Icons.warning_amber_rounded,
+              size: 14,
+              color: Colors.redAccent,
+            ),
+            const SizedBox(width: 4),
+            const Text(
+              'Alarms',
+              style: TextStyle(
+                color: Colors.redAccent,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(width: 8),
+            for (final parameterId in active) ...[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.redAccent.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: Colors.redAccent.withValues(alpha: 0.6),
+                  ),
+                ),
+                child: Text(
+                  '${dataLoggerParameterLabel(parameterId)} active',
+                  style: const TextStyle(
+                    color: Colors.redAccent,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
+            Text(
+              '${_alarmEvents.length} events',
+              style: const TextStyle(color: Colors.white54, fontSize: 10),
+            ),
+            for (final event in recent) ...[
+              const SizedBox(width: 6),
+              Text(
+                't=${_fmtAlarmTime(event.elapsedSeconds)} '
+                '${event.parameterLabel} ${_fmtStat(event.value, dataLoggerParameterById(event.parameterId)?.unit ?? '')}',
+                style: const TextStyle(color: Colors.white70, fontSize: 10),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _fmtStat(double? value, String unit) {
+    if (value == null || !value.isFinite) return '—';
+    switch (unit) {
+      case 'Hz':
+        return '${_fmtSi(value)}Hz';
+      case '%':
+        return '${value.toStringAsFixed(1)}%';
+      case 'dB':
+        return '${value.toStringAsFixed(2)}dB';
+      default:
+        return '${value.toStringAsFixed(3)}$unit';
+    }
+  }
+
+  String _fmtSignedStat(double value, String unit) {
+    final text = _fmtStat(value, unit);
+    return value >= 0 ? '+$text' : text;
+  }
+
+  String _fmtAlarmTime(double seconds) {
+    if (seconds < 120) return '${seconds.round()}s';
+    final minutes = seconds ~/ 60;
+    final rest = seconds.round() % 60;
+    return rest == 0 ? '${minutes}min' : '${minutes}min ${rest}s';
   }
 
   Widget _buildHeader() {

@@ -69,7 +69,7 @@ See [12. Application Directory](#12-application-directory) for a complete breakd
   The Data Logger operates at minimum 10-second intervals.
 * **Macro Playback** — Macros run on a dedicated VXI-11 connection. During playback, most UI functions are disabled. The Control Panel, Acquire Waveform, Data Logger, and AI Chat cannot be used concurrently with macro playback.
 * **Waveform Downsampling** — Acquired waveforms are downsampled for display to maintain rendering performance.  
-  The full dataset is preserved in CSV exports.
+  CSV exports contain the same downsampled points that are displayed, with their actual sample timestamps.
 * **Gain (dB) with very small signals** — Below an RMS voltage of 10 mV on either channel the gain calculation reflects the oscilloscope's noise floor and its 8 bit quantisation instead of the device under test,  
   and the result can vary by tens of decibels between samples.  
   The Data Logger records no gain value for such samples (see the note in [6.2 Measurable Parameters](#62-measurable-parameters)).
@@ -584,6 +584,16 @@ When the Data Logger panel opens in the **configuring** state, a setup dialog is
 * An optional text field (up to **150 characters**) for a descriptive report name.
 * This name appears at the top of the real-time chart and in the PDF report heading.
 
+#### Alarm Rules
+
+For every selected parameter an optional threshold rule can be configured:
+
+* **Lower** and **Upper** fields accept a numeric value in the parameter's unit. An empty field disables that bound.
+* Values **equal** to a bound are still inside the allowed range; only strict crossings raise an alarm.
+* A checkbox enables or disables the rule without deleting its bounds.
+* Rules are evaluated after every sample. An alarm is raised once when the value leaves the range and re-arms after it returns, so a signal that stays outside does not produce repeated events.
+* Invalid samples (missing value, `***` out-of-range response, gain below the noise floor) neither raise nor clear an alarm.
+
 ### 6.4 Real-Time Plot
 
 Once recording starts, the Data Logger panel expands to show a real-time XY plot in the main area:
@@ -606,6 +616,17 @@ Once recording starts, the Data Logger panel expands to show a real-time XY plot
 
 * Below the chart, colored legend chips represent each active measurement line.
 * Click a chip to **hide** or **show** that line on the chart — useful for focusing on specific parameters in multi-line plots.
+
+**Statistics Strip**
+
+* Once at least two samples are available, a strip below the legend shows per parameter: mean (μ), sample standard deviation (σ), the least-squares trend per minute and the percentage drift from the first to the last valid value.
+* Invalid samples are skipped; a parameter without valid values is omitted.
+
+**Alarm Overlay and Events**
+
+* Configured bounds are drawn as dashed red lines on the corresponding axis (voltage, frequency, duty cycle or gain). Hide a line with its legend chip to hide its threshold lines as well.
+* Each threshold crossing is marked with a faint vertical line and a red dot at the measured value.
+* A red status strip shows currently active alarms and the most recent events with their recording time, parameter and value.
 
 **Running Indicator**
 
@@ -636,6 +657,8 @@ The report includes:
   * End value (last data point)
   * Minimum value
   * Maximum value
+* **Statistics Table** — For each enabled parameter: mean, median, sample standard deviation, linear trend per minute and percentage drift.
+* **Alarm Events Table** — When a rule fired: recording time, parameter, measured value and the violated bound.
 * **Total Recording Time** — Formatted with appropriate unit scaling.
 
 Reports are saved to the `logger/reports/` subdirectory of the application working directory.
@@ -644,6 +667,7 @@ Reports are saved to the `logger/reports/` subdirectory of the application worki
 
 If the **Save CSV Data** option is enabled in Settings, a CSV file with all raw data points is exported alongside the PDF report to the `logger/csv/` subdirectory.  
 The CSV contains a timestamp column and one column per measured parameter — `Gain (dB)` among them when gain logging is enabled — with the report name included as a metadata comment.
+Alarm events are appended as comment lines (`# Alarm Events: …`), so tools that parse the data table are unaffected.
 
 ### 6.8 Probe Attenuation
 
@@ -1229,6 +1253,8 @@ Previously saved waveform data can be loaded as a reference overlay for comparis
 * The reference waveform toggle (**REF**) appears in the channel status area of the Device Parameters panel.
 * Click the **REF** indicator to show or hide the reference waveform.
 * The reference time axis is automatically aligned to the live waveform for accurate comparison.
+* **Use Current as Reference** copies the displayed waveform of an enabled channel into the reference without saving a CSV first. If more than one channel has data, a dialog asks which one to use.
+* **Difference** overlays `live − reference` as an orange trace. The comparison follows the manual reference offset (see [8.8 Measurements, Difference and Mask](#88-measurements-difference-and-mask)).
 
 ### 8.7 Saving Waveform Data
 
@@ -1245,6 +1271,8 @@ The CSV format is:
 
 ```
 # SDS-Remote Waveform Data
+# Format Version: 2
+# Time axis: sample time
 # Saved: <timestamp>
 # Device: <device name or IP>
 # Timebase: <value> s/div
@@ -1276,7 +1304,9 @@ Time (s),CH1 (V),CH2 (V),CH3 (V),CH4 (V)
 ...
 ```
 
-Time values start at 0 and increment by `1 / Sample Rate` for each row. Channel columns are empty (` `) when a channel was not acquired.
+Time values are the actual sample timestamps of the exported (downsampled) points, normalised so the first row starts at 0. The interval therefore reflects the real sample spacing of the displayed waveform and is not necessarily `1 / Sample Rate`. Channel columns are empty (` `) when a channel was not acquired.
+
+> **Note:** CSV files written before format version 2 used `1 / Sample Rate` as the time step. They remain loadable as reference waveforms, but their time axis keeps the values stored in the file.
 
 > **Tip:** The exported CSV files can be reloaded later as reference waveforms using the **Load Reference** feature ([8.6 Reference Waveforms](#86-reference-waveforms)).
 
@@ -1284,6 +1314,64 @@ Time values start at 0 and increment by `1 / Sample Rate` for each row. Channel 
 
 If the **Ask for filename on save** option is enabled in Settings, a dialog prompts for a custom filename prefix before each save.  
 The default prefix is `waveform` (image) and `waveform_data` (CSV). A numeric suffix is automatically appended to avoid overwriting existing files.
+
+### 8.8 Measurements, Difference and Mask
+
+After every acquisition the analysis panel below the chart is filled automatically. Values that cannot be determined from the data are shown as `—`; they are never reported as zero. The info icon next to a channel name lists the reason (for example flatline signal, unstable period or unavailable rise/fall transition).
+
+#### Automatic Measurements
+
+The **Measurements** view shows per enabled channel:
+
+* Vpp, RMS, frequency, duty cycle, rise time, fall time and overshoot.
+* **Details** adds Vmax, Vmin, Vmean, high level (Top), low level (Base), pulse width, number of complete periods, analysed sample count and the effective sample interval Δt.
+* Once more than one acquisition has been stored, a history line shows mean ± standard deviation of Vpp, RMS, frequency and duty over the last acquisitions.
+* Channels without data or switched off are not shown.
+
+#### PWM and Signal Integrity
+
+The **PWM** toggle switches the cards to the PWM/signal-integrity view:
+
+* Frequency, duty cycle, mean/min/max pulse width and pulse-width standard deviation.
+* Period jitter as the standard deviation of the measured periods.
+* Rising/falling edge counts, 10–90 % rise/fall times, overshoot and undershoot.
+
+For non-periodic signals (flatline, noise or an unstable period) the PWM values stay empty instead of showing invented numbers.
+
+#### Difference Trace
+
+A loaded or captured reference can be compared against the live waveform:
+
+* Enable **Difference** in the Reference section of the Device Parameters panel.
+* The orange trace shows `live − reference`; the loaded reference is shifted by the current manual alignment offset first.
+* The panel shows RMS error, maximum deviation, mean error and coverage (the share of live points covered by the reference). Points outside the reference range are not compared and lower the coverage.
+
+#### Software Mask Test
+
+A reference can define a tolerance band:
+
+* Enable **Mask** in the measurement panel. A reference must be loaded or captured first.
+* **Tolerance** is set either as a percentage of the reference Vpp or in volts. **Time** adds an optional horizontal tolerance; `off` disables it.
+* The band is drawn as a semi-transparent area; violating live points are marked in red.
+* The result banner shows **PASS**, or **FAIL** with the number of violations, the first and last violation time and the maximum deviation in volts.
+* Live points outside the reference range are skipped, so missing reference data does not create false violations.
+* The mask test evaluates the current acquisition. Continuous monitoring is not part of this feature.
+
+> **Tip:** The **Measurements** panel can be collapsed with the chevron in its header to gain space for the chart.
+
+### 8.9 Waveform Report
+
+Click the **Report** button in the top toolbar (next to **Save**) while a waveform is displayed.  
+The PDF is saved to the `waveform/reports/` subdirectory and contains:
+
+* Title, optional report name (from the filename prefix dialog), date/time and device name.
+* An image of the waveform chart as it is currently displayed.
+* The automatic measurements per channel: Vpp, RMS, frequency, duty, rise, fall and overshoot.
+* Levels and timing: Vmax, Vmin, Vmean, Top, Base, pulse width, number of periods, sample count and Δt.
+* Device parameters: timebase, trigger delay, sample rate, and V/div plus offset per acquired channel.
+* The reference comparison (RMS error, maximum and mean deviation, coverage) and the mask-test result (PASS/FAIL, violations, first/last violation time, maximum deviation) when available.
+
+Existing PNG and CSV saving is unchanged.
 
 ## 9. Control Panel
 
@@ -1948,6 +2036,7 @@ The directory is OS specific:
 | `screenshots` | Display screenshots |
 | `waveform/images` | Waveform images |
 | `waveform/csv` | Waveform CSV data |
+| `waveform/reports` | Waveform PDF measurement reports |
 | `logger/reports` | Data Logger reports |
 | `logger/csv` | Data Logger CSV data |
 | `bode/reports` | Bode Plot PDF reports |

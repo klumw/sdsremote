@@ -9,7 +9,9 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../data_logger/data_logger_alarms.dart';
 import '../data_logger/data_logger_models.dart';
+import '../data_logger/data_logger_statistics.dart';
 
 // =============================================================================
 // Colors (consistent with oscilloscope display conventions)
@@ -70,6 +72,12 @@ class DataLoggerPlot extends StatelessWidget {
   /// Set of line IDs that are currently hidden.
   final Set<String> hiddenLines;
 
+  /// Configured alarm rules keyed by parameter id.
+  final Map<String, DataLoggerAlarmRule> alarmRules;
+
+  /// Alarm events to mark in the plot.
+  final List<DataLoggerAlarmEvent> alarmEvents;
+
   /// Called when a legend line is tapped.
   final ValueChanged<String>? onToggleLine;
 
@@ -103,6 +111,8 @@ class DataLoggerPlot extends StatelessWidget {
     required this.status,
     this.totalDurationSeconds = 60,
     this.hiddenLines = const {},
+    this.alarmRules = const {},
+    this.alarmEvents = const [],
     this.onToggleLine,
     this.onHover,
   });
@@ -166,6 +176,8 @@ class DataLoggerPlot extends StatelessWidget {
               status: status,
               totalDurationSeconds: totalDurationSeconds,
               hiddenLines: hiddenLines,
+              alarmRules: alarmRules,
+              alarmEvents: alarmEvents,
             ),
             child: const SizedBox.expand(),
           ),
@@ -409,6 +421,8 @@ class _DataLoggerPlotPainter extends CustomPainter {
   final DataLoggerStatus status;
   final double totalDurationSeconds;
   final Set<String> hiddenLines;
+  final Map<String, DataLoggerAlarmRule> alarmRules;
+  final List<DataLoggerAlarmEvent> alarmEvents;
 
   _DataLoggerPlotPainter({
     required this.points,
@@ -436,6 +450,8 @@ class _DataLoggerPlotPainter extends CustomPainter {
     required this.status,
     this.totalDurationSeconds = 60,
     this.hiddenLines = const {},
+    this.alarmRules = const {},
+    this.alarmEvents = const [],
   });
 
   // Layout constants
@@ -509,8 +525,13 @@ class _DataLoggerPlotPainter extends CustomPainter {
       gainEnabled: gainDbEnabled,
     );
 
+    // Draw alarm bounds behind the data, then the traces, then the markers.
+    _drawAlarmThresholds(canvas, plotRect, ranges);
+
     // Draw data lines
     _drawDataLines(canvas, plotRect, ranges);
+
+    _drawAlarmEventMarkers(canvas, plotRect, ranges);
 
     // Draw axes labels
     _drawAxesLabels(
@@ -981,6 +1002,121 @@ class _DataLoggerPlotPainter extends CustomPainter {
     }
   }
 
+  /// Draws configured alarm bounds as dashed horizontal lines.
+  void _drawAlarmThresholds(Canvas canvas, Rect plotRect, _AxisRanges ranges) {
+    if (alarmRules.isEmpty) return;
+    final paint = Paint()
+      ..color = Colors.redAccent.withValues(alpha: 0.55)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+
+    canvas.save();
+    canvas.clipRect(plotRect);
+    for (final entry in alarmRules.entries) {
+      final rule = entry.value;
+      if (!rule.isActive) continue;
+      final parameter = dataLoggerParameterById(entry.key);
+      if (parameter == null ||
+          !_isParameterEnabled(parameter) ||
+          hiddenLines.contains(entry.key)) {
+        continue;
+      }
+      for (final bound in [rule.lower, rule.upper]) {
+        if (bound == null) continue;
+        final y = _axisY(parameter.axis, bound, ranges, plotRect);
+        if (!y.isFinite || y < plotRect.top || y > plotRect.bottom) continue;
+        final path = Path()
+          ..moveTo(plotRect.left, y)
+          ..lineTo(plotRect.right, y);
+        canvas.drawPath(_dashPath(path, 5, 4), paint);
+      }
+    }
+    canvas.restore();
+  }
+
+  /// Marks alarm events with a faint vertical line and a dot at the value.
+  void _drawAlarmEventMarkers(
+    Canvas canvas,
+    Rect plotRect,
+    _AxisRanges ranges,
+  ) {
+    if (alarmEvents.isEmpty || ranges.niceMaxTime <= 0) return;
+    final linePaint = Paint()
+      ..color = Colors.redAccent.withValues(alpha: 0.35)
+      ..strokeWidth = 1.0;
+    final dotPaint = Paint()..color = Colors.redAccent;
+
+    canvas.save();
+    canvas.clipRect(plotRect);
+    final limit = math.min(alarmEvents.length, 500);
+    for (var i = 0; i < limit; i++) {
+      final event = alarmEvents[i];
+      final x =
+          plotRect.left +
+          (event.elapsedSeconds / ranges.niceMaxTime) * plotRect.width;
+      if (x < plotRect.left || x > plotRect.right) continue;
+      canvas.drawLine(
+        Offset(x, plotRect.top),
+        Offset(x, plotRect.bottom),
+        linePaint,
+      );
+      final parameter = dataLoggerParameterById(event.parameterId);
+      if (parameter == null) continue;
+      final y = _axisY(parameter.axis, event.value, ranges, plotRect);
+      if (y.isFinite && y >= plotRect.top && y <= plotRect.bottom) {
+        canvas.drawCircle(Offset(x, y), 2.5, dotPaint);
+      }
+    }
+    canvas.restore();
+  }
+
+  /// Maps a value of [axis] to its pixel row.
+  double _axisY(
+    DataLoggerAxis axis,
+    double value,
+    _AxisRanges ranges,
+    Rect plotRect,
+  ) {
+    double scale(double min, double max) {
+      if (max <= min) return double.nan;
+      return _mapValueToY(value, min, max, plotRect);
+    }
+
+    return switch (axis) {
+      DataLoggerAxis.voltage => scale(ranges.niceMinVpp, ranges.niceMaxVpp),
+      DataLoggerAxis.frequency => scale(ranges.niceMinFreq, ranges.niceMaxFreq),
+      DataLoggerAxis.duty => scale(ranges.minDuty, ranges.maxDuty),
+      DataLoggerAxis.gain => scale(ranges.minGain, ranges.maxGain),
+    };
+  }
+
+  /// Whether the line belonging to [parameter] is enabled on this plot.
+  bool _isParameterEnabled(DataLoggerParameter parameter) =>
+      switch (parameter.id) {
+        'ch1_vpp' => ch1VppEnabled,
+        'ch1_mean' => ch1MeanEnabled,
+        'ch1_rms' => ch1RmsEnabled,
+        'ch1_duty' => ch1DutyEnabled,
+        'ch1_freq' => ch1FreqEnabled,
+        'ch2_vpp' => ch2VppEnabled,
+        'ch2_mean' => ch2MeanEnabled,
+        'ch2_rms' => ch2RmsEnabled,
+        'ch2_duty' => ch2DutyEnabled,
+        'ch2_freq' => ch2FreqEnabled,
+        'ch3_vpp' => ch3VppEnabled,
+        'ch3_mean' => ch3MeanEnabled,
+        'ch3_rms' => ch3RmsEnabled,
+        'ch3_duty' => ch3DutyEnabled,
+        'ch3_freq' => ch3FreqEnabled,
+        'ch4_vpp' => ch4VppEnabled,
+        'ch4_mean' => ch4MeanEnabled,
+        'ch4_rms' => ch4RmsEnabled,
+        'ch4_duty' => ch4DutyEnabled,
+        'ch4_freq' => ch4FreqEnabled,
+        'gain_db' => gainDbEnabled,
+        _ => false,
+      };
+
   Path _dashPath(Path source, double dashLength, double gapLength) {
     final result = Path();
     for (final metric in source.computeMetrics()) {
@@ -1390,6 +1526,9 @@ class _DataLoggerPlotPainter extends CustomPainter {
         oldDelegate.ch4DutyEnabled != ch4DutyEnabled ||
         oldDelegate.ch4FreqEnabled != ch4FreqEnabled ||
         oldDelegate.gainDbEnabled != gainDbEnabled ||
+        oldDelegate.alarmRules != alarmRules ||
+        oldDelegate.alarmEvents != alarmEvents ||
+        oldDelegate.alarmEvents.length != alarmEvents.length ||
         oldDelegate.status != status ||
         oldDelegate.totalDurationSeconds != totalDurationSeconds ||
         oldDelegate.hiddenLines != hiddenLines;

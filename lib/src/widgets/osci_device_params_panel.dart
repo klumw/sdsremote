@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../waveform/waveform_compare.dart';
 import '../waveform/waveform_models.dart';
 
 /// A panel that displays oscilloscope device parameters (timebase, V/div, etc.).
@@ -29,6 +30,11 @@ class DeviceParametersPanel extends StatefulWidget {
   final ValueChanged<bool>? onRefMovingToggled;
   final ReferenceOffset refOffset; // manual alignment offset of the reference
   final VoidCallback? onRefReset;
+  final bool diffAvailable; // a reference and live data are available
+  final bool diffVisible;
+  final ValueChanged<bool>? onDiffToggled;
+  final ComparisonMetrics? comparison;
+  final VoidCallback? onUseCurrentAsReference;
 
   const DeviceParametersPanel({
     super.key,
@@ -54,6 +60,11 @@ class DeviceParametersPanel extends StatefulWidget {
     this.onRefMovingToggled,
     this.refOffset = const ReferenceOffset(),
     this.onRefReset,
+    this.diffAvailable = false,
+    this.diffVisible = false,
+    this.onDiffToggled,
+    this.comparison,
+    this.onUseCurrentAsReference,
   });
 
   @override
@@ -422,6 +433,23 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
           ),
           const SizedBox(height: 8),
         ],
+        _buildToggleRow(
+          'Difference',
+          widget.diffVisible,
+          Colors.deepOrangeAccent,
+          widget.diffAvailable ? widget.onDiffToggled : null,
+        ),
+        if (widget.diffVisible) ...[
+          const SizedBox(height: 6),
+          _buildComparisonMetrics(),
+        ],
+        const SizedBox(height: 8),
+        _buildActionRow(
+          icon: Icons.content_copy,
+          label: 'Use Current as Reference',
+          onTap: widget.onUseCurrentAsReference,
+        ),
+        const SizedBox(height: 8),
         _buildActionRow(
           icon: Icons.file_open,
           label: 'Load Reference',
@@ -430,6 +458,40 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
       ],
     );
   }
+
+  /// Deviation metrics of the difference trace, shown below its toggle.
+  Widget _buildComparisonMetrics() {
+    final comparison = widget.comparison;
+    if (comparison == null || !comparison.hasData) {
+      return const Text(
+        'No overlapping data for comparison.',
+        style: TextStyle(color: Colors.white54, fontSize: 11),
+      );
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+      decoration: BoxDecoration(
+        color: const Color(0xFF172A45).withValues(alpha: 0.3),
+        border: Border.all(color: const Color(0xFF475569)),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _metricRow('RMS error', comparison.rmsErrorVolts),
+          _metricRow('Max deviation', comparison.maxAbsDeviationVolts),
+          _metricRow('Mean error', comparison.meanErrorVolts),
+          _paramRow(
+            'Coverage',
+            '${comparison.coveragePercent.toStringAsFixed(0)} %',
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricRow(String label, double? value) =>
+      _paramRow(label, value == null ? '—' : _fmtSi(value, 'V'));
 
   /// A full-width row that acts as a button, used for the panel's actions.
   /// A null [onTap] greys the row out instead of hiding it.
@@ -460,12 +522,16 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
                 color: Colors.white.withAlpha(enabled ? 180 : 60),
               ),
               const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  color: enabled ? Colors.white70 : Colors.white38,
-                  fontSize: 13,
-                  fontWeight: FontWeight.bold,
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: enabled ? Colors.white70 : Colors.white38,
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],
@@ -509,18 +575,28 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            label,
-            style: const TextStyle(color: Colors.white70, fontSize: 14),
+          Expanded(
+            flex: 2,
+            child: Text(
+              label,
+              style: const TextStyle(color: Colors.white70, fontSize: 14),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-          Text(
-            value,
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 14,
-              fontWeight: FontWeight.bold,
+          const SizedBox(width: 8),
+          Flexible(
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 14,
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
         ],

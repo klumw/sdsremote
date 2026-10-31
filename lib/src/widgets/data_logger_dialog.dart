@@ -10,6 +10,7 @@ library;
 import 'package:flutter/material.dart';
 
 import '../data_logger/data_logger_models.dart';
+import '../data_logger/data_logger_statistics.dart';
 
 // =============================================================================
 // Data Logger Dialog
@@ -97,6 +98,9 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
   int _durationIndex = 0; // Index into _durationPresetsMinutes
   final _descriptionController = TextEditingController();
 
+  /// Alarm rules edited in the configuration form, keyed by parameter id.
+  Map<String, DataLoggerAlarmRule> _alarmRules = const {};
+
   @override
   void initState() {
     super.initState();
@@ -143,6 +147,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
           .indexOf(saved)
           .clamp(0, _durationPresetsMinutes.length - 1);
       _descriptionController.text = widget.currentConfig!.description;
+      _alarmRules = Map.of(widget.currentConfig!.alarmRules);
     }
   }
 
@@ -183,35 +188,37 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
   bool get _isValid => _selectedCount >= 1 && _selectedCount <= _maxSelected;
   int get _durationMinutes => _durationPresetsMinutes[_durationIndex];
 
+  /// Builds the configuration currently shown in the form.
+  DataLoggerConfig _buildConfig() => DataLoggerConfig(
+    ch1VppEnabled: _ch1VppEnabled,
+    ch1MeanEnabled: _ch1MeanEnabled,
+    ch1RmsEnabled: _ch1RmsEnabled,
+    ch1DutyEnabled: _ch1DutyEnabled,
+    ch1FreqEnabled: _ch1FreqEnabled,
+    ch2VppEnabled: _ch2VppEnabled,
+    ch2MeanEnabled: _ch2MeanEnabled,
+    ch2RmsEnabled: _ch2RmsEnabled,
+    ch2DutyEnabled: _ch2DutyEnabled,
+    ch2FreqEnabled: _ch2FreqEnabled,
+    ch3VppEnabled: _ch3VppEnabled,
+    ch3MeanEnabled: _ch3MeanEnabled,
+    ch3RmsEnabled: _ch3RmsEnabled,
+    ch3DutyEnabled: _ch3DutyEnabled,
+    ch3FreqEnabled: _ch3FreqEnabled,
+    ch4VppEnabled: _ch4VppEnabled,
+    ch4MeanEnabled: _ch4MeanEnabled,
+    ch4RmsEnabled: _ch4RmsEnabled,
+    ch4DutyEnabled: _ch4DutyEnabled,
+    ch4FreqEnabled: _ch4FreqEnabled,
+    gainDbEnabled: _gainDbEnabled,
+    intervalSeconds: _intervalSeconds.round(),
+    durationMinutes: _durationMinutes,
+    description: _descriptionController.text.trim(),
+    alarmRules: Map.of(_alarmRules),
+  );
+
   void _emitConfig() {
-    widget.onConfigChanged?.call(
-      DataLoggerConfig(
-        ch1VppEnabled: _ch1VppEnabled,
-        ch1MeanEnabled: _ch1MeanEnabled,
-        ch1RmsEnabled: _ch1RmsEnabled,
-        ch1DutyEnabled: _ch1DutyEnabled,
-        ch1FreqEnabled: _ch1FreqEnabled,
-        ch2VppEnabled: _ch2VppEnabled,
-        ch2MeanEnabled: _ch2MeanEnabled,
-        ch2RmsEnabled: _ch2RmsEnabled,
-        ch2DutyEnabled: _ch2DutyEnabled,
-        ch2FreqEnabled: _ch2FreqEnabled,
-        ch3VppEnabled: _ch3VppEnabled,
-        ch3MeanEnabled: _ch3MeanEnabled,
-        ch3RmsEnabled: _ch3RmsEnabled,
-        ch3DutyEnabled: _ch3DutyEnabled,
-        ch3FreqEnabled: _ch3FreqEnabled,
-        ch4VppEnabled: _ch4VppEnabled,
-        ch4MeanEnabled: _ch4MeanEnabled,
-        ch4RmsEnabled: _ch4RmsEnabled,
-        ch4DutyEnabled: _ch4DutyEnabled,
-        ch4FreqEnabled: _ch4FreqEnabled,
-        gainDbEnabled: _gainDbEnabled,
-        intervalSeconds: _intervalSeconds.round(),
-        durationMinutes: _durationMinutes,
-        description: _descriptionController.text.trim(),
-      ),
-    );
+    widget.onConfigChanged?.call(_buildConfig());
   }
 
   String _formatDuration(int minutes) {
@@ -625,6 +632,10 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
             ],
           ),
           const SizedBox(height: 16),
+
+          // ---- Alarm Rules ----
+          _buildAlarmSection(),
+          if (_selectedCount > 0) const SizedBox(height: 16),
 
           // ---- Sampling Interval ----
           _buildSectionTitle('Sampling Interval'),
@@ -1070,6 +1081,150 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
       ),
     );
   }
+
+  /// Alarm-rule editor for the currently selected parameters.
+  ///
+  /// Bounds are optional; an empty field removes that bound. Values equal to a
+  /// bound are still considered inside the allowed range.
+  Widget _buildAlarmSection() {
+    final config = _buildConfig();
+    final selected = dataLoggerParameters
+        .where((parameter) => parameter.isEnabled(config))
+        .toList();
+    if (selected.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _buildSectionTitle('Alarm Rules'),
+        const SizedBox(height: 2),
+        const Text(
+          'Optional thresholds per selected parameter. An empty field means '
+          'no bound; values equal to a bound are still inside the range.',
+          style: TextStyle(color: Colors.white38, fontSize: 10),
+        ),
+        const SizedBox(height: 6),
+        for (final parameter in selected) _buildAlarmRuleRow(parameter),
+      ],
+    );
+  }
+
+  Widget _buildAlarmRuleRow(DataLoggerParameter parameter) {
+    final rule = _alarmRules[parameter.id];
+    final color = _parameterColor(parameter.channel);
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 92,
+            child: Text(
+              parameter.label,
+              style: TextStyle(
+                color: color,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 110,
+            child: TextFormField(
+              key: ValueKey('${parameter.id}_lower'),
+              initialValue: rule?.lower?.toString() ?? '',
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+                signed: true,
+              ),
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+              decoration: _alarmFieldDecoration('Lower (${parameter.unit})'),
+              onChanged: (text) =>
+                  _updateAlarmRule(parameter.id, lowerText: text),
+            ),
+          ),
+          const SizedBox(width: 8),
+          SizedBox(
+            width: 110,
+            child: TextFormField(
+              key: ValueKey('${parameter.id}_upper'),
+              initialValue: rule?.upper?.toString() ?? '',
+              keyboardType: const TextInputType.numberWithOptions(
+                decimal: true,
+                signed: true,
+              ),
+              style: const TextStyle(color: Colors.white, fontSize: 12),
+              decoration: _alarmFieldDecoration('Upper (${parameter.unit})'),
+              onChanged: (text) =>
+                  _updateAlarmRule(parameter.id, upperText: text),
+            ),
+          ),
+          const SizedBox(width: 4),
+          Tooltip(
+            message: 'Enable alarm rule',
+            child: Checkbox(
+              value: rule?.enabled ?? true,
+              activeColor: color,
+              visualDensity: VisualDensity.compact,
+              onChanged: (value) =>
+                  _updateAlarmRule(parameter.id, enabled: value ?? true),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  InputDecoration _alarmFieldDecoration(String label) => InputDecoration(
+    labelText: label,
+    labelStyle: const TextStyle(color: Colors.white38, fontSize: 10),
+    isDense: true,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+    enabledBorder: const OutlineInputBorder(
+      borderSide: BorderSide(color: Color(0xFF475569)),
+    ),
+    focusedBorder: const OutlineInputBorder(
+      borderSide: BorderSide(color: Colors.cyanAccent),
+    ),
+  );
+
+  void _updateAlarmRule(
+    String parameterId, {
+    String? lowerText,
+    String? upperText,
+    bool? enabled,
+  }) {
+    final current = _alarmRules[parameterId] ?? const DataLoggerAlarmRule();
+    double? parse(String text) {
+      final trimmed = text.trim();
+      return trimmed.isEmpty ? null : double.tryParse(trimmed);
+    }
+
+    final updated = DataLoggerAlarmRule(
+      enabled: enabled ?? current.enabled,
+      lower: lowerText != null ? parse(lowerText) : current.lower,
+      upper: upperText != null ? parse(upperText) : current.upper,
+    );
+
+    setState(() {
+      if (updated.hasBounds) {
+        _alarmRules = {..._alarmRules, parameterId: updated};
+      } else {
+        _alarmRules = {..._alarmRules}..remove(parameterId);
+      }
+    });
+    _emitConfig();
+  }
+
+  Color _parameterColor(String channel) => switch (channel) {
+    'ch1' => const Color(0xFFFFFF00),
+    'ch2' => const Color(0xFFFF20FF),
+    'ch3' => const Color(0xFF4FC3F7),
+    'ch4' => const Color(0xFF66BB6A),
+    _ => _gainColor,
+  };
 
   Widget _buildSectionTitle(String title) {
     return Text(

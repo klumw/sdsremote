@@ -11,6 +11,7 @@ library;
 
 import 'dart:async';
 
+import 'data_logger_alarms.dart';
 import 'data_logger_models.dart';
 import '../core/logger.dart';
 import '../instrument/dart_vxi11.dart';
@@ -65,6 +66,15 @@ class DataLoggerService {
   /// Broadcast stream emitting a new [DataLoggerPoint] on each sample.
   Stream<DataLoggerPoint> get pointStream => _pointController.stream;
 
+  final StreamController<DataLoggerAlarmEvent> _alarmController =
+      StreamController<DataLoggerAlarmEvent>.broadcast();
+
+  /// Broadcast stream emitting one event per threshold crossing.
+  Stream<DataLoggerAlarmEvent> get alarmStream => _alarmController.stream;
+
+  /// Parameter ids whose rule is currently violated.
+  Set<String> _activeAlarms = {};
+
   /// Whether the service is currently running.
   bool get isRunning => _timer != null && !_hasStopped;
 
@@ -95,6 +105,7 @@ class DataLoggerService {
     _pointCount = 0;
     _asetCount = 0;
     _sampleInFlight = false;
+    _activeAlarms = {};
     _startTime = DateTime.now();
     config = cfg;
     _probeDividersQueried = false;
@@ -433,8 +444,41 @@ class DataLoggerService {
         ).log('First sample values: ${values.join(', ')}');
       }
 
+      final pointTimestamp = DateTime.now();
+      final values = <String, double?>{
+        'ch1_vpp': ch1Vpp,
+        'ch1_mean': ch1Mean,
+        'ch1_rms': ch1Rms,
+        'ch1_duty': ch1Duty,
+        'ch1_freq': ch1Freq,
+        'ch2_vpp': ch2Vpp,
+        'ch2_mean': ch2Mean,
+        'ch2_rms': ch2Rms,
+        'ch2_duty': ch2Duty,
+        'ch2_freq': ch2Freq,
+        'ch3_vpp': ch3Vpp,
+        'ch3_mean': ch3Mean,
+        'ch3_rms': ch3Rms,
+        'ch3_duty': ch3Duty,
+        'ch3_freq': ch3Freq,
+        'ch4_vpp': ch4Vpp,
+        'ch4_mean': ch4Mean,
+        'ch4_rms': ch4Rms,
+        'ch4_duty': ch4Duty,
+        'ch4_freq': ch4Freq,
+        'gain_db': gainDb,
+      };
+      final alarmEvaluation = evaluateDataLoggerAlarms(
+        config: cfg,
+        values: values,
+        timestamp: pointTimestamp,
+        elapsedSeconds: elapsedTarget.toDouble(),
+        previouslyActive: _activeAlarms,
+      );
+      _activeAlarms = alarmEvaluation.active;
+
       final point = DataLoggerPoint(
-        timestamp: DateTime.now(),
+        timestamp: pointTimestamp,
         elapsedSeconds: elapsedTarget.toDouble(),
         ch1Vpp: ch1Vpp,
         ch1Mean: ch1Mean,
@@ -457,9 +501,18 @@ class DataLoggerService {
         ch4Duty: ch4Duty,
         ch4Freq: ch4Freq,
         gainDb: gainDb,
+        activeAlarms: alarmEvaluation.active,
       );
 
       _pointController.add(point);
+      for (final event in alarmEvaluation.events) {
+        _alarmController.add(event);
+        AppLogger(agentName: 'DataLogger', toolName: '_doSample').warning(
+          'Alarm: ${event.parameterLabel}=${event.value} '
+          '(${event.direction.name}, lower=${event.lower}, '
+          'upper=${event.upper}) at t=${event.elapsedSeconds}s',
+        );
+      }
       _pointCount++;
       // Stop immediately after emitting the final point at t=duration.
       if (_lastSampleDispatched) {
@@ -650,5 +703,6 @@ class DataLoggerService {
   void dispose() {
     stop();
     _pointController.close();
+    _alarmController.close();
   }
 }

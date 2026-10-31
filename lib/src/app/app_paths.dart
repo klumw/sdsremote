@@ -55,6 +55,10 @@ class AppPaths {
   static Directory get waveformCsvDirectory =>
       Directory('${defaultSaveDirectory.path}${_sep}waveform${_sep}csv');
 
+  /// `  <app working dir>/waveform/reports  `
+  static Directory get waveformReportsDirectory =>
+      Directory('${defaultSaveDirectory.path}${_sep}waveform${_sep}reports');
+
   /// `  <app working dir>/logger/reports  `
   static Directory get loggerReportsDirectory =>
       Directory('${defaultSaveDirectory.path}${_sep}logger${_sep}reports');
@@ -119,6 +123,9 @@ class AppPaths {
 
   static Future<Directory> getOrCreateWaveformCsvDir() =>
       ensureDirectoryExists(waveformCsvDirectory);
+
+  static Future<Directory> getOrCreateWaveformReportsDir() =>
+      ensureDirectoryExists(waveformReportsDirectory);
 
   static Future<Directory> getOrCreateLoggerReportsDir() =>
       ensureDirectoryExists(loggerReportsDirectory);

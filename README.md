@@ -16,7 +16,7 @@ SDS-Remote enables remote control and AI-enhanced operation of Siglent SDS1202X-
 - **Remote Oscilloscope Control**: Control supported oscilloscopes remotely over a network using the VXI-11 protocol or through USB connectivity (USB support is currently experimental).
 - **Waveform Acquisition & Data Export**: Capture and display waveform data from enabled channels. Save screen captures as images and export waveform data as CSV files.
 - **Device Parameter Monitoring**: View real-time parameters such as timebase, sample rate, and voltage settings. Cursor-based measurements are supported.
-- **Data Logging**: Log key data points over a period of time. Generate PDF measurement reports containing charts and key metrics, or export all recorded measurement points as CSV files.
+- **Data Logging**: Log key data points over a period of time. Generate PDF measurement reports containing charts, key metrics, per-parameter statistics and alarm events, or export all recorded measurement points as CSV files. Optional lower/upper alarm rules per parameter raise one event per threshold crossing; threshold lines and event markers are drawn in the plot.
 - **Signal Generator & Bode Plot**: Choose **No Signal Generator**, **JDS6600** or **FY6900** in the settings. With JDS6600 or FY6900 selected, a **Bode** toolbar button appears once both the oscilloscope and the generator are detected; it runs a frequency sweep and plots gain and phase. The sweep limits are taken from the detected generator model and the selected waveform.
 - **Macro Recorder**: Record, edit and play back SCPI command sequences. Supports variables, conditionals, loops, and both network and USB connections for automated test procedures.
 - **Engineering Calculator**: A scientific/programmable calculator window (Ctrl+R) with unit-aware expressions, complex numbers, dB level arithmetic, electronics/RF/audio/digital formulas, variables, programs, history and export.
@@ -24,7 +24,9 @@ SDS-Remote enables remote control and AI-enhanced operation of Siglent SDS1202X-
 
 ### Waveform Data Acquisition
 
-Acquire and visualize waveform data. Perform advanced measurements using X/Y cursors and zoom controls for detailed waveform analysis. Export waveform data as image files or CSV datasets.
+Acquire and visualize waveform data. Perform advanced measurements using X/Y cursors and zoom controls for detailed waveform analysis. Export waveform data as image files or CSV datasets. Exported CSV files use the actual sample timestamps of the displayed points (format version 2), so the time axis stays aligned with the on-screen waveform.
+
+The analysis panel below the chart shows automatic time-domain measurements per channel (Vpp, RMS, frequency, duty, rise/fall, overshoot), a PWM/signal-integrity view (pulse-width statistics, jitter, edge counts, undershoot) and history statistics over the last acquisitions. A loaded or captured reference can be compared as an orange difference trace with RMS/max/mean deviation and coverage, and a software mask test with percent/Vpp or volt and time tolerances returns PASS/FAIL with red violation markers.
 
 ![Waveform Acquisition](docs/sdsremote_wf.png)
 
@@ -541,6 +543,8 @@ Non-widget, domain-specific support code is grouped into subfolders under
   `app_config.dart`, `app_paths.dart`, `app_preferences.dart`, `app_theme.dart`.
 - `lib/src/core/` — cross-cutting utilities: `logger.dart`.
 - `lib/src/data_logger/` — Data Logger logic: `data_logger_csv_writer.dart`,
+  `data_logger_statistics.dart` (per-parameter statistics), `data_logger_alarms.dart`
+  (edge-triggered threshold alarms),
   `data_logger_models.dart`, `data_logger_report.dart`, `data_logger_service.dart`.
 - `lib/src/instrument/` — instrument I/O and protocol: `dart_vxi11.dart`
   (VXI-11/USBTMC transport), `scpi_parser.dart` (SCPI response parsing),
@@ -577,6 +581,11 @@ Non-widget, domain-specific support code is grouped into subfolders under
   `macro_siggen_app.dart`.
 - `lib/src/waveform/` — Waveform models, conversion, acquisition, and rendering:
   `waveform_models.dart`, `waveform_converter.dart`, `waveform_acquisition.dart`,
+  `waveform_measurements.dart` (time-domain measurement core: levels, frequency,
+  duty, rise/fall, overshoot, multi-acquisition statistics),
+  `waveform_compare.dart` (reference resampling, difference trace, deviation
+  metrics), `waveform_mask.dart` (tolerance band and mask evaluation),
+  `waveform_report.dart` (waveform PDF measurement report),
   `waveform_painter.dart`, `cursor_geometry.dart`, plus the CSV/processing
   helpers `waveform_csv_parser.dart`, `waveform_csv_writer.dart`,
   `waveform_processing.dart` (drops the first 8 acquisition samples, which

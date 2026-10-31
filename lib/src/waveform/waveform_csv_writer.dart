@@ -17,6 +17,8 @@ String buildWaveformCsv({
   final bool fourChannels = channelCount >= 4;
   final csvBuffer = StringBuffer();
   csvBuffer.writeln('# SDS-Remote Waveform Data');
+  csvBuffer.writeln('# Format Version: 2');
+  csvBuffer.writeln('# Time axis: sample time');
   csvBuffer.writeln('# Saved: ${DateTime.now().toIso8601String()}');
   csvBuffer.writeln('# Device: $deviceName');
   csvBuffer.writeln('# Timebase: ${params.timebase} s/div');
@@ -60,10 +62,32 @@ String buildWaveformCsv({
       ? data.points[index].$2.toStringAsFixed(6)
       : '';
 
-  // CSV time starts at 0 and increments by 1/sampleRate for each sample.
-  final csvDt = 1.0 / params.sampleRate;
+  // The points already carry their real timestamps and the display path
+  // decimates them 2:1, so deriving the time step from `1 / sampleRate`
+  // would halve the exported time axis. Use the actual timestamps of the
+  // first acquired channel and normalise its first point to 0; the reference
+  // loader aligns relative to the live waveform anyway.
+  final timeSource = ch1 ?? ch2 ?? ch3 ?? ch4;
+  final timePoints = timeSource?.points ?? const <(double, double)>[];
+  final double t0 = timePoints.isEmpty ? 0.0 : timePoints.first.$1;
+  final double fallbackDt = params.sampleRate > 0 ? 1 / params.sampleRate : 0.0;
+
+  double timeAt(int index) {
+    if (index < timePoints.length) {
+      return timePoints[index].$1 - t0;
+    }
+    if (timePoints.isEmpty) return index * fallbackDt;
+    final lastTime = timePoints.last.$1 - t0;
+    final previousTime = timePoints.length > 1
+        ? timePoints[timePoints.length - 2].$1 - t0
+        : lastTime;
+    final lastStep = lastTime - previousTime;
+    final step = lastStep > 0 ? lastStep : fallbackDt;
+    return lastTime + (index - timePoints.length + 1) * step;
+  }
+
   for (int i = 0; i < maxPoints; i++) {
-    final time = i * csvDt;
+    final time = timeAt(i);
     final row = StringBuffer('$time,${voltageAt(ch1, i)},${voltageAt(ch2, i)}');
     if (fourChannels) {
       row.write(',${voltageAt(ch3, i)},${voltageAt(ch4, i)}');

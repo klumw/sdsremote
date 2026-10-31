@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'waveform_mask.dart';
 import 'waveform_models.dart';
 import 'waveform_trace.dart';
 
@@ -16,12 +17,20 @@ class WaveformBasePainter extends CustomPainter {
   refChannelOrigin; // 'ch1' … 'ch4' — which channel's V/div to use
   final ReferenceOffset refOffset; // manual alignment offset of the reference
   final bool refHighlighted; // draw the reference in the alignment colour
+  final WaveformData? diffTrace; // live − reference on the live time axis
+  final bool diffVisible;
+  final MaskBand? maskBand; // tolerance band around the reference
+  final bool maskVisible;
+  final List<(double, double)> maskViolations;
   final DeviceParams params;
   final bool ch1Enabled;
   final bool ch2Enabled;
   final bool ch3Enabled;
   final bool ch4Enabled;
   final ZoomState zoom;
+
+  /// Colour of the difference trace — distinct from all four channel colours.
+  static const Color diffColor = Color(0xFFFF6E40);
 
   static const int _hDivisions = 14;
   static const int _vDivisions = 8;
@@ -36,6 +45,11 @@ class WaveformBasePainter extends CustomPainter {
     this.refChannelOrigin,
     this.refOffset = const ReferenceOffset(),
     this.refHighlighted = false,
+    this.diffTrace,
+    this.diffVisible = false,
+    this.maskBand,
+    this.maskVisible = false,
+    this.maskViolations = const [],
     required this.params,
     this.ch1Enabled = true,
     this.ch2Enabled = true,
@@ -132,6 +146,36 @@ class WaveformBasePainter extends CustomPainter {
     // Draw zoom/pan-aware grid.
     _drawGrid(canvas, size, visibleTMin, visibleTMax, visibleVMin, visibleVMax);
 
+    // Reference-derived overlays share the reference channel's voltage scale.
+    final bool hasReferenceData = ref != null && ref!.points.isNotEmpty;
+    double refVdiv = 1.0;
+    double refVisibleVMin = visibleVMin;
+    double refVisibleVMax = visibleVMax;
+    if (hasReferenceData) {
+      refVdiv = params.vdivFor(refChannelOrigin) ?? 1.0;
+      final double refVoffset = params.voffsetFor(refChannelOrigin) ?? 0.0;
+      final double vMax = -refVoffset + 4 * refVdiv;
+      final double vMin = -refVoffset - 4 * refVdiv;
+      final double vRange = vMax - vMin;
+      final double centerVoltage = vMin + zoom.panY * vRange;
+      final double visibleVRange = vRange / zoom.zoomFactor;
+      refVisibleVMin = centerVoltage - visibleVRange / 2;
+      refVisibleVMax = centerVoltage + visibleVRange / 2;
+    }
+
+    // The mask band is a background layer so the live traces stay readable.
+    if (maskVisible && maskBand != null && hasReferenceData) {
+      _drawMaskBand(
+        canvas,
+        size,
+        maskBand!,
+        visibleTMin,
+        visibleTMax,
+        refVisibleVMin,
+        refVisibleVMax,
+      );
+    }
+
     _drawChannel(
       canvas,
       size,
@@ -179,23 +223,12 @@ class WaveformBasePainter extends CustomPainter {
 
     // Draw reference waveform as a ghost overlay
     if (hasRef) {
-      // Use the voltage range of the channel the reference was loaded from.
-      final double vdiv = params.vdivFor(refChannelOrigin) ?? 1.0;
-      final double voffset = params.voffsetFor(refChannelOrigin) ?? 0.0;
-      final double vMax = -voffset + 4 * vdiv;
-      final double vMin = -voffset - 4 * vdiv;
-      final double vRange = vMax - vMin;
-      final double centerVoltage = vMin + zoom.panY * vRange;
-      final double visibleVRange = vRange / zoom.zoomFactor;
-      final double visibleVMinRef = centerVoltage - visibleVRange / 2;
-      final double visibleVMaxRef = centerVoltage + visibleVRange / 2;
-
       // The manual alignment offset moves the drawn trace, not the points: the
       // reference is drawn exactly as loaded and only its position on the
       // graticule changes. The offset is converted from divisions to pixels
       // here, so it stays independent of the zoom factor and the V/div.
       final double shiftT = refOffset.timeShiftSeconds(params.timebase);
-      final double shiftV = refOffset.voltageShiftVolts(vdiv);
+      final double shiftV = refOffset.voltageShiftVolts(refVdiv);
 
       _drawWaveform(
         canvas,
@@ -209,15 +242,136 @@ class WaveformBasePainter extends CustomPainter {
             : Colors.white.withAlpha(160),
         visibleTMin,
         visibleTMax,
-        visibleVMinRef,
-        visibleVMaxRef,
+        refVisibleVMin,
+        refVisibleVMax,
         strokeWidth: 1.4,
-        vdiv: vdiv,
+        vdiv: refVdiv,
         xShiftPx: shiftT / (visibleTMax - visibleTMin) * size.width,
         // Screen y grows downwards, voltage upwards.
-        yShiftPx: -shiftV / (visibleVMaxRef - visibleVMinRef) * size.height,
+        yShiftPx: -shiftV / (refVisibleVMax - refVisibleVMin) * size.height,
       );
     }
+
+    // Difference trace: live − reference, drawn in its own colour.
+    if (diffVisible &&
+        diffTrace != null &&
+        diffTrace!.points.isNotEmpty &&
+        hasReferenceData) {
+      _drawWaveform(
+        canvas,
+        size,
+        diffTrace!,
+        diffColor,
+        visibleTMin,
+        visibleTMax,
+        refVisibleVMin,
+        refVisibleVMax,
+        strokeWidth: 1.4,
+        vdiv: refVdiv,
+      );
+    }
+
+    // Violating live points are marked on top of every trace.
+    if (maskVisible && maskViolations.isNotEmpty && hasReferenceData) {
+      _drawMaskViolations(
+        canvas,
+        size,
+        maskViolations,
+        visibleTMin,
+        visibleTMax,
+        refVisibleVMin,
+        refVisibleVMax,
+      );
+    }
+  }
+
+  /// Draws the mask tolerance band as a semi-transparent filled area.
+  void _drawMaskBand(
+    Canvas canvas,
+    Size size,
+    MaskBand band,
+    double visibleTMin,
+    double visibleTMax,
+    double visibleVMin,
+    double visibleVMax,
+  ) {
+    if (band.isEmpty || band.times.length < 2) return;
+
+    final double timeSpan = visibleTMax - visibleTMin;
+    final double voltageSpan = visibleVMax - visibleVMin;
+    if (timeSpan <= 0 || voltageSpan <= 0) return;
+
+    double timeToX(double t) => (t - visibleTMin) / timeSpan * size.width;
+    double voltageToY(double v) =>
+        (visibleVMax - v) / voltageSpan * size.height;
+
+    // The band can contain tens of thousands of points; drawing every point
+    // would cost more than the traces themselves. A few thousand vertices are
+    // visually indistinguishable at any window size.
+    final int count = band.times.length;
+    final int step = count > 4000 ? (count / 4000).ceil() : 1;
+
+    final path = Path();
+    path.moveTo(timeToX(band.times.first), voltageToY(band.high.first));
+    for (var i = step; i < count; i += step) {
+      path.lineTo(timeToX(band.times[i]), voltageToY(band.high[i]));
+    }
+    path.lineTo(timeToX(band.times.last), voltageToY(band.high.last));
+    for (var i = count - 1; i >= 0; i -= step) {
+      path.lineTo(timeToX(band.times[i]), voltageToY(band.low[i]));
+    }
+    path.lineTo(timeToX(band.times.first), voltageToY(band.low.first));
+    path.close();
+
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.redAccent.withAlpha(26)
+        ..style = PaintingStyle.fill,
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.redAccent.withAlpha(90)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0
+        ..isAntiAlias = true,
+    );
+    canvas.restore();
+  }
+
+  /// Marks violating live points with small red dots.
+  void _drawMaskViolations(
+    Canvas canvas,
+    Size size,
+    List<(double, double)> violations,
+    double visibleTMin,
+    double visibleTMax,
+    double visibleVMin,
+    double visibleVMax,
+  ) {
+    final double timeSpan = visibleTMax - visibleTMin;
+    final double voltageSpan = visibleVMax - visibleVMin;
+    if (timeSpan <= 0 || voltageSpan <= 0) return;
+
+    final paint = Paint()
+      ..color = Colors.redAccent
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
+
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
+    // Bound the number of markers so a noisy trace cannot stall rendering.
+    final limit = math.min(violations.length, 2000);
+    for (var i = 0; i < limit; i++) {
+      final (t, v) = violations[i];
+      final x = (t - visibleTMin) / timeSpan * size.width;
+      final y = (visibleVMax - v) / voltageSpan * size.height;
+      canvas.drawCircle(Offset(x, y), 2.6, paint);
+    }
+    canvas.restore();
   }
 
   /// Draw the grid scaled to the visible time/voltage range.
@@ -479,6 +633,11 @@ class WaveformBasePainter extends CustomPainter {
         oldDelegate.refVisible != refVisible ||
         oldDelegate.refOffset != refOffset ||
         oldDelegate.refHighlighted != refHighlighted ||
+        oldDelegate.diffTrace != diffTrace ||
+        oldDelegate.diffVisible != diffVisible ||
+        oldDelegate.maskBand != maskBand ||
+        oldDelegate.maskVisible != maskVisible ||
+        oldDelegate.maskViolations != maskViolations ||
         oldDelegate.params != params ||
         oldDelegate.ch1Enabled != ch1Enabled ||
         oldDelegate.ch2Enabled != ch2Enabled ||

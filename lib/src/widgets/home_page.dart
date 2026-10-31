@@ -31,8 +31,13 @@ import '../waveform/waveform_csv_parser.dart';
 import '../waveform/waveform_csv_writer.dart';
 import '../data_logger/data_logger_csv_writer.dart';
 import '../waveform/waveform_models.dart';
+import '../waveform/waveform_compare.dart';
+import '../waveform/waveform_mask.dart';
+import '../waveform/waveform_measurements.dart';
 import '../waveform/waveform_painter.dart';
+import '../waveform/waveform_report.dart';
 import '../waveform/waveform_view_transform.dart';
+import 'waveform_measurement_panel.dart';
 import '../ai/ai_chat_service.dart';
 import '../ai/ai_settings.dart';
 import '../ai/control_panel_chat_controller.dart';
@@ -195,6 +200,36 @@ class _OsciHomePageState extends State<OsciHomePage>
   WaveformData? _waveformCh2;
   WaveformData? _waveformCh3;
   WaveformData? _waveformCh4;
+
+  /// Time-domain measurements of the last acquisition, computed from the raw
+  /// samples before the display decimation.
+  WaveformMeasurements? _measurementsCh1;
+  WaveformMeasurements? _measurementsCh2;
+  WaveformMeasurements? _measurementsCh3;
+  WaveformMeasurements? _measurementsCh4;
+
+  /// Bounded measurement history per channel, used for the statistics line
+  /// in the measurement panel.
+  static const int _measurementHistoryLimit = 20;
+  final List<WaveformMeasurements> _measurementHistoryCh1 = [];
+  final List<WaveformMeasurements> _measurementHistoryCh2 = [];
+  final List<WaveformMeasurements> _measurementHistoryCh3 = [];
+  final List<WaveformMeasurements> _measurementHistoryCh4 = [];
+
+  /// Difference trace and deviation metrics against the loaded reference.
+  bool _diffVisible = false;
+  WaveformData? _diffTrace;
+  ComparisonMetrics? _comparison;
+
+  /// Software mask test state.
+  MaskSettings _maskSettings = defaultMaskSettings;
+  MaskBand? _maskBand;
+  MaskResult? _maskResult;
+
+  /// Cached geometry of the loaded reference, used by the mask slider ranges.
+  double _referenceVppCache = 0;
+  double _referenceDurationCache = 0;
+
   DeviceParams? _deviceParams;
   bool _waveformAcquired = false;
 
@@ -619,6 +654,13 @@ class _OsciHomePageState extends State<OsciHomePage>
                         onRefMovingToggled: _onRefMovingToggled,
                         refOffset: _refOffset,
                         onRefReset: _onRefReset,
+                        diffAvailable: _refWaveform != null,
+                        diffVisible: _diffVisible,
+                        onDiffToggled: _onDiffToggled,
+                        comparison: _comparison,
+                        onUseCurrentAsReference: _hasCurrentWaveform()
+                            ? _useCurrentWaveformAsReference
+                            : null,
                       ),
                   ],
                 ),
@@ -644,7 +686,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         _ => const SizedBox.shrink(),
       };
     }
-    if (_waveformAcquired) return _buildWaveformView();
+    if (_waveformAcquired) return _buildWaveformAnalysisView();
     if (_screenDump != null) return _buildPhysicalPanel();
     return _buildWelcomeScreen();
   }
@@ -960,6 +1002,30 @@ class _OsciHomePageState extends State<OsciHomePage>
     return (tMin, tMax);
   }
 
+  Widget _buildWaveformAnalysisView() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Expanded(child: Center(child: _buildWaveformView())),
+          const SizedBox(height: 8),
+          WaveformMeasurementPanel(
+            measurements: _currentMeasurements(),
+            statistics: _measurementStatistics(),
+            historyCount: _measurementHistoryCount(),
+            maskAvailable: _refWaveform != null,
+            referenceVppVolts: _referenceVpp(),
+            referenceDurationSeconds: _referenceDurationSeconds(),
+            maskSettings: _maskSettings,
+            maskResult: _maskResult,
+            onMaskSettingsChanged: _onMaskSettingsChanged,
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildWaveformView() {
     final (dataTMin, dataTMax) = _waveformTimeBounds();
     return AspectRatio(
@@ -999,6 +1065,11 @@ class _OsciHomePageState extends State<OsciHomePage>
                       refChannelOrigin: _refChannelOrigin,
                       refOffset: _refOffset,
                       refHighlighted: _refMoving,
+                      diffTrace: _diffTrace,
+                      diffVisible: _diffVisible,
+                      maskBand: _maskBand,
+                      maskVisible: _maskSettings.enabled,
+                      maskViolations: _maskResult?.violationPoints ?? const [],
                       params: _deviceParams!,
                       ch1Enabled: _ch1Enabled,
                       ch2Enabled: _ch2Enabled,
@@ -1285,6 +1356,16 @@ class _OsciHomePageState extends State<OsciHomePage>
                         _canSaveBodeReport))
                 ? null
                 : _saveCurrentView,
+          ),
+          IconButton(
+            icon: const Icon(Icons.picture_as_pdf, size: 25),
+            color: (_isMacroPlaying || !_canSaveWaveformReport)
+                ? Colors.white24
+                : Colors.white70,
+            tooltip: 'Report',
+            onPressed: (_isMacroPlaying || !_canSaveWaveformReport)
+                ? null
+                : _saveWaveformReport,
           ),
         ],
       ),
@@ -3027,6 +3108,18 @@ class _OsciHomePageState extends State<OsciHomePage>
           _waveformCh2 = null;
           _waveformCh3 = null;
           _waveformCh4 = null;
+          _measurementsCh1 = null;
+          _measurementsCh2 = null;
+          _measurementsCh3 = null;
+          _measurementsCh4 = null;
+          _measurementHistoryCh1.clear();
+          _measurementHistoryCh2.clear();
+          _measurementHistoryCh3.clear();
+          _measurementHistoryCh4.clear();
+          _diffTrace = null;
+          _comparison = null;
+          _maskBand = null;
+          _maskResult = null;
           _deviceParams = null;
           _isOnline = true;
           _waveformAcquired = false;
@@ -3090,12 +3183,20 @@ class _OsciHomePageState extends State<OsciHomePage>
       // ((double, double) pairs) — they get silently truncated to ~726 points
       // instead of the full 1201 points sent by the scope (WFSU NP=1201).
       final result = convertRawData(raw);
+      // Measure the raw samples before the display decimation so rise/fall
+      // times and overshoot keep the full acquisition resolution.
+      final measurements = _measureRawChannels(raw);
 
       setState(() {
         _waveformCh1 = result.$1;
         _waveformCh2 = result.$2;
         _waveformCh3 = result.$3;
         _waveformCh4 = result.$4;
+        _measurementsCh1 = measurements.$1;
+        _measurementsCh2 = measurements.$2;
+        _measurementsCh3 = measurements.$3;
+        _measurementsCh4 = measurements.$4;
+        _recordMeasurementHistory(measurements);
         _deviceParams = result.$5;
         _screenDump = null;
         _isOnline = true;
@@ -3105,6 +3206,8 @@ class _OsciHomePageState extends State<OsciHomePage>
         // interaction that showed only ~4 waves.
         _zoomState = const ZoomState();
       });
+      _logWaveformMeasurements();
+      _recomputeReferenceAnalysis();
     } catch (e) {
       AppLogger().error('Acquire waveform error: $e');
       final reason = e is AcquisitionException ? e.reason : e.toString();
@@ -3119,10 +3222,351 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
   }
 
+  /// Measures every acquired raw channel before display decimation.
+  ///
+  /// Channels that were not acquired, or whose vertical settings are
+  /// missing, yield `null`.
+  (
+    WaveformMeasurements?,
+    WaveformMeasurements?,
+    WaveformMeasurements?,
+    WaveformMeasurements?,
+  )
+  _measureRawChannels(WaveformRawData raw) {
+    /// Effective interval between the raw samples of a channel.
+    ///
+    /// Mirrors [WaveformConverter.computeTimeAxis]: with a known trigger
+    /// position the reported sample rate is authoritative; otherwise the
+    /// record spans the 14-division display window. The fallback matters on
+    /// instruments that return fewer points than requested — `SARA?` then
+    /// reports the maximum rate, not the rate of the transferred record.
+    double? sampleIntervalFor(int rawLength) {
+      if (rawLength < 2) return null;
+      if (raw.triggerPosition <= 0 && raw.timebase > 0) {
+        return raw.timebase * 14 / (rawLength - 1);
+      }
+      return raw.sampleRate > 0 ? 1 / raw.sampleRate : null;
+    }
+
+    WaveformMeasurements? measure(
+      String channel,
+      Uint8List? data,
+      double? vdiv,
+      double? voffset,
+    ) {
+      if (data == null || vdiv == null || voffset == null || data.isEmpty) {
+        return null;
+      }
+      return measureRawChannel(
+        channel: channel,
+        rawData: data,
+        vdiv: vdiv,
+        voffset: voffset,
+        sampleRate: raw.sampleRate,
+        sampleIntervalSeconds: sampleIntervalFor(data.length),
+      );
+    }
+
+    return (
+      measure('ch1', raw.ch1Raw, raw.vdivCh1, raw.voffsetCh1),
+      measure('ch2', raw.ch2Raw, raw.vdivCh2, raw.voffsetCh2),
+      measure('ch3', raw.ch3Raw, raw.vdivCh3, raw.voffsetCh3),
+      measure('ch4', raw.ch4Raw, raw.vdivCh4, raw.voffsetCh4),
+    );
+  }
+
+  /// Writes the latest waveform measurements to the debug log.
+  ///
+  /// The values are consumed by the measurement panel in the next phase; the
+  /// debug entry keeps the computation observable in the meantime.
+  void _logWaveformMeasurements() {
+    for (final measurement in [
+      _measurementsCh1,
+      _measurementsCh2,
+      _measurementsCh3,
+      _measurementsCh4,
+    ]) {
+      if (measurement == null) continue;
+      AppLogger().debug(
+        'Measurements ${measurement.channel}: '
+        'Vpp=${measurement.vPp}, '
+        'frequency=${measurement.frequencyHz}, '
+        'duty=${measurement.dutyPercent}, '
+        'samples=${measurement.sampleCount}, '
+        'notes=${measurement.notes}',
+      );
+    }
+  }
+
+  /// Appends the current measurements to the bounded per-channel history.
+  void _recordMeasurementHistory(
+    (
+      WaveformMeasurements?,
+      WaveformMeasurements?,
+      WaveformMeasurements?,
+      WaveformMeasurements?,
+    )
+    measurements,
+  ) {
+    void add(List<WaveformMeasurements> history, WaveformMeasurements? value) {
+      if (value == null) return;
+      history.add(value);
+      if (history.length > _measurementHistoryLimit) {
+        history.removeAt(0);
+      }
+    }
+
+    add(_measurementHistoryCh1, measurements.$1);
+    add(_measurementHistoryCh2, measurements.$2);
+    add(_measurementHistoryCh3, measurements.$3);
+    add(_measurementHistoryCh4, measurements.$4);
+  }
+
+  /// Measurements of the channels currently enabled for display.
+  Map<String, WaveformMeasurements> _currentMeasurements() {
+    final measurements = <String, WaveformMeasurements>{};
+    void add(String channel, bool enabled, WaveformMeasurements? value) {
+      if (enabled && value != null) measurements[channel] = value;
+    }
+
+    add('ch1', _ch1Enabled, _measurementsCh1);
+    add('ch2', _ch2Enabled, _measurementsCh2);
+    add('ch3', _numChannels >= 4 && _ch3Enabled, _measurementsCh3);
+    add('ch4', _numChannels >= 4 && _ch4Enabled, _measurementsCh4);
+    return measurements;
+  }
+
+  /// All acquired measurements, regardless of the display channel toggles.
+  Map<String, WaveformMeasurements> _acquiredMeasurements() => {
+    'ch1': ?_measurementsCh1,
+    'ch2': ?_measurementsCh2,
+    'ch3': ?_measurementsCh3,
+    'ch4': ?_measurementsCh4,
+  };
+
+  /// Statistics over the stored measurement history.
+  ///
+  /// Channels with only one stored acquisition are omitted: a standard
+  /// deviation needs at least two runs.
+  Map<String, WaveformChannelStatistics> _measurementStatistics() {
+    final statistics = <String, WaveformChannelStatistics>{};
+    void add(String channel, List<WaveformMeasurements> history) {
+      if (history.length > 1) {
+        statistics[channel] = measureChannelStatistics(history);
+      }
+    }
+
+    add('ch1', _measurementHistoryCh1);
+    add('ch2', _measurementHistoryCh2);
+    add('ch3', _measurementHistoryCh3);
+    add('ch4', _measurementHistoryCh4);
+    return statistics;
+  }
+
+  /// Longest stored history across all channels.
+  int _measurementHistoryCount() {
+    var count = 0;
+    for (final history in [
+      _measurementHistoryCh1,
+      _measurementHistoryCh2,
+      _measurementHistoryCh3,
+      _measurementHistoryCh4,
+    ]) {
+      if (history.length > count) count = history.length;
+    }
+    return count;
+  }
+
+  /// Enabled live channels that can serve as a reference.
+  Map<String, WaveformData> _enabledLiveChannels() {
+    final channels = <String, WaveformData>{};
+    void add(String channel, bool enabled, WaveformData? data) {
+      if (enabled && data != null && data.points.isNotEmpty) {
+        channels[channel] = data;
+      }
+    }
+
+    add('ch1', _ch1Enabled, _waveformCh1);
+    add('ch2', _ch2Enabled, _waveformCh2);
+    add('ch3', _numChannels >= 4 && _ch3Enabled, _waveformCh3);
+    add('ch4', _numChannels >= 4 && _ch4Enabled, _waveformCh4);
+    return channels;
+  }
+
+  bool _hasCurrentWaveform() => _enabledLiveChannels().isNotEmpty;
+
+  /// Live waveform belonging to the loaded reference channel.
+  WaveformData? _liveWaveformForReference() => switch (_refChannelOrigin) {
+    'ch1' => _waveformCh1,
+    'ch2' => _waveformCh2,
+    'ch3' => _waveformCh3,
+    'ch4' => _waveformCh4,
+    _ => null,
+  };
+
+  double _referenceVpp() => _referenceVppCache;
+
+  double _referenceDurationSeconds() => _referenceDurationCache;
+
+  /// Recomputes the cached reference geometry after a reference change.
+  void _cacheReferenceGeometry() {
+    final points = _refWaveform?.points;
+    if (points == null || points.isEmpty) {
+      _referenceVppCache = 0;
+      _referenceDurationCache = 0;
+      return;
+    }
+    var min = double.infinity;
+    var max = -double.infinity;
+    for (final (_, voltage) in points) {
+      if (voltage < min) min = voltage;
+      if (voltage > max) max = voltage;
+    }
+    _referenceVppCache = max - min;
+    _referenceDurationCache = points.length < 2
+        ? 0
+        : points.last.$1 - points.first.$1;
+  }
+
+  void _onDiffToggled(bool visible) {
+    setState(() => _diffVisible = visible);
+    if (visible) _recomputeReferenceAnalysis();
+  }
+
+  void _onMaskSettingsChanged(MaskSettings settings) {
+    setState(() => _maskSettings = settings);
+    _recomputeReferenceAnalysis();
+  }
+
+  /// Copies the current waveform of an enabled channel into the reference.
+  Future<void> _useCurrentWaveformAsReference() async {
+    final channels = _enabledLiveChannels();
+    if (channels.isEmpty) {
+      _showInfoSnackBar('No current waveform available.');
+      return;
+    }
+
+    final channel = channels.length == 1
+        ? channels.keys.first
+        : await showDialog<String>(
+            context: context,
+            builder: (ctx) => SimpleDialog(
+              title: const Text('Use which channel as reference?'),
+              children: [
+                for (final entry in channels.entries)
+                  SimpleDialogOption(
+                    onPressed: () => Navigator.pop(ctx, entry.key),
+                    child: Text(
+                      entry.key.toUpperCase(),
+                      style: TextStyle(color: waveformChannelColor(entry.key)),
+                    ),
+                  ),
+              ],
+            ),
+          );
+    if (channel == null || !mounted) return;
+
+    final points = channels[channel]!.points;
+    setState(() {
+      _refWaveform = WaveformData(points: points);
+      _refVisible = true;
+      _refFileName = '${channel.toUpperCase()} (current)';
+      _refChannelOrigin = channel;
+      _refOffset = const ReferenceOffset();
+      _cacheReferenceGeometry();
+    });
+    _recomputeReferenceAnalysis();
+  }
+
+  /// Recomputes difference trace, deviation metrics and the mask test.
+  ///
+  /// Called after an acquisition, a reference change, a reference drag and a
+  /// mask settings change. The result only covers the live points that the
+  /// (shifted) reference actually spans.
+  void _recomputeReferenceAnalysis() {
+    final params = _deviceParams;
+    final reference = _refWaveform;
+    final live = _liveWaveformForReference();
+
+    if (params == null ||
+        reference == null ||
+        reference.points.isEmpty ||
+        live == null ||
+        live.points.isEmpty) {
+      if (_diffTrace != null ||
+          _comparison != null ||
+          _maskBand != null ||
+          _maskResult != null) {
+        setState(() {
+          _diffTrace = null;
+          _comparison = null;
+          _maskBand = null;
+          _maskResult = null;
+        });
+      }
+      return;
+    }
+
+    final referenceVdiv = params.vdivFor(_refChannelOrigin) ?? 1.0;
+    final trace = differenceTrace(
+      live: live.points,
+      reference: reference.points,
+      offset: _refOffset,
+      timebase: params.timebase,
+      referenceVdiv: referenceVdiv,
+    );
+    final comparison = comparisonMetrics(
+      live: live.points,
+      reference: reference.points,
+      offset: _refOffset,
+      timebase: params.timebase,
+      referenceVdiv: referenceVdiv,
+    );
+
+    MaskBand? band;
+    MaskResult? result;
+    if (_maskSettings.enabled) {
+      final shifted = shiftReference(
+        reference.points,
+        offset: _refOffset,
+        timebase: params.timebase,
+        referenceVdiv: referenceVdiv,
+      );
+      final toleranceVolts = _maskSettings.usePercent
+          ? _referenceVpp() * _maskSettings.toleranceValue / 100
+          : _maskSettings.toleranceValue;
+      band = buildMaskBand(
+        shifted,
+        toleranceVolts: toleranceVolts,
+        toleranceTime: _maskSettings.timeToleranceSeconds > 0
+            ? _maskSettings.timeToleranceSeconds
+            : null,
+      );
+      result = evaluateMask(live.points, band);
+    }
+
+    setState(() {
+      _diffTrace = WaveformData(points: trace);
+      _comparison = comparison;
+      _maskBand = band;
+      _maskResult = result;
+    });
+  }
+
   /// Whether the standard save (screen dump or waveform) is available.
   bool get _canSaveStandard =>
       _activePanel == ActivePanel.none &&
       (_screenDump != null || _waveformAcquired);
+
+  /// Whether a waveform measurement report can be saved.
+  bool get _canSaveWaveformReport =>
+      _activePanel == ActivePanel.none &&
+      _waveformAcquired &&
+      _deviceParams != null &&
+      (_waveformCh1 != null ||
+          _waveformCh2 != null ||
+          _waveformCh3 != null ||
+          _waveformCh4 != null);
 
   /// Whether a data logger report can be saved.
   bool get _canSaveDataLoggerReport =>
@@ -3355,6 +3799,54 @@ class _OsciHomePageState extends State<OsciHomePage>
       }
     } catch (e) {
       _showErrorSnackBar('Save failed: $e');
+    }
+  }
+
+  /// Saves a PDF measurement report for the current waveform.
+  ///
+  /// The report contains the chart image, the automatic measurements, the
+  /// device settings and the reference/mask result (see [WaveformReport]).
+  Future<void> _saveWaveformReport() async {
+    try {
+      final prefix = await _askForFilenamePrefixIfNeeded();
+      if (prefix == null) return; // user cancelled
+      final baseName = prefix.isNotEmpty ? prefix : 'waveform_report';
+
+      final boundary =
+          _waveformKey.currentContext?.findRenderObject()
+              as RenderRepaintBoundary?;
+      if (boundary == null) throw Exception('Waveform not rendered yet');
+
+      final uiImage = await boundary.toImage(pixelRatio: 2.0);
+      final byteData = await uiImage.toByteData(
+        format: ui.ImageByteFormat.rawRgba,
+      );
+      if (byteData == null) {
+        throw Exception('Failed to capture waveform image');
+      }
+      final image = img.Image.fromBytes(
+        width: uiImage.width,
+        height: uiImage.height,
+        bytes: byteData.buffer,
+        numChannels: 4,
+      );
+
+      final pdfBytes = await WaveformReport.generatePdf(
+        chartImageBytes: img.encodePng(image),
+        params: _deviceParams!,
+        measurements: _acquiredMeasurements(),
+        comparison: _comparison,
+        maskResult: _maskSettings.enabled ? _maskResult : null,
+        reportName: prefix.isEmpty ? null : prefix,
+        deviceName: _deviceName ?? _ipAddress,
+      );
+
+      final dir = await AppPaths.getOrCreateWaveformReportsDir();
+      final file = await AppPaths.getUniqueFilePath(dir, baseName, 'pdf');
+      await file.writeAsBytes(pdfBytes);
+      _showInfoSnackBar('Saved ${file.uri.pathSegments.last}');
+    } catch (e) {
+      _showErrorSnackBar('Report failed: $e');
     }
   }
 
@@ -4082,6 +4574,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   void _onRefReset() {
     setState(() => _refOffset = const ReferenceOffset());
+    _recomputeReferenceAnalysis();
   }
 
   // =========================================================================
@@ -4196,7 +4689,9 @@ class _OsciHomePageState extends State<OsciHomePage>
         // The load aligns the reference itself, so an offset from a previous
         // reference would be meaningless for this one.
         _refOffset = const ReferenceOffset();
+        _cacheReferenceGeometry();
       });
+      _recomputeReferenceAnalysis();
     } catch (e) {
       _showErrorSnackBar('Error loading reference: $e');
     }
@@ -4460,6 +4955,11 @@ class _OsciHomePageState extends State<OsciHomePage>
         maxDivY: _refMaxDivY / _zoomState.zoomFactor,
       );
     });
+    // Only the difference trace and the mask depend on the offset; skip the
+    // resampling work while both are hidden.
+    if (_diffVisible || _maskSettings.enabled) {
+      _recomputeReferenceAnalysis();
+    }
   }
 }
 

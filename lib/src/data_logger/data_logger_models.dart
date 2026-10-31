@@ -104,6 +104,88 @@ double? parseScpiNumber(String rawResponse) {
 }
 
 // =============================================================================
+// Alarm Rules
+// =============================================================================
+
+/// Direction in which a Data Logger alarm rule was violated.
+enum DataLoggerAlarmDirection { belowLower, aboveUpper }
+
+/// Threshold rule for one Data Logger parameter.
+///
+/// A rule is active when [enabled] is true and at least one bound is set. An
+/// empty bound means "not checked". Values equal to a bound are inside the
+/// allowed range; only strict crossings raise an alarm.
+class DataLoggerAlarmRule {
+  final bool enabled;
+  final double? lower;
+  final double? upper;
+
+  const DataLoggerAlarmRule({this.enabled = true, this.lower, this.upper});
+
+  bool get hasBounds => lower != null || upper != null;
+  bool get isActive => enabled && hasBounds;
+
+  bool isViolated(double value) => directionFor(value) != null;
+
+  DataLoggerAlarmDirection? directionFor(double value) {
+    if (lower != null && value < lower!) {
+      return DataLoggerAlarmDirection.belowLower;
+    }
+    if (upper != null && value > upper!) {
+      return DataLoggerAlarmDirection.aboveUpper;
+    }
+    return null;
+  }
+
+  DataLoggerAlarmRule copyWith({
+    bool? enabled,
+    double? lower,
+    double? upper,
+    bool clearLower = false,
+    bool clearUpper = false,
+  }) {
+    return DataLoggerAlarmRule(
+      enabled: enabled ?? this.enabled,
+      lower: clearLower ? null : (lower ?? this.lower),
+      upper: clearUpper ? null : (upper ?? this.upper),
+    );
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is DataLoggerAlarmRule &&
+      other.enabled == enabled &&
+      other.lower == lower &&
+      other.upper == upper;
+
+  @override
+  int get hashCode => Object.hash(enabled, lower, upper);
+
+  @override
+  String toString() =>
+      'DataLoggerAlarmRule(enabled=$enabled, lower=$lower, upper=$upper)';
+}
+
+/// Equality for the alarm-rule maps of two configurations.
+bool _alarmRulesEqual(
+  Map<String, DataLoggerAlarmRule> a,
+  Map<String, DataLoggerAlarmRule> b,
+) {
+  if (identical(a, b)) return true;
+  if (a.length != b.length) return false;
+  for (final entry in a.entries) {
+    if (b[entry.key] != entry.value) return false;
+  }
+  return true;
+}
+
+/// Stable hash for an alarm-rule map.
+int _alarmRulesHash(Map<String, DataLoggerAlarmRule> rules) {
+  final keys = rules.keys.toList()..sort();
+  return Object.hashAll([for (final key in keys) Object.hash(key, rules[key])]);
+}
+
+// =============================================================================
 // Configuration
 // =============================================================================
 
@@ -203,6 +285,10 @@ class DataLoggerConfig {
   /// Defaults to 1.0 if not yet queried.
   final double probeDividerCh4;
 
+  /// Alarm rules keyed by parameter id (`ch1_vpp`, `ch1_mean`, `ch1_rms`,
+  /// `ch1_duty`, `ch1_freq`, …, `gain_db`).
+  final Map<String, DataLoggerAlarmRule> alarmRules;
+
   /// True if any measurement is enabled for CH1.
   ///
   /// Gain (dB) is included because it queries the RMS voltage on both
@@ -274,7 +360,15 @@ class DataLoggerConfig {
     this.probeDividerCh2 = 1.0,
     this.probeDividerCh3 = 1.0,
     this.probeDividerCh4 = 1.0,
+    this.alarmRules = const {},
   });
+
+  /// True when at least one alarm rule has a bound and is enabled.
+  bool get hasActiveAlarms => alarmRules.values.any((rule) => rule.isActive);
+
+  /// The alarm rule for [parameterId], if one is configured.
+  DataLoggerAlarmRule? alarmRuleFor(String parameterId) =>
+      alarmRules[parameterId];
 
   /// Total number of data points expected for this configuration.
   /// Includes both t=0 and t=duration endpoints (e.g., 60s/10s = 7 points:
@@ -310,6 +404,7 @@ class DataLoggerConfig {
     double? probeDividerCh2,
     double? probeDividerCh3,
     double? probeDividerCh4,
+    Map<String, DataLoggerAlarmRule>? alarmRules,
   }) {
     return DataLoggerConfig(
       ch1VppEnabled: ch1VppEnabled ?? this.ch1VppEnabled,
@@ -340,6 +435,7 @@ class DataLoggerConfig {
       probeDividerCh2: probeDividerCh2 ?? this.probeDividerCh2,
       probeDividerCh3: probeDividerCh3 ?? this.probeDividerCh3,
       probeDividerCh4: probeDividerCh4 ?? this.probeDividerCh4,
+      alarmRules: alarmRules ?? this.alarmRules,
     );
   }
 
@@ -374,7 +470,8 @@ class DataLoggerConfig {
           probeDividerCh1 == other.probeDividerCh1 &&
           probeDividerCh2 == other.probeDividerCh2 &&
           probeDividerCh3 == other.probeDividerCh3 &&
-          probeDividerCh4 == other.probeDividerCh4;
+          probeDividerCh4 == other.probeDividerCh4 &&
+          _alarmRulesEqual(alarmRules, other.alarmRules);
 
   @override
   int get hashCode => Object.hashAll([
@@ -406,6 +503,7 @@ class DataLoggerConfig {
     probeDividerCh2,
     probeDividerCh3,
     probeDividerCh4,
+    _alarmRulesHash(alarmRules),
   ]);
 
   @override
@@ -420,6 +518,7 @@ class DataLoggerConfig {
       '${description.isEmpty ? '' : ', description=$description'}'
       ', probeDividerCh1=${probeDividerCh1}x, probeDividerCh2=${probeDividerCh2}x'
       ', probeDividerCh3=${probeDividerCh3}x, probeDividerCh4=${probeDividerCh4}x'
+      ', alarmRules=${alarmRules.length}'
       ')';
 }
 
@@ -462,6 +561,9 @@ class DataLoggerPoint {
   final double? ch4Freq;
   final double? gainDb;
 
+  /// Parameter ids whose alarm rule was violated at this sample.
+  final Set<String> activeAlarms;
+
   const DataLoggerPoint({
     required this.timestamp,
     required this.elapsedSeconds,
@@ -486,6 +588,7 @@ class DataLoggerPoint {
     this.ch4Duty,
     this.ch4Freq,
     this.gainDb,
+    this.activeAlarms = const {},
   });
 
   @override
@@ -511,8 +614,37 @@ class DataLoggerPoint {
       'ch4Rms=${ch4Rms?.toStringAsFixed(4)}, '
       'ch4Duty=${ch4Duty?.toStringAsFixed(1)}, '
       'ch4Freq=${ch4Freq?.toStringAsFixed(1)}, '
-      'gainDb=${gainDb?.toStringAsFixed(2)})';
+      'gainDb=${gainDb?.toStringAsFixed(2)}, '
+      'activeAlarms=$activeAlarms)';
 }
+
+/// Maps a sample to its parameter values keyed by the stable parameter ids.
+///
+/// The ids match the Data Logger's legend keys and alarm-rule keys, e.g.
+/// `ch1_vpp`, `ch1_mean`, `ch1_rms`, `ch1_duty`, `ch1_freq` … `gain_db`.
+Map<String, double?> dataLoggerPointValues(DataLoggerPoint point) => {
+  'ch1_vpp': point.ch1Vpp,
+  'ch1_mean': point.ch1Mean,
+  'ch1_rms': point.ch1Rms,
+  'ch1_duty': point.ch1Duty,
+  'ch1_freq': point.ch1Freq,
+  'ch2_vpp': point.ch2Vpp,
+  'ch2_mean': point.ch2Mean,
+  'ch2_rms': point.ch2Rms,
+  'ch2_duty': point.ch2Duty,
+  'ch2_freq': point.ch2Freq,
+  'ch3_vpp': point.ch3Vpp,
+  'ch3_mean': point.ch3Mean,
+  'ch3_rms': point.ch3Rms,
+  'ch3_duty': point.ch3Duty,
+  'ch3_freq': point.ch3Freq,
+  'ch4_vpp': point.ch4Vpp,
+  'ch4_mean': point.ch4Mean,
+  'ch4_rms': point.ch4Rms,
+  'ch4_duty': point.ch4Duty,
+  'ch4_freq': point.ch4Freq,
+  'gain_db': point.gainDb,
+};
 
 // =============================================================================
 // Runtime State

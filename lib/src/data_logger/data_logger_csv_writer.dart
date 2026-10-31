@@ -1,3 +1,4 @@
+import 'data_logger_alarms.dart';
 import 'data_logger_models.dart';
 
 /// Builds the CSV content for data logger measurements.
@@ -77,6 +78,23 @@ String buildDataLoggerCsv({
       row.add(value == null ? '' : value.toStringAsFixed(6));
     }
     csvBuffer.writeln(row.join(','));
+  }
+
+  // ---- Alarm events ----
+  // Kept as comment lines so tools that parse the data table are unaffected.
+  final alarmEvents = dataLoggerAlarmEvents(config: config, points: points);
+  if (alarmEvents.isNotEmpty) {
+    csvBuffer.writeln('#');
+    csvBuffer.writeln('# Alarm Events: ${alarmEvents.length}');
+    for (final event in alarmEvents) {
+      csvBuffer.writeln(
+        '# Alarm Event: t=${event.elapsedSeconds.toStringAsFixed(1)}s, '
+        '${event.parameterLabel}=${event.value.toStringAsFixed(6)}, '
+        '${event.direction.name}, '
+        'lower=${event.lower?.toStringAsFixed(6) ?? '-'}, '
+        'upper=${event.upper?.toStringAsFixed(6) ?? '-'}',
+      );
+    }
   }
 
   return csvBuffer.toString();
