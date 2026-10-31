@@ -223,6 +223,12 @@ class _CalculatorPanelState extends State<CalculatorPanel>
             onPressed: () => showValueCodeReferenceDialog(context),
           ),
           IconButton(
+            tooltip: 'Sensor calibration',
+            icon: const Icon(Icons.linear_scale, size: 21),
+            color: Colors.white70,
+            onPressed: () => showSensorCalibrationDialog(context),
+          ),
+          IconButton(
             tooltip: 'Syntax help',
             icon: const Icon(Icons.help_outline, size: 21),
             color: Colors.white70,

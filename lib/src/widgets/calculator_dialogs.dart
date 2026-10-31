@@ -11,6 +11,19 @@ import '../calculator/calc_formulas.dart';
 import '../calculator/calc_units.dart';
 import '../calculator/calc_value.dart';
 import '../calculator/calculator_controller.dart';
+import 'sensor_calibration_dialog.dart';
+
+// =============================================================================
+// Sensor calibration
+// =============================================================================
+
+/// Shows the linear sensor calibration dialog.
+Future<void> showSensorCalibrationDialog(BuildContext context) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) => const SensorCalibrationDialog(),
+  );
+}
 
 // =============================================================================
 // Settings
@@ -1283,9 +1296,20 @@ class _ValueCodeReferenceDialog extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.sizeOf(context);
-    final width = (size.width - 120).clamp(420.0, 1080.0);
-    final height = (size.height - 180).clamp(320.0, 760.0);
+    final screen = MediaQuery.sizeOf(context);
+    final maxWidth = (screen.width - 120).clamp(420.0, 1080.0).toDouble();
+    final maxHeight = (screen.height - 200).clamp(320.0, 780.0).toDouble();
+    // Tab bar, gap and zoom hint below the chart.
+    const chromeHeight = 88.0;
+    var chartHeight = maxHeight - chromeHeight;
+    if (chartHeight < 220) chartHeight = 220;
+    var chartWidth = chartHeight * 3 / 2;
+    if (chartWidth > maxWidth) {
+      chartWidth = maxWidth;
+      chartHeight = chartWidth * 2 / 3;
+    }
+    final contentWidth = chartWidth;
+    final contentHeight = chartHeight + chromeHeight;
     return DefaultTabController(
       length: _valueCodeCharts.length,
       child: AlertDialog(
@@ -1296,10 +1320,10 @@ class _ValueCodeReferenceDialog extends StatelessWidget {
             Text('Component value codes'),
           ],
         ),
-        contentPadding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+        contentPadding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
         content: SizedBox(
-          width: width,
-          height: height,
+          width: contentWidth,
+          height: contentHeight,
           child: Column(
             children: [
               TabBar(

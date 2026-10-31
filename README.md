@@ -17,7 +17,7 @@ SDS-Remote enables remote control and AI-enhanced operation of Siglent SDS1202X-
 - **Waveform Acquisition & Data Export**: Capture and display waveform data from enabled channels. Save screen captures as images, write waveform PDF measurement reports and CSV data, and export waveforms as LTspice PWL, WAV or VCD files (or copy the measurement table to the clipboard).
 - **Device Parameter Monitoring**: View real-time parameters such as timebase, sample rate, and voltage settings. Cursor-based measurements are supported.
 - **Data Logging**: Log key data points over a period of time. Generate PDF measurement reports containing charts, key metrics, per-parameter statistics and alarm events, or export all recorded measurement points as CSV files. Optional lower/upper alarm rules per parameter raise one event per threshold crossing; threshold lines and event markers are drawn in the plot.
-- **Analysis Tools**: A ripple/noise preset measures AC-coupled, bandwidth-limited supply noise and restores the previous channel settings. Clock detection recognises a stable 50 % clock and suggests the matching 1-2-5 timebase. A linear sensor calibration dialog fits measured/reference pairs, reports slope, intercept and R², and copies an Arduino/ESP32 correction snippet. Timelapse mode captures the screen into a timestamped folder at a fixed interval. The measurement cards explain every metric with an offline info text.
+- **Analysis Tools**: A ripple/noise preset measures AC-coupled, bandwidth-limited supply noise and restores the previous channel settings. Clock detection recognises a stable 50 % clock and suggests the matching 1-2-5 timebase. Timelapse mode captures the screen into a timestamped folder at a fixed interval. The measurement cards explain every metric with an offline info text.
 - **Signal Generator & Bode Plot**: Choose **No Signal Generator**, **JDS6600** or **FY6900** in the settings. With JDS6600 or FY6900 selected, a **Bode** toolbar button appears once both the oscilloscope and the generator are detected; it runs a frequency sweep and plots gain and phase. The sweep limits are taken from the detected generator model and the selected waveform. The completed sweep is analysed automatically: peak gain/frequency, −3 dB frequency, bandwidth, Q factor and 0 dB crossover, with markers in the gain plot and a table in the PDF report. A toggle in the configuration form decides whether the generator outputs are switched off after the sweep (default) or stay on at the last frequency.
 - **Macro Recorder**: Record, edit and play back SCPI command sequences. Supports variables, conditionals, loops, and both network and USB connections for automated test procedures.
 - **Engineering Calculator**: A scientific/programmable calculator window (Ctrl+R) with unit-aware expressions, complex numbers, dB level arithmetic, electronics/RF/audio/digital formulas, variables, programs, history and export.
@@ -216,7 +216,10 @@ The calculator combines a scientific keypad with a typed expression language:
   `product`, numeric integration/differentiation, equation solving) with no
   `eval` of user input;
 - component value-code reference charts for resistors, capacitors and
-  inductors, opened from the book button in the calculator title bar.
+  inductors, opened from the book button in the calculator title bar;
+- a linear sensor calibration dialog that fits measured/reference pairs,
+  reports slope, intercept and R², and copies an Arduino/ESP32 correction
+  snippet, opened from the linear-scale button in the calculator title bar.
 
 The workspace is stored in `~/.local/share/sdsremote/calculator/workspace.json`
 (Windows: `%LocalAppData%\sdsremote\calculator\workspace.json`). History can be

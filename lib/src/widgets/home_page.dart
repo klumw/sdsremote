@@ -45,7 +45,6 @@ import '../waveform/clock_detection.dart';
 import 'waveform_export_dialog.dart';
 import 'waveform_measurement_panel.dart';
 import 'ripple_noise_dialog.dart';
-import 'sensor_calibration_dialog.dart';
 import 'timelapse_dialog.dart';
 import '../timelapse/timelapse.dart';
 import '../ai/ai_chat_service.dart';
@@ -64,7 +63,6 @@ import '../data_logger/data_logger_models.dart';
 import 'data_logger_panel.dart';
 import '../data_logger/data_logger_service.dart';
 import '../data_logger/data_logger_report.dart';
-import '../data_logger/data_logger_statistics.dart';
 import '../calculator/calculator_shortcut.dart';
 import '../calculator/calculator_window_launcher.dart';
 import '../calculator/calculator_window_protocol.dart';
@@ -1373,12 +1371,6 @@ class _OsciHomePageState extends State<OsciHomePage>
             onPressed: _isMacroPlaying
                 ? null
                 : (_timelapseRunning ? _stopTimelapse : _showTimelapseDialog),
-          ),
-          IconButton(
-            icon: const Icon(Icons.linear_scale, size: 25),
-            color: _isMacroPlaying ? Colors.white24 : Colors.white70,
-            tooltip: 'Sensor calibration',
-            onPressed: _isMacroPlaying ? null : _showSensorCalibrationDialog,
           ),
           IconButton(
             icon: const Icon(Icons.settings, size: 25),
@@ -3766,36 +3758,6 @@ class _OsciHomePageState extends State<OsciHomePage>
         _timelapseRunning = false;
       }
     }
-  }
-
-  /// Opens the sensor calibration dialog. The measured column can be filled
-  /// with mean values from the last Data Logger recording.
-  Future<void> _showSensorCalibrationDialog() async {
-    await showDialog<void>(
-      context: context,
-      builder: (_) =>
-          SensorCalibrationDialog(readLoggerValues: _calibrationLoggerValues),
-    );
-  }
-
-  /// Mean values of the last saved Data Logger recording, offered as measured
-  /// calibration inputs.
-  List<(String, double)> _calibrationLoggerValues() {
-    final points = _savedDlPoints;
-    final config = _savedDlConfig;
-    if (points == null || config == null || points.isEmpty) return const [];
-    final statistics = computeDataLoggerStatistics(
-      config: config,
-      points: points,
-    );
-    final values = <(String, double)>[];
-    for (final parameter in dataLoggerParameters) {
-      final mean = statistics[parameter.id]?.mean;
-      if (mean != null && mean.isFinite) {
-        values.add(('${parameter.label} mean', mean));
-      }
-    }
-    return values;
   }
 
   /// Opens the ripple/noise dialog for the connected instrument.
