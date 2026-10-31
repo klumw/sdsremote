@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../calculator/calculator_shortcut.dart';
+import '../signal_generator/signal_generator_shortcut.dart';
 
 /// Callbacks for the settings panel to communicate with the parent state.
 class SettingsPanelCallbacks {
@@ -29,6 +30,8 @@ class SettingsPanel extends StatefulWidget {
   final bool isUsb;
   final String signalGenerator;
   final ValueChanged<String> onSignalGeneratorChanged;
+  final String signalGeneratorShortcut;
+  final ValueChanged<String>? onSignalGeneratorShortcutChanged;
   final String calculatorShortcut;
   final ValueChanged<String>? onCalculatorShortcutChanged;
   final List<String> providerNames;
@@ -48,6 +51,8 @@ class SettingsPanel extends StatefulWidget {
     required this.isUsb,
     required this.signalGenerator,
     required this.onSignalGeneratorChanged,
+    this.signalGeneratorShortcut = 'ctrl_j',
+    this.onSignalGeneratorShortcutChanged,
     this.calculatorShortcut = 'ctrl_r',
     this.onCalculatorShortcutChanged,
     required this.providerNames,
@@ -72,6 +77,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   String? _selectedProvider;
   late bool _isUsb;
   late String _signalGenerator;
+  late String _signalGeneratorShortcut;
   late String _calculatorShortcut;
 
   @override
@@ -85,6 +91,9 @@ class _SettingsPanelState extends State<SettingsPanel> {
         ? widget.selectedProvider
         : null;
     _signalGenerator = widget.signalGenerator;
+    _signalGeneratorShortcut = SignalGeneratorShortcut.fromPreference(
+      widget.signalGeneratorShortcut,
+    ).id;
     _calculatorShortcut = CalculatorShortcut.fromPreference(
       widget.calculatorShortcut,
     ).id;
@@ -98,6 +107,11 @@ class _SettingsPanelState extends State<SettingsPanel> {
     }
     if (oldWidget.signalGenerator != widget.signalGenerator) {
       _signalGenerator = widget.signalGenerator;
+    }
+    if (oldWidget.signalGeneratorShortcut != widget.signalGeneratorShortcut) {
+      _signalGeneratorShortcut = SignalGeneratorShortcut.fromPreference(
+        widget.signalGeneratorShortcut,
+      ).id;
     }
     if (oldWidget.calculatorShortcut != widget.calculatorShortcut) {
       _calculatorShortcut = CalculatorShortcut.fromPreference(
@@ -224,6 +238,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
                           const SizedBox(height: 16),
                         ],
                         _buildSignalGeneratorDropdown(),
+                        const SizedBox(height: 16),
+                        _buildSignalGeneratorShortcutDropdown(),
                         const SizedBox(height: 16),
                         _buildCalculatorShortcutDropdown(),
                         const SizedBox(height: 16),
@@ -371,6 +387,54 @@ class _SettingsPanelState extends State<SettingsPanel> {
       onChanged: (v) {
         setState(() => _isUsb = v == 'USB');
       },
+    );
+  }
+
+  Widget _buildSignalGeneratorShortcutDropdown() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        const Text(
+          'Signal Generator Window',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<String>(
+          key: ValueKey('signal-generator-shortcut-$_signalGeneratorShortcut'),
+          initialValue: _signalGeneratorShortcut,
+          isExpanded: true,
+          dropdownColor: const Color(0xFF252525),
+          decoration: const InputDecoration(
+            labelText: 'Window shortcut',
+            floatingLabelBehavior: FloatingLabelBehavior.always,
+            labelStyle: TextStyle(color: Colors.white70, fontSize: 14),
+            enabledBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.white24),
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderSide: BorderSide(color: Colors.cyanAccent),
+            ),
+            contentPadding: EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          ),
+          items: [
+            for (final preset in SignalGeneratorShortcut.presets)
+              DropdownMenuItem<String>(
+                value: preset.id,
+                child: Text(preset.label),
+              ),
+          ],
+          onChanged: (value) {
+            if (value == null) return;
+            final shortcut = SignalGeneratorShortcut.byId(value);
+            setState(() => _signalGeneratorShortcut = shortcut.id);
+            widget.onSignalGeneratorShortcutChanged?.call(shortcut.id);
+          },
+        ),
+      ],
     );
   }
 

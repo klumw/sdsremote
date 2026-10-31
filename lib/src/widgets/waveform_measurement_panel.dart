@@ -484,7 +484,11 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
 
   String _formatStatValue(double value, String unit) {
     if (unit == '%') return '${value.toStringAsFixed(1)} %';
-    return formatMeasurementValue(value, unit);
+    return formatMeasurementValue(
+      value,
+      unit,
+      fractionDigits: _channelParameterFractionDigits,
+    );
   }
 
   Widget _buildMaskBar() {
@@ -738,13 +742,28 @@ class _ModeButton extends StatelessWidget {
   }
 }
 
-String _formatVoltage(double? value) =>
-    value == null ? '—' : formatMeasurementValue(value, 'V');
+/// Decimal places shown for the numeric channel parameters.
+const int _channelParameterFractionDigits = 2;
 
-String _formatFrequency(double? value) =>
-    value == null ? '—' : formatMeasurementValue(value, 'Hz');
+String _formatVoltage(double? value) => value == null
+    ? '—'
+    : formatMeasurementValue(
+        value,
+        'V',
+        fractionDigits: _channelParameterFractionDigits,
+      );
 
-String _formatSeconds(double? value) => value == null ? '—' : formatTime(value);
+String _formatFrequency(double? value) => value == null
+    ? '—'
+    : formatMeasurementValue(
+        value,
+        'Hz',
+        fractionDigits: _channelParameterFractionDigits,
+      );
+
+String _formatSeconds(double? value) => value == null
+    ? '—'
+    : formatTime(value, fractionDigits: _channelParameterFractionDigits);
 
 String _formatPercent(double? value) =>
     value == null ? '—' : '${value.toStringAsFixed(1)} %';

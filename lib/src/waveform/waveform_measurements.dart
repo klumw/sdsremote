@@ -13,7 +13,8 @@ library;
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import '../instrument/measurement.dart' show formatMeasurementValue;
+import '../instrument/measurement.dart'
+    show defaultMeasurementFractionDigits, formatMeasurementValue;
 import 'waveform_converter.dart';
 
 /// Default upper bound for the number of samples used for a measurement.
@@ -300,7 +301,13 @@ WaveformChannelStatistics measureChannelStatistics(
 ///
 /// The painter keeps its own private formatter; this top-level helper is the
 /// reusable variant for measurement panels and reports.
-String formatTime(double seconds) => formatMeasurementValue(seconds, 's');
+///
+/// [fractionDigits] limits the decimal places of the scaled mantissa and
+/// defaults to [defaultMeasurementFractionDigits].
+String formatTime(
+  double seconds, {
+  int fractionDigits = defaultMeasurementFractionDigits,
+}) => formatMeasurementValue(seconds, 's', fractionDigits: fractionDigits);
 
 /// Returns the stride that limits an analysis to [maxAnalysisPoints] samples.
 int _strideFor(int sampleCount, int maxAnalysisPoints) {

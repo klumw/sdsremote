@@ -15,6 +15,8 @@
 /// ```
 library;
 
+import 'dart:math' as math;
+
 // =============================================================================
 // Measurement type registry
 // =============================================================================
@@ -247,12 +249,12 @@ const List<_SiPrefix> _siPrefixes = [
   _SiPrefix('p', 1e-12),
 ];
 
-/// Number of decimal places used when rendering the mantissa.
-const int _mantissaDecimals = 6;
+/// Default number of decimal places used when rendering a mantissa.
+const int defaultMeasurementFractionDigits = 6;
 
-/// Rounds [value] to [_mantissaDecimals] decimal places.
-double _roundMantissa(double value) {
-  const factor = 1000000.0; // 10^_mantissaDecimals
+/// Rounds [value] to [fractionDigits] decimal places.
+double _roundMantissa(double value, int fractionDigits) {
+  final factor = math.pow(10, fractionDigits).toDouble();
   return (value * factor).roundToDouble() / factor;
 }
 
@@ -269,11 +271,12 @@ int _prefixIndexFor(double magnitude) {
   return magnitude >= 1 ? 0 : _siPrefixes.length - 1;
 }
 
-/// Formats a mantissa, removing insignificant trailing zeros.
+/// Formats a mantissa with [fractionDigits] decimal places, removing
+/// insignificant trailing zeros.
 ///
-/// Examples: `3.000000` → `3`, `999.890000` → `999.89`, `1.500000` → `1.5`.
-String _formatMantissa(double mantissa) {
-  var text = mantissa.toStringAsFixed(_mantissaDecimals);
+/// Examples: `3.00` → `3`, `999.89` → `999.89`, `1.50` → `1.5`.
+String _formatMantissa(double mantissa, int fractionDigits) {
+  var text = mantissa.toStringAsFixed(fractionDigits);
   if (text.contains('.')) {
     text = text.replaceAll(RegExp(r'0+$'), '');
     if (text.endsWith('.')) {
@@ -287,7 +290,9 @@ String _formatMantissa(double mantissa) {
 /// SI prefixes.
 ///
 /// The value is scaled so the mantissa lies in `[1, 1000)`, insignificant
-/// trailing zeros are removed, and the matching prefix is applied:
+/// trailing zeros are removed, and the matching prefix is applied.
+/// [fractionDigits] limits the decimal places of the scaled mantissa and
+/// defaults to [defaultMeasurementFractionDigits].
 ///
 /// ```text
 /// 3            V   → "3 V"
@@ -298,11 +303,16 @@ String _formatMantissa(double mantissa) {
 /// 1500000      Hz  → "1.5 MHz"
 /// 0.001        Hz  → "1 mHz"
 /// ```
-String formatMeasurementValue(double value, String unit) {
+String formatMeasurementValue(
+  double value,
+  String unit, {
+  int fractionDigits = defaultMeasurementFractionDigits,
+}) {
   if (value.isNaN) return 'NaN $unit';
   if (value.isInfinite) return '${value.isNegative ? '-' : ''}∞ $unit';
   if (value == 0) return '0 $unit';
 
+  final digits = fractionDigits.clamp(0, 20).toInt();
   var index = _prefixIndexFor(value.abs());
   var mantissa = value / _siPrefixes[index].factor;
 
@@ -310,13 +320,13 @@ String formatMeasurementValue(double value, String unit) {
   // (e.g. 999.9999999 → "1000"). Promote to the next larger prefix.
   if (index > 0 &&
       mantissa.isFinite &&
-      _roundMantissa(mantissa).abs() >= 1000) {
+      _roundMantissa(mantissa, digits).abs() >= 1000) {
     index -= 1;
     mantissa = value / _siPrefixes[index].factor;
   }
 
   final prefix = _siPrefixes[index];
-  return '${_formatMantissa(mantissa)} ${prefix.symbol}$unit';
+  return '${_formatMantissa(mantissa, digits)} ${prefix.symbol}$unit';
 }
 
 /// Formats a structured [measurement] into a human-readable string.

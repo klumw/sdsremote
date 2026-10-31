@@ -624,16 +624,32 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                                 _buildSortButton("Date", MacroSortType.date),
                                 const Spacer(),
                                 if (widget.onNewFromTemplate != null)
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.library_add_outlined,
-                                      color: Colors.cyanAccent,
-                                      size: 18,
+                                  Tooltip(
+                                    message: 'New from template',
+                                    child: TextButton.icon(
+                                      onPressed: widget.onNewFromTemplate,
+                                      icon: const Icon(
+                                        Icons.library_add_outlined,
+                                        color: Colors.cyanAccent,
+                                        size: 16,
+                                      ),
+                                      label: const Text(
+                                        'Templates',
+                                        style: TextStyle(
+                                          color: Colors.cyanAccent,
+                                          fontSize: 11,
+                                        ),
+                                      ),
+                                      style: TextButton.styleFrom(
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 8,
+                                          vertical: 4,
+                                        ),
+                                        minimumSize: Size.zero,
+                                        tapTargetSize:
+                                            MaterialTapTargetSize.shrinkWrap,
+                                      ),
                                     ),
-                                    tooltip: 'New from template',
-                                    onPressed: widget.onNewFromTemplate,
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
                                   ),
                                 const SizedBox(width: 8),
                                 IconButton(

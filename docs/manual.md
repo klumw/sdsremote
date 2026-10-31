@@ -78,8 +78,7 @@ See [12. Application Directory](#12-application-directory) for a complete breakd
 
 #### Connection Requirement
 
-> **Note:** Network-based (IP address) and direct USB control is supported. USB support is experimental.  
-> For network connection ensure that the oscilloscope and host system are connected to the same network.
+> **Note:** For network connection ensure that the oscilloscope and host system are connected to the same network.
 
 ---
 
@@ -121,9 +120,9 @@ See [12. Application Directory](#12-application-directory) for a complete breakd
 
 * **Help**
   * Opens this documentation
-  * The sparkle icon next to the **SDS-Remote Help** title opens the AI Help Assistant.
+  * The AI Agent button next to the **SDS-Remote Help** title opens the AI Help Assistant.
     It answers questions from this manual and links directly to the matching sections.    
-  * The sparkle icon is only active while an AI provider, API token and model are configured (see [4. AI System](#4-ai-system))  
+  * The AI Agent button is only active while an AI provider, API token and model are configured (see [4. AI System](#4-ai-system))  
   
 * **News**  
   * Displays application updates
@@ -136,10 +135,8 @@ See [12. Application Directory](#12-application-directory) for a complete breakd
   * All files are saved in the application working directory
 
 * **Timelapse** (clock icon)
-  * Captures the oscilloscope screen at a fixed interval into a timestamped folder (see [8.11 Timelapse](#811-timelapse))
+  * Captures the oscilloscope screen at a fixed interval into a timestamped folder (see [8.10 Timelapse](#810-timelapse))
   * While a run is active, the icon shows the rotating arrows indicator and pressing it stops the run
-
-> **Tip:** The toolbar button of the currently open view is highlighted with a cyan border: **Control Panel** or **Acquire Waveform**, and the open panel (AI, Profiles, Data Logger, Bode, Macro Recorder or Help).
 
 ---
 
@@ -204,13 +201,13 @@ Both settings take effect immediately and persist across application restarts.
 
 ### 3.6 Signal Generator
 
-Select the signal generator used by the [Bode Plot](#10-bode-plot) and the [signal generator window](#911-signal-generator-window-ctrlj):
+Select the signal generator used by the [Bode Plot](#10-bode-plot) and the [signal generator window](#911-signal-generator-window):
 
 * **No Signal Generator** — disables generator features (default).
 * **JDS6600** — JOY-IT/Juntek JDS6600 and JDS6600-Lite.
 * **FY6900** — FeelElec FY6900 series.
 
-The selection is persisted as `siggen_device` and restored on the next launch. When a generator is selected, the application scans the serial ports, identifies it via `*IDN?` and enables the **Bode** button and the signal generator window (Ctrl+J).  
+The selection is persisted as `siggen_device` and restored on the next launch. When a generator is selected, the application scans the serial ports, identifies it via `*IDN?` and enables the **Bode** button and the signal generator window (default Ctrl+J, configurable in [3.10 Signal Generator Shortcut](#310-signal-generator-shortcut)).  
 The detected model supplies the frequency, amplitude and offset limits; see the Bode Plot chapter ([10. Bode Plot](#10-bode-plot)).
 
 ### 3.7 Network Connection
@@ -236,10 +233,6 @@ Click the **SAVE CONFIGURATION** button to persist all settings. The application
 
 The status bar updates to reflect the new connection state. If `ONLINE` is shown, the oscilloscope is reachable and ready for operation.
 
-The main window's size and position are saved automatically when the application closes and restored on the next launch.  
-If the saved position is no longer visible on a connected display (for example after disconnecting a monitor),  
-the window opens centered instead.
-
 > **Note:** The API token is stored in plain text in the preferences file (`preferences/preferences.json`) within the application directory.  
 > Ensure appropriate file system permissions if working in a shared environment.
 
@@ -257,6 +250,21 @@ The engineering calculator opens with **Ctrl+R** by default. In **Settings → C
 The selection is stored as `calculator_shortcut` and restored on the next launch.
 There is no toolbar button: the calculator is available only through the configured shortcut.
 The shortcut is handled globally in the main window; text fields do not use Ctrl+R natively.
+
+### 3.10 Signal Generator Shortcut
+
+The signal generator window opens with **Ctrl+J** by default. In **Settings → Signal Generator Window → Window shortcut** — directly below the generator selection — choose one of:
+
+| Shortcut | Notes |
+|:---------|:------|
+| `Ctrl` + `J` | Default |
+| `Ctrl` + `Shift` + `J` | Alternative if Ctrl+J is reserved by the desktop |
+| `Ctrl` + `Alt` + `G` | Mnemonic alternative |
+| `F10` | Keyboard-only alternative |
+
+The selection is stored as `signal_generator_shortcut` and restored on the next launch.
+There is no toolbar button: the window is available only through the configured shortcut while a generator is selected and detected.
+The shortcut is handled globally in the main window and is ignored while a macro is playing.
 
 ---
 
@@ -297,7 +305,7 @@ The application initializes the agent system immediately — no restart is neede
 
 The following models are verified to work with the application:
 
-- deepseek-flash
+- deepseek-flash (recommended for best results)
 - gpt-6-luna
 - gemini-flash
 - claude-sonnet
@@ -393,7 +401,7 @@ the AI directs you to the built-in Help system rather than attempting to answer 
   Queries in other languages may produce less accurate results.
 
 > **Warning:** The AI subsystem may generate inaccurate information or incorrect operating instructions.  
-> Always verify critical SCPI commands before execution. SDS-Remote is not liable for any damage resulting from AI-generated instructions.
+> SDS-Remote is not liable for any damage resulting from AI-generated instructions.
 
 
 ### 4.5 Troubleshooting
@@ -432,9 +440,7 @@ the AI directs you to the built-in Help system rather than attempting to answer 
 
 The **Profiles** feature allows you to save the complete oscilloscope configuration and restore it later.  
 This is useful for switching between measurement setups, sharing instrument configurations, or restoring a known-good state before critical measurements.
-
 Profile files are stored with the `.lss` extension in the `profiles/` subdirectory of the application working directory.  
-The file format is SCPI XML — the raw configuration data provided by the oscilloscope's `PNSU?` query.
 
 ### 5.1 Profiles Panel
 
@@ -472,7 +478,7 @@ Click the **Profiles** button in the top toolbar to open the Profiles panel. The
 3. Enter a descriptive name in the "Create New Profile" field.
 4. Click **Save**. The application sends `PNSU?` to the oscilloscope, receives the full XML configuration, and saves it to the `profiles/` directory.
 
-> **Note:** Saving a profile requires the device to be online. The `PNSU?` query returns an IEEE 488.2 definite-length block containing the complete instrument setup in XML format.  
+> **Note:** Saving a profile requires the device to be online. 
 > The save operation may take several seconds depending on configuration size.
 
 ### 5.3 Loading a Profile
@@ -506,7 +512,7 @@ It is ideal for monitoring signal drift, characterizing component behavior over 
 ### 6.1 Opening the Data Logger
 
 Click the **Data Logger** button in the top toolbar to open the Data Logger panel.  
-The panel replaces the main waveform/control panel area and shows a configuration dialog when first opened.  
+The panel shows a configuration dialog when first opened.  
 The button icon rotates during active recording.
 
 ### 6.2 Measurable Parameters
@@ -798,12 +804,12 @@ Stepping works on statements, not physical source lines: a compound statement is
 
 #### AI Macro Assistant
 
-The **AI** button in the editor header (sparkle icon) opens a chat panel to the right of the editor.  
+The **AI Agent button** in the editor header opens a chat panel to the right of the editor.  
 The button is enabled only when an AI provider, API token and model are configured in the settings ([4. AI System](#4-ai-system)).
 
 The assistant works directly on the macro that is open in the editor.
 
-Changes are applied immediately and are marked as unsaved. `Ctrl` + `Z` in the editor restores the previous version. Press the AI button again to close the chat panel. While the assistant is working, the send button changes to a square stop button; pressing it aborts the response immediately and marks it as `terminated by user`.
+Changes are applied immediately and are marked as unsaved. `Ctrl` + `Z` in the editor restores the previous version. Press the AI button again to close the chat panel.
 
 The chat stays open, including its complete history, when the editor is closed and reopened later in the same session.  
 An answer that is still streaming when the editor closes continues to update the transcript and is visible on reopen.
@@ -853,7 +859,6 @@ connect(SIG, usb)
 ```
 
 Connects to the signal generator selected in **Settings → Signal Generator** (JDS6600 or FY6900).  
-The generator type is read from the settings and the device is auto-detected on the USB serial ports.  
 Playback stops with an error when no type is configured or no matching generator is reachable.  
 A macro may contain one default oscilloscope `connect` and one `connect(SIG, usb)`; both connections are independent.
 
@@ -909,9 +914,6 @@ myVar=query("C1:VDIV?")
 Sends a SCPI query and stores the cleaned response in a variable named `myVar`. Variable names may contain alphanumeric characters and underscores (`[a-zA-Z0-9_]+`).  
 Variables persist for the duration of the playback session and can be used in conditions and `print` statements.
 
-> **Note:** The oscilloscope echoes every command back. The macro engine automatically drains these echoes before queries to prevent buffer overflows.  
-> Query responses are cleaned by stripping the command echo and trailing unit suffixes (e.g. `V`, `mV`, `%`).
-
 ```
 cmd(SIG, "SOUR1:FREQ 1KHZ")
 query(SIG, "SOUR1:FREQ?")
@@ -919,7 +921,7 @@ query(SIG, "SOUR1:FREQ?")
 
 The `SIG` selector sends the command to the signal generator connected with `connect(SIG, usb)` instead of the oscilloscope.
 
-These commands use the same SCPI driver as the [signal generator window](#911-signal-generator-window-ctrlj) and the Bode plot.
+These commands use the same SCPI driver as the [signal generator window](#911-signal-generator-window) and the Bode plot.
 Only headers defined by that driver are accepted; an undefined header stops playback with a SCPI error (for example `-113`).
 The complete command reference is in [15. SCPI Commands Signal Generator](#15-scpi-commands-signal-generator).
 
@@ -1136,7 +1138,7 @@ Detailed macro playback messages are available in your log file.
 
 ### 7.6 Macro Templates
 
-The Macro Recorder panel offers ready-made templates through the template icon in the file-list header. Choosing one loads its commands into the editor as an unsaved macro, which can be reviewed, adjusted and saved like any other macro:
+The Macro Recorder panel offers ready-made templates through the **Templates** button in the file-list header. Choosing one loads its commands into the editor as an unsaved macro, which can be reviewed, adjusted and saved like any other macro:
 
 * **5 V power supply check** — measures Vpp, mean and RMS on CH1.
 * **UART baud rate** — measures the frequency and duty cycle of a UART line.
@@ -1323,8 +1325,6 @@ Time (s),CH1 (V),CH2 (V),CH3 (V),CH4 (V)
 
 Time values are the actual sample timestamps of the exported (downsampled) points, normalised so the first row starts at 0. The interval therefore reflects the real sample spacing of the displayed waveform and is not necessarily `1 / Sample Rate`. Channel columns are empty (` `) when a channel was not acquired.
 
-> **Note:** CSV files written before format version 2 used `1 / Sample Rate` as the time step. They remain loadable as reference waveforms, but their time axis keeps the values stored in the file.
-
 > **Tip:** The exported CSV files can be reloaded later as reference waveforms using the **Load Reference** feature ([8.6 Reference Waveforms](#86-reference-waveforms)).
 
 #### Filename Prefix
@@ -1344,6 +1344,7 @@ The **Measurements** view shows per enabled channel:
 * Vpp, RMS, frequency, duty cycle, rise time, fall time and overshoot.
 * **Details** adds Vmax, Vmin, Vmean, high level (Top), low level (Base), pulse width, number of complete periods, analysed sample count and the effective sample interval Δt.
 * Once more than one acquisition has been stored, a history line shows mean ± standard deviation of Vpp, RMS, frequency and duty over the last acquisitions.
+* Numeric values in the cards are limited to two decimal places; insignificant trailing zeros are omitted.
 * Channels without data or switched off are not shown.
 
 #### PWM and Signal Integrity
@@ -1414,11 +1415,7 @@ Click the **Export** button in the top toolbar while a waveform is displayed to 
 * VCD timestamps are normalised so the earliest sample starts at 0.
 * For external CSV data as a reference, place the file in `waveform/csv/` and use **Load Reference** ([8.6 Reference Waveforms](#86-reference-waveforms)); no separate file picker is required.
 
-### 8.10 Sensor Calibration
-
-Open Sensor Calibration with the linear-scale button in the calculator title bar; see [11.11 Sensor Calibration](#1111-sensor-calibration).
-
-### 8.11 Timelapse
+### 8.10 Timelapse
 
 The clock icon in the top toolbar opens **Timelapse**:
 
@@ -1451,10 +1448,7 @@ Click a soft key to activate the corresponding on-screen function. The soft keys
 
 On four-channel instruments connected over the network, a **Live** toggle appears next to the automatic screen capture toggle below the screen.
 It streams the display directly from the oscilloscope's built-in web server and updates continuously.
-
 While Live is active, automatic screen capture is disabled and no screen dumps are fetched after SCPI commands.
-The toggle is offered only while the web server is reachable.
-If the server stops responding, the application returns to ordinary screen captures and disables the Live toggle until the server answers again.
 
 The live screen is not available over USB connections or on two-channel models.
 
@@ -1468,8 +1462,6 @@ All buttons and knobs are disabled when the device is offline or when the applic
 A rotary knob at the top-left of the control area for adjusting the oscilloscope's display intensity (brightness).
 
 #### Menu Grid
-
-A 3×3 grid of buttons corresponding to the oscilloscope's front-panel menu keys:
 
 | Button | Action |
 |:-------|:-------|
@@ -1485,7 +1477,6 @@ A 3×3 grid of buttons corresponding to the oscilloscope's front-panel menu keys
 
 On **four-channel instruments**, an additional navigation row appears below the menu grid with **Navigate**, **Arrow Left**, **Square** and **Arrow Right**.  
 The Horizontal section also shows **Search**, and the Trigger section shows **Digital**.  
-These buttons are hidden on two-channel instruments.
 
 #### Vertical Buttons
 
@@ -1566,7 +1557,7 @@ The image format is PNG.
 
 ### 9.10 AI Control Panel Assistant
 
-The Control Panel has its own AI assistant. A sparkle button at the bottom-left of the control sidebar — at the same height as the automatic screenshot toggle — opens a chat overlay that covers the control sidebar.  
+The Control Panel has its own AI assistant. An AI Agent button at the bottom-left of the control sidebar — at the same height as the automatic screenshot toggle — opens a chat overlay that covers the control sidebar.  
 The close button in the overlay header collapses it again; the conversation is kept while the Control Panel remains open.
 
 Describe the desired setup in plain language, for example:
@@ -1575,15 +1566,13 @@ Describe the desired setup in plain language, for example:
 * "Give me the frequency on channel 3 and the RMS voltage."
 * "Why is the signal on CH1 so noisy? Suggest better settings."
 
-For the last question the assistant can call the `read_waveform_summary` tool. It returns the automatic measurements of the waveform currently displayed in the Waveform view (per channel: Vpp, RMS, mean, frequency, duty, rise/fall, overshoot, sample interval and notes) plus device parameters and any active difference or mask result. The assistant explains these values and suggests settings; it never invents or recalculates measurements. If no waveform is displayed, it says so and asks for an acquisition first.
-
 ---
 
-### 9.11 Signal Generator Window (Ctrl+J)
+### 9.11 Signal Generator Window
 
 When **Settings → Signal Generator** is set to **JDS6600** or **FY6900** and the generator was detected,  
-press **Ctrl+J** to open the signal generator window as a separate OS window.  
-There is no toolbar button. Pressing Ctrl+J while the window is open brings it to the front.
+press the configured shortcut (default **Ctrl+J**) to open the signal generator window as a separate OS window.  
+There is no toolbar button. Pressing the shortcut while the window is open brings it to the front.
 
 **Apply changes** sends only the modified values.
 **Refresh from device** re-reads all registers.
@@ -1621,7 +1610,7 @@ The application plots the gain in dB and the phase in degrees against a shared f
   The configuration form shows the active limits.
 
 > **Note:** The Bode button is unavailable while a macro is playing or a waveform acquisition is running.  
-> While a sweep is running, the [signal generator window](#911-signal-generator-window-ctrlj) (Ctrl+J) is read-only.
+> While a sweep is running, the [signal generator window](#911-signal-generator-window) (default Ctrl+J) is read-only.
 
 ### 10.2 Signal Generators and Model Limits
 
@@ -1727,7 +1716,7 @@ The generator identity (for example `FeelElec,FY6900-60M`) and the oscilloscope 
 * **No or unstable gain/phase** — increase the amplitude or settling time, reduce the frequency range, and verify that the oscilloscope inputs are not clipped.  
   Below about 5 mV RMS the point is omitted; below 1 mV Vin the gain is not valid.
 * **Generator output stays on** — the application switches the outputs off when the sweep ends.  
-  If the application was interrupted, switch them off in the signal generator window (Ctrl+J) or on the device.
+  If the application was interrupted, switch them off in the signal generator window (default Ctrl+J) or on the device.
 * **Serial(USB) port cannot be opened** — on Linux add the user to the `dialout` group and log in again; on Windows install the CH340 driver.
 
 ---
@@ -1743,7 +1732,7 @@ Pressing the shortcut again re-centers and focuses the existing calculator windo
 The calculator is independent of the oscilloscope connection.
 
 All calculator functions work without AI.
-The optional [Calculator AI Assistant](#118-calculator-ai-assistant-optional) is opened with the bordered sparkle button in the title bar, left of the syntax-help question mark.
+The optional [Calculator AI Assistant](#118-calculator-ai-assistant-optional) is opened with the AI Agent button in the title bar, left of the syntax-help question mark.
 The **Component value codes** button (book icon) in the title bar opens reference charts for resistor and capacitor color codes, inductor value codes and inductor color-dot markings. The dialog has one tab per chart; scroll to zoom into a chart and drag to pan.
 
 ### 11.1 Display and Keypad
@@ -2018,18 +2007,14 @@ It is stored in `calculator/workspace.json` in the application working directory
 
 ### 11.8 Calculator AI Assistant (optional)
 
-The bordered sparkle button in the title bar opens the **Calculator AI** panel from the left side over the keypad.
-The optional assistant uses the AI provider, token and model configured in the SDS-Remote settings.
-Without a complete configuration, the panel shows a configuration banner; the calculator itself remains fully usable.
+The AI Agent button in the title bar opens the **Calculator AI** panel.
 
 The assistant can:
 
 * answer calculation questions and run engineering formulas;
-* ask for missing or ambiguous parameters instead of inventing values;
 * check units and dimensions with the deterministic calculator engine;
 * distinguish linear gain from logarithmic gain and state level references;
 * read the current expression, program, variables and display settings read-only;
-* use a private scratch workspace for temporary variables and formulas.
 
 **Example prompts**
 
@@ -2186,8 +2171,6 @@ The directory is OS specific:
   * If in network mode, validate IP address, firewall (VXI-11 uses port 111)
 
 * **USB connection lost / `libusb bulk write error`**
-  * On IO_ERROR, PIPE and NO_DEVICE the application invalidates the shared USB connection and drops its cached instrument.  
-    If the oscilloscope is still enumerated, it reconnects automatically within a few seconds.
   * If the device has disappeared from the bus (`lsusb` no longer lists it), unplug and replug the USB cable, or power-cycle the oscilloscope.  
     After a replug no application restart is required.
   * USB is less reliable than VXI-11; use the network connection for long-running macros and profile uploads.
@@ -2341,7 +2324,7 @@ A whole header segment may be replaced by one of these aliases: `SOURCE` = `SOUR
 | -222 | Value out of range |
 | -224 | Invalid parameter |
 
-Errors are queued and read with `SYST:ERR?` or counted with `SYST:ERR:COUN?`. During macro playback an error stops the playback.
+During macro playback an error stops the playback.
 
 The following are not supported and return -113:
 

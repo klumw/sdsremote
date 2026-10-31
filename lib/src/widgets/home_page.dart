@@ -76,6 +76,7 @@ import '../signal_generator/jds6600_driver.dart';
 import '../signal_generator/jds6600_serial_transport.dart';
 import '../signal_generator/signal_generator_detector.dart';
 import '../signal_generator/signal_generator_service.dart';
+import '../signal_generator/signal_generator_shortcut.dart';
 import '../signal_generator/siggen_window_host.dart';
 import '../signal_generator/siggen_window_launcher.dart';
 import '../signal_generator/siggen_window_protocol.dart';
@@ -143,10 +144,12 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// Device family the current [_sigGenService] was built for.
   String? _sigGenDeviceType;
 
-  // Signal generator OS window (Ctrl+J).
+  // Signal generator OS window (configurable, default Ctrl+J).
   SigGenWindowHost? _sigGenWindowHost;
   SigGenWindowServer? _sigGenWindowServer;
   SigGenWindowLauncher? _sigGenWindowLauncher;
+  SignalGeneratorShortcut _signalGeneratorShortcut =
+      SignalGeneratorShortcut.defaultShortcut;
   bool _sigGenWindowOpen = false;
 
   // Engineering calculator OS window (configurable, default Ctrl+R).
@@ -456,6 +459,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     windowManager.setPreventClose(true);
     HardwareKeyboard.instance.addHandler(_onGlobalKeyEvent);
     unawaited(_loadCalculatorShortcut());
+    unawaited(_loadSignalGeneratorShortcut());
     // Drop the cached instrument when a fatal USB error invalidates the
     // shared connection, so a replug can reconnect without an app restart.
     Vxi11Instrument.onUsbConnectionLost = _onUsbConnectionLost;
@@ -805,17 +809,20 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   // =========================================================================
-  // Signal generator window (Ctrl+J)
+  // Signal generator window (configurable, default Ctrl+J)
   // =========================================================================
 
-  /// Global shortcut: Ctrl+J opens or focuses the signal generator window.
+  /// Global shortcut: the configured combination opens or focuses the signal
+  /// generator window.
   ///
   /// The shortcut is intentionally not exposed as a toolbar button.
   bool _onGlobalKeyEvent(KeyEvent event) {
     if (_handleCalculatorShortcut(event)) return true;
-    if (event is! KeyDownEvent) return false;
-    if (!HardwareKeyboard.instance.isControlPressed) return false;
-    if (event.logicalKey != LogicalKeyboardKey.keyJ) return false;
+    return _handleSignalGeneratorShortcut(event);
+  }
+
+  bool _handleSignalGeneratorShortcut(KeyEvent event) {
+    if (!_signalGeneratorShortcut.matches(event)) return false;
     if (_signalGenerator != 'jds6600' && _signalGenerator != 'fy6900') {
       return false;
     }
@@ -837,6 +844,15 @@ class _OsciHomePageState extends State<OsciHomePage>
     final shortcut = CalculatorShortcut.fromPreference(stored);
     if (shortcut.id == _calculatorShortcut.id) return;
     setState(() => _calculatorShortcut = shortcut);
+  }
+
+  /// Restores the configured signal generator shortcut from the preferences.
+  Future<void> _loadSignalGeneratorShortcut() async {
+    final stored = await AppPreferences.getString('signal_generator_shortcut');
+    if (!mounted) return;
+    final shortcut = SignalGeneratorShortcut.fromPreference(stored);
+    if (shortcut.id == _signalGeneratorShortcut.id) return;
+    setState(() => _signalGeneratorShortcut = shortcut);
   }
 
   bool _handleCalculatorShortcut(KeyEvent event) {
@@ -1328,6 +1344,17 @@ class _OsciHomePageState extends State<OsciHomePage>
               child: _buildLeftToolbarButtons(),
             ),
           ),
+          IconButton(
+            icon: _timelapseRunning
+                ? const AnimatedSyncIcon(size: 20, color: Colors.cyanAccent)
+                : const Icon(Icons.timelapse, size: 25),
+            color: _isMacroPlaying ? Colors.white24 : Colors.white70,
+            tooltip: _timelapseRunning ? 'Stop timelapse' : 'Timelapse',
+            onPressed: _isMacroPlaying
+                ? null
+                : (_timelapseRunning ? _stopTimelapse : _showTimelapseDialog),
+          ),
+          const SizedBox(width: 16),
           OsciToolbarButton(
             label: "Help",
             icon: const Icon(Icons.help_outline, size: 25),
@@ -1360,17 +1387,6 @@ class _OsciHomePageState extends State<OsciHomePage>
                   ),
                 ),
             ],
-          ),
-          const SizedBox(width: 16),
-          IconButton(
-            icon: _timelapseRunning
-                ? const AnimatedSyncIcon(size: 20, color: Colors.cyanAccent)
-                : const Icon(Icons.timelapse, size: 25),
-            color: _isMacroPlaying ? Colors.white24 : Colors.white70,
-            tooltip: _timelapseRunning ? 'Stop timelapse' : 'Timelapse',
-            onPressed: _isMacroPlaying
-                ? null
-                : (_timelapseRunning ? _stopTimelapse : _showTimelapseDialog),
           ),
           IconButton(
             icon: const Icon(Icons.settings, size: 25),
@@ -2652,6 +2668,16 @@ class _OsciHomePageState extends State<OsciHomePage>
           }
         }
         _configureSigGenDetection();
+      },
+      signalGeneratorShortcut: _signalGeneratorShortcut.id,
+      onSignalGeneratorShortcutChanged: (value) async {
+        final shortcut = SignalGeneratorShortcut.byId(value);
+        if (shortcut.id == _signalGeneratorShortcut.id) return;
+        setState(() => _signalGeneratorShortcut = shortcut);
+        await AppPreferences.setString(
+          'signal_generator_shortcut',
+          shortcut.id,
+        );
       },
       calculatorShortcut: _calculatorShortcut.id,
       onCalculatorShortcutChanged: (value) async {

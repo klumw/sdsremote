@@ -27,7 +27,7 @@ SDS-Remote enables remote control and AI-enhanced operation of Siglent SDS1202X-
 
 Acquire and visualize waveform data. Perform advanced measurements using X/Y cursors and zoom controls for detailed waveform analysis. Export waveform data as PDF measurement reports or CSV datasets. Exported CSV files use the actual sample timestamps of the displayed points (format version 2), so the time axis stays aligned with the on-screen waveform.
 
-The analysis panel below the chart shows automatic time-domain measurements per channel (Vpp, RMS, frequency, duty, rise/fall, overshoot), a PWM/signal-integrity view (pulse-width statistics, jitter, edge counts, undershoot) and history statistics over the last acquisitions. Every metric label carries a short offline explanation. A loaded or captured reference can be compared as an orange difference trace with RMS/max/mean deviation and coverage, and a software mask test with percent/Vpp or volt and time tolerances returns PASS/FAIL with red violation markers. A **Ripple & Noise** action in the measurement header applies AC coupling and the 20 MHz bandwidth limit, reads RMS/PKPK and restores the previous channel settings. When the signal looks like a stable 50 % clock, a banner suggests the nearest 1-2-5 timebase and applies it only on request.
+The analysis panel below the chart shows automatic time-domain measurements per channel (Vpp, RMS, frequency, duty, rise/fall, overshoot), a PWM/signal-integrity view (pulse-width statistics, jitter, edge counts, undershoot) and history statistics over the last acquisitions. Every metric label carries a short offline explanation. A loaded or captured reference can be compared as an orange difference trace with RMS/max/mean deviation and coverage, and a software mask test with percent/Vpp or volt and time tolerances returns PASS/FAIL with red violation markers. A **Ripple & Noise** action in the measurement header applies AC coupling and the 20 MHz bandwidth limit, reads RMS/PKPK and restores the previous channel settings. When the signal looks like a stable 50 % clock, a banner suggests the nearest 1-2-5 timebase and applies it only on request. Numeric values in the panel are limited to two decimal places.
 
 ![Waveform Acquisition](docs/sdsremote_wf.png)
 
@@ -73,7 +73,7 @@ button that aborts the response and marks it as `terminated by user`.
 
 ### AI Control Panel Assistant
 
-The Control Panel has its own AI assistant. A sparkle button at the bottom-left
+The Control Panel has its own AI assistant. An AI Agent button at the bottom-left
 of the control sidebar — at the same height as the automatic screenshot
 toggle — opens a chat overlay on top of the controls; the close button in the
 overlay header collapses it again. Describe the desired setup in plain
@@ -171,11 +171,12 @@ readback and restores the previous state. On Windows, point
 built runner. On Linux the user must be in the `dialout` group; on Windows the
 CH340 driver must be installed.
 
-### Signal Generator Window (Ctrl+J)
+### Signal Generator Window
 
 With **Signal Generator → JDS6600** or **FY6900** selected and the generator
-detected, press **Ctrl+J** to open a separate OS window (there is no toolbar
-button). Pressing Ctrl+J again focuses the existing window. The window offers
+detected, press **Ctrl+J** (configurable in Settings → Signal Generator Window)
+to open a separate OS window (there is no toolbar button). Pressing the shortcut
+again focuses the existing window. The window offers
 the two channel views **CH1 / CH2** with waveform, frequency (Hz/kHz/MHz),
 amplitude (Vpp), DC offset, duty cycle (effective for square/pulse on the
 JDS6600 and rectangle on the FY6900), phase
@@ -226,7 +227,7 @@ The workspace is stored in `~/.local/share/sdsremote/calculator/workspace.json`
 (Windows: `%LocalAppData%\sdsremote\calculator\workspace.json`). History can be
 exported as CSV, JSON or Markdown, and the whole workspace as JSON.
 
-The optional Calculator AI assistant is opened with the bordered sparkle button
+The optional Calculator AI assistant is opened with the bordered AI Agent button
 next to the syntax-help icon. It slides in from the left over the keypad,
 reuses the application's chat panel, and uses the existing AI provider, token
 and model. It asks for missing parameters, calls the deterministic
@@ -243,7 +244,7 @@ the complete syntax, key reference and AI assistant notes.
 
 ### Macro Recorder
 
-Record, edit and play back SCPI command sequences to automate repetitive measurement and configuration tasks. Supports variables, conditionals (`if`/`else`), loops (`while`), assertions, and both network (`connect("IP")`) and USB (`connect(usb)`) connections. A macro can additionally address the configured signal generator over USB with `connect(SIG, usb)`, `cmd(SIG, …)` and `query(SIG, …)`. Four templates (5 V supply check, UART baud rate, PWM duty cycle, clock signal present) are available from the file-list header as a starting point.
+Record, edit and play back SCPI command sequences to automate repetitive measurement and configuration tasks. Supports variables, conditionals (`if`/`else`), loops (`while`), assertions, and both network (`connect("IP")`) and USB (`connect(usb)`) connections. A macro can additionally address the configured signal generator over USB with `connect(SIG, usb)`, `cmd(SIG, …)` and `query(SIG, …)`. Four templates (5 V supply check, UART baud rate, PWM duty cycle, clock signal present) are available from the **Templates** button in the file-list header as a starting point.
 
 > ⚠️ USB connection support in macros is experimental.
 
@@ -567,7 +568,7 @@ Non-widget, domain-specific support code is grouped into subfolders under
   and `fy6900_serial_transport.dart` (libserialport backends),
   `serial_port_info.dart` (port discovery), `siggen_scpi.dart` (SCPI subset)
   and `signal_generator_service.dart` (connection, cache, queue, polling).
-  The Ctrl+J window adds `siggen_window_protocol.dart` (bridge DTOs),
+  The signal generator window adds `siggen_window_protocol.dart` (bridge DTOs),
   `siggen_window_host.dart` / `siggen_window_launcher.dart` /
   `siggen_window_server.dart` (main-window side) and
   `siggen_window_client.dart` / `siggen_window_controller.dart`

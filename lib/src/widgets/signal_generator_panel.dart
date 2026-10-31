@@ -2,7 +2,8 @@
 ///
 /// Pure presentation: all state, validation and device access live in
 /// [SignalGeneratorPanelController]. No menu button is provided; the window is
-/// opened with Ctrl+J from the main application.
+/// opened with the configurable shortcut (default Ctrl+J) from the main
+/// application.
 library;
 
 import 'package:flutter/material.dart';
