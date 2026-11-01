@@ -522,7 +522,7 @@ class _CalculatorFormulasViewState extends State<CalculatorFormulasView> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              formula.expression,
+                              formula.shownExpression,
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                               style: const TextStyle(

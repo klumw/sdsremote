@@ -38,6 +38,9 @@ class CalcFormula {
     required this.expression,
     required this.inputs,
     this.assumptions = const [],
+    this.imageAsset,
+    this.displayExpression,
+    this.resultLabel,
   });
 
   final String id;
@@ -49,6 +52,20 @@ class CalcFormula {
 
   /// Modelling assumptions the result depends on, shown with the result.
   final List<String> assumptions;
+
+  /// Optional illustration shown above the formula, e.g.
+  /// `assets/formulas/inverting_amplifier.png`.
+  final String? imageAsset;
+
+  /// Optional notation shown in the UI instead of [expression], e.g.
+  /// `Av = rf / ri` when the calculator expression omits the result name.
+  final String? displayExpression;
+
+  /// Optional caption shown with the result, e.g. `Av (voltage gain)`.
+  final String? resultLabel;
+
+  /// Expression shown in the formula list and dialog.
+  String get shownExpression => displayExpression ?? expression;
 }
 
 /// Categories in display order.
@@ -731,43 +748,86 @@ class CalcFormulaLibrary {
     ),
     CalcFormula(
       id: 'opamp_non_inverting',
-      name: 'Non-inverting op-amp gain',
+      name: 'Non-Inverting Amplifier',
       category: CalcFormulaCategories.filters,
       description: 'Closed-loop gain of a non-inverting amplifier.',
-      expression: '1 + rf / rg',
+      expression: '1 + rf / ri',
+      displayExpression: 'Av = (1 + rf / ri)',
       inputs: [
         CalcFormulaInput(
           name: 'rf',
-          label: 'Feedback resistor',
+          label: 'Feedback resistor (Rf)',
           defaultExpression: '10 kΩ',
         ),
         CalcFormulaInput(
-          name: 'rg',
-          label: 'Ground resistor',
+          name: 'ri',
+          label: 'Ground resistor (Ri)',
           defaultExpression: '1 kΩ',
         ),
       ],
       assumptions: ['Ideal op-amp with very high open-loop gain.'],
+      imageAsset: 'assets/formulas/non_inverting_amplifier.png',
+      resultLabel: 'Av (voltage gain)',
     ),
     CalcFormula(
       id: 'opamp_inverting',
-      name: 'Inverting op-amp gain',
+      name: 'Inverting Amplifier',
       category: CalcFormulaCategories.filters,
       description: 'Closed-loop gain of an inverting amplifier.',
-      expression: '-rf / rin',
+      expression: 'rf / ri',
+      displayExpression: 'Av = rf / ri',
       inputs: [
         CalcFormulaInput(
           name: 'rf',
-          label: 'Feedback resistor',
+          label: 'Feedback resistor (Rf)',
           defaultExpression: '10 kΩ',
         ),
         CalcFormulaInput(
-          name: 'rin',
-          label: 'Input resistor',
+          name: 'ri',
+          label: 'Input resistor (Ri)',
           defaultExpression: '1 kΩ',
         ),
       ],
       assumptions: ['Ideal op-amp with very high open-loop gain.'],
+      imageAsset: 'assets/formulas/inverting_amplifier.png',
+      resultLabel: 'Av (voltage gain)',
+    ),
+    CalcFormula(
+      id: 'opamp_differential',
+      name: 'Differential Amplifier',
+      category: CalcFormulaCategories.filters,
+      description:
+          'Output voltage of a differential amplifier from two input '
+          'voltages.',
+      expression: '-rf / r1 * (v1 - v2)',
+      displayExpression: 'V0 = -(rf / r1)(v1 - v2)',
+      inputs: [
+        CalcFormulaInput(
+          name: 'v1',
+          label: 'Input voltage V1',
+          defaultExpression: '1 V',
+        ),
+        CalcFormulaInput(
+          name: 'v2',
+          label: 'Input voltage V2',
+          defaultExpression: '500 mV',
+        ),
+        CalcFormulaInput(
+          name: 'rf',
+          label: 'Feedback resistor (Rf)',
+          defaultExpression: '10 kΩ',
+        ),
+        CalcFormulaInput(
+          name: 'r1',
+          label: 'Input resistor (R1)',
+          defaultExpression: '1 kΩ',
+        ),
+      ],
+      assumptions: [
+        'Ideal op-amp with very high open-loop gain.',
+        'Matched resistor ratios so Rf/R1 sets the differential gain.',
+      ],
+      imageAsset: 'assets/formulas/differential_amplifier.png',
     ),
     CalcFormula(
       id: 'resistor_noise',

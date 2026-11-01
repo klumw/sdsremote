@@ -236,6 +236,7 @@ class CalculatorService {
     'category': formula.category,
     'description': formula.description,
     'expression': formula.expression,
+    'display_expression': formula.shownExpression,
     'inputs': [
       for (final input in formula.inputs)
         {
@@ -246,6 +247,8 @@ class CalculatorService {
         },
     ],
     'assumptions': formula.assumptions,
+    'image_asset': formula.imageAsset,
+    'result_label': formula.resultLabel,
   };
 }
 

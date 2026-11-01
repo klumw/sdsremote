@@ -869,6 +869,32 @@ class _FormulaDialogState extends State<_FormulaDialog> {
                 style: const TextStyle(color: Colors.white70, fontSize: 12),
               ),
               const SizedBox(height: 8),
+              if (formula.imageAsset != null) ...[
+                Container(
+                  width: double.infinity,
+                  alignment: Alignment.center,
+                  constraints: const BoxConstraints(maxHeight: 240),
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(5),
+                    border: Border.all(color: AppColors.border),
+                  ),
+                  child: Image.asset(
+                    formula.imageAsset!,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.medium,
+                    errorBuilder: (context, error, stackTrace) => Text(
+                      'Could not load ${formula.imageAsset}',
+                      style: const TextStyle(
+                        color: Colors.redAccent,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 8),
+              ],
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(8),
@@ -878,7 +904,7 @@ class _FormulaDialogState extends State<_FormulaDialog> {
                   border: Border.all(color: AppColors.border),
                 ),
                 child: Text(
-                  formula.expression,
+                  formula.shownExpression,
                   style: const TextStyle(
                     color: Colors.cyanAccent,
                     fontFamily: 'monospace',
@@ -937,13 +963,26 @@ class _FormulaDialogState extends State<_FormulaDialog> {
                     borderRadius: BorderRadius.circular(6),
                     border: Border.all(color: Colors.cyanAccent),
                   ),
-                  child: Text(
-                    _result!,
-                    style: const TextStyle(
-                      color: Colors.cyanAccent,
-                      fontSize: 20,
-                      fontFamily: 'monospace',
-                    ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _result!,
+                        style: const TextStyle(
+                          color: Colors.cyanAccent,
+                          fontSize: 20,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                      if (formula.resultLabel != null)
+                        Text(
+                          formula.resultLabel!,
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 11,
+                          ),
+                        ),
+                    ],
                   ),
                 ),
               if (formula.assumptions.isNotEmpty) ...[

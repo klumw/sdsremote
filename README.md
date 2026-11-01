@@ -213,6 +213,10 @@ The calculator combines a scientific keypad with a typed expression language:
 - variables, user functions and multi-line programs, history, favorites and a
   large formula library covering basic electrical engineering, filters,
   measurement/uncertainty, audio/DSP, digital/embedded and RF/antennas;
+- formula illustrations that show the matching circuit diagram above the
+  formula expression (for example **Inverting Amplifier**, `Av = rf / ri`,
+  **Non-Inverting Amplifier**, `Av = (1 + rf / ri)`, and
+  **Differential Amplifier**, `V0 = -(rf / r1)(v1 - v2)`);
 - a small safe program language (`if`, `for`, `while`, symbolic `sum`/
   `product`, numeric integration/differentiation, equation solving) with no
   `eval` of user input;

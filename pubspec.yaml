@@ -42,6 +42,7 @@ flutter:
   assets:
     - assets/icons/
     - assets/ref/
+    - assets/formulas/
     - docs/manual.md
     - docs/knowledgebase.md
 

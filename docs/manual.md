@@ -1970,6 +1970,12 @@ The **Formulas** tab provides a searchable library grouped into these categories
 
 Every formula has named inputs with runnable defaults.
 The dialog shows the formula, its assumptions and the result.
+Formulas with an illustration show the matching circuit diagram above the
+formula expression; the images are bundled from `assets/formulas/`.
+The **Inverting Amplifier** (`Av = rf / ri`) and **Non-Inverting Amplifier**
+(`Av = (1 + rf / ri)`) formulas are examples; their results are labelled
+`Av (voltage gain)`. The **Differential Amplifier** formula
+(`V0 = -(rf / r1)(v1 - v2)`) also shows its schematic.
 
 **Example: RC cutoff frequency**
 
