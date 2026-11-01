@@ -1,14 +1,20 @@
+import 'dart:math' as math;
+
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../app/app_theme.dart';
 import '../spectrum/spectrum_models.dart';
+import '../spectrum/spectrum_viewport.dart';
 import '../spectrum/windows.dart';
 import '../waveform/waveform_models.dart' show waveformChannelColor;
 import 'spectrum_painter.dart';
 
+const String _allChannelsValue = 'all';
+
 /// Interactive spectrum tab: analysis controls, overlaid traces, metric
 /// cards and the automatic peak table of the selected channel.
-class SpectrumView extends StatelessWidget {
+class SpectrumView extends StatefulWidget {
   const SpectrumView({
     super.key,
     required this.result,
@@ -23,8 +29,6 @@ class SpectrumView extends StatelessWidget {
     required this.onExportCsv,
     this.plotKey,
   });
-
-  static const String _allChannelsValue = 'all';
 
   final SpectrumResult? result;
   final SpectrumSettings settings;
@@ -51,6 +55,85 @@ class SpectrumView extends StatelessWidget {
   final GlobalKey? plotKey;
 
   @override
+  State<SpectrumView> createState() => _SpectrumViewState();
+}
+
+class _SpectrumViewState extends State<SpectrumView> {
+  SpectrumViewport _viewport = const SpectrumViewport();
+  bool _dragging = false;
+
+  SpectrumResult? get result => widget.result;
+  SpectrumSettings get settings => widget.settings;
+  String get selectedChannel => widget.selectedChannel;
+  bool get showAllChannels => widget.showAllChannels;
+  bool get logFrequency => widget.logFrequency;
+  bool get loading => widget.loading;
+  GlobalKey? get plotKey => widget.plotKey;
+  ValueChanged<String?> get onChannelSelectionChanged =>
+      widget.onChannelSelectionChanged;
+  ValueChanged<SpectrumSettings> get onSettingsChanged =>
+      widget.onSettingsChanged;
+  ValueChanged<bool> get onLogFrequencyChanged => widget.onLogFrequencyChanged;
+  VoidCallback get onExportCsv => widget.onExportCsv;
+
+  @override
+  void didUpdateWidget(SpectrumView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.result, widget.result) ||
+        oldWidget.logFrequency != widget.logFrequency) {
+      _viewport = const SpectrumViewport();
+      _dragging = false;
+    }
+  }
+
+  void _zoomBy(double factor) {
+    final next = _viewport.zoomBy(factor);
+    if (next == _viewport) return;
+    setState(() => _viewport = next);
+  }
+
+  void _resetZoom() {
+    if (!_viewport.isZoomed) return;
+    setState(() => _viewport = _viewport.reset());
+  }
+
+  void _panBy(double visibleFraction) {
+    final next = _viewport.panBy(visibleFraction);
+    if (next == _viewport) return;
+    setState(() => _viewport = next);
+  }
+
+  void _handlePointerSignal(
+    PointerSignalEvent event,
+    double plotWidth,
+    SpectrumAxisRange axis,
+  ) {
+    if (event is! PointerScrollEvent ||
+        event.scrollDelta.dy == 0 ||
+        !axis.isValid ||
+        plotWidth <= 1) {
+      return;
+    }
+    final localX = event.localPosition.dx;
+    final fraction = ((localX - spectrumPlotLeftPadding) / plotWidth)
+        .clamp(0.0, 1.0)
+        .toDouble();
+    final factor = math
+        .exp((-event.scrollDelta.dy).clamp(-200.0, 200.0) * 0.002)
+        .clamp(0.5, 2.0)
+        .toDouble();
+    final next = _viewport.zoomAt(
+      newZoom: _viewport.zoom * factor,
+      fraction: fraction,
+      fullMin: axis.min,
+      fullMax: axis.max,
+      log: axis.log,
+    );
+    if (next == _viewport) return;
+    setState(() => _viewport = next);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final traces = result?.traces ?? const <SpectrumTrace>[];
     final detail =
@@ -61,11 +144,18 @@ class SpectrumView extends StatelessWidget {
         : showAllChannels
         ? 'All channels (details ${detail.channel.toUpperCase()})'
         : detail.channel.toUpperCase();
+    final chartTraces = showAllChannels ? traces : <SpectrumTrace>[?detail];
+    final axis = spectrumAxisRange(chartTraces, logFrequency);
+    final (visibleMin, visibleMax) = _viewport.visibleRange(
+      fullMin: axis.min,
+      fullMax: axis.max,
+      log: axis.log,
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _buildControls(traces, detail),
+        _buildControls(traces, detail, axis),
         if (settings.window == SpectrumWindow.rectangular) ...[
           const SizedBox(height: 6),
           Row(
@@ -90,7 +180,11 @@ class SpectrumView extends StatelessWidget {
           ),
         ],
         const SizedBox(height: 8),
-        Expanded(child: _buildChart(detail)),
+        Expanded(child: _buildChart(detail, axis)),
+        if (axis.isValid) ...[
+          const SizedBox(height: 4),
+          _buildViewportStatus(axis, visibleMin, visibleMax),
+        ],
         if (detail != null) ...[
           const SizedBox(height: 8),
           Text(
@@ -115,7 +209,11 @@ class SpectrumView extends StatelessWidget {
     );
   }
 
-  Widget _buildControls(List<SpectrumTrace> traces, SpectrumTrace? detail) {
+  Widget _buildControls(
+    List<SpectrumTrace> traces,
+    SpectrumTrace? detail,
+    SpectrumAxisRange axis,
+  ) {
     final channels = [for (final trace in traces) trace.channel];
     final selected = detail?.channel;
     final fftOptions = _fftOptions();
@@ -202,6 +300,7 @@ class SpectrumView extends StatelessWidget {
             ),
           ),
         ),
+        _control('Zoom', _buildZoomControl(axis)),
         _control(
           'Export',
           SizedBox(
@@ -268,7 +367,105 @@ class SpectrumView extends StatelessWidget {
     );
   }
 
-  Widget _buildChart(SpectrumTrace? detail) {
+  Widget _buildZoomControl(SpectrumAxisRange axis) {
+    final canZoom = axis.isValid;
+    return SizedBox(
+      height: 30,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _zoomButton(
+            icon: Icons.remove,
+            tooltip: 'Zoom out',
+            onPressed: canZoom && _viewport.isZoomed
+                ? () => _zoomBy(0.5)
+                : null,
+          ),
+          SizedBox(
+            width: 46,
+            child: Text(
+              _viewport.zoomLabel,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          _zoomButton(
+            icon: Icons.add,
+            tooltip: 'Zoom in',
+            onPressed: canZoom && _viewport.zoom < SpectrumViewport.maxZoom
+                ? () => _zoomBy(2)
+                : null,
+          ),
+          _zoomButton(
+            icon: Icons.restart_alt,
+            tooltip: 'Reset zoom',
+            onPressed: _viewport.isZoomed ? _resetZoom : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _zoomButton({
+    required IconData icon,
+    required String tooltip,
+    VoidCallback? onPressed,
+  }) {
+    return IconButton(
+      onPressed: onPressed,
+      tooltip: tooltip,
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints.tightFor(width: 26, height: 30),
+      visualDensity: VisualDensity.compact,
+      icon: Icon(icon, size: 16),
+      color: Colors.white70,
+      disabledColor: Colors.white24,
+    );
+  }
+
+  Widget _buildViewportStatus(
+    SpectrumAxisRange axis,
+    double visibleMin,
+    double visibleMax,
+  ) {
+    final span = visibleMax - visibleMin;
+    final range =
+        'View ${formatSpectrumFrequencyForSpan(visibleMin, span)}'
+        ' – ${formatSpectrumFrequencyForSpan(visibleMax, span)}';
+    final hint = _viewport.isZoomed
+        ? '${_viewport.zoomLabel} · mouse wheel zooms · drag pans'
+        : 'Mouse wheel zooms horizontally';
+    return Row(
+      children: [
+        const Icon(Icons.zoom_in_map, size: 12, color: Colors.white38),
+        const SizedBox(width: 4),
+        Expanded(
+          child: Text(
+            range,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(color: Colors.white54, fontSize: 10),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            hint,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.end,
+            style: const TextStyle(color: Colors.white38, fontSize: 10),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChart(SpectrumTrace? detail, SpectrumAxisRange axis) {
     final traces = result?.traces ?? const <SpectrumTrace>[];
     return Container(
       decoration: BoxDecoration(
@@ -277,38 +474,76 @@ class SpectrumView extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       clipBehavior: Clip.antiAlias,
-      child: Stack(
-        children: [
-          Positioned.fill(
-            child: RepaintBoundary(
-              key: plotKey,
-              child: CustomPaint(
-                painter: SpectrumPainter(
-                  result: result,
-                  detailChannel: detail?.channel ?? selectedChannel,
-                  showAllChannels: showAllChannels,
-                  logFrequency: logFrequency,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final plotWidth = math.max(
+            1.0,
+            constraints.maxWidth -
+                spectrumPlotLeftPadding -
+                spectrumPlotRightPadding,
+          );
+          return MouseRegion(
+            cursor: _viewport.isZoomed
+                ? (_dragging
+                      ? SystemMouseCursors.grabbing
+                      : SystemMouseCursors.grab)
+                : SystemMouseCursors.basic,
+            child: Listener(
+              onPointerSignal: (event) =>
+                  _handlePointerSignal(event, plotWidth, axis),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onHorizontalDragStart: _viewport.isZoomed
+                    ? (_) => setState(() => _dragging = true)
+                    : null,
+                onHorizontalDragUpdate: _viewport.isZoomed
+                    ? (details) => _panBy(-details.delta.dx / plotWidth)
+                    : null,
+                onHorizontalDragEnd: _viewport.isZoomed
+                    ? (_) => setState(() => _dragging = false)
+                    : null,
+                onHorizontalDragCancel: _viewport.isZoomed
+                    ? () => setState(() => _dragging = false)
+                    : null,
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    Positioned.fill(
+                      child: RepaintBoundary(
+                        key: plotKey,
+                        child: CustomPaint(
+                          painter: SpectrumPainter(
+                            result: result,
+                            detailChannel: detail?.channel ?? selectedChannel,
+                            showAllChannels: showAllChannels,
+                            logFrequency: logFrequency,
+                            viewport: _viewport,
+                          ),
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+                    ),
+                    if (loading)
+                      const Center(
+                        child: SizedBox(
+                          width: 28,
+                          height: 28,
+                          child: CircularProgressIndicator(strokeWidth: 2.5),
+                        ),
+                      ),
+                    if (!loading && traces.isEmpty)
+                      const Center(
+                        child: Text(
+                          'Acquire a waveform to see the spectrum.',
+                          style: TextStyle(color: Colors.white54, fontSize: 13),
+                        ),
+                      ),
+                  ],
                 ),
-                child: const SizedBox.expand(),
               ),
             ),
-          ),
-          if (loading)
-            const Center(
-              child: SizedBox(
-                width: 28,
-                height: 28,
-                child: CircularProgressIndicator(strokeWidth: 2.5),
-              ),
-            ),
-          if (!loading && traces.isEmpty)
-            const Center(
-              child: Text(
-                'Acquire a waveform to see the spectrum.',
-                style: TextStyle(color: Colors.white54, fontSize: 13),
-              ),
-            ),
-        ],
+          );
+        },
       ),
     );
   }

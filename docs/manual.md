@@ -1425,10 +1425,22 @@ The waveform analysis area has two tabs above the chart: **Time domain** shows t
 | **Unit** | Level unit of the chart and peaks: **dBFS** (dB relative to the channel full scale derived from V/div), **dBV** or **dBm** into 50 Ω. |
 | **Peak markers** | Number of automatic peak markers (3, 5 or 10). Markers are labelled 1…n; marker 1 is the fundamental. |
 | **Log frequency** | Switches the frequency axis between linear and logarithmic. In log mode the DC bin is omitted. |
+| **Zoom** | Horizontal frequency zoom: **−** and **+** change the zoom factor, the centre value shows the current factor (1.0x … 1000x) and the reset button returns to the full frequency range. |
+
+#### Horizontal Zoom and Pan
+
+The frequency axis can be stretched horizontally to make closely spaced peaks and sidebands easier to read:
+
+* Turn the mouse wheel over the chart to zoom in or out around the pointer position. Scrolling up zooms in, scrolling down zooms out.
+* While zoomed, drag horizontally in the chart to pan across the frequency range. The cursor changes to a grab hand; the visible range is shown below the chart.
+* The **Zoom** control provides the same function with buttons: **−**, **+** and reset. The factor is relative to the full axis (Nyquist on the right).
+* The x-axis tick labels automatically use more decimals as the visible span shrinks, so neighbouring peaks remain distinguishable.
+* Peak markers outside the visible range are hidden in the chart; their entries remain in the peak table below.
+* A new acquisition, a changed window, an FFT-size change or switching the linear/log axis resets the zoom to the full range. The zoom applies to the chart image in the PDF report but does not filter the exported CSV spectrum.
 
 #### Chart and Traces
 
-* With **All channels** selected, the chart overlays one colour-coded trace per acquired channel; selecting a single channel limits the chart to that trace.
+* With **All channels** selected, the chart overlays one colour-coded trace per acquired channel; selecting a single channel limits the chart to that trace. In **All channels** mode the peak markers of every displayed channel are drawn; the metric cards and the peak table still describe the channel selected in the **Channel** drop-down.
 * The vertical range starts at the highest level rounded up to the next 10 dB and spans up to 120 dB.
 * Peak markers are drawn as vertical lines with a dot and a `n  frequency` label at the peak level.
 * The info line below the controls shows channel, FFT size, sample rate, frequency resolution, the assumed full scale and the active window.

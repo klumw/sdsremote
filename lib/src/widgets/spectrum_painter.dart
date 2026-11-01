@@ -4,7 +4,14 @@ import 'package:flutter/material.dart';
 
 import '../app/app_theme.dart';
 import '../spectrum/spectrum_models.dart';
+import '../spectrum/spectrum_viewport.dart';
 import '../waveform/waveform_models.dart' show waveformChannelColor;
+
+/// Plot insets shared by the painter and the interactive spectrum view.
+const double spectrumPlotLeftPadding = 50;
+const double spectrumPlotRightPadding = 12;
+const double spectrumPlotTopPadding = 12;
+const double spectrumPlotBottomPadding = 28;
 
 /// Formats a frequency for the spectrum axes and labels.
 String formatSpectrumFrequency(double hz) {
@@ -14,6 +21,23 @@ String formatSpectrumFrequency(double hz) {
   if (abs >= 1e6) return '${(hz / 1e6).toStringAsFixed(2)} MHz';
   if (abs >= 1e3) return '${(hz / 1e3).toStringAsFixed(2)} kHz';
   return '${hz.toStringAsFixed(0)} Hz';
+}
+
+/// Frequency label with enough decimals for a zoomed axis of [span] hertz.
+String formatSpectrumFrequencyForSpan(double hz, double span) {
+  if (!hz.isFinite) return '-';
+  if (span.isFinite && span > 0 && span < 1e3) {
+    return '${hz.toStringAsFixed(2)} Hz';
+  }
+  if (span.isFinite && span > 0 && span < 1e6) {
+    final digits = span < 1e4 ? 3 : 2;
+    return '${(hz / 1e3).toStringAsFixed(digits)} kHz';
+  }
+  if (span.isFinite && span > 0 && span < 1e9) {
+    final digits = span < 1e7 ? 3 : 2;
+    return '${(hz / 1e6).toStringAsFixed(digits)} MHz';
+  }
+  return formatSpectrumFrequency(hz);
 }
 
 /// Short label of a spectrum level unit (`dBFS`, `dBV`, `dBm`).
@@ -30,6 +54,7 @@ class SpectrumPainter extends CustomPainter {
     required this.detailChannel,
     required this.showAllChannels,
     required this.logFrequency,
+    this.viewport = const SpectrumViewport(),
   });
 
   final SpectrumResult? result;
@@ -39,6 +64,9 @@ class SpectrumPainter extends CustomPainter {
   final bool showAllChannels;
 
   final bool logFrequency;
+
+  /// Horizontal zoom and pan state.
+  final SpectrumViewport viewport;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -53,10 +81,10 @@ class SpectrumPainter extends CustomPainter {
     final traces = showAllChannels ? allTraces : <SpectrumTrace>[?detail];
     if (traces.isEmpty) return;
 
-    const double left = 50;
-    const double right = 12;
-    const double top = 12;
-    const double bottom = 28;
+    const double left = spectrumPlotLeftPadding;
+    const double right = spectrumPlotRightPadding;
+    const double top = spectrumPlotTopPadding;
+    const double bottom = spectrumPlotBottomPadding;
     final plot = Rect.fromLTWH(
       left,
       top,
@@ -65,13 +93,14 @@ class SpectrumPainter extends CustomPainter {
     );
     if (plot.width < 20 || plot.height < 20) return;
 
-    final nyquist = traces
-        .map((trace) => trace.sampleRate / 2)
-        .reduce(math.max);
-    final minPositive = _minPositiveFrequency(traces);
-    final useLog = logFrequency && minPositive > 0 && nyquist > minPositive;
-    final xMin = useLog ? minPositive : 0.0;
-    final xMax = nyquist;
+    final axis = spectrumAxisRange(traces, logFrequency);
+    if (!axis.isValid) return;
+    final (xMin, xMax) = viewport.visibleRange(
+      fullMin: axis.min,
+      fullMax: axis.max,
+      log: axis.log,
+    );
+    final useLog = axis.log;
     if (xMax <= xMin) return;
 
     var maxDb = -200.0;
@@ -106,11 +135,14 @@ class SpectrumPainter extends CustomPainter {
     _drawGrid(canvas, plot, xMin, xMax, yMin, yMax, useLog, mapX, mapY);
 
     for (final trace in traces) {
-      _drawTrace(canvas, plot, trace, mapX, mapY);
+      _drawTrace(canvas, plot, trace, mapX, mapY, useLog);
     }
 
-    if (detail != null) {
-      _drawPeakMarkers(canvas, plot, detail, mapX, mapY);
+    // Draw the peak markers of every displayed trace. In "All channels" mode
+    // this includes CH1, CH2, …; with a single selected channel [traces]
+    // contains only that channel.
+    for (final trace in traces) {
+      _drawPeakMarkers(canvas, plot, trace, mapX, mapY, xMin, xMax);
     }
     _drawLegend(canvas, plot, traces);
   }
@@ -141,7 +173,7 @@ class SpectrumPainter extends CustomPainter {
       canvas.drawLine(Offset(x, plot.top), Offset(x, plot.bottom), gridPaint);
       final text = TextPainter(
         text: TextSpan(
-          text: formatSpectrumFrequency(frequency),
+          text: formatSpectrumFrequencyForSpan(frequency, xMax - xMin),
           style: labelStyle,
         ),
         textDirection: TextDirection.ltr,
@@ -182,12 +214,13 @@ class SpectrumPainter extends CustomPainter {
     SpectrumTrace trace,
     double Function(double) mapX,
     double Function(double) mapY,
+    bool useLog,
   ) {
     final path = Path();
     var started = false;
     for (var i = 0; i < trace.dbfs.length; i++) {
       final frequency = trace.frequenciesHz[i];
-      if (logFrequency && frequency <= 0) continue;
+      if (useLog && frequency <= 0) continue;
       final value = trace.dbfs[i];
       if (!value.isFinite) continue;
       final x = mapX(frequency);
@@ -218,37 +251,66 @@ class SpectrumPainter extends CustomPainter {
     SpectrumTrace trace,
     double Function(double) mapX,
     double Function(double) mapY,
+    double xMin,
+    double xMax,
   ) {
+    // The marker line sits on a black backing so it separates from the trace;
+    // the label text and the dot use the channel colour (yellow for CH1).
     final color = waveformChannelColor(trace.channel);
-    final linePaint = Paint()
-      ..color = color.withAlpha(120)
-      ..strokeWidth = 0.8
+    final lineBackgroundPaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.85)
+      ..strokeWidth = 2.8
       ..style = PaintingStyle.stroke;
+    final linePaint = Paint()
+      ..color = color.withValues(alpha: 0.9)
+      ..strokeWidth = 1.0
+      ..style = PaintingStyle.stroke;
+    final dotOutlinePaint = Paint()
+      ..color = Colors.black.withValues(alpha: 0.9);
     final dotPaint = Paint()..color = color;
 
     for (final peak in trace.peaks) {
+      if (peak.frequencyHz < xMin || peak.frequencyHz > xMax) continue;
       final x = mapX(peak.frequencyHz);
       final y = mapY(peak.dbfs);
       canvas.save();
       canvas.clipRect(plot);
+      canvas.drawLine(
+        Offset(x, y),
+        Offset(x, plot.bottom),
+        lineBackgroundPaint,
+      );
       canvas.drawLine(Offset(x, y), Offset(x, plot.bottom), linePaint);
-      canvas.drawCircle(Offset(x, y), 2.5, dotPaint);
+      canvas.drawCircle(Offset(x, y), 3.6, dotOutlinePaint);
+      canvas.drawCircle(Offset(x, y), 2.4, dotPaint);
       canvas.restore();
 
       final label = TextPainter(
         text: TextSpan(
           text: '${peak.marker}  ${formatSpectrumFrequency(peak.frequencyHz)}',
-          style: TextStyle(color: color, fontSize: 9),
+          style: TextStyle(
+            color: color,
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+          ),
         ),
         textDirection: TextDirection.ltr,
       )..layout();
       final dx = (x - label.width / 2).clamp(
-        plot.left,
-        plot.right - label.width,
+        plot.left + 3,
+        plot.right - label.width - 3,
       );
       final dy = (y - label.height - 4).clamp(
-        plot.top,
-        plot.bottom - label.height,
+        plot.top + 1,
+        plot.bottom - label.height - 1,
+      );
+      final background = RRect.fromRectAndRadius(
+        Rect.fromLTWH(dx - 3, dy - 1, label.width + 6, label.height + 2),
+        const Radius.circular(2),
+      );
+      canvas.drawRRect(
+        background,
+        Paint()..color = Colors.black.withValues(alpha: 0.7),
       );
       label.paint(canvas, Offset(dx, dy));
     }
@@ -293,20 +355,11 @@ class SpectrumPainter extends CustomPainter {
     return ticks;
   }
 
-  double _minPositiveFrequency(List<SpectrumTrace> traces) {
-    var min = double.infinity;
-    for (final trace in traces) {
-      for (final frequency in trace.frequenciesHz) {
-        if (frequency > 0 && frequency < min) min = frequency;
-      }
-    }
-    return min.isFinite ? min : 1;
-  }
-
   @override
   bool shouldRepaint(SpectrumPainter oldDelegate) =>
       oldDelegate.result != result ||
       oldDelegate.detailChannel != detailChannel ||
       oldDelegate.showAllChannels != showAllChannels ||
-      oldDelegate.logFrequency != logFrequency;
+      oldDelegate.logFrequency != logFrequency ||
+      oldDelegate.viewport != viewport;
 }
