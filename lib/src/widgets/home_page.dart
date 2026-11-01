@@ -15,7 +15,6 @@ import 'package:image/image.dart' as img;
 import '../app/app_config.dart';
 import '../app/app_theme.dart';
 import '../app/app_preferences.dart';
-import '../app/feature_flags.dart';
 import '../app/window_state.dart';
 import '../waveform/cursor_geometry.dart';
 import 'animated_sync_icon.dart';
@@ -109,9 +108,9 @@ import '../macro/macro_templates.dart';
 import '../ai/tools/vxi11_tool.dart' show onScpiCommandSent;
 
 class OsciHomePage extends StatefulWidget {
-  const OsciHomePage({super.key, this.debugMode = kDebugMode});
+  const OsciHomePage({super.key, this.debugMode = false});
 
-  /// Whether the app was started in debug mode or with an explicit `--debug`.
+  /// Whether the app was started with the explicit `--debug` flag.
   ///
   /// Debug-only features such as the waveform Analysis tab are hidden when
   /// this is false.
@@ -251,19 +250,16 @@ class _OsciHomePageState extends State<OsciHomePage>
   _WaveformViewMode _waveformViewMode = _WaveformViewMode.time;
 
   /// The view mode actually shown; the Analysis tab falls back to the time
-  /// view while the debug/AI feature flag is off.
+  /// view while the debug flag is off.
   _WaveformViewMode get _effectiveWaveformViewMode =>
       _waveformViewMode == _WaveformViewMode.analysis &&
           !_isWaveformAnalysisAvailable
       ? _WaveformViewMode.time
       : _waveformViewMode;
 
-  /// The Analysis tab is a debug-only feature and additionally requires a
-  /// correctly configured AI provider, token and model.
-  bool get _isWaveformAnalysisAvailable => isWaveformAnalysisEnabled(
-    debugMode: widget.debugMode,
-    aiConfigured: _aiSettings?.isConfigured == true,
-  );
+  /// The Analysis tab is a debug-only feature enabled by the `--debug` start
+  /// flag.
+  bool get _isWaveformAnalysisAvailable => widget.debugMode;
   String _spectrumChannel = 'ch1';
   bool _spectrumShowAll = true;
   bool _spectrumLogFrequency = false;

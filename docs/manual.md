@@ -1407,7 +1407,7 @@ A reference can define a tolerance band:
 
 ### 8.9 Spectrum Analysis
 
-The waveform analysis area has two tabs above the chart: **Time domain** shows the waveform chart together with the measurement panel, **Spectrum** shows the windowed FFT of the last acquisition.
+The waveform analysis area has two tabs above the chart: **Time domain** shows the waveform chart together with the measurement panel, **Spectrum** shows the windowed FFT of the last acquisition. When the application is started with the explicit `--debug` flag, a third **Analysis** tab appears with the waveform classification and reference comparison.
 
 #### Opening the Spectrum
 

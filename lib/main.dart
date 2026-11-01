@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:logging/logging.dart';
@@ -279,9 +278,9 @@ Future<void> _runCalculatorWindow(String windowArguments) async {
 // ===========================================================================
 
 class OscilloscopeApp extends StatelessWidget {
-  const OscilloscopeApp({super.key, this.debugMode = kDebugMode});
+  const OscilloscopeApp({super.key, this.debugMode = false});
 
-  /// Whether the app was started in debug mode or with an explicit `--debug`.
+  /// Whether the app was started with the explicit `--debug` flag.
   final bool debugMode;
 
   @override
