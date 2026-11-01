@@ -135,7 +135,7 @@ See [12. Application Directory](#12-application-directory) for a complete breakd
   * All files are saved in the application working directory
 
 * **Timelapse** (clock icon)
-  * Captures the oscilloscope screen at a fixed interval into a timestamped folder (see [8.10 Timelapse](#810-timelapse))
+  * Captures the oscilloscope screen at a fixed interval into a timestamped folder (see [8.12 Timelapse](#812-timelapse))
   * While a run is active, the icon shows the rotating arrows indicator and pressing it stops the run
 
 ---
@@ -1284,6 +1284,7 @@ The PDF is saved to the `waveform/reports/` subdirectory and contains:
 * Levels and timing: Vmax, Vmin, Vmean, Top, Base, pulse width, number of periods, sample count and Δt.
 * Device parameters: timebase, trigger delay, sample rate, and V/div plus offset per acquired channel.
 * The reference comparison (RMS error, maximum and mean deviation, coverage) and the mask-test result (PASS/FAIL, violations, first/last violation time, maximum deviation) when available.
+* Spectrum analysis for each acquired channel (FFT of the raw acquisition): spectrum chart in dBFS, window and FFT resolution, fundamental, THD, THD+N, SNR, SINAD, ENOB, SFDR, noise floor and the automatic peak markers with frequency, amplitude, dBFS and dBc values.
 
 #### CSV Export
 
@@ -1401,7 +1402,92 @@ A reference can define a tolerance band:
 
 > **Tip:** The **Measurements** panel can be collapsed with the chevron in its header to gain space for the chart.
 
-### 8.9 Waveform Export
+### 8.9 Spectrum Analysis
+
+The waveform analysis area has two tabs above the chart: **Time domain** shows the waveform chart together with the measurement panel, **Spectrum** shows the windowed FFT of the last acquisition.
+
+#### Opening the Spectrum
+
+1. Acquire a waveform (see [8.1 Acquiring Waveforms](#81-acquiring-waveforms)). Every channel that carries raw data is analysed.
+2. Click **Spectrum** above the chart. The spectrum is computed in a background isolate, so large records do not block the user interface; a progress indicator is shown while it runs.
+3. A new acquisition invalidates the cached spectrum and recomputes it automatically while the Spectrum tab is active.
+
+#### Controls
+
+| Control | Meaning |
+|:--------|:--------|
+| **Channel** | **All channels** overlays every acquired trace; selecting CH1–CH4 shows only that channel. The selection also determines whose peak markers, metric cards and peak table are shown. |
+| **Window** | Window function applied before the FFT: Rectangular, Hann (default), Hamming, Blackman-Harris or Flat-top. The window fixes the trade-off between frequency resolution and leakage; selecting Rectangular shows a leakage warning because it is only suitable for coherently sampled signals. |
+| **FFT size** | `Auto` or an explicit upper bound (4096 to 1,048,576 points). The actual size is always the largest power of two that fits the available samples. |
+| **Unit** | Level unit of the chart and peaks: **dBFS** (dB relative to the channel full scale derived from V/div), **dBV** or **dBm** into 50 Ω. |
+| **Peak markers** | Number of automatic peak markers (3, 5 or 10). Markers are labelled 1…n; marker 1 is the fundamental. |
+| **Log frequency** | Switches the frequency axis between linear and logarithmic. In log mode the DC bin is omitted. |
+
+#### Chart and Traces
+
+* With **All channels** selected, the chart overlays one colour-coded trace per acquired channel; selecting a single channel limits the chart to that trace.
+* The vertical range starts at the highest level rounded up to the next 10 dB and spans up to 120 dB.
+* Peak markers are drawn as vertical lines with a dot and a `n  frequency` label at the peak level.
+* The info line below the controls shows channel, FFT size, sample rate, frequency resolution, the assumed full scale and the active window.
+
+#### Metric Cards
+
+The cards describe the selected channel:
+
+| Metric | Definition |
+|:-------|:-----------|
+| **Fundamental** | Frequency and level of the strongest peak. |
+| **THD** | Total harmonic distortion of harmonics 2…n relative to the fundamental, in percent and dB. |
+| **THD+N** | All distortion and noise relative to the fundamental, in dB. |
+| **SNR** | Signal-to-noise ratio in dB; harmonics are excluded from the noise. |
+| **SINAD** | Signal-to-noise-and-distortion ratio in dB. |
+| **ENOB** | Effective number of bits derived from SINAD: `(SINAD − 1.76) / 6.02`. |
+| **SFDR** | Spurious-free dynamic range: strongest spur relative to the fundamental, in dBc. |
+| **Noise floor** | Mean noise power per noise bin, in dBFS. |
+
+Values that cannot be determined are shown as `-`; they are never reported as zero.
+
+#### Peak Table
+
+The table lists the automatic markers of the selected channel with marker number, frequency, peak amplitude in volts, level in dBFS and level relative to the fundamental in dBc.
+
+#### Conventions
+
+* The first 8 samples of the acquisition are skipped to avoid the leading acquisition transient.
+* The DC component is removed before windowing by default.
+* Amplitude scaling uses the coherent gain of the window, so a sine wave reads its correct peak amplitude; noise and distortion metrics use the noise-power bandwidth of the window.
+* USB acquisitions transfer only every WFSU-sparsed sample (`SP` = 7). The spectrum therefore computes with the **effective sample rate** `SARA / SP`; frequency axis, Δf and Nyquist refer to the transferred record. The record contains the transferred points (`NP`, at most 100,000 on Linux USB) and can be shorter than the full screen at slow timebases.
+* The same spectrum section is included in the PDF measurement report (see [8.7 Saving Waveform Data](#87-saving-waveform-data)).
+
+#### CSV Export
+
+The **CSV** button in the spectrum controls writes the computed spectrum of every acquired channel to the `waveform/spectrum/` directory. The file-name prefix from the settings dialog is used when **Ask for filename prefix** is enabled; otherwise the base name is `spectrum_data`.
+
+The file contains `#` metadata lines (device, timestamp, window, requested and maximum FFT size, unit, DC removal, skipped samples, peak and harmonic count) and one parameter block per channel (FFT size, sample rate, frequency resolution, full scale). The data table follows with the columns `Channel,Frequency (Hz),Level (<unit>),dBFS,Amplitude (Vpk)` and one row per FFT bin. Large spectra are streamed to disk row by row.
+
+### 8.10 Waveform AI Assistant
+
+The sparkle button in the header of the **Device Parameters** panel opens the Waveform AI assistant. The panel slides in from the right edge and is twice as wide as the Device Parameters panel (600 px). It uses the AI provider, token and model configured in the SDS-Remote settings; without a valid configuration the panel shows a configuration banner and its input stays disabled.
+
+#### What the Assistant Can Do
+
+The assistant answers questions about the current acquisition. It reads the already computed data through deterministic tools and never invents measurement values:
+
+* **Time-domain measurements** — per channel Vpp, RMS, mean, frequency, duty cycle, rise/fall time, overshoot, sample count, device parameters, reference comparison and mask result.
+* **Spectrum analysis** — FFT size, sample rate, resolution, full scale, fundamental, THD, THD+N, SNR, SINAD, ENOB, SFDR, noise floor and the automatic peak markers. The spectrum is computed on demand with the settings from the Spectrum tab.
+* **Calculations** — the assistant uses the math and calculator tools for every derived number, for example RMS from a peak value, dB conversions, gain, crest factor or unit conversions with SI prefixes.
+* **Date and time** — the date/time tool returns the current local time, timezone, UTC and Unix time, so answers can be timestamped.
+
+Example questions: “Which channel has the lowest THD?”, “Explain the harmonic peaks of CH1”, “Convert the CH1 fundamental level to dBV”, “What is the crest factor of CH2?”.
+
+#### Interaction
+
+* Type a question in the input field and press Enter; the answer streams into the transcript.
+* During a response the send button becomes a stop button that terminates the answer and marks it as `terminated by user`.
+* The broom icon clears the transcript; the close button hides the panel. The conversation is kept while the panel is closed and is not persisted across application restarts.
+* The assistant cannot change instrument settings or send SCPI commands; it explains which control to use instead.
+
+### 8.11 Waveform Export
 
 Click the **Export** button in the top toolbar while a waveform is displayed to open the export dialog. Formats and options:
 
@@ -1417,7 +1503,7 @@ Click the **Export** button in the top toolbar while a waveform is displayed to 
 * VCD timestamps are normalised so the earliest sample starts at 0.
 * For external CSV data as a reference, place the file in `waveform/csv/` and use **Load Reference** ([8.6 Reference Waveforms](#86-reference-waveforms)); no separate file picker is required.
 
-### 8.10 Timelapse
+### 8.12 Timelapse
 
 The clock icon in the top toolbar opens **Timelapse**:
 

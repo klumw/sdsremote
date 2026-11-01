@@ -77,6 +77,9 @@ class WaveformAcquisition {
       // waveform long enough to show all cycles visible on the screen.
       const int horizontalDivisions = 14;
       const int maxTransferPoints = 12000000;
+      // WFSU SP is the sparsing factor: the scope sends every SP-th sample.
+      // The spectrum analysis must use the resulting effective sample rate.
+      const int waveformSparsing = 7;
       // On Linux the SDS1x04X-E USBTMC firmware only tolerates short read
       // requests (see UsbtmcContext.siglentMaxReadTransferSize). Deep-memory
       // transfers would take minutes in 48-byte chunks, so the number of
@@ -93,10 +96,16 @@ class WaveformAcquisition {
         effectiveMaxTransferPoints,
       );
       try {
-        await activeInstr.writeString('WFSU SP,7,NP,$transferPoints,FP,0');
+        await activeInstr.writeString(
+          'WFSU SP,$waveformSparsing,NP,$transferPoints,FP,0',
+        );
       } catch (e) {
         AppLogger().error('WFSU setup failed: $e');
       }
+      final int sparsing = await _querySparsing(
+        activeInstr,
+        fallback: waveformSparsing,
+      );
 
       // --- Trigger position in acquisition memory ---
       // SANU? returns "pointCount,triggerPosition" — the trigger's sample
@@ -189,11 +198,31 @@ class WaveformAcquisition {
         trdl: trdl,
         sampleRate: sampleRate,
         triggerPosition: triggerPosition,
+        sparsing: sparsing,
       );
     } finally {
       if (ownInstr) {
         await activeInstr.close();
       }
+    }
+  }
+
+  /// Reads the WFSU sparsing factor that the instrument actually uses.
+  ///
+  /// The firmware may reject or clamp the requested factor, so the value from
+  /// `WFSU?` is authoritative. `SP,0` and `SP,1` both mean "every sample".
+  Future<int> _querySparsing(
+    Vxi11Instrument instr, {
+    required int fallback,
+  }) async {
+    try {
+      final response = (await instr.queryString('WFSU?')).trim();
+      final match = RegExp(r'SP,(\d+)').firstMatch(response);
+      final value = match == null ? null : int.tryParse(match.group(1)!);
+      if (value == null) return fallback;
+      return value <= 1 ? 1 : value;
+    } catch (_) {
+      return fallback;
     }
   }
 

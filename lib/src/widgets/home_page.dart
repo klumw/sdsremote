@@ -19,6 +19,7 @@ import '../app/window_state.dart';
 import '../waveform/cursor_geometry.dart';
 import 'animated_sync_icon.dart';
 import 'osci_toolbar_button.dart';
+import 'spectrum_view.dart';
 import 'reference_file_picker_dialog.dart';
 import 'filename_prefix_dialog.dart';
 import 'unsaved_changes_dialog.dart';
@@ -27,6 +28,10 @@ import 'package:window_manager/window_manager.dart';
 import '../instrument/dart_vxi11.dart';
 import '../instrument/measurement.dart' show formatMeasurementValue;
 import '../instrument/vnc_screen_service.dart';
+import '../spectrum/spectrum_analysis.dart';
+import '../spectrum/spectrum_csv.dart';
+import '../spectrum/spectrum_models.dart';
+import '../spectrum/windows.dart';
 import '../waveform/waveform_acquisition.dart';
 import '../waveform/waveform_processing.dart';
 import '../waveform/waveform_csv_parser.dart';
@@ -51,6 +56,7 @@ import '../ai/ai_chat_service.dart';
 import '../ai/ai_settings.dart';
 import '../ai/control_panel_chat_controller.dart';
 import '../ai/macro_chat_controller.dart';
+import '../ai/waveform_chat_controller.dart';
 import '../core/logger.dart';
 import 'osci_physical_panel.dart';
 import 'osci_chat_window.dart';
@@ -59,6 +65,7 @@ import 'osci_news_notification.dart';
 import 'osci_device_params_panel.dart';
 import 'osci_settings_panel.dart';
 import 'osci_profiles_panel.dart';
+import 'waveform_ai_panel.dart';
 import '../data_logger/data_logger_models.dart';
 import 'data_logger_panel.dart';
 import '../data_logger/data_logger_service.dart';
@@ -102,6 +109,9 @@ class OsciHomePage extends StatefulWidget {
   @override
   State<OsciHomePage> createState() => _OsciHomePageState();
 }
+
+/// Which analysis view the Acquire Waveform screen shows.
+enum _WaveformViewMode { time, spectrum }
 
 class _OsciHomePageState extends State<OsciHomePage>
     with WindowListener, SingleTickerProviderStateMixin {
@@ -213,6 +223,27 @@ class _OsciHomePageState extends State<OsciHomePage>
   WaveformData? _waveformCh2;
   WaveformData? _waveformCh3;
   WaveformData? _waveformCh4;
+
+  /// Raw samples of the last acquisition, retained for the spectrum analysis
+  /// and the PDF report. Invalidated by a new acquisition.
+  WaveformRawData? _lastRawData;
+
+  /// Spectrum settings (window, FFT size, unit, peaks). Persisted in the
+  /// application preferences; the spectrum view edits them.
+  SpectrumSettings _spectrumSettings = const SpectrumSettings();
+
+  /// Cached spectrum of [_lastRawData]; invalidated on a new acquisition or
+  /// when the settings change.
+  SpectrumResult? _spectrumResult;
+
+  /// Spectrum view state.
+  _WaveformViewMode _waveformViewMode = _WaveformViewMode.time;
+  String _spectrumChannel = 'ch1';
+  bool _spectrumShowAll = true;
+  bool _spectrumLogFrequency = false;
+  bool _spectrumLoading = false;
+  int _spectrumGeneration = 0;
+  final GlobalKey _spectrumKey = GlobalKey();
 
   /// Time-domain measurements of the last acquisition, computed from the raw
   /// samples before the display decimation.
@@ -405,6 +436,9 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// 5 s ping tick and only while the Control Panel is visible.
   static const Duration _vncProbeInterval = Duration(seconds: 10);
 
+  /// Width of the Waveform AI panel; twice the 300 px Device Parameters panel.
+  static const double _waveformAiPanelWidth = 600;
+
   // UI State
   bool _showSettings = false;
   ActivePanel _activePanel = ActivePanel.none;
@@ -421,6 +455,11 @@ class _OsciHomePageState extends State<OsciHomePage>
   StreamSubscription<String>? _chatSubscription;
   Completer<void>? _chatSendCompleter;
   bool _chatCancelRequested = false;
+
+  // Waveform AI assistant
+  final WaveformChatController _waveformChatController =
+      WaveformChatController();
+  bool _showWaveformAi = false;
 
   // Data Logger
   bool _dlIsRunning = false;
@@ -559,6 +598,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     _aiChatService.dispose();
     _macroChatController.dispose();
     _controlPanelChatController.dispose();
+    _waveformChatController.dispose();
     _macroPrintController.dispose();
     super.dispose();
   }
@@ -638,55 +678,78 @@ class _OsciHomePageState extends State<OsciHomePage>
             children: [
               _buildTopBar(),
               Expanded(
-                child: Row(
+                child: Stack(
                   children: [
-                    Expanded(
-                      child: Container(
-                        margin: const EdgeInsets.all(24),
-                        decoration: BoxDecoration(
-                          color: AppColors.panelBackground,
-                          border: Border.all(
-                            color: AppColors.border,
-                            width: 1.5,
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Container(
+                            margin: const EdgeInsets.all(24),
+                            decoration: BoxDecoration(
+                              color: AppColors.panelBackground,
+                              border: Border.all(
+                                color: AppColors.border,
+                                width: 1.5,
+                              ),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Center(child: _buildMainContent()),
                           ),
-                          borderRadius: BorderRadius.circular(12),
                         ),
-                        child: Center(child: _buildMainContent()),
-                      ),
+                        if (_waveformAcquired &&
+                            _activePanel == ActivePanel.none &&
+                            _deviceParams != null)
+                          DeviceParametersPanel(
+                            params: _deviceParams!,
+                            ch1Enabled: _ch1Enabled,
+                            ch2Enabled: _ch2Enabled,
+                            ch3Enabled: _ch3Enabled,
+                            ch4Enabled: _ch4Enabled,
+                            channelCount: _numChannels,
+                            isOnline: _isOnline,
+                            cursorsXEnabled: _cursorState.cursorsXEnabled,
+                            cursorsYEnabled: _cursorState.cursorsYEnabled,
+                            zoomFactor: _zoomState.zoomFactor,
+                            onChannelToggle: _onDeviceParamChannelToggle,
+                            onCursorXToggled: _onCursorXToggled,
+                            onCursorYToggled: _onCursorYToggled,
+                            onZoomFactorChanged: _onZoomFactorChanged,
+                            refVisible: _refVisible,
+                            refLabel: _refFileName != null ? 'REF' : null,
+                            onLoadReference: _loadReferenceWaveform,
+                            onRefToggled: _onRefToggled,
+                            refMoving: _refMoving,
+                            onRefMovingToggled: _onRefMovingToggled,
+                            refOffset: _refOffset,
+                            onRefReset: _onRefReset,
+                            diffAvailable: _refWaveform != null,
+                            diffVisible: _diffVisible,
+                            onDiffToggled: _onDiffToggled,
+                            comparison: _comparison,
+                            onUseCurrentAsReference: _hasCurrentWaveform()
+                                ? _useCurrentWaveformAsReference
+                                : null,
+                            onOpenAi: _toggleWaveformAi,
+                          ),
+                      ],
                     ),
-                    if (_waveformAcquired &&
-                        _activePanel == ActivePanel.none &&
-                        _deviceParams != null)
-                      DeviceParametersPanel(
-                        params: _deviceParams!,
-                        ch1Enabled: _ch1Enabled,
-                        ch2Enabled: _ch2Enabled,
-                        ch3Enabled: _ch3Enabled,
-                        ch4Enabled: _ch4Enabled,
-                        channelCount: _numChannels,
-                        isOnline: _isOnline,
-                        cursorsXEnabled: _cursorState.cursorsXEnabled,
-                        cursorsYEnabled: _cursorState.cursorsYEnabled,
-                        zoomFactor: _zoomState.zoomFactor,
-                        onChannelToggle: _onDeviceParamChannelToggle,
-                        onCursorXToggled: _onCursorXToggled,
-                        onCursorYToggled: _onCursorYToggled,
-                        onZoomFactorChanged: _onZoomFactorChanged,
-                        refVisible: _refVisible,
-                        refLabel: _refFileName != null ? 'REF' : null,
-                        onLoadReference: _loadReferenceWaveform,
-                        onRefToggled: _onRefToggled,
-                        refMoving: _refMoving,
-                        onRefMovingToggled: _onRefMovingToggled,
-                        refOffset: _refOffset,
-                        onRefReset: _onRefReset,
-                        diffAvailable: _refWaveform != null,
-                        diffVisible: _diffVisible,
-                        onDiffToggled: _onDiffToggled,
-                        comparison: _comparison,
-                        onUseCurrentAsReference: _hasCurrentWaveform()
-                            ? _useCurrentWaveformAsReference
-                            : null,
+                    if (_waveformAcquired && _activePanel == ActivePanel.none)
+                      AnimatedPositioned(
+                        duration: const Duration(milliseconds: 280),
+                        curve: Curves.easeInOutCubic,
+                        top: 24,
+                        bottom: 24,
+                        width: _waveformAiPanelWidth,
+                        right: _showWaveformAi
+                            ? 24
+                            : -_waveformAiPanelWidth - 24,
+                        child: IgnorePointer(
+                          ignoring: !_showWaveformAi,
+                          child: WaveformAiPanel(
+                            controller: _waveformChatController,
+                            onClose: _closeWaveformAi,
+                          ),
+                        ),
                       ),
                   ],
                 ),
@@ -1046,28 +1109,97 @@ class _OsciHomePageState extends State<OsciHomePage>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Expanded(child: Center(child: _buildWaveformView())),
-          if (_clockSuggestion != null && !_clockSuggestionDismissed) ...[
-            const SizedBox(height: 8),
-            _buildClockSuggestionBanner(_clockSuggestion!),
-          ],
+          Row(
+            children: [
+              _buildViewModeButton('Time domain', _WaveformViewMode.time),
+              const SizedBox(width: 6),
+              _buildViewModeButton('Spectrum', _WaveformViewMode.spectrum),
+            ],
+          ),
           const SizedBox(height: 8),
-          WaveformMeasurementPanel(
-            measurements: _currentMeasurements(),
-            statistics: _measurementStatistics(),
-            deviceParams: _deviceParams,
-            historyCount: _measurementHistoryCount(),
-            maskAvailable: _refWaveform != null,
-            referenceVppVolts: _referenceVpp(),
-            referenceDurationSeconds: _referenceDurationSeconds(),
-            maskSettings: _maskSettings,
-            maskResult: _maskResult,
-            onMaskSettingsChanged: _onMaskSettingsChanged,
-            onRippleNoise: _showRippleNoiseDialog,
+          Expanded(
+            child: _waveformViewMode == _WaveformViewMode.time
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Expanded(child: Center(child: _buildWaveformView())),
+                      if (_clockSuggestion != null &&
+                          !_clockSuggestionDismissed) ...[
+                        const SizedBox(height: 8),
+                        _buildClockSuggestionBanner(_clockSuggestion!),
+                      ],
+                      const SizedBox(height: 8),
+                      WaveformMeasurementPanel(
+                        measurements: _currentMeasurements(),
+                        statistics: _measurementStatistics(),
+                        deviceParams: _deviceParams,
+                        historyCount: _measurementHistoryCount(),
+                        maskAvailable: _refWaveform != null,
+                        referenceVppVolts: _referenceVpp(),
+                        referenceDurationSeconds: _referenceDurationSeconds(),
+                        maskSettings: _maskSettings,
+                        maskResult: _maskResult,
+                        onMaskSettingsChanged: _onMaskSettingsChanged,
+                        onRippleNoise: _showRippleNoiseDialog,
+                      ),
+                    ],
+                  )
+                : SpectrumView(
+                    result: _spectrumResult,
+                    settings: _spectrumSettings,
+                    selectedChannel: _spectrumChannel,
+                    showAllChannels: _spectrumShowAll,
+                    logFrequency: _spectrumLogFrequency,
+                    loading: _spectrumLoading,
+                    onChannelSelectionChanged: (channel) => setState(() {
+                      _spectrumShowAll = channel == null;
+                      if (channel != null) _spectrumChannel = channel;
+                    }),
+                    onSettingsChanged: _onSpectrumSettingsChanged,
+                    onLogFrequencyChanged: (value) =>
+                        setState(() => _spectrumLogFrequency = value),
+                    onExportCsv: _exportSpectrumCsv,
+                    plotKey: _spectrumKey,
+                  ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildViewModeButton(String label, _WaveformViewMode mode) {
+    final selected = _waveformViewMode == mode;
+    return TextButton(
+      onPressed: () => _setWaveformViewMode(mode),
+      style: TextButton.styleFrom(
+        foregroundColor: selected ? Colors.white : Colors.white54,
+        backgroundColor: selected
+            ? const Color(0xFF1E3A8A)
+            : const Color(0xFF172A45),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(6),
+          side: BorderSide(
+            color: selected ? Colors.blueAccent : AppColors.border,
+            width: 0.8,
+          ),
+        ),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  void _setWaveformViewMode(_WaveformViewMode mode) {
+    if (_waveformViewMode == mode) return;
+    setState(() => _waveformViewMode = mode);
+    if (mode == _WaveformViewMode.spectrum &&
+        _spectrumResult == null &&
+        !_spectrumLoading) {
+      unawaited(_recomputeSpectrum());
+    }
   }
 
   Widget _buildWaveformView() {
@@ -2723,6 +2855,7 @@ class _OsciHomePageState extends State<OsciHomePage>
             _selectedChannel = 1;
             _showSettings = false;
           });
+          _configureWaveformAi();
           await _saveConfig();
           _startPingTimer();
 
@@ -3288,6 +3421,8 @@ class _OsciHomePageState extends State<OsciHomePage>
         _screenDump = null;
         _isOnline = true;
         _waveformAcquired = true;
+        _lastRawData = raw;
+        _spectrumResult = null;
         // Reset zoom state on every new acquisition so the user sees the full
         // waveform (14 divisions) instead of a zoomed-in view from a previous
         // interaction that showed only ~4 waves.
@@ -3296,6 +3431,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       });
       _logWaveformMeasurements();
       _recomputeReferenceAnalysis();
+      if (_waveformViewMode == _WaveformViewMode.spectrum) {
+        unawaited(_recomputeSpectrum());
+      }
     } catch (e) {
       AppLogger().error('Acquire waveform error: $e');
       final reason = e is AcquisitionException ? e.reason : e.toString();
@@ -3432,6 +3570,141 @@ class _OsciHomePageState extends State<OsciHomePage>
     'ch4': ?_measurementsCh4,
   };
 
+  /// Computes (or returns the cached) spectrum of the last acquisition.
+  ///
+  /// The FFT runs in an isolate so a large record does not block the UI. The
+  /// result feeds the PDF report and the spectrum view.
+  Future<SpectrumResult?> _spectrumForReport() async {
+    final cached = _spectrumResult;
+    if (cached != null) return cached;
+    final result = await _computeSpectrumNow();
+    _spectrumResult = result;
+    return result;
+  }
+
+  /// Recomputes the spectrum for the current acquisition and settings.
+  Future<void> _recomputeSpectrum() async {
+    final generation = ++_spectrumGeneration;
+    if (_lastRawData == null) return;
+    setState(() => _spectrumLoading = true);
+
+    SpectrumResult? result;
+    try {
+      result = await _computeSpectrumNow();
+    } catch (e) {
+      AppLogger().error('Spectrum computation failed: $e');
+      if (mounted) _showErrorSnackBar('Spectrum computation failed: $e');
+    }
+
+    if (!mounted || generation != _spectrumGeneration) return;
+    setState(() {
+      _spectrumResult = result;
+      _spectrumLoading = false;
+      if (result != null &&
+          result.traceFor(_spectrumChannel) == null &&
+          result.traces.isNotEmpty) {
+        _spectrumChannel = result.traces.first.channel;
+      }
+    });
+  }
+
+  void _onSpectrumSettingsChanged(SpectrumSettings settings) {
+    setState(() {
+      _spectrumSettings = settings;
+      _spectrumResult = null;
+    });
+    unawaited(_persistSpectrumSettings());
+    if (_waveformViewMode == _WaveformViewMode.spectrum) {
+      unawaited(_recomputeSpectrum());
+    }
+  }
+
+  Future<void> _persistSpectrumSettings() async {
+    await AppPreferences.setAll(_spectrumPreferenceEntries());
+  }
+
+  /// Preference entries of the current spectrum settings.
+  ///
+  /// Shared by the immediate persistence of the spectrum controls and the
+  /// configuration dialog so both always write the same keys.
+  Map<String, dynamic> _spectrumPreferenceEntries() => {
+    'spectrum_window': _spectrumSettings.window.name,
+    'spectrum_unit': _spectrumSettings.unit.name,
+    'spectrum_fft_size': _spectrumSettings.fftSize,
+    'spectrum_max_fft_size': _spectrumSettings.maxFftSize,
+    'spectrum_remove_dc': _spectrumSettings.removeDc,
+    'spectrum_peak_count': _spectrumSettings.peakCount,
+    'spectrum_harmonic_count': _spectrumSettings.harmonicCount,
+    'spectrum_skip_samples': _spectrumSettings.leadingSamplesToSkip,
+  };
+
+  Future<SpectrumResult?> _computeSpectrumNow() async {
+    final raw = _lastRawData;
+    if (raw == null) return null;
+
+    final channels = <SpectrumChannelInput>[];
+    void addChannel(
+      int number,
+      Uint8List? bytes,
+      double? vdiv,
+      double? voffset,
+    ) {
+      if (bytes == null || bytes.isEmpty || vdiv == null || vdiv <= 0) return;
+      channels.add(
+        SpectrumChannelInput(
+          label: 'ch$number',
+          raw: bytes,
+          vdiv: vdiv,
+          voffset: voffset ?? 0,
+        ),
+      );
+    }
+
+    addChannel(1, raw.ch1Raw, raw.vdivCh1, raw.voffsetCh1);
+    addChannel(2, raw.ch2Raw, raw.vdivCh2, raw.voffsetCh2);
+    addChannel(3, raw.ch3Raw, raw.vdivCh3, raw.voffsetCh3);
+    addChannel(4, raw.ch4Raw, raw.vdivCh4, raw.voffsetCh4);
+    // The scope may sparse the transfer (WFSU SP); the stored raw bytes are
+    // therefore sampled at the effective rate, not at the acquisition rate.
+    final effectiveSampleRate = raw.effectiveSampleRate;
+    if (channels.isEmpty || effectiveSampleRate <= 0) return null;
+
+    final request = SpectrumRequest(
+      channels: channels,
+      sampleRate: effectiveSampleRate,
+      settings: _spectrumSettings,
+    );
+    return compute(computeSpectrum, request);
+  }
+
+  /// Writes the spectrum of all acquired channels to a CSV file in
+  /// `waveform/spectrum/`.
+  Future<void> _exportSpectrumCsv() async {
+    try {
+      final prefix = await _askForFilenamePrefixIfNeeded();
+      if (prefix == null) return; // user cancelled
+      final result = await _spectrumForReport();
+      if (result == null || result.traces.isEmpty) {
+        _showInfoSnackBar('No spectrum data available.');
+        return;
+      }
+      final directory = await AppPaths.getOrCreateWaveformSpectrumDir();
+      final baseName = prefix.isNotEmpty ? prefix : 'spectrum_data';
+      final file = await AppPaths.getUniqueFilePath(directory, baseName, 'csv');
+      await writeSpectrumCsv(
+        file: file,
+        result: result,
+        deviceName: _deviceName ?? _ipAddress,
+      );
+      if (mounted) {
+        _showInfoSnackBar('Saved ${file.uri.pathSegments.last}');
+      }
+    } catch (e) {
+      AppLogger().error('Spectrum CSV export failed: $e');
+      _showErrorSnackBar('Spectrum CSV export failed: $e');
+    }
+  }
+
   /// Compact description of the displayed waveform for the Control Panel AI's
   /// `read_waveform_summary` tool.
   ///
@@ -3475,6 +3748,81 @@ class _OsciHomePageState extends State<OsciHomePage>
           'toleranceValue': _maskSettings.toleranceValue,
           'toleranceIsPercentOfVpp': _maskSettings.usePercent,
         },
+    };
+  }
+
+  /// Spectrum analysis of the displayed waveform for the Waveform AI's
+  /// `read_spectrum_summary` tool.
+  ///
+  /// The spectrum is computed on demand with the current settings, so the
+  /// assistant sees the same data as the Spectrum tab even when it has not
+  /// been opened yet. Returns null while no waveform is displayed.
+  Future<Map<String, dynamic>?> _spectrumSummaryForAi() async {
+    if (!_waveformAcquired || _lastRawData == null) return null;
+
+    SpectrumResult? result;
+    try {
+      result = await _spectrumForReport();
+    } catch (e) {
+      AppLogger().warning('Spectrum summary for AI failed: $e');
+      return null;
+    }
+    if (result == null) return null;
+
+    final settings = result.settings;
+    return <String, dynamic>{
+      'available': true,
+      'viewMode': _waveformViewMode.name,
+      'selectedChannel': _spectrumChannel,
+      'showAllChannels': _spectrumShowAll,
+      'settings': {
+        'window': settings.window.name,
+        'requestedFftSize': settings.fftSize == 0 ? 'auto' : settings.fftSize,
+        'maxFftSize': settings.maxFftSize,
+        'unit': settings.unit.name,
+        'removeDc': settings.removeDc,
+        'peakCount': settings.peakCount,
+        'harmonicCount': settings.harmonicCount,
+        'leadingSamplesSkipped': settings.leadingSamplesToSkip,
+      },
+      'channels': [
+        for (final trace in result.traces)
+          {
+            'channel': trace.channel,
+            'fftSize': trace.fftSize,
+            'sampleRateHz': trace.sampleRate,
+            'frequencyResolutionHz': trace.resolutionHz,
+            'fullScaleVolts': trace.fullScaleVolts,
+            'metrics': {
+              'fundamentalFrequencyHz': trace.metrics.fundamentalHz,
+              'fundamentalAmplitudeVpk': trace.metrics.fundamentalVpk,
+              'fundamentalDbfs': trace.metrics.fundamentalDbfs,
+              'thdPercent': trace.metrics.thdPercent,
+              'thdDb': trace.metrics.thdDb,
+              'thdPlusNoiseDb': trace.metrics.thdPlusNDb,
+              'snrDb': trace.metrics.snrDb,
+              'sinadDb': trace.metrics.sinadDb,
+              'enobBits': trace.metrics.enobBits,
+              'sfdrDbc': trace.metrics.sfdrDb,
+              'noiseFloorDbfs': trace.metrics.noiseFloorDbfs,
+              'harmonicsUsed': trace.metrics.harmonicsUsed,
+              'nyquistHz': trace.metrics.nyquistHz,
+              'resolutionHz': trace.metrics.resolutionHz,
+            },
+            'peaks': [
+              for (final peak in trace.peaks)
+                {
+                  'marker': peak.marker,
+                  'frequencyHz': peak.frequencyHz,
+                  'amplitudeVpk': peak.amplitudeVpk,
+                  'levelDb': peak.levelDb,
+                  'dbfs': peak.dbfs,
+                  'relativeToFundamentalDb': peak.relativeToFundamentalDb,
+                  'isFundamental': peak.isFundamental,
+                },
+            ],
+          },
+      ],
     };
   }
 
@@ -4198,9 +4546,11 @@ class _OsciHomePageState extends State<OsciHomePage>
       final reportBaseName = prefix.isNotEmpty ? prefix : 'waveform_report';
       final csvBaseName = prefix.isNotEmpty ? prefix : 'waveform_data';
 
+      final chartKey = _waveformViewMode == _WaveformViewMode.spectrum
+          ? _spectrumKey
+          : _waveformKey;
       final boundary =
-          _waveformKey.currentContext?.findRenderObject()
-              as RenderRepaintBoundary?;
+          chartKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
       if (boundary == null) throw Exception('Waveform not rendered yet');
 
       final uiImage = await boundary.toImage(pixelRatio: 2.0);
@@ -4217,12 +4567,20 @@ class _OsciHomePageState extends State<OsciHomePage>
         numChannels: 4,
       );
 
+      SpectrumResult? spectrum;
+      try {
+        spectrum = await _spectrumForReport();
+      } catch (e) {
+        AppLogger().warning('Spectrum computation for the report failed: $e');
+      }
+
       final pdfBytes = await WaveformReport.generatePdf(
         chartImageBytes: img.encodePng(image),
         params: _deviceParams!,
         measurements: _acquiredMeasurements(),
         comparison: _comparison,
         maskResult: _maskSettings.enabled ? _maskResult : null,
+        spectrum: spectrum,
         reportName: prefix.isEmpty ? null : prefix,
         deviceName: _deviceName ?? _ipAddress,
       );
@@ -4466,6 +4824,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     _loadProfileFiles();
     _startPingTimer();
     _configureSigGenDetection();
+    _configureWaveformAi();
     // Configure AI agent on startup if provider, token, and model are valid
     if (_isAiEnabled) {
       _configureAiService();
@@ -4499,6 +4858,54 @@ class _OsciHomePageState extends State<OsciHomePage>
           : 'none';
       _sigGenPort = sigGenPort;
     });
+    await _loadSpectrumSettings();
+  }
+
+  /// Loads the persisted spectrum settings.
+  Future<void> _loadSpectrumSettings() async {
+    const defaults = SpectrumSettings();
+    final windowName = await AppPreferences.getString('spectrum_window');
+    final unitName = await AppPreferences.getString('spectrum_unit');
+    final window = windowName == null
+        ? defaults.window
+        : SpectrumWindow.values.firstWhere(
+            (value) => value.name == windowName,
+            orElse: () => defaults.window,
+          );
+    final unit = unitName == null
+        ? defaults.unit
+        : SpectrumUnit.values.firstWhere(
+            (value) => value.name == unitName,
+            orElse: () => defaults.unit,
+          );
+
+    final settings = SpectrumSettings(
+      window: window,
+      fftSize:
+          await AppPreferences.getInt('spectrum_fft_size') ?? defaults.fftSize,
+      maxFftSize:
+          await AppPreferences.getInt('spectrum_max_fft_size') ??
+          defaults.maxFftSize,
+      unit: unit,
+      removeDc:
+          await AppPreferences.getBool('spectrum_remove_dc') ??
+          defaults.removeDc,
+      peakCount:
+          await AppPreferences.getInt('spectrum_peak_count') ??
+          defaults.peakCount,
+      harmonicCount:
+          await AppPreferences.getInt('spectrum_harmonic_count') ??
+          defaults.harmonicCount,
+      leadingSamplesToSkip:
+          await AppPreferences.getInt('spectrum_skip_samples') ??
+          defaults.leadingSamplesToSkip,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _spectrumSettings = settings;
+      _spectrumResult = null;
+    });
   }
 
   Future<void> _saveConfig() async {
@@ -4509,6 +4916,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       'ai_api_token': _aiApiToken,
       'llm_model': _llmModel,
       'siggen_device': _signalGenerator,
+      ..._spectrumPreferenceEntries(),
     });
   }
 
@@ -4560,6 +4968,31 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// to the correct API key environment variable name and model prefix.
   /// The full model string is constructed as `<prefix>:<model>` (e.g.
   /// `openai:gpt-4o`).
+  // =========================================================================
+  // Waveform AI assistant
+  // =========================================================================
+
+  void _toggleWaveformAi() {
+    final open = !_showWaveformAi;
+    setState(() => _showWaveformAi = open);
+    _waveformChatController.setOpen(open);
+  }
+
+  void _closeWaveformAi() {
+    if (!_showWaveformAi) return;
+    setState(() => _showWaveformAi = false);
+    _waveformChatController.setOpen(false);
+  }
+
+  /// Configures the Waveform AI assistant from the current AI settings.
+  void _configureWaveformAi() {
+    _waveformChatController.configure(
+      _aiSettings,
+      readWaveformSummary: _waveformSummaryForAi,
+      readSpectrumSummary: _spectrumSummaryForAi,
+    );
+  }
+
   void _configureAiService() {
     final logger = AppLogger(
       agentName: 'main',

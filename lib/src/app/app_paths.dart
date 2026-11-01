@@ -61,6 +61,10 @@ class AppPaths {
   static Directory get waveformExportsDirectory =>
       Directory('${defaultSaveDirectory.path}${_sep}waveform${_sep}exports');
 
+  /// `  <app working dir>/waveform/spectrum  `
+  static Directory get waveformSpectrumDirectory =>
+      Directory('${defaultSaveDirectory.path}${_sep}waveform${_sep}spectrum');
+
   /// `  <app working dir>/logger/reports  `
   static Directory get loggerReportsDirectory =>
       Directory('${defaultSaveDirectory.path}${_sep}logger${_sep}reports');
@@ -132,6 +136,9 @@ class AppPaths {
 
   static Future<Directory> getOrCreateWaveformExportsDir() =>
       ensureDirectoryExists(waveformExportsDirectory);
+
+  static Future<Directory> getOrCreateWaveformSpectrumDir() =>
+      ensureDirectoryExists(waveformSpectrumDirectory);
 
   static Future<Directory> getOrCreateLoggerReportsDir() =>
       ensureDirectoryExists(loggerReportsDirectory);

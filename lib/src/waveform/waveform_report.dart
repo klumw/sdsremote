@@ -1,9 +1,10 @@
 /// PDF measurement report for an acquired waveform.
 ///
 /// Contains the chart image, the automatic measurements per channel, the
-/// device settings, the reference comparison and the mask-test result. The
-/// class mirrors `DataLoggerReport` and `BodeReport`; it is pure computation
-/// and returns the PDF bytes without touching the file system.
+/// spectrum analysis (window, metrics, peak markers), the device settings,
+/// the reference comparison and the mask-test result. The class mirrors
+/// `DataLoggerReport` and `BodeReport`; it is pure computation and returns the
+/// PDF bytes without touching the file system.
 library;
 
 import 'dart:typed_data';
@@ -11,6 +12,8 @@ import 'dart:typed_data';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 
+import '../spectrum/spectrum_models.dart';
+import '../spectrum/windows.dart';
 import 'waveform_compare.dart';
 import 'waveform_mask.dart';
 import 'waveform_measurements.dart';
@@ -31,6 +34,7 @@ class WaveformReport {
     required Map<String, WaveformMeasurements> measurements,
     ComparisonMetrics? comparison,
     MaskResult? maskResult,
+    SpectrumResult? spectrum,
     String? reportName,
     String deviceName = '',
     DateTime? timestamp,
@@ -188,6 +192,10 @@ class WaveformReport {
           ],
           pw.SizedBox(height: 24),
 
+          // ---- Spectrum analysis ----
+          ..._spectrumSection(spectrum),
+          pw.SizedBox(height: 24),
+
           // ---- Device parameters ----
           pw.Header(
             text: 'Device Parameters',
@@ -235,6 +243,203 @@ class WaveformReport {
     for (final channel in const ['ch1', 'ch2', 'ch3', 'ch4'])
       if (measurements[channel] != null)
         MapEntry(channel, measurements[channel]!),
+  ];
+
+  static List<pw.Widget> _spectrumSection(SpectrumResult? spectrum) {
+    final widgets = <pw.Widget>[
+      pw.Header(
+        text: 'Spectrum Analysis',
+        level: 1,
+        textStyle: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+      ),
+      pw.SizedBox(height: 12),
+    ];
+    if (spectrum == null || spectrum.traces.isEmpty) {
+      widgets.add(pw.Text('No spectrum data available.'));
+      return widgets;
+    }
+
+    for (var i = 0; i < spectrum.traces.length; i++) {
+      final trace = spectrum.traces[i];
+      final color = _spectrumColors[i % _spectrumColors.length];
+      widgets.add(
+        pw.Header(
+          text: '${trace.channel.toUpperCase()} - Spectrum',
+          level: 2,
+          textStyle: pw.TextStyle(fontSize: 14, fontWeight: pw.FontWeight.bold),
+        ),
+      );
+      widgets.add(
+        pw.Text(
+          'Window: ${_windowLabel(spectrum.settings.window)}  |  '
+          'FFT size: ${trace.fftSize}  |  '
+          'Sample rate: ${_fmtSi(trace.sampleRate, 'Sa/s')}  |  '
+          'Resolution: ${_fmtFrequency(trace.resolutionHz)}  |  '
+          'Full scale: ${_fmtVoltage(trace.fullScaleVolts)}',
+          style: const pw.TextStyle(fontSize: 9),
+        ),
+      );
+      widgets.add(pw.SizedBox(height: 8));
+
+      final chart = _spectrumChart(trace, color);
+      if (chart != null) {
+        widgets.add(pw.SizedBox(height: 160, child: chart));
+        widgets.add(pw.SizedBox(height: 8));
+      }
+
+      widgets.add(
+        pw.TableHelper.fromTextArray(
+          headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+          headerAlignment: pw.Alignment.centerLeft,
+          cellAlignment: pw.Alignment.centerLeft,
+          columnWidths: {
+            0: const pw.FlexColumnWidth(1.4),
+            1: const pw.FlexColumnWidth(2.0),
+          },
+          headers: ['Metric', 'Value'],
+          data: _spectrumMetricRows(trace.metrics),
+        ),
+      );
+
+      if (trace.peaks.isNotEmpty) {
+        widgets.add(pw.SizedBox(height: 8));
+        widgets.add(
+          pw.TableHelper.fromTextArray(
+            headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+            headerAlignment: pw.Alignment.centerLeft,
+            cellAlignment: pw.Alignment.centerLeft,
+            columnWidths: {
+              0: const pw.FlexColumnWidth(0.5),
+              1: const pw.FlexColumnWidth(1.2),
+              2: const pw.FlexColumnWidth(1.2),
+              3: const pw.FlexColumnWidth(1.0),
+              4: const pw.FlexColumnWidth(1.0),
+            },
+            headers: ['#', 'Frequency', 'Amplitude', 'dBFS', 'dBc'],
+            data: [
+              for (final peak in trace.peaks)
+                [
+                  '${peak.marker}',
+                  _fmtFrequency(peak.frequencyHz),
+                  _fmtVoltage(peak.amplitudeVpk),
+                  _fmtDb(peak.dbfs),
+                  _fmtDb(peak.relativeToFundamentalDb),
+                ],
+            ],
+          ),
+        );
+      }
+      widgets.add(pw.SizedBox(height: 16));
+    }
+    return widgets;
+  }
+
+  static pw.Widget? _spectrumChart(SpectrumTrace trace, PdfColor color) {
+    final length = trace.dbfs.length;
+    if (length < 2 || trace.sampleRate <= 0) return null;
+
+    final nyquist = trace.sampleRate / 2;
+    if (nyquist <= 0) return null;
+
+    final points = <pw.PointChartValue>[];
+    final step = (length / 600).ceil();
+    for (var i = 0; i < length; i += step) {
+      points.add(
+        pw.PointChartValue(trace.frequenciesHz[i], _clampDb(trace.dbfs[i])),
+      );
+    }
+    if (points.isEmpty || points.last.x < nyquist) {
+      points.add(
+        pw.PointChartValue(trace.frequenciesHz.last, _clampDb(trace.dbfs.last)),
+      );
+    }
+
+    final xTicks = <double>[
+      0,
+      nyquist / 4,
+      nyquist / 2,
+      nyquist * 3 / 4,
+      nyquist,
+    ];
+    const yTicks = <double>[-160, -120, -80, -40, 0];
+
+    return pw.Chart(
+      grid: pw.CartesianGrid(
+        xAxis: pw.FixedAxis<double>(
+          xTicks,
+          format: (value) => _fmtFrequency(value.toDouble()),
+          textStyle: const pw.TextStyle(fontSize: 7),
+        ),
+        yAxis: pw.FixedAxis<double>(
+          yTicks,
+          format: (value) => '${value.toInt()}',
+          textStyle: const pw.TextStyle(fontSize: 7),
+        ),
+      ),
+      datasets: [
+        pw.LineDataSet<pw.PointChartValue>(
+          data: points,
+          color: color,
+          lineWidth: 0.8,
+          drawPoints: false,
+        ),
+      ],
+    );
+  }
+
+  static List<List<String>> _spectrumMetricRows(SpectrumMetrics metrics) => [
+    [
+      'Fundamental',
+      '${_fmtFrequency(metrics.fundamentalHz)} '
+          '(${_fmtVoltage(metrics.fundamentalVpk)}, '
+          '${_fmtDb(metrics.fundamentalDbfs)})',
+    ],
+    [
+      'THD',
+      '${_fmtPercentValue(metrics.thdPercent)} (${_fmtDb(metrics.thdDb)})',
+    ],
+    ['THD+N', _fmtDb(metrics.thdPlusNDb)],
+    ['SNR', _fmtDb(metrics.snrDb)],
+    ['SINAD', _fmtDb(metrics.sinadDb)],
+    [
+      'ENOB',
+      metrics.enobBits.isFinite
+          ? '${metrics.enobBits.toStringAsFixed(2)} bit'
+          : 'N/A',
+    ],
+    ['SFDR', _fmtDb(metrics.sfdrDb)],
+    ['Noise Floor', _fmtDb(metrics.noiseFloorDbfs)],
+    ['Harmonics used', '${metrics.harmonicsUsed}'],
+    ['Nyquist', _fmtFrequency(metrics.nyquistHz)],
+    ['Resolution', _fmtFrequency(metrics.resolutionHz)],
+  ];
+
+  static double _clampDb(double value) {
+    if (!value.isFinite) return -160;
+    if (value < -160) return -160;
+    if (value > 0) return 0;
+    return value;
+  }
+
+  static String _fmtDb(double value) =>
+      value.isFinite ? '${value.toStringAsFixed(1)} dB' : 'N/A';
+
+  static String _fmtPercentValue(double value) =>
+      value.isFinite ? '${value.toStringAsFixed(3)} %' : 'N/A';
+
+  static String _windowLabel(SpectrumWindow window) => switch (window) {
+    SpectrumWindow.rectangular => 'Rectangular',
+    SpectrumWindow.hann => 'Hann',
+    SpectrumWindow.hamming => 'Hamming',
+    SpectrumWindow.blackmanHarris => 'Blackman-Harris',
+    SpectrumWindow.flatTop => 'Flat-top',
+  };
+
+  static const List<PdfColor> _spectrumColors = [
+    PdfColors.orange800,
+    PdfColors.purple800,
+    PdfColors.blue800,
+    PdfColors.green800,
   ];
 
   static List<List<String>> _deviceParameterRows(DeviceParams params) {

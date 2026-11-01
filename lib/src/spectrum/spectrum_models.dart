@@ -93,6 +93,12 @@ class SpectrumChannelInput {
 /// independently and returned as overlays in [SpectrumResult.traces].
 class SpectrumRequest {
   final List<SpectrumChannelInput> channels;
+
+  /// Effective sample rate of [channels]' raw bytes.
+  ///
+  /// This is the acquisition rate divided by the WFSU sparsing factor, not the
+  /// instrument's raw `SARA` rate, because [SpectrumChannelInput.raw] contains
+  /// only the transferred (possibly decimated) samples.
   final double sampleRate;
   final SpectrumSettings settings;
 

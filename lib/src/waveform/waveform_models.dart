@@ -38,6 +38,14 @@ class WaveformRawData {
   final double sampleRate; // SARA in Sa/s
   final int triggerPosition; // Sample index of trigger in acquisition memory
 
+  /// WFSU sparsing factor of the transfer (1 = every sample was sent).
+  ///
+  /// The scope transfers every [sparsing]-th acquisition sample, so the
+  /// effective sample interval of [ch1Raw] … [ch4Raw] is
+  /// `sparsing / sampleRate`, not `1 / sampleRate`. The spectrum analysis
+  /// uses this to derive the correct frequency axis.
+  final int sparsing;
+
   const WaveformRawData({
     this.ch1Raw,
     this.ch2Raw,
@@ -55,7 +63,15 @@ class WaveformRawData {
     required this.trdl,
     required this.sampleRate,
     this.triggerPosition = 0,
+    this.sparsing = 1,
   });
+
+  /// Sample rate of the transferred bytes in samples per second.
+  ///
+  /// This is the rate after applying [sparsing]; it differs from
+  /// [sampleRate] whenever the scope decimates the transfer.
+  double get effectiveSampleRate =>
+      sparsing > 1 ? sampleRate / sparsing : sampleRate;
 }
 
 /// Converted waveform data for a single channel
@@ -219,9 +235,7 @@ class ReferenceOffset {
 
   @override
   bool operator ==(Object other) =>
-      other is ReferenceOffset &&
-      other.dxDiv == dxDiv &&
-      other.dyDiv == dyDiv;
+      other is ReferenceOffset && other.dxDiv == dxDiv && other.dyDiv == dyDiv;
 
   @override
   int get hashCode => Object.hash(dxDiv, dyDiv);

@@ -48,6 +48,7 @@ Siglent SDS1104X-E: VID/PID `f4ec:ee38`; SDS1202X-E: `f4ed:ee3a`.
 | Kernel: `usb_control_msg returned -71`, `usbtmc ...: can't read capabilities`, repeating every few seconds | The kernel usbtmc driver re-probed after libusb released the interface; the device answers control transfers with EPROTO. It is wedged. |
 | `Failed to claim interface 0: error code -6 (BUSY)` | Another handle/process claims interface 0: a stale app instance, a hot-restart leftover, or the kernel driver. |
 | Device listed by `lsusb` but every transfer fails | Presence on the bus does **not** mean usable. Expect a replug. |
+| Spectrum fundamental is ~7× too high (e.g. 1 kHz reads as 7 kHz) | `WFSU SP` is the **sparsing** factor: the scope sends only every SP-th sample. Use `WaveformRawData.effectiveSampleRate` (`SARA / SP`), not `SARA`, for the frequency axis. Fixed in the spectrum path (M5). |
 
 Distinguish the failing feature from the log line: `Acquire waveform error` is
 the acquisition; `Acquire display error` is SCDP (Control Panel).
@@ -78,6 +79,11 @@ the acquisition; `Acquire display error` is SCDP (Control Panel).
 - `WaveformAcquisition` limits `WFSU NP` to **100,000 points** per channel in
   Linux USB mode to keep acquisitions quick (at 8192 bytes a deep-memory
   transfer would still take seconds per channel).
+- `WFSU SP` is the **sparsing** factor (`SP,7` = every 7th acquisition sample).
+  The transferred bytes therefore have the effective rate `SARA / SP`; the
+  spectrum must use `WaveformRawData.effectiveSampleRate`. The acquisition
+  reads the actual value back with `WFSU?`, so a firmware that clamps `SP`
+  cannot shift the frequency axis.
 - Screen dumps are fetched normally again (automatic refresh, auto capture and
   timelapse work); at 8192 bytes they take < 1 s.
 - If an older-firmware instrument shows USB errors, update the scope firmware
@@ -195,7 +201,8 @@ Values far outside these, or `IO_ERROR`, mean the device is wedged.
 | `packages/usbtmc_dart_patched/lib/src/usbtmc_context.dart` | Linux + VID `0xf4ec` → 8192-byte cap |
 | `packages/usbtmc_dart_patched/lib/src/driver/libusb_driver.dart` | libusb FFI, error codes (`UsbTransferException`), kernel-driver auto-detach |
 | `lib/src/instrument/dart_vxi11.dart` | Shared USB connection, fatal-error invalidation, query/data-block/screen-dump paths, `writeProfileData`/`awaitProfileApplied` |
-| `lib/src/waveform/waveform_acquisition.dart` | `WFSU` setup and the Linux-USB 100k point cap |
+| `lib/src/waveform/waveform_acquisition.dart` | `WFSU` setup (`NP` cap, `SP` sparsing capture) |
+| `lib/src/waveform/waveform_models.dart` | `WaveformRawData.sparsing` / `effectiveSampleRate` (spectrum frequency axis) |
 | `lib/src/widgets/home_page.dart` | Screen-dump path; Control Panel is disabled while a waveform acquisition runs |
 | `tool/usb_diag.dart` | Standalone USB diagnostic |
 

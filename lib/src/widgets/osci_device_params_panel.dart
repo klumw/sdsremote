@@ -36,6 +36,9 @@ class DeviceParametersPanel extends StatefulWidget {
   final ComparisonMetrics? comparison;
   final VoidCallback? onUseCurrentAsReference;
 
+  /// Opens the Waveform AI assistant. The button is hidden when null.
+  final VoidCallback? onOpenAi;
+
   const DeviceParametersPanel({
     super.key,
     required this.params,
@@ -65,6 +68,7 @@ class DeviceParametersPanel extends StatefulWidget {
     this.onDiffToggled,
     this.comparison,
     this.onUseCurrentAsReference,
+    this.onOpenAi,
   });
 
   @override
@@ -126,13 +130,27 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
                 topRight: Radius.circular(12),
               ),
             ),
-            child: const Text(
-              "Device Parameters",
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
+            child: Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    "Device Parameters",
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+                if (widget.onOpenAi != null)
+                  IconButton(
+                    tooltip: "Waveform AI assistant",
+                    onPressed: widget.onOpenAi,
+                    icon: const Icon(Icons.auto_awesome, size: 20),
+                    color: Colors.lightBlueAccent,
+                    visualDensity: VisualDensity.compact,
+                  ),
+              ],
             ),
           ),
           Expanded(
