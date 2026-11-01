@@ -236,8 +236,80 @@ double _weightedFeatureScore(
 /// They complement the numerical comparison methods so that shapes which are
 /// numerically similar but physically distinct (for example a square wave and
 /// a 50 % PWM signal) remain distinguishable through their characteristic
-/// measurements.
+/// measurements. When the differential representation is available, it is
+/// blended in because template correlations cannot separate sine and triangle
+/// reliably.
 double detectionRuleScore(WaveformSignalType type, WaveformFeatures features) {
+  final base = _baseDetectionRuleScore(type, features);
+  final differential = _differentialRuleScore(type, features);
+  if (differential == null) return base;
+  return clamp01(0.35 * base + 0.65 * differential);
+}
+
+/// Differential-domain rule score following Xiao et al., Electronics 2026.
+///
+/// Only the periodic reference shapes of the paper (sine, square, triangle,
+/// sawtooth) use this representation. Asymmetric, distorted and non-stationary
+/// types keep their feature-based rules. Damping and the duty cycle act as
+/// guards so a damped oscillation cannot gain sine or triangle support and a
+/// low-duty pulse cannot gain square support.
+double? _differentialRuleScore(
+  WaveformSignalType type,
+  WaveformFeatures features,
+) {
+  final differential = features.differential;
+  if (differential == null) return null;
+  final firstZero = differential.firstZeroFraction;
+  final secondZero = differential.secondZeroFraction;
+  final balance = differential.firstBalance;
+
+  double ramp(double value, double low, double high) =>
+      clamp01((value - low) / (high - low));
+
+  // Flat segments in the first difference identify rectangular waveforms;
+  // flat segments in the second difference identify linear (triangular)
+  // segments. The first-difference balance measures how one-sided the slope
+  // is (sawtooth).
+  final firstFlat = ramp(firstZero, 0.10, 0.55);
+  final firstSloped = 1 - firstFlat;
+  final secondFlat = ramp(secondZero, 0.10, 0.40);
+  final secondCurved = 1 - secondFlat;
+  final imbalanced = 1 - balance;
+  final dampingGuard = 1 - 0.8 * _dampingSignificance(features);
+  // The paper shows that the differential representation loses separation
+  // between sine and triangle under noise. Frequent reversals of the second
+  // difference indicate broadband noise; hand those captures back to the
+  // noisy-sine rule instead of boosting the clean sine.
+  final reversalGuard =
+      1 - 0.8 * ramp(differential.secondSignReversalFraction, 0.08, 0.13);
+  final duty = features.dutyPercent;
+  final dutySymmetry = duty == null ? 1.0 : clamp01(1 - (duty - 50).abs() / 20);
+
+  switch (type) {
+    case WaveformSignalType.sine:
+      return clamp01(
+        secondCurved * firstSloped * balance * dampingGuard * reversalGuard,
+      );
+    case WaveformSignalType.square:
+      return clamp01(firstFlat * balance * dutySymmetry);
+    case WaveformSignalType.triangle:
+      return clamp01(secondFlat * firstSloped * balance * dampingGuard);
+    case WaveformSignalType.sawtooth:
+      return clamp01(imbalanced * firstSloped * dampingGuard);
+    case WaveformSignalType.pulse:
+    case WaveformSignalType.pwm:
+    case WaveformSignalType.clippedSine:
+    case WaveformSignalType.noisySine:
+    case WaveformSignalType.dampedOscillation:
+    case WaveformSignalType.exponentialDecay:
+      return null;
+  }
+}
+
+double _baseDetectionRuleScore(
+  WaveformSignalType type,
+  WaveformFeatures features,
+) {
   final duty = features.dutyPercent;
   final twoLevel = features.twoLevelRatio ?? 0;
   final plateau = features.plateauStability ?? 0;
@@ -461,6 +533,24 @@ List<_FeatureSpec> _featureSpecsFor(WaveformSignalType type) {
           logarithmic: true,
         ),
         _spec('dutyPercent', 0.5, (f) => f.dutyPercent, 15),
+        _spec(
+          'differentialSecondZeroFraction',
+          3,
+          (f) => f.differential?.secondZeroFraction,
+          0.18,
+        ),
+        _spec(
+          'differentialFirstZeroFraction',
+          2,
+          (f) => f.differential?.firstZeroFraction,
+          0.2,
+        ),
+        _spec(
+          'differentialFirstBalance',
+          1,
+          (f) => f.differential?.firstBalance,
+          0.2,
+        ),
       ];
     case WaveformSignalType.square:
       return [
@@ -482,6 +572,24 @@ List<_FeatureSpec> _featureSpecsFor(WaveformSignalType type) {
           logarithmic: true,
         ),
         _spec('symmetry', 0.5, (f) => f.symmetry, 0.2),
+        _spec(
+          'differentialFirstZeroFraction',
+          3,
+          (f) => f.differential?.firstZeroFraction,
+          0.25,
+        ),
+        _spec(
+          'differentialSecondZeroFraction',
+          1.5,
+          (f) => f.differential?.secondZeroFraction,
+          0.3,
+        ),
+        _spec(
+          'differentialFirstBalance',
+          1.5,
+          (f) => f.differential?.firstBalance,
+          0.2,
+        ),
       ];
     case WaveformSignalType.triangle:
       return [
@@ -496,6 +604,24 @@ List<_FeatureSpec> _featureSpecsFor(WaveformSignalType type) {
           logarithmic: true,
         ),
         _spec('triangleCorrelation', 2, (f) => f.triangleCorrelation, 0.2),
+        _spec(
+          'differentialSecondZeroFraction',
+          3,
+          (f) => f.differential?.secondZeroFraction,
+          0.45,
+        ),
+        _spec(
+          'differentialFirstZeroFraction',
+          2,
+          (f) => f.differential?.firstZeroFraction,
+          0.2,
+        ),
+        _spec(
+          'differentialFirstBalance',
+          1,
+          (f) => f.differential?.firstBalance,
+          0.2,
+        ),
       ];
     case WaveformSignalType.sawtooth:
       return [
@@ -504,6 +630,24 @@ List<_FeatureSpec> _featureSpecsFor(WaveformSignalType type) {
         _spec('slopeSymmetry', 2, (f) => f.slopeSymmetry, 0.2),
         _spec('sawtoothCorrelation', 2, (f) => f.sawtoothCorrelation, 0.2),
         _spec('dutyPercent', 1, (f) => f.dutyPercent, 20),
+        _spec(
+          'differentialFirstBalance',
+          3,
+          (f) => f.differential?.firstBalance,
+          0.2,
+        ),
+        _spec(
+          'differentialFirstZeroFraction',
+          1.5,
+          (f) => f.differential?.firstZeroFraction,
+          0.2,
+        ),
+        _spec(
+          'differentialSecondZeroFraction',
+          1,
+          (f) => f.differential?.secondZeroFraction,
+          0.3,
+        ),
       ];
     case WaveformSignalType.pulse:
       return [

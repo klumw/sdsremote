@@ -10,6 +10,7 @@ import 'dart:typed_data';
 
 import 'reference_waveform_generator.dart';
 import 'waveform_analysis_models.dart';
+import 'waveform_differential.dart';
 import 'waveform_math.dart';
 import 'waveform_preprocessor.dart';
 
@@ -130,6 +131,15 @@ WaveformFeatures extractWaveformFeatures(
     harmonicCount: harmonicCount,
   );
 
+  // Differential sign statistics (section 4 of Xiao et al., Electronics 2026).
+  // They are extracted from the same analysis samples, so a generated
+  // reference and the capture are described in the same feature space.
+  final differential = extractDifferentialFeatures(
+    values,
+    sampleIntervalSeconds: dt,
+    fundamentalHz: frequency,
+  );
+
   final logarithmicDecrement =
       envelope != null &&
           envelope.decayRatePerSecond > 0 &&
@@ -215,6 +225,7 @@ WaveformFeatures extractWaveformFeatures(
     residualHarmonicEnergyRatio: residual.harmonicEnergyRatio,
     sinePhaseRadians: residual.phaseRadians,
     logarithmicDecrement: logarithmicDecrement,
+    differential: differential,
     periods: levels.periods,
     dutyRatios: levels.dutyRatios,
     perPeriodVpp: levels.perPeriodVpp,

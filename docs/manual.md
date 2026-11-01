@@ -1407,7 +1407,7 @@ A reference can define a tolerance band:
 
 ### 8.9 Spectrum Analysis
 
-The waveform analysis area has two tabs above the chart: **Time domain** shows the waveform chart together with the measurement panel, **Spectrum** shows the windowed FFT of the last acquisition. When the application is started with the explicit `--debug` flag, a third **Analysis** tab appears with the waveform classification and reference comparison.
+The waveform analysis area has two tabs above the chart: **Time domain** shows the waveform chart together with the measurement panel, **Spectrum** shows the windowed FFT of the last acquisition. When the application is started with the explicit `--debug` flag, a third **Analysis** tab appears with the waveform classification and reference comparison. The classifier combines template comparison with differential sign statistics of the first and second differences (after Xiao et al., *Electronics* 2026, 15(17), 4044), which keeps sine, square, triangle and sawtooth apart at oscilloscope 8-bit resolution.
 
 #### Opening the Spectrum
 
@@ -1482,47 +1482,19 @@ The file contains `#` metadata lines (device, timestamp, window, requested and m
 
 ### 8.10 Waveform AI Assistant
 
-The sparkle button in the header of the **Device Parameters** panel opens the Waveform AI assistant. The panel slides in from the right edge and is twice as wide as the Device Parameters panel (600 px). It uses the AI provider, token and model configured in the SDS-Remote settings; without a valid configuration the panel shows a configuration banner and its input stays disabled.
+The AI button in the header of the **Device Parameters** panel opens the Waveform AI assistant.
 
 #### What the Assistant Can Do
 
-The assistant answers questions about the current acquisition. It reads the already computed data through deterministic tools and never invents measurement values:
+The assistant answers questions about the current acquisition. It reads the already computed data.
 
-* **Time-domain measurements** — per channel Vpp, RMS, mean, frequency, duty cycle, rise/fall time, overshoot, sample count, device parameters, reference comparison and mask result.
-* **Spectrum analysis** — FFT size, sample rate, resolution, full scale, fundamental, THD, THD+N, SNR, SINAD, ENOB, SFDR, noise floor and the automatic peak markers. The spectrum is computed on demand with the settings from the Spectrum tab.
-* **Calculations** — the assistant uses the math and calculator tools for every derived number, for example RMS from a peak value, dB conversions, gain, crest factor or unit conversions with SI prefixes.
-* **Date and time** — the date/time tool returns the current local time, timezone, UTC and Unix time, so answers can be timestamped.
-* **Instrument access** — the assistant can query live settings and measurements through the instrument agent (for example `C1:VDIV?` or `C1:PAVA? FREQ`). Every change to the instrument (V/div, offset, timebase, trigger, acquisition mode, …) is first proposed with the exact new value and applied only after the user explicitly confirms. After a change, re-acquire the waveform to update the chart and spectrum.
-* **Waveform acquisition** — the assistant can start a new acquisition itself with the `acquire_waveform` tool. This is a measurement action and needs no confirmation; it restores the previous trigger mode.
-* **Signal classification** — the assistant compares the capture with the ten mathematical reference signal types and reports the primary classification, similarity percentage, confidence band, secondary characteristics and anomalies. Alternative reference types are named only when the confidence is not high or the lead over the second candidate is small. The classification and comparison tools are described below.
-* **Reference comparison** — it can score the capture against all or selected reference types, compare two captured channels with each other, read the complete feature set, and generate an ideal or parameterised reference waveform. All numbers come from the analysis engine; the assistant never invents similarity scores.
-* **Measurement history** — the app keeps the last four acquisitions with sequence number, capture time, device settings and time-domain measurements. The assistant can compare them on request. Spectrum metrics are available only for the current acquisition.
-
-Example questions: “Which channel has the lowest THD?”, “Explain the harmonic peaks of CH1”, “Convert the CH1 fundamental level to dBV”, “What is the crest factor of CH2?”, “What kind of waveform is this?”, “Compare this signal with a sine wave”, “Does this look like a PWM signal?”, “Which reference matches best?”, “Why is this signal distorted?”, “How similar are CH1 and CH2?”, “Set CH1 to 0.5 V/div” (the assistant asks for confirmation before applying it), “Acquire a new waveform and compare it with the previous one”.
-
-#### Signal classification tools
-
-The Waveform AI assistant can call the waveform analysis engine through five tools:
-
-* `classify_waveform` — complete classification with scores, features, anomalies and explanation.
-* `compare_waveform_to_references` — individual scores and ranking for all or selected reference types.
-* `compare_waveforms` — comparison of two captured channels.
-* `get_waveform_features` — complete extracted feature set.
-* `generate_reference_waveform` — ideal or parameterised reference waveform.
-
-The assistant follows the `mentionAlternatives` flag returned by `classify_waveform`:
-
-* `false` — the confidence is high (very high or high) and the lead over the second candidate is sufficient. The answer names only the primary signal type and its key measured values; other reference types are not mentioned.
-* `true` — the confidence is only moderate, low or uncertain, the result is mixed, or the next candidate is very close. The answer names the primary signal type and the closest alternative(s) with their similarity percentages and explains why the result is not unambiguous.
-
-The assistant must not override this flag with its own judgement. When a result is uncertain or mixed, it also quotes the warnings returned by the tool. The flag applies to general identification answers; when the user explicitly asks to compare named reference types (for example “sine or PWM?”), the requested comparison scores are reported even for a clear high-confidence result.
-
-#### Interaction
-
-* Type a question in the input field and press Enter; the answer streams into the transcript.
-* During a response the send button becomes a stop button that terminates the answer and marks it as `terminated by user`.
-* The broom icon clears the transcript; the close button hides the panel. The conversation is kept while the panel is closed and is not persisted across application restarts.
-* The assistant can change instrument settings only after the confirmation step described above. Spectrum settings such as the FFT window or FFT size are app-side and are changed in the Spectrum tab.
+Example questions:  
+“Which channel has the lowest THD?”,  
+“Explain the harmonic peaks of CH1”, “Convert the CH1 fundamental level to dBV”,  
+“What is the crest factor of CH2?”, “What kind of waveform is this?”, “Compare this signal with a sine wave”,  
+“Does this look like a PWM signal?”, “Which reference matches best?”, “Why is this signal distorted?”,  
+“How similar are CH1 and CH2?”,  
+“Acquire a new waveform and compare it with the previous one”.
 
 ### 8.11 Waveform Export
 

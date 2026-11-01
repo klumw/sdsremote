@@ -338,6 +338,92 @@ class ReferenceWaveform {
   });
 }
 
+/// Sign statistics of the first and second discrete differences.
+///
+/// Follows the differential feature representation of Xiao, Chen and Lv,
+/// "A Lightweight Waveform Recognition Algorithm Based on Differential
+/// Features and Its FPGA Implementation", Electronics 2026, 15(17), 4044.
+/// The fractions are computed over a window of up to eight periods; the
+/// reversal fraction is the share of adjacent second-difference samples whose
+/// signs are opposite. `waveform_differential.dart` performs the extraction.
+class DifferentialFeatures {
+  final double firstPositiveFraction;
+  final double firstZeroFraction;
+  final double firstNegativeFraction;
+  final double secondPositiveFraction;
+  final double secondZeroFraction;
+  final double secondNegativeFraction;
+  final double secondSignReversalFraction;
+
+  /// Number of samples in the resampled differential window.
+  final int sampleCount;
+
+  /// Number of periods inside the window (`0` for non-periodic captures).
+  final int periodsUsed;
+
+  /// Effective points per period after block averaging.
+  final double pointsPerPeriod;
+
+  /// First-difference sign threshold in volts (noise-derived).
+  final double firstThresholdVolts;
+
+  /// Second-difference sign threshold in volts (noise-derived).
+  final double secondThresholdVolts;
+
+  const DifferentialFeatures({
+    required this.firstPositiveFraction,
+    required this.firstZeroFraction,
+    required this.firstNegativeFraction,
+    required this.secondPositiveFraction,
+    required this.secondZeroFraction,
+    required this.secondNegativeFraction,
+    required this.secondSignReversalFraction,
+    this.sampleCount = 0,
+    this.periodsUsed = 0,
+    this.pointsPerPeriod = 0,
+    this.firstThresholdVolts = 0,
+    this.secondThresholdVolts = 0,
+  });
+
+  /// Balance of the first-difference signs: 1 means equal positive and
+  /// negative shares, 0 means the signal only rises or only falls.
+  double get firstBalance =>
+      1 - (firstPositiveFraction - firstNegativeFraction).abs();
+
+  Map<String, dynamic> toMap() => {
+    'firstDifferencePositiveFraction': _finite(firstPositiveFraction),
+    'firstDifferenceZeroFraction': _finite(firstZeroFraction),
+    'firstDifferenceNegativeFraction': _finite(firstNegativeFraction),
+    'secondDifferencePositiveFraction': _finite(secondPositiveFraction),
+    'secondDifferenceZeroFraction': _finite(secondZeroFraction),
+    'secondDifferenceNegativeFraction': _finite(secondNegativeFraction),
+    'secondDifferenceSignReversalFraction': _finite(secondSignReversalFraction),
+    'sampleCount': sampleCount,
+    'periodsUsed': periodsUsed,
+    'pointsPerPeriod': _finite(pointsPerPeriod),
+    'firstThresholdVolts': _finite(firstThresholdVolts),
+    'secondThresholdVolts': _finite(secondThresholdVolts),
+  };
+
+  factory DifferentialFeatures.fromMap(Map<String, dynamic> map) {
+    double read(String key) => _readDouble(map[key]) ?? 0;
+    return DifferentialFeatures(
+      firstPositiveFraction: read('firstDifferencePositiveFraction'),
+      firstZeroFraction: read('firstDifferenceZeroFraction'),
+      firstNegativeFraction: read('firstDifferenceNegativeFraction'),
+      secondPositiveFraction: read('secondDifferencePositiveFraction'),
+      secondZeroFraction: read('secondDifferenceZeroFraction'),
+      secondNegativeFraction: read('secondDifferenceNegativeFraction'),
+      secondSignReversalFraction: read('secondDifferenceSignReversalFraction'),
+      sampleCount: (map['sampleCount'] as num?)?.toInt() ?? 0,
+      periodsUsed: (map['periodsUsed'] as num?)?.toInt() ?? 0,
+      pointsPerPeriod: read('pointsPerPeriod'),
+      firstThresholdVolts: read('firstThresholdVolts'),
+      secondThresholdVolts: read('secondThresholdVolts'),
+    );
+  }
+}
+
 /// Complete feature set of a waveform.
 ///
 /// Absolute voltage fields describe the capture; shape fields are independent
@@ -424,6 +510,9 @@ class WaveformFeatures {
   /// Logarithmic decrement of a damped oscillation (`decay rate * period`).
   final double? logarithmicDecrement;
 
+  /// Differential sign statistics used by the paper-based classifier.
+  final DifferentialFeatures? differential;
+
   // Derived detail data for the anomaly detector (not serialized).
   final List<double> periods;
   final List<double> dutyRatios;
@@ -502,6 +591,7 @@ class WaveformFeatures {
     this.residualHarmonicEnergyRatio,
     this.sinePhaseRadians,
     this.logarithmicDecrement,
+    this.differential,
     this.periods = const [],
     this.dutyRatios = const [],
     this.perPeriodVpp = const [],
@@ -585,6 +675,7 @@ class WaveformFeatures {
     'residualHarmonicEnergyRatio': _finite(residualHarmonicEnergyRatio),
     'sinePhaseRadians': _finite(sinePhaseRadians),
     'logarithmicDecrement': _finite(logarithmicDecrement),
+    'differential': differential?.toMap(),
   };
 
   factory WaveformFeatures.fromMap(Map<String, dynamic> map) {
@@ -665,6 +756,11 @@ class WaveformFeatures {
       residualHarmonicEnergyRatio: read('residualHarmonicEnergyRatio'),
       sinePhaseRadians: read('sinePhaseRadians'),
       logarithmicDecrement: read('logarithmicDecrement'),
+      differential: map['differential'] is Map
+          ? DifferentialFeatures.fromMap(
+              Map<String, dynamic>.from(map['differential'] as Map),
+            )
+          : null,
     );
   }
 }

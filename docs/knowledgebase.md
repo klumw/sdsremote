@@ -3975,6 +3975,14 @@ For 9600 baud:
 ## Video: Triggering multiple Instruments
 [Triggering multiple Instruments](https://youtu.be/s4YfQMe2EUw)
 
+## Video: Cursor Measurements
+[Cursor Measurements](https://youtu.be/d0ySv8iW-Lg)
+
+## Video Oscilloscope Basics
+[Oscilloscope Basics](https://youtu.be/lSHAE_Y6snc)
+
+
+
 ## SCPI Command Syntax (colon, braces, square brackets, ellipsis, placeholder) [2+4-channel]
 
 - : = A colon followed by an equals sign separates a placeholder from the description of the type and range of values that may be used in a command instead of the placeholder.
