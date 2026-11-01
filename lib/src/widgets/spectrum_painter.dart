@@ -287,12 +287,24 @@ class SpectrumPainter extends CustomPainter {
 
       final label = TextPainter(
         text: TextSpan(
-          text: '${peak.marker}  ${formatSpectrumFrequency(peak.frequencyHz)}',
-          style: TextStyle(
-            color: color,
-            fontSize: 9,
-            fontWeight: FontWeight.w600,
-          ),
+          children: [
+            TextSpan(
+              text: '${peak.marker}',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            TextSpan(
+              text: '  ${formatSpectrumFrequency(peak.frequencyHz)}',
+              style: TextStyle(
+                color: color,
+                fontSize: 9,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
         ),
         textDirection: TextDirection.ltr,
       )..layout();
