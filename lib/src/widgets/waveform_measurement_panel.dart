@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import '../instrument/measurement.dart' show formatMeasurementValue;
@@ -125,6 +126,9 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
   bool _showDetails = false;
   bool _collapsed = false;
 
+  /// Drives the horizontal scrollbar of the channel-card row.
+  final ScrollController _channelScrollController = ScrollController();
+
   late double _toleranceValue;
   late double _timeTolerance;
 
@@ -136,6 +140,12 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
     super.initState();
     _toleranceValue = widget.maskSettings.toleranceValue;
     _timeTolerance = widget.maskSettings.timeToleranceSeconds;
+  }
+
+  @override
+  void dispose() {
+    _channelScrollController.dispose();
+    super.dispose();
   }
 
   @override
@@ -299,17 +309,44 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
       );
     }
 
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          for (final entry in widget.measurements.entries) ...[
-            _buildChannelCard(entry.key, entry.value),
-            const SizedBox(width: 10),
-          ],
-        ],
+    return ScrollConfiguration(
+      // Material never adds a horizontal scrollbar automatically, so use an
+      // explicit, always-visible one. Mouse dragging makes the row usable
+      // even without grabbing the thumb.
+      behavior: ScrollConfiguration.of(context).copyWith(
+        dragDevices: {
+          PointerDeviceKind.touch,
+          PointerDeviceKind.mouse,
+          PointerDeviceKind.trackpad,
+          PointerDeviceKind.stylus,
+        },
+      ),
+      child: ScrollbarTheme(
+        data: const ScrollbarThemeData(
+          thumbColor: WidgetStatePropertyAll(Color(0xFF94A3B8)),
+          trackColor: WidgetStatePropertyAll(Color(0x1AFFFFFF)),
+        ),
+        child: Scrollbar(
+          controller: _channelScrollController,
+          thumbVisibility: true,
+          scrollbarOrientation: ScrollbarOrientation.bottom,
+          thickness: 8,
+          radius: const Radius.circular(4),
+          child: SingleChildScrollView(
+            controller: _channelScrollController,
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (final entry in widget.measurements.entries) ...[
+                  _buildChannelCard(entry.key, entry.value),
+                  const SizedBox(width: 10),
+                ],
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

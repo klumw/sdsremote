@@ -136,11 +136,12 @@ class PhysicalControlPanel extends StatelessWidget {
                             ? RawImage(
                                 image: liveScreen,
                                 fit: BoxFit.fitWidth,
-                                filterQuality: FilterQuality.low,
+                                filterQuality: FilterQuality.high,
                               )
                             : Image.memory(
                                 screenDump,
                                 fit: BoxFit.fitWidth,
+                                filterQuality: FilterQuality.high,
                                 gaplessPlayback: true,
                               ),
                       ),

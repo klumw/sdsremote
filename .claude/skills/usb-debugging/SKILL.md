@@ -41,6 +41,8 @@ Siglent SDS1104X-E: VID/PID `f4ec:ee38`; SDS1202X-E: `f4ed:ee3a`.
 | `Acquire waveform error: AcquisitionException: <cmd> – query failed: libusb bulk read error: -1 (IO_ERROR)` | Fatal USB transfer error during acquisition (often on the first query, e.g. `TDIV?`). libusb `-1` = `IO_ERROR`; the kernel usually logs `usb_control_msg returned -71` (EPROTO) at the same time. The instrument's USB stack stopped answering. |
 | `Acquire display error: libusb bulk read error: -1 (IO_ERROR)` | Same failure on the SCDP screen-dump path (Control Panel), not the waveform path. |
 | Control Panel takes ~80 s to open, but commands inside it are fast | Not a first-call overhead: the panel fetches a 768,067-byte SCDP block and the USBTMC read request size is too small (48-byte workaround). See §4.1. |
+| `libusb bulk write error: -7 (TIMEOUT)` during a profile upload | A single large Bulk-OUT transfer was sent on Linux; the firmware accepts one 64-byte packet per transfer and locks its endpoint on larger ones. Use `profileWriteChunked` (Linux). See §4.2. |
+| The instrument disappears from the bus for ~20–30 s right after a profile upload | Expected: the SDS1x04X-E resets its USB interface while applying the profile. `awaitProfileApplied` waits for re-enumeration; do not replug unless it does not return within ~2 minutes. |
 | `libusb bulk write error: -1 (IO_ERROR)` | The device is already wedged; a write to the dead endpoint fails. |
 | `libusb bulk read error: -7 (TIMEOUT)` | Not fatal: per-transfer timeout; the connection stays usable and `isFatalUsbError` is false. |
 | Kernel: `usb_control_msg returned -71`, `usbtmc ...: can't read capabilities`, repeating every few seconds | The kernel usbtmc driver re-probed after libusb released the interface; the device answers control transfers with EPROTO. It is wedged. |
@@ -107,6 +109,44 @@ Tuning procedure:
 5. Set `UsbtmcContext.siglentMaxReadTransferSize` to the largest value that
    survived the stress test, and update the measured values in this skill.
 
+### 4.2 Profile upload (`*LDS` / `*LRN`) over USB — Linux workarounds
+
+The SDS1x04X-E firmware does not correctly reassemble multi-transfer
+DEV_DEP_MSG_OUT messages for the XML profile block and accepts only **one
+64-byte packet per Bulk-OUT transfer** on Linux; a single larger transfer
+locks the Bulk-OUT endpoint until the instrument is reset.
+
+- **Linux:** `UsbtmcDevice.profileWriteChunked` sends one DEV_DEP_MSG_OUT
+  header (EOM=1, TransferSize = total payload) followed by raw continuation
+  transfers of one 64-byte packet each. The first packet carries the 12-byte
+  USBTMC header plus up to 52 payload bytes (`_firstSegmentPayloadSize`);
+  later transfers carry up to 64 bytes, and when exactly 64 bytes remain the
+  code sends 63 so the USB transfer ends with a short packet (USB 2.0
+  §5.8.3). There is a 1 ms delay between segments so the firmware can drain
+  its receive FIFO.
+- **Windows:** `UsbtmcDevice.profileWrite` sends the whole payload in one bulk
+  transfer; WinUSB splits it into 64-byte URBs itself.
+- **Pre-transfer cleanup (both paths):** `clearHalt()` on both endpoints, then
+  USBTMC INITIATE_ABORT_BULK_OUT (control request `0xA1`, bRequest `1`,
+  2-byte payload, 500 ms timeout), then a 10 ms pause to flush in-flight
+  kernel-driver URBs. This clears a partial transfer left by a previous failed
+  upload.
+- **Never cancel an upload mid-transfer** and never send the XML in one large
+  transfer on Linux: both can leave the Bulk-OUT endpoint locked until a
+  device reset.
+- **Platform selection:** `Vxi11Instrument.writeProfileData` chooses
+  `profileWriteChunked` on Linux and `profileWrite` elsewhere. Callers are
+  Load Profile in `home_page.dart` and `*LDS`/`*LRN` in `macro_evaluator.dart`.
+- **After the upload:** the instrument resets its USB interface while applying
+  the profile and leaves the bus for roughly 20 s (re-enumeration observed at
+  ~30 s). `Vxi11Instrument.awaitProfileApplied` first tries `*OPC?` (15 s
+  write / 45 s read timeout). If that fails it invalidates the shared USB
+  connection and waits up to 120 s for the device to reappear; the ping timer
+  reconnects afterwards. Over VXI-11 the same method retries `*OPC?` on
+  VXI-11 error 15 (I/O timeout) up to 6 times, 2 s apart.
+- `writeBinary` (ordinary SCPI commands) also chunks at 4096 bytes with a
+  20 ms delay and one bTag; that path is for command payloads, not profiles.
+
 ## 5. Diagnostic tool
 
 `tool/usb_diag.dart` — run with the app closed:
@@ -151,10 +191,10 @@ Values far outside these, or `IO_ERROR`, mean the device is wedged.
 
 | File | Responsibility |
 |---|---|
-| `packages/usbtmc_dart_patched/lib/src/usbtmc_device.dart` | USBTMC framing, `doRead` (EOM, IEEE header, transfer-size cap), write chunking for profile uploads |
+| `packages/usbtmc_dart_patched/lib/src/usbtmc_device.dart` | USBTMC framing, `doRead` (EOM, IEEE header, transfer-size cap), `writeBinary` chunking, profile upload (`profileWrite`/`profileWriteChunked`) |
 | `packages/usbtmc_dart_patched/lib/src/usbtmc_context.dart` | Linux + VID `0xf4ec` → 8192-byte cap |
 | `packages/usbtmc_dart_patched/lib/src/driver/libusb_driver.dart` | libusb FFI, error codes (`UsbTransferException`), kernel-driver auto-detach |
-| `lib/src/instrument/dart_vxi11.dart` | Shared USB connection, fatal-error invalidation, query/data-block/screen-dump paths |
+| `lib/src/instrument/dart_vxi11.dart` | Shared USB connection, fatal-error invalidation, query/data-block/screen-dump paths, `writeProfileData`/`awaitProfileApplied` |
 | `lib/src/waveform/waveform_acquisition.dart` | `WFSU` setup and the Linux-USB 100k point cap |
 | `lib/src/widgets/home_page.dart` | Screen-dump path; Control Panel is disabled while a waveform acquisition runs |
 | `tool/usb_diag.dart` | Standalone USB diagnostic |
