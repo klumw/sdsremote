@@ -354,6 +354,7 @@ The AI searches the built-in knowledge base and returns the relevant documentati
 
 The knowledge base is bundled with the application.
 The Search Agent queries it and returns the most relevant sections.
+When the knowledge base contains a tutorial video on the topic, the assistant appends it as a clickable **Videos** link. Clicking the link opens it in the default browser.
 
 #### SCPI Command Execution
 
@@ -1348,6 +1349,8 @@ The **Measurements** view shows per enabled channel:
 * **Details** adds Vmax, Vmin, Vmean, high level (Top), low level (Base), pulse width, number of complete periods, analysed sample count and the effective sample interval Δt.
 * Once more than one acquisition has been stored, a history line shows mean ± standard deviation of Vpp, RMS, frequency and duty over the last acquisitions.
 * Numeric values in the cards are limited to two decimal places; insignificant trailing zeros are omitted.
+
+All time-based values use the effective sample interval of the transferred record. On USB acquisitions the scope sparses the transfer (`WFSU SP`), so the interval is `sparsing / SARA`, not `1 / SARA`. The sparsing factor is chosen so the complete 14-division display record fits into the transfer limit (100,000 points on Linux USB): the waveform view therefore shows the same number of cycles as the oscilloscope screen, and spectrum bandwidth follows the resulting effective sample rate. When such a record covers less than two complete periods, the frequency is still derived from the available mid-level crossings: a complete high/low pair is used when possible, otherwise a half period is doubled. The info icon notes that the value is a short-record estimate; increasing the timebase gives a complete period.
 * Channels without data or switched off are not shown.
 
 #### PWM and Signal Integrity
@@ -1456,7 +1459,7 @@ The table lists the automatic markers of the selected channel with marker number
 * The first 8 samples of the acquisition are skipped to avoid the leading acquisition transient.
 * The DC component is removed before windowing by default.
 * Amplitude scaling uses the coherent gain of the window, so a sine wave reads its correct peak amplitude; noise and distortion metrics use the noise-power bandwidth of the window.
-* USB acquisitions transfer only every WFSU-sparsed sample (`SP` = 7). The spectrum therefore computes with the **effective sample rate** `SARA / SP`; frequency axis, Δf and Nyquist refer to the transferred record. The record contains the transferred points (`NP`, at most 100,000 on Linux USB) and can be shorter than the full screen at slow timebases.
+* USB acquisitions transfer only every WFSU-sparsed sample. `SP` is chosen so the complete 14-division display record fits into the 100,000-point Linux USB transfer limit (for example `SP = 70` for 7 Mpts at 1 ms/div). The spectrum computes with the **effective sample rate** `SARA / SP`; frequency axis, Δf and Nyquist refer to that effective rate. Because the record covers the full display, the waveform view shows the same cycles as the oscilloscope; the trade-off is a lower effective sample rate (and thus lower Nyquist frequency) at slow timebases.
 * The same spectrum section is included in the PDF measurement report (see [8.7 Saving Waveform Data](#87-saving-waveform-data)).
 
 #### CSV Export
@@ -1477,15 +1480,18 @@ The assistant answers questions about the current acquisition. It reads the alre
 * **Spectrum analysis** — FFT size, sample rate, resolution, full scale, fundamental, THD, THD+N, SNR, SINAD, ENOB, SFDR, noise floor and the automatic peak markers. The spectrum is computed on demand with the settings from the Spectrum tab.
 * **Calculations** — the assistant uses the math and calculator tools for every derived number, for example RMS from a peak value, dB conversions, gain, crest factor or unit conversions with SI prefixes.
 * **Date and time** — the date/time tool returns the current local time, timezone, UTC and Unix time, so answers can be timestamped.
+* **Instrument access** — the assistant can query live settings and measurements through the instrument agent (for example `C1:VDIV?` or `C1:PAVA? FREQ`). Every change to the instrument (V/div, offset, timebase, trigger, acquisition mode, …) is first proposed with the exact new value and applied only after the user explicitly confirms. After a change, re-acquire the waveform to update the chart and spectrum.
+* **Waveform acquisition** — the assistant can start a new acquisition itself with the `acquire_waveform` tool. This is a measurement action and needs no confirmation; it restores the previous trigger mode.
+* **Measurement history** — the app keeps the last two acquisitions with sequence number, capture time, device settings and time-domain measurements. The assistant can compare them on request. Spectrum metrics are available only for the current acquisition.
 
-Example questions: “Which channel has the lowest THD?”, “Explain the harmonic peaks of CH1”, “Convert the CH1 fundamental level to dBV”, “What is the crest factor of CH2?”.
+Example questions: “Which channel has the lowest THD?”, “Explain the harmonic peaks of CH1”, “Convert the CH1 fundamental level to dBV”, “What is the crest factor of CH2?”, “Set CH1 to 0.5 V/div” (the assistant asks for confirmation before applying it), “Acquire a new waveform and compare it with the previous one”.
 
 #### Interaction
 
 * Type a question in the input field and press Enter; the answer streams into the transcript.
 * During a response the send button becomes a stop button that terminates the answer and marks it as `terminated by user`.
 * The broom icon clears the transcript; the close button hides the panel. The conversation is kept while the panel is closed and is not persisted across application restarts.
-* The assistant cannot change instrument settings or send SCPI commands; it explains which control to use instead.
+* The assistant can change instrument settings only after the confirmation step described above. Analysis settings such as the FFT window or FFT size are app-side and are changed in the Spectrum tab.
 
 ### 8.11 Waveform Export
 

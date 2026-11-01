@@ -3,7 +3,11 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'ai_settings.dart';
+import 'agents/waveform_agent.dart';
+import 'tools/acquire_waveform_tool.dart';
 import 'tools/spectrum_summary_tool.dart';
+import 'tools/vxi11_tool.dart';
+import 'tools/waveform_history_tool.dart';
 import 'tools/waveform_summary_tool.dart';
 import 'waveform_ai_service.dart';
 
@@ -46,6 +50,11 @@ class WaveformChatController extends ChangeNotifier {
     AiSettings? settings, {
     required WaveformSummaryProvider readWaveformSummary,
     required SpectrumSummaryProvider readSpectrumSummary,
+    WaveformAcquisitionProvider? acquireWaveform,
+    WaveformHistoryProvider? readWaveformHistory,
+    String? vxi11Host,
+    ScpiCommandCallback? onCommandSent,
+    int instrumentToolCalls = WaveformAgent.defaultInstrumentToolCalls,
   }) {
     if (_disposed) return;
     final configured = settings != null && settings.isConfigured;
@@ -74,6 +83,11 @@ class WaveformChatController extends ChangeNotifier {
       model: settings.model,
       readWaveformSummary: readWaveformSummary,
       readSpectrumSummary: readSpectrumSummary,
+      acquireWaveform: acquireWaveform,
+      readWaveformHistory: readWaveformHistory,
+      vxi11Host: vxi11Host,
+      onCommandSent: onCommandSent,
+      instrumentToolCalls: instrumentToolCalls,
     );
     _service = service;
     notifyListeners();

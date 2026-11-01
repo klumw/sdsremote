@@ -49,6 +49,8 @@ Siglent SDS1104X-E: VID/PID `f4ec:ee38`; SDS1202X-E: `f4ed:ee3a`.
 | `Failed to claim interface 0: error code -6 (BUSY)` | Another handle/process claims interface 0: a stale app instance, a hot-restart leftover, or the kernel driver. |
 | Device listed by `lsusb` but every transfer fails | Presence on the bus does **not** mean usable. Expect a replug. |
 | Spectrum fundamental is ~7× too high (e.g. 1 kHz reads as 7 kHz) | `WFSU SP` is the **sparsing** factor: the scope sends only every SP-th sample. Use `WaveformRawData.effectiveSampleRate` (`SARA / SP`), not `SARA`, for the frequency axis. Fixed in the spectrum path (M5). |
+| Waveform measurement frequency is ~10× too low or `—`, while the same channel in the acquisition history shows a plausible value | The waveform time axis was stretched over the 14-division display window even though a sparsed USB record covered only `points * SP / SARA` seconds. Use the effective interval `SP / SARA` for `computeTimeAxis` and `measureRawChannel` (the history summary already did). Fixed for display and measurements. |
+| The waveform chart shows far fewer cycles than the oscilloscope screen (e.g. 1–2 instead of 14) | A fixed `WFSU SP,7` together with the 100k-point USB transfer cap transfers only 700k of the 7 Mpts record, i.e. 1/10 of the display. Choose `SP = ceil(desiredPoints / transferPoints)` so the full record fits. `waveformSparsingFor` does this; the `WFSU?` read-back stays authoritative. |
 
 Distinguish the failing feature from the log line: `Acquire waveform error` is
 the acquisition; `Acquire display error` is SCDP (Control Panel).

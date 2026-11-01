@@ -204,11 +204,11 @@ WaveformMeasurements measureWaveform({
 /// The voltage conversion uses the Siglent scale
 /// ([WaveformConverter.toVoltage]) and the sample times follow
 /// `1 / sampleRate`, unless [sampleIntervalSeconds] is given. The explicit
-/// interval is required when the instrument delivers fewer points than the
-/// requested display window: `SARA?` then reports the maximum sample rate,
-/// not the effective rate of the transferred record. Callers can derive it
-/// from the acquisition parameters with the same rule as
-/// `WaveformConverter.computeTimeAxis`.
+/// interval is required when the instrument sparses the transfer with WFSU
+/// `SP` or delivers fewer points than the requested display window: `SARA?`
+/// then reports the acquisition rate, not the spacing of the transferred
+/// record (`sparsing / SARA`). Callers can derive it from the acquisition
+/// parameters with the same rule as `WaveformConverter.computeTimeAxis`.
 ///
 /// Streaming over [rawData] avoids building a full `(time, voltage)` list for
 /// deep-memory acquisitions.
@@ -539,9 +539,47 @@ WaveformMeasurements _measureSeries({
     prevV = v;
   }
 
+  // Fallback for records shorter than two rising edges: derive the period
+  // from mid-level crossings in both directions. At 1 ms/div a 100 Hz sine
+  // covers only ~1.4 periods; depending on phase this yields one complete
+  // period (three crossings) or only a half period (two crossings).
+  final fallbackPeriods = <double>[];
+  final fallbackDuties = <double>[];
+  final fallbackHighs = <double>[];
+  double? fallbackHalfPeriod;
+  if (hasTimeAxis && periods.isEmpty) {
+    final crossings = <({double time, bool rising})>[
+      for (final t in risingTimes) (time: t, rising: true),
+      for (final t in fallingTimes) (time: t, rising: false),
+    ]..sort((a, b) => a.time.compareTo(b.time));
+
+    final intervals = <({double duration, bool high})>[];
+    for (var i = 0; i + 1 < crossings.length; i++) {
+      final duration = crossings[i + 1].time - crossings[i].time;
+      if (duration > 0) {
+        intervals.add((duration: duration, high: crossings[i].rising));
+      }
+    }
+
+    // Consecutive high/low intervals form one complete period.
+    for (var i = 0; i + 1 < intervals.length; i += 2) {
+      final first = intervals[i];
+      final second = intervals[i + 1];
+      final period = first.duration + second.duration;
+      if (period <= 0) continue;
+      final high = first.high ? first.duration : second.duration;
+      fallbackPeriods.add(period);
+      fallbackDuties.add(high / period);
+      fallbackHighs.add(high);
+    }
+    if (fallbackPeriods.isEmpty && intervals.length == 1) {
+      fallbackHalfPeriod = 2 * intervals.first.duration;
+    }
+  }
+
   // Periodic metrics, gated on a stable period so noise does not produce
   // invented frequency or PWM values.
-  final periodCount = periods.length;
+  var periodCount = periods.length;
   double? periodMean;
   double? periodStdDev;
   double? frequency;
@@ -576,6 +614,41 @@ WaveformMeasurements _measureSeries({
         'periodic measurements unavailable',
       );
     }
+  } else if (fallbackPeriods.isNotEmpty) {
+    final meanPeriod = _mean(fallbackPeriods)!;
+    final deviation = _standardDeviation(fallbackPeriods) ?? 0.0;
+    periodMean = meanPeriod;
+    periodStdDev = deviation;
+    final relativeDeviation = meanPeriod > 0
+        ? deviation / meanPeriod
+        : double.infinity;
+    if (relativeDeviation <= maxPeriodRelativeStdDev && meanPeriod > 0) {
+      frequency = 1 / meanPeriod;
+      duty = _mean(fallbackDuties)! * 100;
+      pulseWidth = _mean(fallbackHighs);
+      pulseWidthMin = fallbackHighs.reduce(math.min);
+      pulseWidthMax = fallbackHighs.reduce(math.max);
+      pulseWidthStdDev = _standardDeviation(fallbackHighs);
+      periodCount = fallbackPeriods.length;
+      notes.add(
+        'frequency derived from a short record '
+        '(less than two complete periods)',
+      );
+    } else {
+      notes.add(
+        'period unstable (relative standard deviation '
+        '${(relativeDeviation * 100).toStringAsFixed(1)} %); '
+        'periodic measurements unavailable',
+      );
+    }
+  } else if (fallbackHalfPeriod != null && fallbackHalfPeriod > 0) {
+    frequency = 1 / fallbackHalfPeriod;
+    periodMean = fallbackHalfPeriod;
+    periodStdDev = 0;
+    notes.add(
+      'frequency estimated from a half period; '
+      'increase the timebase for a complete period',
+    );
   } else if (risingTimes.length < 2) {
     notes.add('fewer than two rising edges; periodic measurements unavailable');
   } else {

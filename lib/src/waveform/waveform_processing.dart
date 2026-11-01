@@ -28,6 +28,7 @@ WaveformData? convertChannel({
   required double timebase,
   required double sampleRate,
   required int triggerPosition,
+  int sparsing = 1,
 }) {
   if (rawData == null || vdiv == null || voffset == null || rawData.isEmpty) {
     return null;
@@ -39,6 +40,7 @@ WaveformData? convertChannel({
     timebase,
     sampleRate,
     triggerPosition: triggerPosition,
+    sparsing: sparsing,
   );
   var combined = WaveformConverter.combine(times, voltages);
   // The first samples of the acquisition memory can contain a transient
@@ -69,6 +71,7 @@ convertRawData(WaveformRawData raw) {
     timebase: raw.timebase,
     sampleRate: raw.sampleRate,
     triggerPosition: raw.triggerPosition,
+    sparsing: raw.sparsing,
   );
   final ch2 = convertChannel(
     rawData: raw.ch2Raw,
@@ -78,6 +81,7 @@ convertRawData(WaveformRawData raw) {
     timebase: raw.timebase,
     sampleRate: raw.sampleRate,
     triggerPosition: raw.triggerPosition,
+    sparsing: raw.sparsing,
   );
   final ch3 = convertChannel(
     rawData: raw.ch3Raw,
@@ -87,6 +91,7 @@ convertRawData(WaveformRawData raw) {
     timebase: raw.timebase,
     sampleRate: raw.sampleRate,
     triggerPosition: raw.triggerPosition,
+    sparsing: raw.sparsing,
   );
   final ch4 = convertChannel(
     rawData: raw.ch4Raw,
@@ -96,6 +101,7 @@ convertRawData(WaveformRawData raw) {
     timebase: raw.timebase,
     sampleRate: raw.sampleRate,
     triggerPosition: raw.triggerPosition,
+    sparsing: raw.sparsing,
   );
 
   final params = DeviceParams(

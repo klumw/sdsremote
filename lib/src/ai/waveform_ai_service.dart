@@ -4,7 +4,10 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../core/logger.dart';
 import 'agents/waveform_agent.dart';
+import 'tools/acquire_waveform_tool.dart';
 import 'tools/spectrum_summary_tool.dart';
+import 'tools/vxi11_tool.dart';
+import 'tools/waveform_history_tool.dart';
 import 'tools/waveform_summary_tool.dart';
 
 /// Streaming service for the Waveform AI assistant.
@@ -26,6 +29,11 @@ class WaveformAiService {
     required String model,
     required WaveformSummaryProvider readWaveformSummary,
     required SpectrumSummaryProvider readSpectrumSummary,
+    WaveformAcquisitionProvider? acquireWaveform,
+    WaveformHistoryProvider? readWaveformHistory,
+    String? vxi11Host,
+    ScpiCommandCallback? onCommandSent,
+    int instrumentToolCalls = WaveformAgent.defaultInstrumentToolCalls,
     int maxToolCalls = WaveformAgent.defaultMaxToolCalls,
   }) {
     if (_isDisposed) return;
@@ -37,12 +45,17 @@ class WaveformAiService {
         model: model,
         readWaveformSummary: readWaveformSummary,
         readSpectrumSummary: readSpectrumSummary,
+        acquireWaveform: acquireWaveform,
+        readWaveformHistory: readWaveformHistory,
+        vxi11Host: vxi11Host,
+        onCommandSent: onCommandSent,
+        instrumentToolCalls: instrumentToolCalls,
         maxToolCalls: maxToolCalls,
       );
       AppLogger(
         agentName: 'WaveformAiService',
         toolName: 'configure',
-      ).debug('WaveformAgent created: model=$model');
+      ).log('WaveformAgent created: model=$model');
     } on Object catch (error) {
       AppLogger(
         agentName: 'WaveformAiService',
@@ -61,6 +74,11 @@ class WaveformAiService {
           'token and model in SDS-Remote Settings.';
       return;
     }
+    final logger = AppLogger(
+      agentName: 'WaveformAiService',
+      toolName: 'sendMessageStream',
+    );
+    logger.log('Waveform AI request started (model=${agent.model})');
     try {
       yield* agent
           .sendStream(text)
@@ -75,11 +93,9 @@ class WaveformAiService {
               sink.close();
             },
           );
+      logger.log('Waveform AI request completed');
     } on Object catch (error) {
-      AppLogger(
-        agentName: 'WaveformAiService',
-        toolName: 'sendMessageStream',
-      ).error('Waveform AI request failed: $error');
+      logger.error('Waveform AI request failed: $error');
       yield 'Error: AI request failed ($error)';
     }
   }

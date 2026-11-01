@@ -1,10 +1,15 @@
 import 'package:dartantic_ai/dartantic_ai.dart';
 
+import '../tools/acquire_waveform_tool.dart';
 import '../tools/calculator_tool.dart';
 import '../tools/date_time_tool.dart';
 import '../tools/math_tool.dart';
+import '../tools/scpi_agent_tool.dart';
 import '../tools/spectrum_summary_tool.dart';
+import '../tools/vxi11_tool.dart';
+import '../tools/waveform_history_tool.dart';
 import '../tools/waveform_summary_tool.dart';
+import 'instrument_agent.dart';
 import 'systemprompts.dart';
 
 /// Analysis assistant for the Acquire Waveform view.
@@ -12,9 +17,12 @@ import 'systemprompts.dart';
 /// The agent sees the current time-domain measurements and the FFT spectrum
 /// through deterministic read tools, performs derived calculations with the
 /// math and calculator tools, and can place results in time with the
-/// date/time tool. It never controls the instrument.
+/// date/time tool. When an instrument address is configured it can also read
+/// live values and change scope settings through the instrument agent; the
+/// system prompt requires explicit user confirmation before any change.
 class WaveformAgent {
-  static const int defaultMaxToolCalls = 8;
+  static const int defaultMaxToolCalls = 16;
+  static const int defaultInstrumentToolCalls = 8;
   static const int _maxHistoryMessages = 12;
 
   final Agent _agent;
@@ -24,6 +32,11 @@ class WaveformAgent {
     String model = 'deepseek:deepseek-v4-flash',
     WaveformSummaryProvider? readWaveformSummary,
     SpectrumSummaryProvider? readSpectrumSummary,
+    WaveformAcquisitionProvider? acquireWaveform,
+    WaveformHistoryProvider? readWaveformHistory,
+    String? vxi11Host,
+    ScpiCommandCallback? onCommandSent,
+    int instrumentToolCalls = defaultInstrumentToolCalls,
     int maxToolCalls = defaultMaxToolCalls,
   }) : _agent = Agent(
          model,
@@ -38,6 +51,25 @@ class WaveformAgent {
              readSummary: readSpectrumSummary,
              agentName: 'WaveformAgent',
            ),
+           createAcquireWaveformTool(
+             acquire: acquireWaveform,
+             agentName: 'WaveformAgent',
+           ),
+           createWaveformHistoryTool(
+             readHistory: readWaveformHistory,
+             agentName: 'WaveformAgent',
+           ),
+           if (vxi11Host != null)
+             createScpiAgentTool(
+               InstrumentAgent(
+                 model: model,
+                 vxi11Host: vxi11Host,
+                 maxToolCalls: instrumentToolCalls,
+                 onCommandSent: onCommandSent,
+                 systemPrompt: instrumentAgentSystemPrompt,
+               ),
+               agentName: 'WaveformAgent',
+             ),
            createMathTool(agentName: 'WaveformAgent'),
            createCalculatorTool(agentName: 'WaveformAgent'),
            createDateTimeTool(agentName: 'WaveformAgent'),
@@ -76,7 +108,6 @@ class WaveformAgent {
           textBuffer.add(chunk.output);
         } else {
           allChunks.add(chunk.output);
-          yield chunk.output;
         }
       }
 
@@ -88,21 +119,23 @@ class WaveformAgent {
         hasFlushedAfterTools = true;
         for (final buffered in textBuffer) {
           allChunks.add(buffered);
-          yield buffered;
         }
         textBuffer.clear();
       }
     }
 
     if (textBuffer.isNotEmpty) {
-      for (final buffered in textBuffer) {
-        allChunks.add(buffered);
-        yield buffered;
-      }
+      allChunks.addAll(textBuffer);
+      textBuffer.clear();
     }
 
-    final output = allChunks.join();
+    // The final answer is emitted once, after the tool-limit wording has been
+    // removed. The model can see the orchestrator's rejected tool results in
+    // its history and sometimes quotes the technical message; the user must
+    // never receive it as the answer.
+    final output = _sanitizeToolLimitText(allChunks.join());
     if (output.isNotEmpty) {
+      yield output;
       _history.addAll([ChatMessage.user(prompt), ChatMessage.model(output)]);
       if (_history.length > _maxHistoryMessages + 1) {
         _history = [
@@ -116,4 +149,41 @@ class WaveformAgent {
   void clearHistory() {
     _history = [ChatMessage.system(waveformAgentSystemPrompt)];
   }
+}
+
+/// Removes technical tool-limit wording from the final assistant answer.
+String _sanitizeToolLimitText(String text) {
+  return text
+      .replaceAll(
+        RegExp(r'Maximum tool calls \(\d+\) reached\.?', caseSensitive: false),
+        '',
+      )
+      .replaceAll(
+        RegExp(
+          r'Please try rephrasing your request to be more specific\.?',
+          caseSensitive: false,
+        ),
+        '',
+      )
+      .replaceAll(
+        RegExp(
+          r'Please respond with what you have so far\.?',
+          caseSensitive: false,
+        ),
+        '',
+      )
+      .replaceAll(
+        RegExp(
+          r'\b(?:the\s+)?(?:'
+          r'per-request\s+(?:tool[-\s]?call\s+)?limit|'
+          r'tool[-\s]?call\s+limit|'
+          r'call\s+limit'
+          r')\b',
+          caseSensitive: false,
+        ),
+        'a request restriction',
+      )
+      .replaceAll(RegExp(r'[ \t]{2,}'), ' ')
+      .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+      .trim();
 }

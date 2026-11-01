@@ -351,6 +351,7 @@ class Agent {
 
       orchestrator.initialize(state);
 
+      var recoveredFromToolLimit = false;
       try {
         // Main streaming loop
         while (!state.done) {
@@ -359,6 +360,43 @@ class Agent {
             state,
             outputSchema: outputSchema,
           )) {
+            // The orchestrator force-stops with a technical message when the
+            // model keeps requesting tools after the limit. Ask the model once
+            // more without tools so the user receives a real answer based on
+            // the tool results that were already collected.
+            if (!result.shouldContinue &&
+                result.output.trimLeft().startsWith('Maximum tool calls') &&
+                !recoveredFromToolLimit) {
+              recoveredFromToolLimit = true;
+              var answered = false;
+              await for (final text in _answerWithoutTools(state)) {
+                answered = true;
+                yield ChatResult<String>(
+                  id: state.lastResult.id,
+                  output: text,
+                  messages: const [],
+                  finishReason: state.lastResult.finishReason,
+                  metadata: const {},
+                  usage: state.lastResult.usage,
+                );
+              }
+              if (!answered) {
+                yield ChatResult<String>(
+                  id: state.lastResult.id,
+                  output:
+                      'The analysis could not be completed within the '
+                      'available steps. Please ask a more specific question '
+                      'about one measurement.',
+                  messages: const [],
+                  finishReason: state.lastResult.finishReason,
+                  metadata: const {},
+                  usage: state.lastResult.usage,
+                );
+              }
+              state.complete();
+              continue;
+            }
+
             // Yield streaming text, thinking, or metadata
             if (result.output.isNotEmpty ||
                 result.thinking != null ||
@@ -416,6 +454,93 @@ class Agent {
     } finally {
       model.dispose();
     }
+  }
+
+  /// Streams a final answer without tools after the tool-call limit was hit.
+  ///
+  /// The conversation history already contains the successful tool results.
+  /// Re-prompting without tools prevents another tool loop and gives the model
+  /// a chance to summarize what it has gathered for the user.
+  Stream<String> _answerWithoutTools(StreamingState state) async* {
+    ChatModel<ChatModelOptions>? fallbackModel;
+    try {
+      fallbackModel = _provider.createChatModel(
+        name: _chatModelName,
+        tools: const <Tool>[],
+        temperature: _temperature,
+        enableThinking: _enableThinking,
+        options: chatModelOptions,
+      );
+      final instruction = ChatMessage.user(
+        'The tool-call limit was reached. Provide the best possible final '
+        'answer now using the information already gathered in this '
+        'conversation. Do not mention tool calls, tool limits, step limits '
+        'or technical error messages. If some data is unavailable, state '
+        'only that the value is unavailable.',
+      );
+      final buffer = StringBuffer();
+      await for (final result in fallbackModel.sendStream([
+        ...state.conversationHistory,
+        instruction,
+      ])) {
+        final text = result.output.parts
+            .whereType<TextPart>()
+            .map((part) => part.text)
+            .join();
+        if (text.isNotEmpty) buffer.write(text);
+      }
+      final cleaned = _sanitizeToolLimitAnswer(buffer.toString());
+      if (cleaned.isNotEmpty) yield cleaned;
+    } on Object catch (error) {
+      _logger.warning('Tool-limit fallback without tools failed: $error');
+    } finally {
+      fallbackModel?.dispose();
+    }
+  }
+
+  /// Removes any remaining tool-limit wording from a fallback answer.
+  ///
+  /// The model sees the rejected tool results in the conversation history, so
+  /// it can still quote the technical message even when the instruction asks
+  /// it not to. Sentences that mention the limit are dropped before the
+  /// answer is shown to the user.
+  static String _sanitizeToolLimitAnswer(String text) {
+    return text
+        .replaceAll(
+          RegExp(
+            r'Maximum tool calls \(\d+\) reached\.?',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .replaceAll(
+          RegExp(
+            r'Please try rephrasing your request to be more specific\.?',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .replaceAll(
+          RegExp(
+            r'Please respond with what you have so far\.?',
+            caseSensitive: false,
+          ),
+          '',
+        )
+        .replaceAll(
+          RegExp(
+            r'\b(?:the\s+)?(?:'
+            r'per-request\s+(?:tool[-\s]?call\s+)?limit|'
+            r'tool[-\s]?call\s+limit|'
+            r'call\s+limit'
+            r')\b',
+            caseSensitive: false,
+          ),
+          'a request restriction',
+        )
+        .replaceAll(RegExp(r'[ \t]{2,}'), ' ')
+        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+        .trim();
   }
 
   /// Generates media content and returns the final aggregated result.

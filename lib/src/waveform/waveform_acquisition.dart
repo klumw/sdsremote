@@ -6,6 +6,20 @@ import '../instrument/dart_vxi11.dart';
 import '../instrument/scpi_parser.dart';
 import 'waveform_models.dart';
 
+/// Number of acquisition samples per transferred point required to fit the
+/// complete acquisition record into [transferPoints].
+///
+/// `WFSU SP` sparses the transfer: with `SP,7` the scope sends every seventh
+/// acquisition sample. If [transferPoints] is smaller than the record depth
+/// (for example 7 Mpts on USB, capped at 100k points), the first `NP` samples
+/// cover only a fraction of the display. The sparsing factor makes the whole
+/// record fit instead, so the waveform view shows the same cycles as the
+/// oscilloscope screen.
+int waveformSparsingFor(int desiredPoints, int transferPoints) {
+  if (transferPoints <= 0 || desiredPoints <= transferPoints) return 1;
+  return (desiredPoints / transferPoints).ceil();
+}
+
 /// Performs a complete waveform acquisition from a Siglent SDS oscilloscope
 /// over VXI-11.
 class WaveformAcquisition {
@@ -72,14 +86,10 @@ class WaveformAcquisition {
       final trdl = await _queryValue(activeInstr, 'TRDL?');
       final sampleRate = await _queryValue(activeInstr, 'SARA?');
 
-      // Configure waveform transfer setup with enough points to cover the
-      // full display span (timebase * 14 divisions). This keeps the acquired
-      // waveform long enough to show all cycles visible on the screen.
+      // Configure waveform transfer setup so the complete display span
+      // (timebase * 14 divisions) is transferred, not just its beginning.
       const int horizontalDivisions = 14;
       const int maxTransferPoints = 12000000;
-      // WFSU SP is the sparsing factor: the scope sends every SP-th sample.
-      // The spectrum analysis must use the resulting effective sample rate.
-      const int waveformSparsing = 7;
       // On Linux the SDS1x04X-E USBTMC firmware only tolerates short read
       // requests (see UsbtmcContext.siglentMaxReadTransferSize). Deep-memory
       // transfers would take minutes in 48-byte chunks, so the number of
@@ -94,6 +104,15 @@ class WaveformAcquisition {
       final int transferPoints = desiredPoints.clamp(
         1201,
         effectiveMaxTransferPoints,
+      );
+      // WFSU SP is the sparsing factor: the scope sends every SP-th sample.
+      // Pick it so the whole record fits into the transfer cap; a fixed SP
+      // would truncate the record and the app would show fewer cycles than
+      // the oscilloscope. The spectrum and measurements use the resulting
+      // effective sample rate (SARA / SP).
+      final int waveformSparsing = waveformSparsingFor(
+        desiredPoints,
+        transferPoints,
       );
       try {
         await activeInstr.writeString(
@@ -167,6 +186,13 @@ class WaveformAcquisition {
       final ch4Raw = isCh4Active
           ? await _queryDataBlock(activeInstr, 'C4:WF? DAT2')
           : null;
+
+      AppLogger().info(
+        'Waveform transfer: TDIV=$timebase, SARA=$sampleRate, '
+        'SP=$sparsing, NP=$transferPoints, desired=$desiredPoints, '
+        'points=[${ch1Raw?.length}, ${ch2Raw?.length}, '
+        '${ch3Raw?.length}, ${ch4Raw?.length}]',
+      );
 
       // --- Restore original trigger mode ---
       // Do this before the finally block so the connection is still fully open.

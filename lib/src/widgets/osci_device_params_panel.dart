@@ -143,12 +143,25 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
                   ),
                 ),
                 if (widget.onOpenAi != null)
-                  IconButton(
-                    tooltip: "Waveform AI assistant",
-                    onPressed: widget.onOpenAi,
-                    icon: const Icon(Icons.auto_awesome, size: 20),
-                    color: Colors.lightBlueAccent,
-                    visualDensity: VisualDensity.compact,
+                  Container(
+                    key: const ValueKey('waveform-ai-button-frame'),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.2),
+                      border: Border.all(
+                        color: Colors.lightBlueAccent,
+                        width: 1,
+                      ),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: IconButton(
+                      tooltip: "Waveform AI assistant",
+                      onPressed: widget.onOpenAi,
+                      icon: const Icon(Icons.auto_awesome, size: 20),
+                      color: Colors.lightBlueAccent,
+                      padding: const EdgeInsets.all(4),
+                      constraints: const BoxConstraints(),
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
               ],
             ),

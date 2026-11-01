@@ -41,6 +41,7 @@ import '../waveform/waveform_models.dart';
 import '../waveform/waveform_compare.dart';
 import '../waveform/waveform_mask.dart';
 import '../waveform/waveform_measurements.dart';
+import '../waveform/waveform_history.dart';
 import '../waveform/waveform_painter.dart';
 import '../waveform/waveform_export.dart';
 import '../waveform/waveform_report.dart';
@@ -244,6 +245,13 @@ class _OsciHomePageState extends State<OsciHomePage>
   bool _spectrumLoading = false;
   int _spectrumGeneration = 0;
   final GlobalKey _spectrumKey = GlobalKey();
+
+  /// Last two acquisitions for the Waveform AI's history and comparison.
+  final WaveformHistoryStore _waveformHistory = WaveformHistoryStore();
+
+  /// Incremented after every successful acquisition so the AI acquisition
+  /// tool can distinguish success from a handled failure.
+  int _acquisitionGeneration = 0;
 
   /// Time-domain measurements of the last acquisition, computed from the raw
   /// samples before the display decimation.
@@ -3370,7 +3378,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
   }
 
-  void _acquireWaveform() async {
+  Future<void> _acquireWaveform() async {
     if (_timelapseRunning) return;
     // Stop the Data Logger immediately when switching away from it
     _stopDataLoggerIfRunning();
@@ -3423,6 +3431,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         _waveformAcquired = true;
         _lastRawData = raw;
         _spectrumResult = null;
+        _acquisitionGeneration++;
         // Reset zoom state on every new acquisition so the user sees the full
         // waveform (14 divisions) instead of a zoomed-in view from a previous
         // interaction that showed only ~4 waves.
@@ -3431,6 +3440,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       });
       _logWaveformMeasurements();
       _recomputeReferenceAnalysis();
+      _recordWaveformHistory();
       if (_waveformViewMode == _WaveformViewMode.spectrum) {
         unawaited(_recomputeSpectrum());
       }
@@ -3459,19 +3469,16 @@ class _OsciHomePageState extends State<OsciHomePage>
     WaveformMeasurements?,
   )
   _measureRawChannels(WaveformRawData raw) {
-    /// Effective interval between the raw samples of a channel.
+    /// Effective interval between the transferred samples of a channel.
     ///
-    /// Mirrors [WaveformConverter.computeTimeAxis]: with a known trigger
-    /// position the reported sample rate is authoritative; otherwise the
-    /// record spans the 14-division display window. The fallback matters on
-    /// instruments that return fewer points than requested — `SARA?` then
-    /// reports the maximum rate, not the rate of the transferred record.
+    /// With WFSU sparsing the record contains only every `sparsing`-th
+    /// acquisition sample, so the spacing is `sparsing / sampleRate`. This
+    /// mirrors `WaveformConverter.computeTimeAxis` and avoids stretching a
+    /// short sparsed record over the 14-division display window, which would
+    /// scale every measured frequency down by the sparsing factor.
     double? sampleIntervalFor(int rawLength) {
       if (rawLength < 2) return null;
-      if (raw.triggerPosition <= 0 && raw.timebase > 0) {
-        return raw.timebase * 14 / (rawLength - 1);
-      }
-      return raw.sampleRate > 0 ? 1 / raw.sampleRate : null;
+      return raw.effectiveSampleRate > 0 ? 1 / raw.effectiveSampleRate : null;
     }
 
     WaveformMeasurements? measure(
@@ -3488,7 +3495,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         rawData: data,
         vdiv: vdiv,
         voffset: voffset,
-        sampleRate: raw.sampleRate,
+        sampleRate: raw.effectiveSampleRate,
         sampleIntervalSeconds: sampleIntervalFor(data.length),
       );
     }
@@ -3705,6 +3712,50 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
   }
 
+  /// Stores the current acquisition in the two-entry Waveform AI history.
+  ///
+  /// Manual and AI-triggered acquisitions both pass through
+  /// [_acquireWaveform], so the history always reflects the last two captures.
+  void _recordWaveformHistory() {
+    final summary = _waveformSummaryForAi();
+    if (summary == null) return;
+    _waveformHistory.add(summary);
+  }
+
+  /// Last two acquisitions for the `read_waveform_history` tool.
+  List<Map<String, dynamic>> _waveformHistoryForAi() =>
+      _waveformHistory.entries;
+
+  /// Runs a complete acquisition for the `acquire_waveform` tool.
+  ///
+  /// Returns a structured error instead of throwing so the agent can explain
+  /// the failure. The acquisition itself updates the chart and measurements
+  /// and appends to the history.
+  Future<Map<String, dynamic>> _acquireWaveformForAi() async {
+    if (_isAcquiringWaveform) {
+      return {'error': 'A waveform acquisition is already running.'};
+    }
+    if (!_isOnline) {
+      return {'error': 'The oscilloscope is offline.'};
+    }
+    final generation = _acquisitionGeneration;
+    await _acquireWaveform();
+    if (_acquisitionGeneration == generation) {
+      return {
+        'error':
+            'The waveform acquisition failed. Check the connection and the '
+            'application log.',
+      };
+    }
+    final summary = _waveformSummaryForAi();
+    if (summary == null) {
+      return {
+        'error': 'The acquisition completed but no measurements are available.',
+      };
+    }
+    return {'acquired': true, 'measurements': summary};
+  }
+
   /// Compact description of the displayed waveform for the Control Panel AI's
   /// `read_waveform_summary` tool.
   ///
@@ -3794,30 +3845,36 @@ class _OsciHomePageState extends State<OsciHomePage>
             'frequencyResolutionHz': trace.resolutionHz,
             'fullScaleVolts': trace.fullScaleVolts,
             'metrics': {
-              'fundamentalFrequencyHz': trace.metrics.fundamentalHz,
-              'fundamentalAmplitudeVpk': trace.metrics.fundamentalVpk,
-              'fundamentalDbfs': trace.metrics.fundamentalDbfs,
-              'thdPercent': trace.metrics.thdPercent,
-              'thdDb': trace.metrics.thdDb,
-              'thdPlusNoiseDb': trace.metrics.thdPlusNDb,
-              'snrDb': trace.metrics.snrDb,
-              'sinadDb': trace.metrics.sinadDb,
-              'enobBits': trace.metrics.enobBits,
-              'sfdrDbc': trace.metrics.sfdrDb,
-              'noiseFloorDbfs': trace.metrics.noiseFloorDbfs,
+              'fundamentalFrequencyHz': _finiteOrNull(
+                trace.metrics.fundamentalHz,
+              ),
+              'fundamentalAmplitudeVpk': _finiteOrNull(
+                trace.metrics.fundamentalVpk,
+              ),
+              'fundamentalDbfs': _finiteOrNull(trace.metrics.fundamentalDbfs),
+              'thdPercent': _finiteOrNull(trace.metrics.thdPercent),
+              'thdDb': _finiteOrNull(trace.metrics.thdDb),
+              'thdPlusNoiseDb': _finiteOrNull(trace.metrics.thdPlusNDb),
+              'snrDb': _finiteOrNull(trace.metrics.snrDb),
+              'sinadDb': _finiteOrNull(trace.metrics.sinadDb),
+              'enobBits': _finiteOrNull(trace.metrics.enobBits),
+              'sfdrDbc': _finiteOrNull(trace.metrics.sfdrDb),
+              'noiseFloorDbfs': _finiteOrNull(trace.metrics.noiseFloorDbfs),
               'harmonicsUsed': trace.metrics.harmonicsUsed,
-              'nyquistHz': trace.metrics.nyquistHz,
-              'resolutionHz': trace.metrics.resolutionHz,
+              'nyquistHz': _finiteOrNull(trace.metrics.nyquistHz),
+              'resolutionHz': _finiteOrNull(trace.metrics.resolutionHz),
             },
             'peaks': [
               for (final peak in trace.peaks)
                 {
                   'marker': peak.marker,
-                  'frequencyHz': peak.frequencyHz,
-                  'amplitudeVpk': peak.amplitudeVpk,
-                  'levelDb': peak.levelDb,
-                  'dbfs': peak.dbfs,
-                  'relativeToFundamentalDb': peak.relativeToFundamentalDb,
+                  'frequencyHz': _finiteOrNull(peak.frequencyHz),
+                  'amplitudeVpk': _finiteOrNull(peak.amplitudeVpk),
+                  'levelDb': _finiteOrNull(peak.levelDb),
+                  'dbfs': _finiteOrNull(peak.dbfs),
+                  'relativeToFundamentalDb': _finiteOrNull(
+                    peak.relativeToFundamentalDb,
+                  ),
                   'isFundamental': peak.isFundamental,
                 },
             ],
@@ -3825,6 +3882,13 @@ class _OsciHomePageState extends State<OsciHomePage>
       ],
     };
   }
+
+  /// JSON-safe representation of a spectrum value.
+  ///
+  /// THD, SINAD, ENOB and similar metrics are infinite or NaN for signals
+  /// without a usable carrier (for example pure noise), and JSON has no
+  /// representation for those values.
+  double? _finiteOrNull(double value) => value.isFinite ? value : null;
 
   /// Serializes one channel's measurements for [_waveformSummaryForAi].
   Map<String, dynamic> _measurementSummaryForAi(
@@ -4990,6 +5054,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       _aiSettings,
       readWaveformSummary: _waveformSummaryForAi,
       readSpectrumSummary: _spectrumSummaryForAi,
+      acquireWaveform: _acquireWaveformForAi,
+      readWaveformHistory: _waveformHistoryForAi,
+      vxi11Host: _ipAddress,
     );
   }
 

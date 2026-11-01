@@ -3843,6 +3843,138 @@ SPO oscilloscopes models are in the table below.
 
 SPO model uses Siglent-innovated waveform acquisition and graphics processing engine which supports high capture rate, multilevel intensity grading and color temperature display, with deep memory storage and the use of new digital trigger technology supports rich trigger types and precise trigger. All of these technologies are collectively known as SPO (Super Phosphor Oscilloscope) technology.
 
+
+## Quick Guide: Siglent SLA1016 with SDS1104X-E – UART Measurement
+
+### 1. Required Equipment
+
+- Siglent SDS1104X-E oscilloscope
+- Siglent SLA1016 logic analyzer
+- SBUS connection cable
+- Digital flying-lead probes
+- UART signal source (ESP32, Arduino, STM32, etc.)
+
+### 2. Check Firmware and License
+
+1. Power on the SDS1104X-E.
+2. Press `Utility`.
+3. Open `System Info`.
+4. Check the firmware version.
+5. Verify that the MSO option (`SDS1000X-E-16LA`) is activated.
+
+### 3. Connect the SLA1016
+
+1. Connect the SBUS cable between the oscilloscope and SLA1016.
+2. Connect the digital probe cable to the SLA1016.
+3. Check the connector orientation.
+4. Connect the flying leads to the required digital channels.
+
+### 4. Connect the UART Signals
+
+| UART Device   | SLA1016 |
+| ------------- | ------- |
+| TX            | D0      |
+| GND           | GND     |
+| RX (optional) | D1      |
+
+Important: Connect GND only to a suitable, electrically safe low-voltage circuit. Never connect directly to mains voltage or RS-232 signals.
+
+### 5. Configure the Digital Channel
+
+1. Press `Digital` on the oscilloscope.
+2. Enable channel `D0`.
+3. Set the logic threshold:
+   - 3.3 V UART: approximately 1.5 V
+   - 5 V TTL UART: approximately 1.5 V
+4. Set the time base to approximately `200 µs/div`.
+5. Start UART transmission.
+
+### 6. Configure UART Decoding
+
+For UART protocol decoding, additionally connect UART TX to oscilloscope input `CH1`.
+
+1. Press `Decode`.
+2. Enable `Decode 1`.
+3. Select protocol `UART`.
+4. Set RX source to `CH1`.
+5. Configure the following parameters:
+
+| Parameter  | Setting   |
+| ---------- | --------- |
+| Baud Rate  | 9600      |
+| Data Bits  | 8         |
+| Parity     | None      |
+| Stop Bits  | 1         |
+| Bit Order  | LSB First |
+| Idle Level | HIGH      |
+
+6\. Enable the decode display.
+
+### 7. Configure UART Trigger (Optional)
+
+1. Press `Setup`.
+2. Select `Serial` trigger.
+3. Choose `UART`.
+4. Set the source to `RX`.
+5. Select `Start` as the trigger condition.
+
+### 8. Expected Result
+
+You should see:
+
+- D0: Digital UART waveform from the SLA1016.
+- CH1: Analog UART signal.
+- Decode 1: Decoded UART data (hexadecimal or ASCII).
+
+For 9600 baud:
+
+\\[ T\_{bit} = \frac{1}{9600} \approx 104.17\\,\mu s \\]
+
+### 9. Troubleshooting
+
+| Problem                 | Possible Solution                   |
+| ----------------------- | ----------------------------------- |
+| No digital signal       | Check SBUS connection and D0 wiring |
+| Incorrect signal levels | Check logic threshold               |
+| No UART decoding        | Verify CH1 source and baud rate     |
+| Unstable display        | Check trigger settings              |
+| No MSO channels         | Check firmware and license          |
+
+
+
+## Video: FFT Usage
+[FFT Usage](https://youtu.be/2F-qECVs5L0)
+
+## Video: Self Calibration
+[Self Calibration](https://youtu.be/7CkscHkVkOc)
+
+## Video: CAN-BUS decoding
+[CAN-BUS decoding](https://youtu.be/8B1bjKEWPKQ)
+
+## Video: Probe Calibration
+[Probe Calibration](https://youtu.be/BwfLQH9tFCA)
+
+## Video: FFT for Audio use
+[FFT for Audio use](https://youtu.be/OfMvYA-TBlg)
+
+## Video: I2C Decoding
+[I2C Decoding](https://youtu.be/yzcia8C-Y7Y)
+
+## Video: Siglent Web Interface (4-Channel only)
+[Siglent Web Interface](https://youtu.be/DYoQyDHBSJo)
+
+## Video: Bode Plot with Siglent Signal Generator (4-Channel only)
+[Bode Plot with Siglent Signal Generator](https://youtu.be/bEIn7H8mGVI)
+
+## Video: Siglent Logic Analyzer SLA1016 (4-Channel only)
+[Activating License for Siglent Logic Analyzer SLA1016](https://youtu.be/jXBxshIwvIQ)
+
+## Video: Link to Trigger
+[Link to Trigger](https://youtu.be/-Nsuqanf2_k)
+
+## Video: Triggering multiple Instruments
+[Triggering multiple Instruments](https://youtu.be/s4YfQMe2EUw)
+
 ## SCPI Command Syntax (colon, braces, square brackets, ellipsis, placeholder) [2+4-channel]
 
 - : = A colon followed by an equals sign separates a placeholder from the description of the type and range of values that may be used in a command instead of the placeholder.

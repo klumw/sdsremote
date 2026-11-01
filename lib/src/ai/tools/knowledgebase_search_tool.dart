@@ -17,6 +17,88 @@ import '../../core/logger.dart';
 /// while a whole search result (five chunks) stays around 5 kB.
 const int knowledgebaseChunkSize = 1000;
 
+/// A video link found in the knowledgebase.
+class KnowledgebaseVideoLink {
+  const KnowledgebaseVideoLink({required this.title, required this.url});
+
+  /// Human-readable title, derived from the Markdown link text or the heading.
+  final String title;
+
+  /// Absolute URL of the video (YouTube or Vimeo).
+  final String url;
+
+  Map<String, String> toJson() => {'title': title, 'url': url};
+}
+
+/// Extracts video links from one knowledgebase chunk.
+///
+/// A link counts as a video link when it points to YouTube/Vimeo or when it
+/// appears below a heading that contains the word "video". Both Markdown links
+/// (`[title](url)`) and bare URLs are supported; the first occurrence of a URL
+/// wins, so repeated links are returned only once.
+List<KnowledgebaseVideoLink> extractVideoLinks(String text) {
+  final links = <String, KnowledgebaseVideoLink>{};
+  var heading = '';
+
+  for (final rawLine in text.split('\n')) {
+    final line = rawLine.trim();
+    final headingMatch = _headingPattern.firstMatch(line);
+    if (headingMatch != null) {
+      heading = headingMatch.group(1)!.trim();
+      continue;
+    }
+    if (line.isEmpty) continue;
+
+    final isVideoHeading = heading.toLowerCase().contains('video');
+    final markdownUrls = <String>{};
+    for (final match in _markdownLinkPattern.allMatches(line)) {
+      final url = match.group(2)!;
+      markdownUrls.add(url);
+      if (!_isVideoUrl(url) && !isVideoHeading) continue;
+      final title = _cleanVideoTitle(match.group(1)!);
+      links.putIfAbsent(
+        url,
+        () => KnowledgebaseVideoLink(title: title, url: url),
+      );
+    }
+    for (final match in _urlPattern.allMatches(line)) {
+      final url = match.group(0)!;
+      if (markdownUrls.contains(url)) continue;
+      if (!_isVideoUrl(url) && !isVideoHeading) continue;
+      final title = _cleanVideoTitle(heading.isNotEmpty ? heading : 'Video');
+      links.putIfAbsent(
+        url,
+        () => KnowledgebaseVideoLink(title: title, url: url),
+      );
+    }
+  }
+
+  return links.values.toList();
+}
+
+final RegExp _headingPattern = RegExp(r'^#{1,6}\s+(.*)$');
+final RegExp _markdownLinkPattern = RegExp(
+  r'\[([^\]]+)\]\((https?://[^)\s]+)\)',
+);
+final RegExp _urlPattern = RegExp(r'https?://[^\s<>()\[\]]+');
+final RegExp _videoHostPattern = RegExp(
+  r'(?:youtu\.be|youtube\.com|vimeo\.com)/',
+  caseSensitive: false,
+);
+final RegExp _videoPrefixPattern = RegExp(
+  r'^videos?\s*:?\s*',
+  caseSensitive: false,
+);
+
+bool _isVideoUrl(String url) => _videoHostPattern.hasMatch(url);
+
+String _cleanVideoTitle(String text) {
+  var title = text.trim();
+  title = title.replaceFirst(_videoPrefixPattern, '');
+  title = title.replaceFirst(RegExp(r'[:#]+$'), '').trim();
+  return title.isEmpty ? 'Video' : title;
+}
+
 /// Creates the knowledgebase search tool.
 ///
 /// The tool searches the pre-loaded chunks for content relevant to the
@@ -38,7 +120,10 @@ Tool<Map<String, dynamic>> createKnowledgebaseSearchTool(
         'commands, settings, troubleshooting, or specifications. '
         'Use this tool when you need to find information about how to '
         'use the oscilloscope, what commands are available, or how to '
-        'troubleshoot issues.',
+        'troubleshoot issues. The result may include a video_links list '
+        'with verified tutorial video titles and URLs. Offer the relevant '
+        'ones as Markdown links; the chat opens external links in the '
+        'default browser.',
     inputSchema: Schema.fromMap({
       'type': 'object',
       'properties': {
@@ -93,10 +178,37 @@ Tool<Map<String, dynamic>> createKnowledgebaseSearchTool(
       scored.sort((a, b) => b.score.compareTo(a.score));
       final topChunks = scored.take(5).toList();
 
+      // Match tutorial videos by their title. Video links are collected from
+      // all chunks (not only the top five) so a matching tutorial is offered
+      // even when a long documentation section outranks its short video chunk.
+      final videoMatches = <({KnowledgebaseVideoLink link, int score})>[];
+      for (final chunk in chunks) {
+        for (final link in extractVideoLinks(chunk.pageContent)) {
+          final title = link.title.toLowerCase();
+          final score = queryWords.where((word) => title.contains(word)).length;
+          if (score > 0) {
+            videoMatches.add((link: link, score: score));
+          }
+        }
+      }
+      videoMatches.sort((a, b) => b.score.compareTo(a.score));
+      final videoLinks = <String, KnowledgebaseVideoLink>{};
+      for (final match in videoMatches) {
+        videoLinks.putIfAbsent(match.link.url, () => match.link);
+        if (videoLinks.length == 5) break;
+      }
+
       Map<String, dynamic> result;
       if (topChunks.isEmpty) {
         result = {
-          'results': 'No relevant information found in the knowledgebase.',
+          'results': videoLinks.isEmpty
+              ? 'No relevant information found in the knowledgebase.'
+              : 'No matching text sections found; relevant videos are '
+                    'available.',
+          if (videoLinks.isNotEmpty)
+            'video_links': [
+              for (final link in videoLinks.values) link.toJson(),
+            ],
         };
       } else {
         final results = topChunks
@@ -105,7 +217,13 @@ Tool<Map<String, dynamic>> createKnowledgebaseSearchTool(
               return '--- Chunk (relevance: ${sc.score}) ---\n${chunk.pageContent}';
             })
             .join('\n\n');
-        result = {'results': results};
+        result = {
+          'results': results,
+          if (videoLinks.isNotEmpty)
+            'video_links': [
+              for (final link in videoLinks.values) link.toJson(),
+            ],
+        };
       }
 
       logger.logToolCall(input: args, output: result);
