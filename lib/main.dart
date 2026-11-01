@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:desktop_multi_window/desktop_multi_window.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:logging/logging.dart';
@@ -9,6 +10,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'src/app/app_theme.dart';
+import 'src/app/feature_flags.dart';
 import 'src/app/window_state.dart';
 import 'src/calculator/calculator_controller.dart';
 import 'src/calculator/calculator_window_protocol.dart';
@@ -48,6 +50,7 @@ void main(List<String> args) async {
   WidgetsFlutterBinding.ensureInitialized();
   await windowManager.ensureInitialized();
 
+  final debugMode = isDebugStart(args);
   final logLevel = _getRequestedLogLevel(args);
   AppLogger.minimumLevel = logLevel;
   Agent.loggingOptions = LoggingOptions(
@@ -103,7 +106,7 @@ void main(List<String> args) async {
     await windowManager.focus();
   });
 
-  runApp(const OscilloscopeApp());
+  runApp(OscilloscopeApp(debugMode: debugMode));
 }
 
 /// Returns the arguments of the current engine, or an empty string when the
@@ -276,7 +279,10 @@ Future<void> _runCalculatorWindow(String windowArguments) async {
 // ===========================================================================
 
 class OscilloscopeApp extends StatelessWidget {
-  const OscilloscopeApp({super.key});
+  const OscilloscopeApp({super.key, this.debugMode = kDebugMode});
+
+  /// Whether the app was started in debug mode or with an explicit `--debug`.
+  final bool debugMode;
 
   @override
   Widget build(BuildContext context) {
@@ -286,7 +292,7 @@ class OscilloscopeApp extends StatelessWidget {
       theme: ThemeData.dark().copyWith(
         scaffoldBackgroundColor: AppColors.scaffoldBackground,
       ),
-      home: const OsciHomePage(),
+      home: OsciHomePage(debugMode: debugMode),
     );
   }
 }

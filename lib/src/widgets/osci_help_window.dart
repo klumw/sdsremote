@@ -176,6 +176,15 @@ class _HelpWindowState extends State<HelpWindow>
   /// rebuilds that every search triggers.
   final Map<String, GlobalKey> _headingAnchorKeys = {};
 
+  /// Stable keys for every heading occurrence, keyed by chunk and slug.
+  ///
+  /// The manual is rendered as several lazily mounted [MarkdownBody] chunks,
+  /// each with its own [HeadingAnchorBuilder]. A duplicate heading slug that
+  /// ends up in two different chunks must not share a [GlobalKey], so every
+  /// occurrence gets its own key; [_headingAnchorKeys] keeps the first
+  /// occurrence as the link target.
+  final Map<String, GlobalKey> _headingOccurrenceKeys = {};
+
   /// The manual's main chapters, shown as the table of contents above it.
   final List<HelpChapter> _chapters = [];
 
@@ -1059,7 +1068,11 @@ class _HelpWindowState extends State<HelpWindow>
         // Each chunk starts at its own offset in the global match list;
         // otherwise every chunk would claim the first highlight keys.
         'mark': MarkHighlightBuilder(_matchKeys, start: chunk.firstMatchIndex),
-        _kAnchorTag: HeadingAnchorBuilder(_headingAnchorKeys),
+        _kAnchorTag: HeadingAnchorBuilder(
+          _headingAnchorKeys,
+          _headingOccurrenceKeys,
+          index,
+        ),
       },
       styleSheet: _buildMarkdownStyleSheet(context),
     );
@@ -1642,15 +1655,22 @@ List<List<HelpChapter>> chaptersByColumn(
 /// have to survive the rebuilds that every search triggers, and no two live
 /// widgets may ever share one.
 class HeadingAnchorBuilder extends MarkdownElementBuilder {
-  HeadingAnchorBuilder(this.keys);
+  HeadingAnchorBuilder(this.keys, this.occurrenceKeys, this.chunkIndex);
 
-  /// Slug → [GlobalKey] of the heading claiming it.
+  /// Slug → [GlobalKey] of the first heading occurrence (link target).
   final Map<String, GlobalKey> keys;
 
-  /// Slugs already handed out during the current parse.  Should the manual
-  /// ever contain the same heading twice, only its first occurrence keeps the
-  /// shared key; the duplicate is rendered without one.
-  final Set<String> _claimed = <String>{};
+  /// `chunkIndex|slug|occurrence` → stable key of that heading occurrence.
+  ///
+  /// Every occurrence gets its own key, so a duplicate heading slug that spans
+  /// two chunks cannot assign the same [GlobalKey] twice. The first occurrence
+  /// also registers in [keys] as the link target.
+  final Map<String, GlobalKey> occurrenceKeys;
+
+  final int chunkIndex;
+
+  /// Number of times a slug has been seen inside this chunk.
+  final Map<String, int> _occurrencesInChunk = <String, int>{};
 
   @override
   Widget visitElementAfterWithContext(
@@ -1660,9 +1680,19 @@ class HeadingAnchorBuilder extends MarkdownElementBuilder {
     TextStyle? parentStyle,
   ) {
     final slug = element.attributes[_kAnchorSlugAttribute];
-    if (slug == null || !_claimed.add(slug)) {
+    if (slug == null || slug.isEmpty) {
       return const SizedBox.shrink();
     }
-    return SizedBox.shrink(key: keys.putIfAbsent(slug, () => GlobalKey()));
+    final occurrence = _occurrencesInChunk.update(
+      slug,
+      (value) => value + 1,
+      ifAbsent: () => 0,
+    );
+    final occurrenceKey = occurrenceKeys.putIfAbsent(
+      '$chunkIndex|$slug|$occurrence',
+      () => GlobalKey(),
+    );
+    keys.putIfAbsent(slug, () => occurrenceKey);
+    return SizedBox.shrink(key: occurrenceKey);
   }
 }

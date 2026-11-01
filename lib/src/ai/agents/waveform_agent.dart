@@ -7,6 +7,7 @@ import '../tools/math_tool.dart';
 import '../tools/scpi_agent_tool.dart';
 import '../tools/spectrum_summary_tool.dart';
 import '../tools/vxi11_tool.dart';
+import '../tools/waveform_analysis_tools.dart';
 import '../tools/waveform_history_tool.dart';
 import '../tools/waveform_summary_tool.dart';
 import 'instrument_agent.dart';
@@ -34,6 +35,11 @@ class WaveformAgent {
     SpectrumSummaryProvider? readSpectrumSummary,
     WaveformAcquisitionProvider? acquireWaveform,
     WaveformHistoryProvider? readWaveformHistory,
+    WaveformClassificationProvider? classifyWaveform,
+    WaveformReferenceComparisonProvider? compareWaveformToReferences,
+    WaveformFeaturesProvider? readWaveformFeatures,
+    WaveformPairComparisonProvider? compareWaveforms,
+    ReferenceGenerationProvider? generateReferenceWaveform,
     String? vxi11Host,
     ScpiCommandCallback? onCommandSent,
     int instrumentToolCalls = defaultInstrumentToolCalls,
@@ -57,6 +63,26 @@ class WaveformAgent {
            ),
            createWaveformHistoryTool(
              readHistory: readWaveformHistory,
+             agentName: 'WaveformAgent',
+           ),
+           createClassifyWaveformTool(
+             classify: classifyWaveform,
+             agentName: 'WaveformAgent',
+           ),
+           createCompareWaveformToReferencesTool(
+             compare: compareWaveformToReferences,
+             agentName: 'WaveformAgent',
+           ),
+           createCompareWaveformsTool(
+             compare: compareWaveforms,
+             agentName: 'WaveformAgent',
+           ),
+           createGetWaveformFeaturesTool(
+             readFeatures: readWaveformFeatures,
+             agentName: 'WaveformAgent',
+           ),
+           createGenerateReferenceWaveformTool(
+             generate: generateReferenceWaveform,
              agentName: 'WaveformAgent',
            ),
            if (vxi11Host != null)

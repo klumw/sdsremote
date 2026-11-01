@@ -15,6 +15,7 @@ SDS-Remote enables remote control and AI-enhanced operation of Siglent SDS1202X-
 
 - **Remote Oscilloscope Control**: Control supported oscilloscopes remotely over a network using the VXI-11 protocol or through USB connectivity (USB support is currently experimental).
 - **Waveform Acquisition & Data Export**: Capture and display waveform data from enabled channels. Save screen captures as images, write waveform PDF measurement reports and CSV data, and export waveforms as LTspice PWL, WAV or VCD files (or copy the measurement table to the clipboard). A **Spectrum** tab shows the windowed FFT of every acquired channel as overlaid or single-channel traces with selectable window, FFT size and level unit, automatic peak markers and THD, THD+N, SNR, SINAD, ENOB and SFDR metrics, and exports the spectrum as CSV. A **Waveform AI** assistant (sparkle button in the Device Parameters header) analyses the current measurements and spectrum with deterministic math tools and date/time access, and can query or change the oscilloscope through the instrument agent after explicit confirmation. The PDF measurement report includes the same spectrum analysis per channel.
+- **Intelligent Waveform Analysis**: An **Analysis** tab (visible in debug sessions with a configured AI provider, token and model) classifies the captured waveform against ten mathematical reference signals (sine, square, triangle, sawtooth, pulse, exponential decay, damped oscillation, clipped sine, noisy sine and PWM). The engine extracts time-domain, frequency-domain and shape features, compares the capture with parameter-matched references using normalised cross-correlation, banded DTW, spectral comparison and weighted feature comparison, and combines the results into a 0–100 % similarity score with a confidence band. It reports the top three matches, the complete feature set, secondary characteristics and anomalies (noise, clipping, overshoot/undershoot, ringing, jitter, missing pulses, DC offset, harmonic distortion, duty instability), and overlays the capture with the best reference and the difference trace. Uncertain and mixed signals are reported as unknown instead of being forced into a category. The same engine is exposed to the Waveform AI Assistant through `classify_waveform`, `compare_waveform_to_references`, `compare_waveforms`, `get_waveform_features` and `generate_reference_waveform`, so the agent bases its explanations on real analysis results.
 - **Device Parameter Monitoring**: View real-time parameters such as timebase, sample rate, and voltage settings. Cursor-based measurements are supported.
 - **Data Logging**: Log key data points over a period of time. Generate PDF measurement reports containing charts, key metrics, per-parameter statistics and alarm events, or export all recorded measurement points as CSV files. Optional lower/upper alarm rules per parameter raise one event per threshold crossing; threshold lines and event markers are drawn in the plot.
 - **Analysis Tools**: A ripple/noise preset measures AC-coupled, bandwidth-limited supply noise and restores the previous channel settings. Clock detection recognises a stable 50 % clock and suggests the matching 1-2-5 timebase. Timelapse mode captures the screen into a timestamped folder at a fixed interval. The measurement cards explain every metric with an offline info text.
@@ -31,7 +32,9 @@ The analysis panel below the chart shows automatic time-domain measurements per 
 
 Above the chart, **Time domain** and **Spectrum** switch between the waveform view and the interactive FFT view. The spectrum overlays all acquired channels or shows a single selected channel, and offers Rectangular, Hann, Hamming, Blackman-Harris and Flat-top windows, an automatic or fixed FFT size, dBFS/dBV/dBm levels and a logarithmic frequency axis. Automatic peak markers are drawn in the chart and listed with frequency, amplitude, dBFS and dBc; metric cards show the fundamental, THD, THD+N, SNR, SINAD, ENOB, SFDR and the noise floor of the selected channel. The **CSV** button exports the full spectra to `waveform/spectrum/`.
 
-The sparkle button in the Device Parameters header slides in the **Waveform AI** panel from the right; it is twice as wide as the Device Parameters panel and stays anchored to the right edge. The assistant reads the current time-domain measurements and FFT metrics through deterministic tools, derives quantities with the math and engineering-calculator tools, and can use the current date/time. It never invents measurement values. Through the instrument agent it can query live settings and measurements; every change is proposed first and applied only after explicit confirmation. It can also start a new acquisition itself and keeps the last four acquisitions for comparisons.
+The **Analysis** tab classifies the current capture against ten reference signal types and compares it mathematically with them. It is a debug feature: the tab is only visible in a debug session (`flutter run --debug` or an explicit `--debug` argument) and when a valid AI provider, token and model are configured. It runs automatically on tab entry and after each acquisition; **Classify** re-runs the enabled reference set, **References** enables or disables individual types, and **Compare selected** scores a single chosen reference. The result card shows the primary classification, similarity percentage and confidence band; the ranked candidate list shows the individual scores and their shape, feature, frequency and DTW components. The plot overlays the capture (channel colour) with the phase-aligned best reference (orange) and the difference trace (green). Further cards list the detected anomalies with severity and time interval, the extracted features and a written explanation. Similarity percentages are descriptive match scores, not calibrated probabilities; a capture that matches no reference sufficiently is reported as **Unknown or mixed waveform** with the reasons.
+
+The sparkle button in the Device Parameters header slides in the **Waveform AI** panel from the right; it is twice as wide as the Device Parameters panel and stays anchored to the right edge. The assistant reads the current time-domain measurements and FFT metrics through deterministic tools, derives quantities with the math and engineering-calculator tools, and can use the current date/time. It never invents measurement values. Through the instrument agent it can query live settings and measurements; every change is proposed first and applied only after explicit confirmation. It can also start a new acquisition itself and keeps the last four acquisitions for comparisons. For a signal-identification question it names only the primary signal type when the confidence is high and the lead over the second candidate is clear; it names the closest alternatives only for moderate/low/uncertain confidence, a mixed result, or a very small difference to the next candidate.
 
 ![Waveform Acquisition](docs/sdsremote_wf.png)
 
@@ -562,7 +565,9 @@ All Flutter widget class files live under `lib/src/widgets/`:
   `control_panel_chat_overlay.dart`, `osci_knob_widgets.dart`,
   `osci_news_notification.dart`,
   `osci_toolbar_button.dart`, `filename_prefix_dialog.dart`,
-  `reference_file_picker_dialog.dart`, `unsaved_changes_dialog.dart`.
+  `reference_file_picker_dialog.dart`, `unsaved_changes_dialog.dart`,
+  `waveform_analysis_view.dart` (Analysis tab: results, candidate ranking,
+  feature cards and the capture/reference/difference plot).
 
 Non-widget, domain-specific support code is grouped into subfolders under
 `lib/src/`.
@@ -629,6 +634,17 @@ Non-widget, domain-specific support code is grouped into subfolders under
   Voltage conversion uses `V = code * vdiv / 25 - OFST` (Siglent `OFST` is the
   zero-level offset from screen center), and the painter centers the visible
   range at `-OFST`.
+- `lib/src/waveform/analysis/` — waveform classification and reference
+  comparison engine: `waveform_analysis_models.dart` (types, options, result
+  models, JSON maps), `waveform_math.dart` (FFT wrapper, autocorrelation
+  fundamental estimation, normalised correlation, banded DTW, exponential and
+  envelope fits), `waveform_preprocessor.dart`, `waveform_feature_extractor.dart`
+  (time, frequency and shape features), `reference_waveform_generator.dart`
+  (ideal and parameterised variants of all ten types),
+  `waveform_similarity.dart` (four comparison methods plus per-type detection
+  rules), `waveform_anomaly_detector.dart`, `waveform_classifier.dart` and
+  `waveform_analysis_service.dart` (public facade and background-isolate
+  variants used by the UI and the AI tools).
 - `lib/src/widgets/` — all Flutter widget classes (see Widget Code Layout).
 
 The application entry point `main.dart` stays at `lib/`.

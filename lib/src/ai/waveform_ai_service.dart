@@ -7,6 +7,7 @@ import 'agents/waveform_agent.dart';
 import 'tools/acquire_waveform_tool.dart';
 import 'tools/spectrum_summary_tool.dart';
 import 'tools/vxi11_tool.dart';
+import 'tools/waveform_analysis_tools.dart';
 import 'tools/waveform_history_tool.dart';
 import 'tools/waveform_summary_tool.dart';
 
@@ -31,6 +32,11 @@ class WaveformAiService {
     required SpectrumSummaryProvider readSpectrumSummary,
     WaveformAcquisitionProvider? acquireWaveform,
     WaveformHistoryProvider? readWaveformHistory,
+    WaveformClassificationProvider? classifyWaveform,
+    WaveformReferenceComparisonProvider? compareWaveformToReferences,
+    WaveformFeaturesProvider? readWaveformFeatures,
+    WaveformPairComparisonProvider? compareWaveforms,
+    ReferenceGenerationProvider? generateReferenceWaveform,
     String? vxi11Host,
     ScpiCommandCallback? onCommandSent,
     int instrumentToolCalls = WaveformAgent.defaultInstrumentToolCalls,
@@ -47,6 +53,11 @@ class WaveformAiService {
         readSpectrumSummary: readSpectrumSummary,
         acquireWaveform: acquireWaveform,
         readWaveformHistory: readWaveformHistory,
+        classifyWaveform: classifyWaveform,
+        compareWaveformToReferences: compareWaveformToReferences,
+        readWaveformFeatures: readWaveformFeatures,
+        compareWaveforms: compareWaveforms,
+        generateReferenceWaveform: generateReferenceWaveform,
         vxi11Host: vxi11Host,
         onCommandSent: onCommandSent,
         instrumentToolCalls: instrumentToolCalls,

@@ -15,6 +15,7 @@ import 'package:image/image.dart' as img;
 import '../app/app_config.dart';
 import '../app/app_theme.dart';
 import '../app/app_preferences.dart';
+import '../app/feature_flags.dart';
 import '../app/window_state.dart';
 import '../waveform/cursor_geometry.dart';
 import 'animated_sync_icon.dart';
@@ -48,8 +49,11 @@ import '../waveform/waveform_report.dart';
 import '../waveform/waveform_view_transform.dart';
 import '../waveform/ripple_noise.dart';
 import '../waveform/clock_detection.dart';
+import '../waveform/analysis/waveform_analysis_models.dart';
+import '../waveform/analysis/waveform_analysis_service.dart';
 import 'waveform_export_dialog.dart';
 import 'waveform_measurement_panel.dart';
+import 'waveform_analysis_view.dart';
 import 'ripple_noise_dialog.dart';
 import 'timelapse_dialog.dart';
 import '../timelapse/timelapse.dart';
@@ -105,14 +109,20 @@ import '../macro/macro_templates.dart';
 import '../ai/tools/vxi11_tool.dart' show onScpiCommandSent;
 
 class OsciHomePage extends StatefulWidget {
-  const OsciHomePage({super.key});
+  const OsciHomePage({super.key, this.debugMode = kDebugMode});
+
+  /// Whether the app was started in debug mode or with an explicit `--debug`.
+  ///
+  /// Debug-only features such as the waveform Analysis tab are hidden when
+  /// this is false.
+  final bool debugMode;
 
   @override
   State<OsciHomePage> createState() => _OsciHomePageState();
 }
 
 /// Which analysis view the Acquire Waveform screen shows.
-enum _WaveformViewMode { time, spectrum }
+enum _WaveformViewMode { time, spectrum, analysis }
 
 class _OsciHomePageState extends State<OsciHomePage>
     with WindowListener, SingleTickerProviderStateMixin {
@@ -239,6 +249,21 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   /// Spectrum view state.
   _WaveformViewMode _waveformViewMode = _WaveformViewMode.time;
+
+  /// The view mode actually shown; the Analysis tab falls back to the time
+  /// view while the debug/AI feature flag is off.
+  _WaveformViewMode get _effectiveWaveformViewMode =>
+      _waveformViewMode == _WaveformViewMode.analysis &&
+          !_isWaveformAnalysisAvailable
+      ? _WaveformViewMode.time
+      : _waveformViewMode;
+
+  /// The Analysis tab is a debug-only feature and additionally requires a
+  /// correctly configured AI provider, token and model.
+  bool get _isWaveformAnalysisAvailable => isWaveformAnalysisEnabled(
+    debugMode: widget.debugMode,
+    aiConfigured: _aiSettings?.isConfigured == true,
+  );
   String _spectrumChannel = 'ch1';
   bool _spectrumShowAll = true;
   bool _spectrumLogFrequency = false;
@@ -467,6 +492,11 @@ class _OsciHomePageState extends State<OsciHomePage>
   // Waveform AI assistant
   final WaveformChatController _waveformChatController =
       WaveformChatController();
+
+  /// Classification and reference-comparison engine shared by the Analysis
+  /// view and the Waveform AI tools.
+  final WaveformAnalysisService _waveformAnalysisService =
+      WaveformAnalysisService();
   bool _showWaveformAi = false;
 
   // Data Logger
@@ -1122,11 +1152,15 @@ class _OsciHomePageState extends State<OsciHomePage>
               _buildViewModeButton('Time domain', _WaveformViewMode.time),
               const SizedBox(width: 6),
               _buildViewModeButton('Spectrum', _WaveformViewMode.spectrum),
+              if (_isWaveformAnalysisAvailable) ...[
+                const SizedBox(width: 6),
+                _buildViewModeButton('Analysis', _WaveformViewMode.analysis),
+              ],
             ],
           ),
           const SizedBox(height: 8),
           Expanded(
-            child: _waveformViewMode == _WaveformViewMode.time
+            child: _effectiveWaveformViewMode == _WaveformViewMode.time
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -1152,6 +1186,12 @@ class _OsciHomePageState extends State<OsciHomePage>
                       ),
                     ],
                   )
+                : _effectiveWaveformViewMode == _WaveformViewMode.analysis
+                ? WaveformAnalysisView(
+                    channels: _acquiredWaveformChannels(),
+                    service: _waveformAnalysisService,
+                    captureGeneration: _acquisitionGeneration,
+                  )
                 : SpectrumView(
                     result: _spectrumResult,
                     settings: _spectrumSettings,
@@ -1176,7 +1216,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   Widget _buildViewModeButton(String label, _WaveformViewMode mode) {
-    final selected = _waveformViewMode == mode;
+    final selected = _effectiveWaveformViewMode == mode;
     return TextButton(
       onPressed: () => _setWaveformViewMode(mode),
       style: TextButton.styleFrom(
@@ -1201,7 +1241,10 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   void _setWaveformViewMode(_WaveformViewMode mode) {
-    if (_waveformViewMode == mode) return;
+    if (mode == _WaveformViewMode.analysis && !_isWaveformAnalysisAvailable) {
+      return;
+    }
+    if (_effectiveWaveformViewMode == mode) return;
     setState(() => _waveformViewMode = mode);
     if (mode == _WaveformViewMode.spectrum &&
         _spectrumResult == null &&
@@ -3441,7 +3484,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       _logWaveformMeasurements();
       _recomputeReferenceAnalysis();
       _recordWaveformHistory();
-      if (_waveformViewMode == _WaveformViewMode.spectrum) {
+      if (_effectiveWaveformViewMode == _WaveformViewMode.spectrum) {
         unawaited(_recomputeSpectrum());
       }
     } catch (e) {
@@ -3621,7 +3664,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       _spectrumResult = null;
     });
     unawaited(_persistSpectrumSettings());
-    if (_waveformViewMode == _WaveformViewMode.spectrum) {
+    if (_effectiveWaveformViewMode == _WaveformViewMode.spectrum) {
       unawaited(_recomputeSpectrum());
     }
   }
@@ -3823,7 +3866,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     final settings = result.settings;
     return <String, dynamic>{
       'available': true,
-      'viewMode': _waveformViewMode.name,
+      'viewMode': _effectiveWaveformViewMode.name,
       'selectedChannel': _spectrumChannel,
       'showAllChannels': _spectrumShowAll,
       'settings': {
@@ -4610,7 +4653,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       final reportBaseName = prefix.isNotEmpty ? prefix : 'waveform_report';
       final csvBaseName = prefix.isNotEmpty ? prefix : 'waveform_data';
 
-      final chartKey = _waveformViewMode == _WaveformViewMode.spectrum
+      final chartKey = _effectiveWaveformViewMode == _WaveformViewMode.spectrum
           ? _spectrumKey
           : _waveformKey;
       final boundary =
@@ -5056,8 +5099,200 @@ class _OsciHomePageState extends State<OsciHomePage>
       readSpectrumSummary: _spectrumSummaryForAi,
       acquireWaveform: _acquireWaveformForAi,
       readWaveformHistory: _waveformHistoryForAi,
+      classifyWaveform: _classifyWaveformForAi,
+      compareWaveformToReferences: _compareWaveformToReferencesForAi,
+      readWaveformFeatures: _waveformFeaturesForAi,
+      compareWaveforms: _compareWaveformsForAi,
+      generateReferenceWaveform: _generateWaveformReferenceForAi,
       vxi11Host: _ipAddress,
     );
+  }
+
+  /// First acquired channel, used when an analysis tool omits the channel.
+  String? _defaultAnalysisChannel() {
+    if (_waveformCh1?.points.isNotEmpty ?? false) return 'ch1';
+    if (_waveformCh2?.points.isNotEmpty ?? false) return 'ch2';
+    if (_waveformCh3?.points.isNotEmpty ?? false) return 'ch3';
+    if (_waveformCh4?.points.isNotEmpty ?? false) return 'ch4';
+    return null;
+  }
+
+  /// Trace of an acquired channel for the analysis engine.
+  WaveformTrace? _analysisTraceForChannel(String? channel) {
+    final requested = channel?.trim().toLowerCase();
+    final selected = requested == null || requested.isEmpty
+        ? _defaultAnalysisChannel()
+        : requested;
+    if (selected == null) return null;
+    final data = switch (selected) {
+      'ch1' => _waveformCh1,
+      'ch2' => _waveformCh2,
+      'ch3' => _waveformCh3,
+      'ch4' => _waveformCh4,
+      _ => null,
+    };
+    if (data == null || data.points.isEmpty) return null;
+    return WaveformTrace.fromPoints(data.points, channel: selected);
+  }
+
+  ({List<WaveformSignalType>? types, String? error}) _parseReferenceTypes(
+    List<String>? ids,
+  ) {
+    if (ids == null || ids.isEmpty) {
+      return (types: null, error: null);
+    }
+    final types = <WaveformSignalType>[];
+    final invalid = <String>[];
+    for (final id in ids) {
+      final type = WaveformSignalType.parse(id);
+      if (type == null) {
+        invalid.add(id);
+      } else if (!types.contains(type)) {
+        types.add(type);
+      }
+    }
+    if (invalid.isNotEmpty) {
+      return (
+        types: null,
+        error:
+            'Unknown reference type(s): ${invalid.join(', ')}. Valid types: '
+            '${WaveformSignalType.values.map((type) => type.id).join(', ')}.',
+      );
+    }
+    return (types: types.isEmpty ? null : types, error: null);
+  }
+
+  /// `classify_waveform` provider for the Waveform AI.
+  Future<Map<String, dynamic>> _classifyWaveformForAi({
+    String? channel,
+    List<String>? referenceTypes,
+  }) async {
+    if (!_waveformAcquired) {
+      return <String, dynamic>{
+        'error': 'No waveform is displayed. Acquire a waveform first.',
+      };
+    }
+    final parsed = _parseReferenceTypes(referenceTypes);
+    if (parsed.error != null) return <String, dynamic>{'error': parsed.error};
+    final trace = _analysisTraceForChannel(channel);
+    if (trace == null) {
+      return <String, dynamic>{
+        'error':
+            'No acquired waveform data is available for '
+            '${channel ?? 'the first channel'}. Acquire the channel first.',
+      };
+    }
+    final result = await _waveformAnalysisService.classifyAsync(
+      trace,
+      options: WaveformAnalysisOptions(referenceTypes: parsed.types),
+      channel: trace.channel,
+    );
+    return result.toMap();
+  }
+
+  /// `compare_waveform_to_references` provider for the Waveform AI.
+  Future<Map<String, dynamic>> _compareWaveformToReferencesForAi({
+    String? channel,
+    List<String>? referenceTypes,
+  }) async {
+    final map = await _classifyWaveformForAi(
+      channel: channel,
+      referenceTypes: referenceTypes,
+    );
+    if (map.containsKey('error')) return map;
+    final ranking = map['allCandidates'];
+    final individualScores = <String, dynamic>{};
+    if (ranking is List) {
+      for (final candidate in ranking) {
+        if (candidate is Map) {
+          individualScores[candidate['referenceLabel']?.toString() ??
+                  candidate['referenceType']?.toString() ??
+                  'unknown'] =
+              candidate['similarityPercent'];
+        }
+      }
+    }
+    return <String, dynamic>{
+      ...map,
+      'ranking': ranking,
+      'bestMatch': ranking is List && ranking.isNotEmpty ? ranking.first : null,
+      'individualSimilarityScores': individualScores,
+    };
+  }
+
+  /// `get_waveform_features` provider for the Waveform AI.
+  Future<Map<String, dynamic>> _waveformFeaturesForAi({String? channel}) async {
+    if (!_waveformAcquired) {
+      return <String, dynamic>{
+        'error': 'No waveform is displayed. Acquire a waveform first.',
+      };
+    }
+    final trace = _analysisTraceForChannel(channel);
+    if (trace == null) {
+      return <String, dynamic>{
+        'error':
+            'No acquired waveform data is available for '
+            '${channel ?? 'the first channel'}. Acquire the channel first.',
+      };
+    }
+    final features = await _waveformAnalysisService.featuresAsync(trace);
+    return <String, dynamic>{'channel': trace.channel, ...features.toMap()};
+  }
+
+  /// `compare_waveforms` provider for the Waveform AI.
+  Future<Map<String, dynamic>> _compareWaveformsForAi({
+    required String channelA,
+    required String channelB,
+  }) async {
+    if (!_waveformAcquired) {
+      return <String, dynamic>{
+        'error': 'No waveform is displayed. Acquire a waveform first.',
+      };
+    }
+    if (channelA == channelB) {
+      return <String, dynamic>{
+        'error': 'Choose two different channels for the comparison.',
+      };
+    }
+    final traceA = _analysisTraceForChannel(channelA);
+    if (traceA == null) {
+      return <String, dynamic>{
+        'error': 'No acquired waveform data is available for $channelA.',
+      };
+    }
+    final traceB = _analysisTraceForChannel(channelB);
+    if (traceB == null) {
+      return <String, dynamic>{
+        'error': 'No acquired waveform data is available for $channelB.',
+      };
+    }
+    final result = await _waveformAnalysisService.compareWaveformsAsync(
+      traceA,
+      traceB,
+      channelA: channelA,
+      channelB: channelB,
+    );
+    return result.toMap();
+  }
+
+  /// `generate_reference_waveform` provider for the Waveform AI.
+  Future<Map<String, dynamic>> _generateWaveformReferenceForAi({
+    required String referenceType,
+    Map<String, dynamic>? parameters,
+  }) async {
+    final type = WaveformSignalType.parse(referenceType);
+    if (type == null) {
+      return <String, dynamic>{
+        'error':
+            'Unknown reference type "$referenceType". Valid types: '
+            '${WaveformSignalType.values.map((type) => type.id).join(', ')}.',
+      };
+    }
+    final parsed = parameters == null || parameters.isEmpty
+        ? const ReferenceParameters()
+        : ReferenceParameters.fromMap(parameters);
+    final reference = _waveformAnalysisService.generateReference(type, parsed);
+    return _waveformAnalysisService.referencePreview(reference);
   }
 
   void _configureAiService() {
