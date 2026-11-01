@@ -1,10 +1,10 @@
 /// In-memory history of the most recent waveform acquisitions.
 ///
-/// The Waveform AI uses it to compare the last two measurements. Entries are
+/// The Waveform AI uses it to compare the last four measurements. Entries are
 /// stored newest first and carry a 1-based sequence number and an ISO 8601
 /// capture timestamp.
 class WaveformHistoryStore {
-  WaveformHistoryStore({this.maxEntries = 2});
+  WaveformHistoryStore({this.maxEntries = 4});
 
   /// Maximum number of entries kept. Older entries are discarded.
   final int maxEntries;

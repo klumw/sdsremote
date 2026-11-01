@@ -1482,7 +1482,7 @@ The assistant answers questions about the current acquisition. It reads the alre
 * **Date and time** — the date/time tool returns the current local time, timezone, UTC and Unix time, so answers can be timestamped.
 * **Instrument access** — the assistant can query live settings and measurements through the instrument agent (for example `C1:VDIV?` or `C1:PAVA? FREQ`). Every change to the instrument (V/div, offset, timebase, trigger, acquisition mode, …) is first proposed with the exact new value and applied only after the user explicitly confirms. After a change, re-acquire the waveform to update the chart and spectrum.
 * **Waveform acquisition** — the assistant can start a new acquisition itself with the `acquire_waveform` tool. This is a measurement action and needs no confirmation; it restores the previous trigger mode.
-* **Measurement history** — the app keeps the last two acquisitions with sequence number, capture time, device settings and time-domain measurements. The assistant can compare them on request. Spectrum metrics are available only for the current acquisition.
+* **Measurement history** — the app keeps the last four acquisitions with sequence number, capture time, device settings and time-domain measurements. The assistant can compare them on request. Spectrum metrics are available only for the current acquisition.
 
 Example questions: “Which channel has the lowest THD?”, “Explain the harmonic peaks of CH1”, “Convert the CH1 fundamental level to dBV”, “What is the crest factor of CH2?”, “Set CH1 to 0.5 V/div” (the assistant asks for confirmation before applying it), “Acquire a new waveform and compare it with the previous one”.
 

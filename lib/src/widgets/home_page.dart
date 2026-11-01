@@ -246,7 +246,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   int _spectrumGeneration = 0;
   final GlobalKey _spectrumKey = GlobalKey();
 
-  /// Last two acquisitions for the Waveform AI's history and comparison.
+  /// Last four acquisitions for the Waveform AI's history and comparison.
   final WaveformHistoryStore _waveformHistory = WaveformHistoryStore();
 
   /// Incremented after every successful acquisition so the AI acquisition
@@ -3712,17 +3712,17 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
   }
 
-  /// Stores the current acquisition in the two-entry Waveform AI history.
+  /// Stores the current acquisition in the four-entry Waveform AI history.
   ///
   /// Manual and AI-triggered acquisitions both pass through
-  /// [_acquireWaveform], so the history always reflects the last two captures.
+  /// [_acquireWaveform], so the history always reflects the last four captures.
   void _recordWaveformHistory() {
     final summary = _waveformSummaryForAi();
     if (summary == null) return;
     _waveformHistory.add(summary);
   }
 
-  /// Last two acquisitions for the `read_waveform_history` tool.
+  /// Last four acquisitions for the `read_waveform_history` tool.
   List<Map<String, dynamic>> _waveformHistoryForAi() =>
       _waveformHistory.entries;
 
