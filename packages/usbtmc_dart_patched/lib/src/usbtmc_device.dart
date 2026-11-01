@@ -38,6 +38,20 @@ class UsbtmcDevice {
   int termChar = 0x0A; // '\n'
   bool termCharEnabled = true;
 
+  /// Maximum payload bytes requested per USBTMC DEV_DEP_MSG_IN message.
+  ///
+  /// The USBTMC firmware of the Siglent SDS1x04X-E series only handles short
+  /// read requests reliably. Larger requests can wedge the instrument's USB
+  /// interface until it is unplugged and replugged: the device stays on the
+  /// bus but answers bulk and control transfers with a USB protocol error
+  /// (libusb reports `IO_ERROR`). The upstream scopehal project measured a
+  /// maximum request size of 48 bytes and reads affected devices in chunks
+  /// of that size.
+  ///
+  /// `null` means no limit beyond the USBTMC TransferSize field. Set by
+  /// `UsbtmcContext.newDeviceByVidPid` for Siglent devices on Linux.
+  int? maxReadTransferSize;
+
   UsbtmcDevice(this._usbDevice);
 
   /// Maximum payload bytes per USBTMC multi-transfer DEV_DEP_MSG_OUT chunk
@@ -308,7 +322,15 @@ class UsbtmcDevice {
     return _lock.protect(() async {
       // print('USBTMC: doRead start - maxBytesRequested: $maxBytesRequested');
       final List<int> accumulatedData = [];
+
+      // EOM flag of the most recently completed USBTMC message.
       bool isLastMessage = false;
+
+      // Total response size when known. A reply that fits into a single
+      // USBTMC message announces it in that message's header; a large binary
+      // block announces it in its IEEE 488.2 definite-length header.
+      // Multi-message replies carry only the size of the individual message
+      // in each header and are terminated by EOM on the last one.
       int? totalExpectedSize;
 
       const int maxChunkSize = 128 *
@@ -321,7 +343,7 @@ class UsbtmcDevice {
             // print('USBTMC: Stopping outer loop - reached expected size $totalExpectedSize (accumulated: ${accumulatedData.length})');
             break;
           }
-          if (totalExpectedSize == null && isLastMessage) {
+          if (isLastMessage) {
             // print('USBTMC: Stopping outer loop - standard EOM received (accumulated: ${accumulatedData.length})');
             break;
           }
@@ -341,6 +363,14 @@ class UsbtmcDevice {
             remainingToRequest = remainingBytes;
           }
         }
+        // Devices with the Siglent SDS1x04X-E firmware bug only tolerate
+        // short read requests; ask for at most maxReadTransferSize bytes.
+        // The value is written into the USBTMC TransferSize field below.
+        final int? transferLimit = maxReadTransferSize;
+        if (transferLimit != null && remainingToRequest > transferLimit) {
+          remainingToRequest = transferLimit;
+        }
+        if (remainingToRequest <= 0) break;
         // print('USBTMC: requesting next message - bTag: $_bTag, remainingToRequest: $remainingToRequest');
 
         // Build and transmit the Bulk-IN request header (12 bytes)
@@ -357,6 +387,7 @@ class UsbtmcDevice {
         bool isFirstRead = true;
         int messageBytesRead = 0;
         int consecutiveEmptyReads = 0;
+        bool messageIsLast = false;
 
         // Loop reading until either we get our expected bytes or the message is fully read.
         while (true) {
@@ -432,12 +463,18 @@ class UsbtmcDevice {
 
             // Byte 8 is bmTransferAttributes. Bit 0 is EOM.
             final transferAttributes = rawBuffer[8];
-            isLastMessage = (transferAttributes & 0x01) != 0;
-            // print('USBTMC: Header parsed - expectedTransferSize: $expectedTransferSize, isLastMessage (EOM): $isLastMessage');
+            messageIsLast = (transferAttributes & 0x01) != 0;
+            // print('USBTMC: Header parsed - expectedTransferSize: $expectedTransferSize, isLastMessage (EOM): $messageIsLast');
 
-            // Determine total transfer size on the first read of the transfer
+            // Determine total transfer size on the first read of the transfer.
+            // Only a message that carries EOM describes the whole reply. A
+            // non-final message's TransferSize is just its own payload size;
+            // treating it as the total truncates replies split into several
+            // short messages (as affected Siglent firmware sends them).
             if (accumulatedData.isEmpty) {
-              totalExpectedSize = expectedTransferSize;
+              if (messageIsLast) {
+                totalExpectedSize = expectedTransferSize;
+              }
               // print('USBTMC: Initial totalExpectedSize set from Bulk-IN TransferSize: $totalExpectedSize');
 
               // Check if we also have an IEEE definite-length header that indicates a larger size
@@ -457,7 +494,7 @@ class UsbtmcDevice {
                         final parsedSize = int.tryParse(lenStr);
                         if (parsedSize != null) {
                           final ieeeSize = 1 + 1 + nDigits + parsedSize;
-                          if (ieeeSize > totalExpectedSize) {
+                          if (ieeeSize > (totalExpectedSize ?? 0)) {
                             totalExpectedSize = ieeeSize;
                             // print('USBTMC: IEEE definite-length header specifies a larger size: $totalExpectedSize');
                           }
@@ -498,6 +535,7 @@ class UsbtmcDevice {
         if (messageBytesRead == 0) {
           break;
         }
+        isLastMessage = messageIsLast;
       }
 
       // print('USBTMC: doRead completed - returning ${accumulatedData.length} bytes');

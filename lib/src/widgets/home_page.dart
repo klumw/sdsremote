@@ -1237,7 +1237,11 @@ class _OsciHomePageState extends State<OsciHomePage>
           icon: _isAcquiring
               ? const AnimatedSyncIcon(size: 25, color: Colors.white)
               : const Icon(Icons.tune, size: 25),
-          onPressed: (_isAcquiring || !_isOnline || _isMacroPlaying)
+          onPressed:
+              (_isAcquiring ||
+                  _isAcquiringWaveform ||
+                  !_isOnline ||
+                  _isMacroPlaying)
               ? null
               : _acquireScreenDump,
         ),
@@ -3157,7 +3161,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   Future<void> _acquireScreenDump({bool keepPanels = false}) async {
-    if (_isAcquiring || _timelapseRunning) return;
+    if (_isAcquiring || _isAcquiringWaveform || _timelapseRunning) return;
 
     // Stop the Data Logger immediately when switching away from it
     if (!keepPanels && _activePanel == ActivePanel.dataLogger) {

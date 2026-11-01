@@ -420,7 +420,20 @@ Some Siglent USB firmware versions are not fully USB compliant. Perform the foll
    firmware to one packet per Bulk-OUT transfer. SDS-Remote accounts for
    this: profile uploads under Linux are sent as 64-byte transfers, the same
    segmentation WinUSB performs automatically on Windows. Other USB
-   functions are unaffected.
+   functions are unaffected by this segmentation.
+
+   A second firmware limitation affects read requests: older SDS1x04X-E
+   firmware only handled bulk-IN requests of up to 48 bytes reliably, and
+   larger requests could wedge the instrument's USB interface — it stays
+   listed on the bus but answers every transfer with a USB protocol error
+   (`libusb bulk read error: -1 (IO_ERROR)` in the application log) until it
+   is unplugged or power-cycled. Current firmware (8.1.6.1.37R17) tolerates
+   larger reads, so on Linux SDS-Remote reads from `f4ec` Siglent devices in
+   8192-byte chunks. A screen dump (`SCDP`) then takes about 1 second, and a
+   100,000-point waveform about 60 ms per channel; waveform acquisitions in
+   USB mode stay capped at 100,000 samples per channel to keep them quick. If
+   an instrument with older firmware shows USB errors, update the scope
+   firmware. The chunk size is not applied on Windows.
 
    While applying an uploaded profile the instrument resets its USB
    interface and disappears from the bus for about 20 seconds. SDS-Remote

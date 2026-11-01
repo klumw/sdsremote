@@ -1163,6 +1163,8 @@ The waveform display supports cursor measurements, zoom and pan controls, [refer
 
 > **Note:** At least one channel must be enabled for acquisition to succeed. The oscilloscope must have a valid trigger; otherwise the acquisition may time out.
 
+> **Note (USB, Linux):** On current SDS1x04X-E firmware the application reads in 8192-byte USBTMC chunks; a screen dump (`SCDP`) takes about 1 second. Older firmware only handled 48-byte reads reliably — update the oscilloscope firmware if USB transfers fail. In USB mode the acquisition is limited to 100,000 samples per channel; use a network (VXI-11) connection for deep-memory acquisitions.
+
 ### 8.2 Channel Selection
 
 Channel visibility can be toggled in two places:
@@ -2176,7 +2178,9 @@ The directory is OS specific:
   * Ensure oscilloscope is not in standby
   * If in network mode, validate IP address, firewall (VXI-11 uses port 111)
 
-* **USB connection lost / `libusb bulk write error`**
+* **USB connection lost / `libusb bulk write error` / `libusb bulk read error: -1 (IO_ERROR)`**
+  * `IO_ERROR` on a four-channel model (SDS1104X-E/SDS1204X-E) means the instrument's USBTMC firmware stopped responding. The oscilloscope is still listed on the bus but no longer answers any transfer. Unplug and replug the USB cable, or power-cycle the oscilloscope; no application restart is required.
+  * On Linux, SDS-Remote reads from SDS1x04X-E instruments in 8192-byte USBTMC chunks and caps waveform acquisitions at 100,000 samples per channel. Older firmware only handled 48-byte read requests reliably and could wedge its USB interface on larger requests; update the oscilloscope firmware if USB errors persist. The limit does not apply on Windows or over VXI-11.
   * If the device has disappeared from the bus (`lsusb` no longer lists it), unplug and replug the USB cable, or power-cycle the oscilloscope.  
     After a replug no application restart is required.
   * USB is less reliable than VXI-11; use the network connection for long-running macros and profile uploads.

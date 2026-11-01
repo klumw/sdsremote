@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:typed_data';
 
 import '../core/logger.dart';
@@ -76,9 +77,21 @@ class WaveformAcquisition {
       // waveform long enough to show all cycles visible on the screen.
       const int horizontalDivisions = 14;
       const int maxTransferPoints = 12000000;
+      // On Linux the SDS1x04X-E USBTMC firmware only tolerates short read
+      // requests (see UsbtmcContext.siglentMaxReadTransferSize). Deep-memory
+      // transfers would take minutes in 48-byte chunks, so the number of
+      // transferred samples is limited in USB mode.
+      const int usbMaxTransferPoints = 100000;
+      final int effectiveMaxTransferPoints =
+          Vxi11Instrument.isUsbMode && Platform.isLinux
+          ? usbMaxTransferPoints
+          : maxTransferPoints;
       final int desiredPoints = (timebase * horizontalDivisions * sampleRate)
           .ceil();
-      final int transferPoints = desiredPoints.clamp(1201, maxTransferPoints);
+      final int transferPoints = desiredPoints.clamp(
+        1201,
+        effectiveMaxTransferPoints,
+      );
       try {
         await activeInstr.writeString('WFSU SP,7,NP,$transferPoints,FP,0');
       } catch (e) {
