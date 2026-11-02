@@ -1482,7 +1482,7 @@ The file contains `#` metadata lines (device, timestamp, window, requested and m
 
 ### 8.10 Waveform AI Assistant
 
-The AI button in the header of the **Device Parameters** panel opens the Waveform AI assistant.
+The AI button in the header of the **Device Parameters** panel opens the Waveform AI assistant. The trash button in the panel header clears the transcript, the agent session and the measurement history; the next question starts without the previous turns and without the stored acquisitions. The history button next to the input field expands the last five user inputs; selecting an entry sends that prompt again.
 
 #### What the Assistant Can Do
 
@@ -1494,11 +1494,22 @@ Example questions:
 “What is the crest factor of CH2?”, “What kind of waveform is this?”, “Compare this signal with a sine wave”,  
 “Does this look like a PWM signal?”, “Which reference matches best?”, “Why is this signal distorted?”,  
 “How similar are CH1 and CH2?”,  
-“Acquire a new waveform and compare it with the previous one”.
+“Acquire a new waveform and compare it with the previous one”,  
+“Acquire in 10 seconds and then measure Vpp on CH2”.
+
+#### Acquisition
+
+The assistant can start a new acquisition itself, either immediately or after a requested delay. For "acquire in 10 seconds" it waits inside the tool and then captures; a combined request such as "acquire in 10 seconds and then measure Vpp on CH2" is answered from the measurements returned with the capture. Delays up to 600 seconds are supported. Pressing Stop cancels a pending delayed acquisition before it starts.
 
 #### Fault Analysis
 
 For an explicit fault-analysis request (“analyze this fault”, “why is the signal wrong”, “find the error”), the assistant can run a deterministic fault analyzer on every raw sample of the current acquisition. It selects only the tests that match the symptom from twenty categories: amplitude, signal loss/dropout, transients/spikes, clipping, frequency error/drift, noise, ringing, duty cycle, glitches, period jitter, DC offset, distortion, spurious frequency components, rise/fall time, amplitude stability, settling, phase/delay, crosstalk, intermittent faults and measurement artifacts. Before the call it asks for the reference value, tolerance or limit each selected test needs. Without a specification the tool reports measurements and clear anomalies but does not claim a confirmed violation. Results are reported per test with status (pass, fail, warning, informational, inconclusive, not applicable), measured vs expected values, deviations and event times; measurement artifacts and limitations are listed separately. Phase/delay and crosstalk require a second acquired channel.
+
+#### Specification Upload
+
+For a fault-analysis request, the assistant asks whether a PDF or text specification for the DUT is available. When the user confirms, an upload control appears in the chat. The control is hidden at all other times and is released only by the assistant's `request_specification_upload` tool, so it never competes with the normal chat input.
+
+The user can choose a PDF or a plain-text file (TXT, MD, CSV, TSV, JSON, LOG). The application extracts the text locally with the bundled PDF engine; the binary file is never sent to the AI provider. The extracted text is passed to the SpecAnalyst sub-agent, which extracts the electrical characteristics, normalizes the units and builds the fault-analysis specification. If the document contains several rails, pins or signals, the assistant asks which reference belongs to the measured channel before running the fault tests. Scanned image-only PDFs, password-protected PDFs and excerpts longer than 80,000 characters are rejected with a message so that the user can choose a smaller section. The upload can be cancelled at any time.
 
 #### Long-Term Profile
 
@@ -1519,7 +1530,7 @@ For digital-signal fault analysis the assistant can read the standard logic-leve
 | RS-232 | — | -15…-3 V | +3…+15 V | -15…-5 V | +5…+15 V |
 | HTL 10…30 V | 10…30 V | 0.2 × UB | 0.6 × UB | not stated | ≈ UB |
 
-RS-232 uses negative logic (low = 1, high = 0). HTL thresholds depend on the actual supply voltage; the assistant asks for it and computes the limits. ECL output levels are not stated in the source and require the device datasheet. The assistant uses the selected values as expected levels for the fault tests and quotes the source URL.
+RS-232 uses negative logic (low = 1, high = 0). HTL thresholds depend on the actual supply voltage; the assistant asks for it and computes the limits. ECL output levels are not stated in the source and require the device datasheet. The assistant uses the selected values as expected levels for the fault tests and quotes the source URL. For digital signals the assistant never runs the clipping test: a digital signal is rectangular by design, so flat tops and bottoms are valid levels rather than clipping. It checks the levels with amplitude, DC offset and the logic thresholds instead.
 
 The table also contains maximum edge times. These values were supplied by the user and are not part of the Wikipedia logic-level article:
 

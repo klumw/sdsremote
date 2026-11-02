@@ -1,15 +1,19 @@
 import 'package:dartantic_ai/dartantic_ai.dart';
 
+import '../tools/acquire_waveform_tool.dart';
 import '../tools/calculator_tool.dart';
 import '../tools/date_time_tool.dart';
 import '../tools/logic_level_reference_tool.dart';
 import '../tools/math_tool.dart';
+import '../tools/spec_analyst_tool.dart';
+import '../tools/specification_upload_tool.dart';
 import '../tools/spectrum_summary_tool.dart';
 import '../tools/waveform_analysis_tools.dart';
 import '../tools/waveform_fault_profile_tool.dart';
 import '../tools/waveform_fault_tool.dart';
 import '../tools/waveform_history_tool.dart';
 import '../tools/waveform_summary_tool.dart';
+import 'spec_analyst_agent.dart';
 import 'systemprompts.dart';
 
 /// Analysis assistant for the Acquire Waveform view.
@@ -29,6 +33,7 @@ class WaveformAgent {
     String model = 'deepseek:deepseek-v4-flash',
     WaveformSummaryProvider? readWaveformSummary,
     SpectrumSummaryProvider? readSpectrumSummary,
+    WaveformAcquisitionProvider? acquireWaveform,
     WaveformHistoryProvider? readWaveformHistory,
     WaveformClassificationProvider? classifyWaveform,
     WaveformReferenceComparisonProvider? compareWaveformToReferences,
@@ -37,6 +42,7 @@ class WaveformAgent {
     ReferenceGenerationProvider? generateReferenceWaveform,
     WaveformFaultAnalysisProvider? analyzeWaveformFaults,
     WaveformFaultProfileProvider? manageFaultProfile,
+    SpecificationUploadProvider? requestSpecUpload,
     int maxToolCalls = defaultMaxToolCalls,
   }) : _agent = Agent(
          model,
@@ -49,6 +55,10 @@ class WaveformAgent {
            ),
            createSpectrumSummaryTool(
              readSummary: readSpectrumSummary,
+             agentName: 'WaveformAgent',
+           ),
+           createAcquireWaveformTool(
+             acquire: acquireWaveform,
              agentName: 'WaveformAgent',
            ),
            createWaveformHistoryTool(
@@ -77,6 +87,14 @@ class WaveformAgent {
            ),
            createWaveformFaultProfileTool(
              manage: manageFaultProfile,
+             agentName: 'WaveformAgent',
+           ),
+           createSpecificationUploadTool(
+             requestUpload: requestSpecUpload,
+             agentName: 'WaveformAgent',
+           ),
+           createSpecificationAnalysisTool(
+             analyze: SpecAnalystAgent(model: model).analyze,
              agentName: 'WaveformAgent',
            ),
            createLogicLevelReferenceTool(agentName: 'WaveformAgent'),

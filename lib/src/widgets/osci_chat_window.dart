@@ -116,6 +116,15 @@ class ChatWindow extends StatefulWidget {
   /// send button while a response is running.
   final VoidCallback? onCancel;
 
+  /// Recent user inputs offered in the expandable list above the input field.
+  ///
+  /// The list stays hidden until the user taps the history button. An empty
+  /// list hides the button.
+  final List<String> inputHistory;
+
+  /// Called when the user selects an entry from [inputHistory].
+  final ValueChanged<String>? onHistorySelected;
+
   /// Optional handler for taps on links inside AI answers.
   ///
   /// When null, links open in the external browser. The help window uses this
@@ -137,6 +146,8 @@ class ChatWindow extends StatefulWidget {
     this.hintText = 'Ask about the oscilloscope or give a command...',
     this.emptyStateText,
     this.onCancel,
+    this.inputHistory = const [],
+    this.onHistorySelected,
     this.onLinkTap,
   });
 
@@ -151,6 +162,7 @@ class _ChatWindowState extends State<ChatWindow> {
   final FocusNode _chatFocusNode = FocusNode();
   int _previousMessageCount = 0;
   int _previousLastMessageLength = 0;
+  bool _showHistory = false;
 
   @override
   void initState() {
@@ -257,6 +269,7 @@ class _ChatWindowState extends State<ChatWindow> {
     final text = _chatController.text.trim();
     if (text.isEmpty || widget.isChatting || !widget.isInitialized) return;
 
+    if (_showHistory) setState(() => _showHistory = false);
     _chatController.clear();
     widget.onSendMessage(text);
     _scrollToBottom();
@@ -347,6 +360,8 @@ class _ChatWindowState extends State<ChatWindow> {
                     },
                   ),
           ),
+          if (_showHistory && widget.inputHistory.isNotEmpty)
+            _buildInputHistory(),
           // Input area
           Container(
             padding: const EdgeInsets.all(12),
@@ -397,6 +412,16 @@ class _ChatWindowState extends State<ChatWindow> {
                     ),
                   ),
                 ),
+                if (widget.inputHistory.isNotEmpty)
+                  IconButton(
+                    tooltip: _showHistory
+                        ? 'Hide input history'
+                        : 'Show input history',
+                    icon: const Icon(Icons.history, color: Colors.white70),
+                    onPressed: widget.isChatting || !widget.isInitialized
+                        ? null
+                        : () => setState(() => _showHistory = !_showHistory),
+                  ),
                 const SizedBox(width: 8),
                 if (widget.isChatting && widget.onCancel != null)
                   IconButton(
@@ -418,6 +443,58 @@ class _ChatWindowState extends State<ChatWindow> {
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  /// Expandable list of recent user inputs above the input field.
+  Widget _buildInputHistory() {
+    final enabled = !widget.isChatting && widget.isInitialized;
+    return Container(
+      constraints: const BoxConstraints(maxHeight: 190),
+      decoration: const BoxDecoration(
+        color: Color(0xFF10263D),
+        border: Border(top: BorderSide(color: Colors.white12)),
+      ),
+      child: ListView.builder(
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        itemCount: widget.inputHistory.length,
+        itemBuilder: (context, index) {
+          final entry = widget.inputHistory[index];
+          return InkWell(
+            onTap: enabled
+                ? () {
+                    setState(() => _showHistory = false);
+                    widget.onHistorySelected?.call(entry);
+                  }
+                : null,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 9),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.north_west,
+                    size: 14,
+                    color: enabled ? Colors.white38 : Colors.white24,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      entry,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: enabled ? Colors.white70 : Colors.white30,
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
@@ -450,7 +527,13 @@ class _ChatWindowState extends State<ChatWindow> {
   /// indicator at the end when content has started arriving but the agent is
   /// still generating. Otherwise renders the content as markdown.
   Widget _buildMessageContent(Map<String, String> msg, int index, bool isUser) {
-    final isLastAiMessage = !isUser && index == widget.chatMessages.length - 1;
+    // Streaming state belongs to the last assistant message even when a
+    // non-assistant message (for example an upload notice) was added while
+    // the answer is still being generated.
+    final lastAiIndex = widget.chatMessages.lastIndexWhere(
+      (message) => message['role'] != 'user',
+    );
+    final isLastAiMessage = !isUser && index == lastAiIndex;
 
     // Case 1: Empty content while streaming → "Thinking..." spinner
     if (isLastAiMessage && msg['content']!.isEmpty && widget.isChatting) {

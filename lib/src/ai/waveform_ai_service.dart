@@ -4,6 +4,8 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../core/logger.dart';
 import 'agents/waveform_agent.dart';
+import 'tools/acquire_waveform_tool.dart';
+import 'tools/specification_upload_tool.dart';
 import 'tools/spectrum_summary_tool.dart';
 import 'tools/waveform_analysis_tools.dart';
 import 'tools/waveform_fault_profile_tool.dart';
@@ -19,6 +21,10 @@ import 'tools/waveform_summary_tool.dart';
 class WaveformAiService {
   WaveformAgent? _agent;
   bool _isDisposed = false;
+  Timer? _responseTimer;
+  StreamController<String>? _activeTimeoutController;
+  void Function()? _armResponseTimer;
+  bool _timeoutSuspended = false;
 
   static const Duration responseTimeout = Duration(seconds: 120);
 
@@ -30,6 +36,7 @@ class WaveformAiService {
     required String model,
     required WaveformSummaryProvider readWaveformSummary,
     required SpectrumSummaryProvider readSpectrumSummary,
+    WaveformAcquisitionProvider? acquireWaveform,
     WaveformHistoryProvider? readWaveformHistory,
     WaveformClassificationProvider? classifyWaveform,
     WaveformReferenceComparisonProvider? compareWaveformToReferences,
@@ -38,6 +45,7 @@ class WaveformAiService {
     ReferenceGenerationProvider? generateReferenceWaveform,
     WaveformFaultAnalysisProvider? analyzeWaveformFaults,
     WaveformFaultProfileProvider? manageFaultProfile,
+    SpecificationUploadProvider? requestSpecUpload,
     int maxToolCalls = WaveformAgent.defaultMaxToolCalls,
   }) {
     if (_isDisposed) return;
@@ -49,6 +57,7 @@ class WaveformAiService {
         model: model,
         readWaveformSummary: readWaveformSummary,
         readSpectrumSummary: readSpectrumSummary,
+        acquireWaveform: acquireWaveform,
         readWaveformHistory: readWaveformHistory,
         classifyWaveform: classifyWaveform,
         compareWaveformToReferences: compareWaveformToReferences,
@@ -57,6 +66,7 @@ class WaveformAiService {
         generateReferenceWaveform: generateReferenceWaveform,
         analyzeWaveformFaults: analyzeWaveformFaults,
         manageFaultProfile: manageFaultProfile,
+        requestSpecUpload: requestSpecUpload,
         maxToolCalls: maxToolCalls,
       );
       AppLogger(
@@ -87,19 +97,7 @@ class WaveformAiService {
     );
     logger.log('Waveform AI request started (model=${agent.model})');
     try {
-      yield* agent
-          .sendStream(text)
-          .timeout(
-            responseTimeout,
-            onTimeout: (sink) {
-              sink.addError(
-                TimeoutException(
-                  'AI request timed out after ${responseTimeout.inSeconds} s',
-                ),
-              );
-              sink.close();
-            },
-          );
+      yield* _withResponseTimeout(agent.sendStream(text));
       logger.log('Waveform AI request completed');
     } on Object catch (error) {
       logger.error('Waveform AI request failed: $error');
@@ -107,8 +105,110 @@ class WaveformAiService {
     }
   }
 
+  /// Clears the agent conversation history so the next request starts a
+  /// fresh session without the previous turns.
+  void clearSession() {
+    _agent?.clearHistory();
+  }
+
+  /// Applies the response timeout while no user input is pending.
+  ///
+  /// The timeout is suspended with [suspendResponseTimeout] while a tool
+  /// waits for a file upload, because the user can take longer than the
+  /// normal response window.
+  Stream<String> _withResponseTimeout(Stream<String> source) {
+    final controller = StreamController<String>();
+    StreamSubscription<String>? subscription;
+    var closed = false;
+
+    void closeController() {
+      if (closed) return;
+      closed = true;
+      if (identical(_activeTimeoutController, controller)) {
+        _responseTimer?.cancel();
+        _responseTimer = null;
+        _armResponseTimer = null;
+        _activeTimeoutController = null;
+      }
+      if (!controller.isClosed) controller.close();
+      // Stop the agent when the timeout closed the output stream.
+      unawaited(subscription?.cancel());
+    }
+
+    void armTimer() {
+      _responseTimer?.cancel();
+      if (closed || _timeoutSuspended) {
+        _responseTimer = null;
+        return;
+      }
+      _responseTimer = Timer(responseTimeout, () {
+        if (closed || _timeoutSuspended) return;
+        controller.addError(
+          TimeoutException(
+            'AI request timed out after ${responseTimeout.inSeconds} s',
+          ),
+        );
+        closeController();
+      });
+    }
+
+    controller.onListen = () {
+      _activeTimeoutController = controller;
+      _armResponseTimer = armTimer;
+      armTimer();
+      subscription = source.listen(
+        (chunk) {
+          if (closed) return;
+          armTimer();
+          controller.add(chunk);
+        },
+        onError: (Object error, StackTrace stackTrace) {
+          if (closed) return;
+          controller.addError(error, stackTrace);
+          closeController();
+        },
+        onDone: () {
+          if (!closed) closeController();
+        },
+        cancelOnError: true,
+      );
+    };
+    controller.onCancel = () async {
+      closed = true;
+      if (identical(_activeTimeoutController, controller)) {
+        _responseTimer?.cancel();
+        _responseTimer = null;
+        _armResponseTimer = null;
+        _activeTimeoutController = null;
+      }
+      await subscription?.cancel();
+    };
+    return controller.stream;
+  }
+
+  /// Stops the response timeout while a tool waits for user input.
+  void suspendResponseTimeout() {
+    _timeoutSuspended = true;
+    _responseTimer?.cancel();
+    _responseTimer = null;
+  }
+
+  /// Restarts the response timeout after the user supplied the input.
+  void resumeResponseTimeout() {
+    if (!_timeoutSuspended) return;
+    _timeoutSuspended = false;
+    _armResponseTimer?.call();
+  }
+
   void dispose() {
     _isDisposed = true;
     _agent = null;
+    _timeoutSuspended = false;
+    _responseTimer?.cancel();
+    _responseTimer = null;
+    _armResponseTimer = null;
+    final controller = _activeTimeoutController;
+    _activeTimeoutController = null;
+    if (controller != null && !controller.isClosed) controller.close();
   }
 }

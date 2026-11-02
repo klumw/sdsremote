@@ -56,6 +56,10 @@ class _WaveformAiPanelState extends State<WaveformAiPanel> {
             children: [
               _buildHeader(),
               if (!_chat.isAvailable) _buildConfigurationBanner(),
+              // The upload control is hidden until the Waveform Agent calls
+              // request_specification_upload.
+              if (_chat.isSpecificationUploadVisible)
+                _buildSpecificationUpload(),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(6, 2, 6, 6),
@@ -67,6 +71,8 @@ class _WaveformAiPanelState extends State<WaveformAiPanel> {
                     onCancel: _chat.cancel,
                     autofocus: _chat.isOpen,
                     inputController: _input,
+                    inputHistory: _chat.inputHistory,
+                    onHistorySelected: _chat.send,
                     hintText: 'Ask about the waveform or spectrum...',
                     emptyStateText:
                         'Ask about the current acquisition\n\n'
@@ -114,10 +120,10 @@ class _WaveformAiPanelState extends State<WaveformAiPanel> {
           ),
           const SizedBox(width: 6),
           IconButton(
-            tooltip: 'Clear chat',
+            tooltip: 'Clear session',
             onPressed: _chat.messages.isEmpty || _chat.isChatting
                 ? null
-                : _chat.clearChat,
+                : _chat.clearSession,
             icon: const Icon(Icons.delete_sweep_outlined, size: 18),
             color: Colors.white70,
             visualDensity: VisualDensity.compact,
@@ -128,6 +134,92 @@ class _WaveformAiPanelState extends State<WaveformAiPanel> {
             icon: const Icon(Icons.close, size: 18),
             color: Colors.white70,
             visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSpecificationUpload() {
+    final busy = _chat.isSpecificationUploadBusy;
+    final error = _chat.specificationUploadError;
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: const Color(0xFF10263D),
+        border: Border.all(
+          color: Colors.lightBlueAccent.withValues(alpha: 0.45),
+        ),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(
+                Icons.upload_file,
+                size: 18,
+                color: Colors.lightBlueAccent,
+              ),
+              const SizedBox(width: 8),
+              const Expanded(
+                child: Text(
+                  'DUT specification requested',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Cancel upload',
+                onPressed: busy ? null : _chat.cancelSpecificationUpload,
+                icon: const Icon(Icons.close, size: 16),
+                color: Colors.white54,
+                visualDensity: VisualDensity.compact,
+              ),
+            ],
+          ),
+          const SizedBox(height: 2),
+          Text(
+            busy
+                ? 'Extracting text from the selected file…'
+                : 'Choose a PDF or plain-text file (TXT, MD, CSV, TSV, JSON, '
+                      'LOG) with the electrical characteristics. The text is '
+                      'extracted locally and sent to the analysis.',
+            style: const TextStyle(
+              color: Colors.white70,
+              fontSize: 11,
+              height: 1.35,
+            ),
+          ),
+          if (busy) ...[
+            const SizedBox(height: 8),
+            const LinearProgressIndicator(minHeight: 2),
+          ],
+          if (error != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              error,
+              style: const TextStyle(
+                color: Colors.redAccent,
+                fontSize: 11,
+                height: 1.35,
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Align(
+            alignment: Alignment.centerRight,
+            child: FilledButton.icon(
+              onPressed: busy ? null : _chat.pickSpecificationFileForUpload,
+              icon: const Icon(Icons.folder_open, size: 16),
+              label: const Text('Choose file'),
+            ),
           ),
         ],
       ),
