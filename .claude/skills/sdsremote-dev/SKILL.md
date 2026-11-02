@@ -70,5 +70,5 @@ Ask the user with `AskUserQuestion`:
 - Once all features are implemented and all tests are green ask if you should update the SDS-Remote documentation in confluence
   Option 1: "Yes - updated confluence"
   Option 2: "No - do nothing"
-- Always update manual.md with new features or feature changes
+- Always update manual.md with new features or feature changes, don't put technical information of underlying systems in, use only english no german words, don't put information of version changes in the manual.- - Only put information of new features or feature changes
 - Always update the project README after successfule feature updates  

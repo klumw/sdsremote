@@ -1113,7 +1113,8 @@ class _HelpWindowState extends State<HelpWindow>
 
   /// Style sheet shared by all manual chunks.
   MarkdownStyleSheet _buildMarkdownStyleSheet(BuildContext context) {
-    return MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(
+    final base = MarkdownStyleSheet.fromTheme(Theme.of(context));
+    return base.copyWith(
       p: const TextStyle(color: Colors.white, fontSize: 16),
       h1: const TextStyle(
         color: Colors.cyanAccent,
@@ -1126,10 +1127,17 @@ class _HelpWindowState extends State<HelpWindow>
         fontWeight: FontWeight.bold,
       ),
       h3: const TextStyle(
-        color: Colors.white,
+        color: Colors.greenAccent,
         fontSize: 18,
         fontWeight: FontWeight.bold,
       ),
+      h4:
+          base.h4?.copyWith(color: Colors.yellow) ??
+          const TextStyle(
+            color: Colors.yellow,
+            fontSize: 16,
+            fontWeight: FontWeight.w500,
+          ),
       code: TextStyle(
         backgroundColor: Colors.black54,
         color: Colors.greenAccent[100],
