@@ -1,16 +1,12 @@
 import 'package:dartantic_ai/dartantic_ai.dart';
 
-import '../tools/acquire_waveform_tool.dart';
 import '../tools/calculator_tool.dart';
 import '../tools/date_time_tool.dart';
 import '../tools/math_tool.dart';
-import '../tools/scpi_agent_tool.dart';
 import '../tools/spectrum_summary_tool.dart';
-import '../tools/vxi11_tool.dart';
 import '../tools/waveform_analysis_tools.dart';
 import '../tools/waveform_history_tool.dart';
 import '../tools/waveform_summary_tool.dart';
-import 'instrument_agent.dart';
 import 'systemprompts.dart';
 
 /// Analysis assistant for the Acquire Waveform view.
@@ -18,12 +14,9 @@ import 'systemprompts.dart';
 /// The agent sees the current time-domain measurements and the FFT spectrum
 /// through deterministic read tools, performs derived calculations with the
 /// math and calculator tools, and can place results in time with the
-/// date/time tool. When an instrument address is configured it can also read
-/// live values and change scope settings through the instrument agent; the
-/// system prompt requires explicit user confirmation before any change.
+/// date/time tool.
 class WaveformAgent {
   static const int defaultMaxToolCalls = 16;
-  static const int defaultInstrumentToolCalls = 8;
   static const int _maxHistoryMessages = 12;
 
   final Agent _agent;
@@ -33,16 +26,12 @@ class WaveformAgent {
     String model = 'deepseek:deepseek-v4-flash',
     WaveformSummaryProvider? readWaveformSummary,
     SpectrumSummaryProvider? readSpectrumSummary,
-    WaveformAcquisitionProvider? acquireWaveform,
     WaveformHistoryProvider? readWaveformHistory,
     WaveformClassificationProvider? classifyWaveform,
     WaveformReferenceComparisonProvider? compareWaveformToReferences,
     WaveformFeaturesProvider? readWaveformFeatures,
     WaveformPairComparisonProvider? compareWaveforms,
     ReferenceGenerationProvider? generateReferenceWaveform,
-    String? vxi11Host,
-    ScpiCommandCallback? onCommandSent,
-    int instrumentToolCalls = defaultInstrumentToolCalls,
     int maxToolCalls = defaultMaxToolCalls,
   }) : _agent = Agent(
          model,
@@ -55,10 +44,6 @@ class WaveformAgent {
            ),
            createSpectrumSummaryTool(
              readSummary: readSpectrumSummary,
-             agentName: 'WaveformAgent',
-           ),
-           createAcquireWaveformTool(
-             acquire: acquireWaveform,
              agentName: 'WaveformAgent',
            ),
            createWaveformHistoryTool(
@@ -85,17 +70,6 @@ class WaveformAgent {
              generate: generateReferenceWaveform,
              agentName: 'WaveformAgent',
            ),
-           if (vxi11Host != null)
-             createScpiAgentTool(
-               InstrumentAgent(
-                 model: model,
-                 vxi11Host: vxi11Host,
-                 maxToolCalls: instrumentToolCalls,
-                 onCommandSent: onCommandSent,
-                 systemPrompt: instrumentAgentSystemPrompt,
-               ),
-               agentName: 'WaveformAgent',
-             ),
            createMathTool(agentName: 'WaveformAgent'),
            createCalculatorTool(agentName: 'WaveformAgent'),
            createDateTimeTool(agentName: 'WaveformAgent'),

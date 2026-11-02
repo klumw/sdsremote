@@ -353,7 +353,6 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
 
   Widget _buildChannelCard(String channel, WaveformMeasurements measurement) {
     final color = _channelColor(channel);
-    final stats = widget.statistics[channel];
 
     return Container(
       width: _showDetails ? 420 : 340,
@@ -425,15 +424,6 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
                 ],
               ),
             ],
-            if (widget.historyCount > 1 && stats != null) ...[
-              const SizedBox(height: 6),
-              Text(
-                _buildStatisticsLine(stats),
-                style: const TextStyle(color: Colors.white54, fontSize: 10),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
           ],
         ),
       ),
@@ -496,37 +486,6 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
     ('Samples', '${m.sampleCount}'),
     ('Δt', _formatSeconds(m.sampleIntervalSeconds)),
   ];
-
-  String _buildStatisticsLine(WaveformChannelStatistics stats) {
-    String part(String key, String unit) {
-      final metric = stats.metrics[key];
-      if (metric == null || metric.mean == null) return '';
-      final mean = _formatStatValue(metric.mean!, unit);
-      final deviation = metric.standardDeviation;
-      return deviation == null
-          ? mean
-          : '$mean ± ${_formatStatValue(deviation, unit)}';
-    }
-
-    final parts = <String>[
-      if (part('vPp', 'V').isNotEmpty) 'Vpp ${part('vPp', 'V')}',
-      if (part('vRms', 'V').isNotEmpty) 'RMS ${part('vRms', 'V')}',
-      if (part('frequencyHz', 'Hz').isNotEmpty)
-        'f ${part('frequencyHz', 'Hz')}',
-      if (part('dutyPercent', '%').isNotEmpty)
-        'Duty ${part('dutyPercent', '%')}',
-    ];
-    return 'History (${stats.measurementCount}): ${parts.join(' · ')}';
-  }
-
-  String _formatStatValue(double value, String unit) {
-    if (unit == '%') return '${value.toStringAsFixed(1)} %';
-    return formatMeasurementValue(
-      value,
-      unit,
-      fractionDigits: _channelParameterFractionDigits,
-    );
-  }
 
   Widget _buildMaskBar() {
     final settings = widget.maskSettings;

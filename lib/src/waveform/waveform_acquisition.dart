@@ -42,6 +42,7 @@ class WaveformAcquisition {
     bool ch4 = false,
     void Function()? onConnected,
     Vxi11Instrument? instr,
+    int? maxTransferPoints,
   }) async {
     final bool ownInstr = instr == null;
     final activeInstr =
@@ -89,16 +90,21 @@ class WaveformAcquisition {
       // Configure waveform transfer setup so the complete display span
       // (timebase * 14 divisions) is transferred, not just its beginning.
       const int horizontalDivisions = 14;
-      const int maxTransferPoints = 12000000;
+      // VXI-11 could transfer the full deep memory, but the waveform view
+      // only needs enough samples for the raster, measurements and spectrum.
+      // A 7M-point record took 4.2 s at 500 us/div; 250k points take about
+      // 1 s and still give ~6k samples per period for a 3 kHz signal.
+      const int defaultMaxTransferPoints = 250000;
       // On Linux the SDS1x04X-E USBTMC firmware only tolerates short read
       // requests (see UsbtmcContext.siglentMaxReadTransferSize). Deep-memory
       // transfers would take minutes in 48-byte chunks, so the number of
       // transferred samples is limited in USB mode.
       const int usbMaxTransferPoints = 100000;
-      final int effectiveMaxTransferPoints =
-          Vxi11Instrument.isUsbMode && Platform.isLinux
+      final int transportCap = Vxi11Instrument.isUsbMode && Platform.isLinux
           ? usbMaxTransferPoints
-          : maxTransferPoints;
+          : defaultMaxTransferPoints;
+      final int effectiveMaxTransferPoints = (maxTransferPoints ?? transportCap)
+          .clamp(1201, transportCap);
       final int desiredPoints = (timebase * horizontalDivisions * sampleRate)
           .ceil();
       final int transferPoints = desiredPoints.clamp(

@@ -3765,36 +3765,6 @@ class _OsciHomePageState extends State<OsciHomePage>
   List<Map<String, dynamic>> _waveformHistoryForAi() =>
       _waveformHistory.entries;
 
-  /// Runs a complete acquisition for the `acquire_waveform` tool.
-  ///
-  /// Returns a structured error instead of throwing so the agent can explain
-  /// the failure. The acquisition itself updates the chart and measurements
-  /// and appends to the history.
-  Future<Map<String, dynamic>> _acquireWaveformForAi() async {
-    if (_isAcquiringWaveform) {
-      return {'error': 'A waveform acquisition is already running.'};
-    }
-    if (!_isOnline) {
-      return {'error': 'The oscilloscope is offline.'};
-    }
-    final generation = _acquisitionGeneration;
-    await _acquireWaveform();
-    if (_acquisitionGeneration == generation) {
-      return {
-        'error':
-            'The waveform acquisition failed. Check the connection and the '
-            'application log.',
-      };
-    }
-    final summary = _waveformSummaryForAi();
-    if (summary == null) {
-      return {
-        'error': 'The acquisition completed but no measurements are available.',
-      };
-    }
-    return {'acquired': true, 'measurements': summary};
-  }
-
   /// Compact description of the displayed waveform for the Control Panel AI's
   /// `read_waveform_summary` tool.
   ///
@@ -5093,14 +5063,12 @@ class _OsciHomePageState extends State<OsciHomePage>
       _aiSettings,
       readWaveformSummary: _waveformSummaryForAi,
       readSpectrumSummary: _spectrumSummaryForAi,
-      acquireWaveform: _acquireWaveformForAi,
       readWaveformHistory: _waveformHistoryForAi,
       classifyWaveform: _classifyWaveformForAi,
       compareWaveformToReferences: _compareWaveformToReferencesForAi,
       readWaveformFeatures: _waveformFeaturesForAi,
       compareWaveforms: _compareWaveformsForAi,
       generateReferenceWaveform: _generateWaveformReferenceForAi,
-      vxi11Host: _ipAddress,
     );
   }
 

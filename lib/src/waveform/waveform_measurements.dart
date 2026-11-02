@@ -391,7 +391,20 @@ WaveformMeasurements _measureSeries({
     );
   }
 
-  final (vBase, vTop) = _percentileLevels(series, vMin, vMax);
+  var (vBase, vTop) = _percentileLevels(series, vMin, vMax);
+  if (vTop - vBase <= 0) {
+    // A low-duty pulse puts the high level above the 5 %/95 % window: at a
+    // 2 % duty cycle the 95th percentile is still the baseline, so the first
+    // pass sees no amplitude. Retry with tighter tails before declaring the
+    // levels indistinguishable.
+    (vBase, vTop) = _percentileLevels(
+      series,
+      vMin,
+      vMax,
+      lowFraction: 0.005,
+      highFraction: 0.995,
+    );
+  }
   final amplitude = vTop - vBase;
 
   if (amplitude <= 0) {
@@ -702,8 +715,10 @@ WaveformMeasurements _measureSeries({
 (double base, double top) _percentileLevels(
   _SampleSeries series,
   double vMin,
-  double vMax,
-) {
+  double vMax, {
+  double lowFraction = 0.05,
+  double highFraction = 0.95,
+}) {
   const bins = 2048;
   final histogram = Int32List(bins);
   final range = vMax - vMin;
@@ -730,7 +745,7 @@ WaveformMeasurements _measureSeries({
     return vMax;
   }
 
-  return (valueAt(0.05), valueAt(0.95));
+  return (valueAt(lowFraction), valueAt(highFraction));
 }
 
 /// Linearly interpolates the time at which the signal crosses [target].

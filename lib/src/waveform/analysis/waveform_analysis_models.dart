@@ -768,10 +768,12 @@ class WaveformFeatures {
 /// Weights of the comparison methods used for the final similarity score.
 ///
 /// The specification suggests 30 % shape, 30 % feature, 20 % frequency and
-/// 20 % DTW. The engine uses 24/24/16/16 and adds a 20 % signal-specific rule
-/// score, because the detection rules in the specification are a required
-/// classifier input. [SimilarityWeights.specSuggested] keeps the original
-/// four-way split available.
+/// 20 % DTW. The defaults below were calibrated on 2026-11-02 against an
+/// FY6900-60M and an SDS1104X-E (979 captures across all ten reference
+/// types) and checked against the ideal-reference fixtures: shape and DTW
+/// dominate, while feature, frequency and the signal-specific rule act as
+/// guards. [SimilarityWeights.specSuggested] keeps the original four-way
+/// split available.
 class SimilarityWeights {
   final double shape;
   final double feature;
@@ -780,11 +782,11 @@ class SimilarityWeights {
   final double rule;
 
   const SimilarityWeights({
-    this.shape = 0.24,
-    this.feature = 0.24,
-    this.frequency = 0.16,
-    this.dtw = 0.16,
-    this.rule = 0.20,
+    this.shape = 0.62,
+    this.feature = 0.08,
+    this.frequency = 0.05,
+    this.dtw = 0.12,
+    this.rule = 0.13,
   });
 
   const SimilarityWeights.specSuggested()
@@ -818,11 +820,11 @@ class SimilarityWeights {
 
   factory SimilarityWeights.fromMap(Map<String, dynamic> map) {
     return SimilarityWeights(
-      shape: _readDouble(map['shape']) ?? 0.24,
-      feature: _readDouble(map['feature']) ?? 0.24,
-      frequency: _readDouble(map['frequency']) ?? 0.16,
-      dtw: _readDouble(map['dtw']) ?? 0.16,
-      rule: _readDouble(map['rule']) ?? 0.20,
+      shape: _readDouble(map['shape']) ?? 0.62,
+      feature: _readDouble(map['feature']) ?? 0.08,
+      frequency: _readDouble(map['frequency']) ?? 0.05,
+      dtw: _readDouble(map['dtw']) ?? 0.12,
+      rule: _readDouble(map['rule']) ?? 0.13,
     );
   }
 }
@@ -860,7 +862,7 @@ class WaveformAnalysisOptions {
     this.maxAnalysisPoints = 4096,
     this.harmonicCount = 5,
     this.minConfidentScore = 40,
-    this.ambiguityMargin = 5,
+    this.ambiguityMargin = 3,
     this.maxReferenceVariants = 3,
     this.smoothing = false,
   });
@@ -919,7 +921,7 @@ class WaveformAnalysisOptions {
       maxAnalysisPoints: (map['maxAnalysisPoints'] as num?)?.toInt() ?? 4096,
       harmonicCount: (map['harmonicCount'] as num?)?.toInt() ?? 5,
       minConfidentScore: _readDouble(map['minConfidentScore']) ?? 40,
-      ambiguityMargin: _readDouble(map['ambiguityMargin']) ?? 5,
+      ambiguityMargin: _readDouble(map['ambiguityMargin']) ?? 3,
       maxReferenceVariants: (map['maxReferenceVariants'] as num?)?.toInt() ?? 3,
       smoothing: map['smoothing'] == true,
     );

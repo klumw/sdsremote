@@ -99,8 +99,19 @@ class WaveformTrace {
     // ADC steps. Stair steps (one step each) are averaged away, a square wave
     // flank - a single jump of several divisions - is never crossed, so it
     // keeps its position and stays vertical.
-    const double smoothingWidthPx = 14.0;
-    const double smoothingMaxSteps = 6.0;
+    // The smoothing window adapts to the signal period: a fast sine with a
+    // few dozen pixels per period needs a short window or its tops flatten
+    // into plateaus, while a slow sine (hundreds of pixels per period) needs
+    // a wider window to remove the visible ADC stair steps.
+    final double periodPx = _estimatePeriodPx(trace);
+    final double smoothingWidthPx = periodPx > 0
+        ? (periodPx * 0.08).clamp(4.0, 18.0)
+        : 4.0;
+    // A wider window also needs a higher step limit for slow signals;
+    // otherwise a two- or three-code quantisation transition stops the
+    // window and leaves a visible discontinuity. Square-wave flanks are an
+    // order of magnitude larger and are still never crossed.
+    final double smoothingMaxSteps = periodPx > 100 ? 6.0 : 2.0;
     // One step of the instrument's 8 bit ADC, expressed in pixels.
     final double adcStepPx = (vdiv / 25.0) / visibleVRange * size.height;
     return WaveformInterpolation.smooth(
@@ -109,4 +120,59 @@ class WaveformTrace {
       maxStep: adcStepPx * smoothingMaxSteps,
     );
   }
+}
+
+/// Estimates the signal period in pixels from the mean crossings of [trace].
+///
+/// Returns 0 when the trace has too few crossings or the crossing intervals
+/// are too irregular (for example noise).
+double _estimatePeriodPx(Float64List trace) {
+  final n = trace.length ~/ 2;
+  if (n < 16) return 0;
+
+  var minY = double.infinity;
+  var maxY = -double.infinity;
+  var sum = 0.0;
+  for (var i = 0; i < n; i++) {
+    final y = trace[i * 2 + 1];
+    if (!y.isFinite) return 0;
+    if (y < minY) minY = y;
+    if (y > maxY) maxY = y;
+    sum += y;
+  }
+  final range = maxY - minY;
+  if (range <= 0) return 0;
+
+  final mean = sum / n;
+  final hysteresis = range * 0.05;
+  final crossings = <double>[];
+  var state = 0;
+  for (var i = 0; i < n; i++) {
+    final y = trace[i * 2 + 1];
+    if (state <= 0 && y > mean + hysteresis) {
+      if (state == -1) crossings.add(trace[i * 2]);
+      state = 1;
+    } else if (state >= 0 && y < mean - hysteresis) {
+      state = -1;
+    }
+  }
+  if (crossings.length < 4) return 0;
+
+  final intervals = <double>[
+    for (var i = 1; i < crossings.length; i++) crossings[i] - crossings[i - 1],
+  ];
+  final meanInterval = intervals.reduce((a, b) => a + b) / intervals.length;
+  if (meanInterval <= 0) return 0;
+
+  var variance = 0.0;
+  for (final interval in intervals) {
+    final delta = interval - meanInterval;
+    variance += delta * delta;
+  }
+  final coefficientOfVariation =
+      math.sqrt(variance / intervals.length) / meanInterval;
+  if (coefficientOfVariation > 0.3) return 0;
+
+  intervals.sort();
+  return intervals[intervals.length ~/ 2];
 }
