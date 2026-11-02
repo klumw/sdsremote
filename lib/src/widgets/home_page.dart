@@ -3432,6 +3432,23 @@ class _OsciHomePageState extends State<OsciHomePage>
       _activePanel = ActivePanel.none;
       _previousPanel = ActivePanel.none;
       _clockSuggestion = null;
+      // Clear the previous capture immediately: while the new acquisition is
+      // in flight the chart and measurement cards must not keep showing the
+      // old trace. The device parameters stay so the grid and axes remain.
+      _waveformCh1 = null;
+      _waveformCh2 = null;
+      _waveformCh3 = null;
+      _waveformCh4 = null;
+      _measurementsCh1 = null;
+      _measurementsCh2 = null;
+      _measurementsCh3 = null;
+      _measurementsCh4 = null;
+      _lastRawData = null;
+      _spectrumResult = null;
+      _diffTrace = null;
+      _comparison = null;
+      _maskBand = null;
+      _maskResult = null;
     });
 
     try {
