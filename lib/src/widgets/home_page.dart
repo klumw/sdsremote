@@ -63,11 +63,10 @@ import 'timelapse_dialog.dart';
 import '../timelapse/timelapse.dart';
 import '../ai/ai_chat_service.dart';
 import '../ai/ai_settings.dart';
-import '../ai/agents/app_panel_context.dart';
-import '../ai/app_agent_service.dart';
 import '../ai/control_panel_chat_controller.dart';
+import '../ai/input_history.dart';
 import '../ai/macro_chat_controller.dart';
-import '../ai/tools/control_panel_tool.dart';
+import '../ai/tools/signal_generator_tool.dart';
 import '../ai/waveform_chat_controller.dart';
 import '../core/logger.dart';
 import 'osci_physical_panel.dart';
@@ -93,6 +92,7 @@ import '../signal_generator/fy6900_driver.dart';
 import '../signal_generator/fy6900_serial_transport.dart';
 import '../signal_generator/jds6600_driver.dart';
 import '../signal_generator/jds6600_serial_transport.dart';
+import '../signal_generator/models.dart';
 import '../signal_generator/signal_generator_detector.dart';
 import '../signal_generator/signal_generator_service.dart';
 import '../signal_generator/signal_generator_shortcut.dart';
@@ -113,9 +113,9 @@ import '../macro/macro_oscope_status.dart';
 import '../macro/macro_siggen.dart';
 import '../macro/macro_siggen_app.dart';
 import '../macro/macro_templates.dart';
-import '../voice/wake_word_indicator.dart';
-import '../voice/wake_word_service.dart';
-import '../voice/voice_command_router.dart';
+import '../voice/voice_activity_indicator.dart';
+import '../voice/voice_input_binding.dart';
+import '../voice/voice_input_service.dart';
 import '../ai/tools/vxi11_tool.dart' show onScpiCommandSent;
 
 class OsciHomePage extends StatefulWidget {
@@ -491,6 +491,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   // Chat
   final AiChatService _aiChatService = AiChatService();
   final List<Map<String, String>> _chatMessages = [];
+  final InputHistory _chatInputHistory = InputHistory();
   bool _isChatting = false;
   StreamSubscription<String>? _chatSubscription;
   Completer<void>? _chatSendCompleter;
@@ -508,12 +509,15 @@ class _OsciHomePageState extends State<OsciHomePage>
       const WaveformFaultProfileStore();
   bool _showWaveformAi = false;
 
-  // Wakeword / voice control
-  /// Owns the wakeword spotter, the whisper transcriber and the microphone
-  /// stream. Detection starts disabled on every application start.
-  late final WakeWordService _wakeWordService;
-  final AppAgentService _appAgentService = AppAgentService();
-  int _lastWakeWordErrorCount = 0;
+  // Assistant voice input
+  /// Owns the microphone and the whisper transcriber shared by the AI
+  /// assistants. The microphone always starts switched off when an assistant
+  /// opens.
+  late final VoiceInputService _voiceInputService;
+
+  /// Microphone binding of the main AI Chat panel.
+  late final VoiceInputBinding _aiChatVoice;
+  int _lastVoiceErrorCount = 0;
 
   // Data Logger
   bool _dlIsRunning = false;
@@ -535,7 +539,12 @@ class _OsciHomePageState extends State<OsciHomePage>
   @override
   void initState() {
     super.initState();
-    _wakeWordService = WakeWordService(onCommand: _handleVoiceCommand);
+    _voiceInputService = VoiceInputService();
+    _aiChatVoice = VoiceInputBinding(
+      ownerId: 'ai_chat',
+      service: _voiceInputService,
+      onTranscript: _onChatSendMessage,
+    );
     _macroChatController.attachSignalGeneratorStatus(_readMacroSiggenStatus);
     _macroChatController.attachOscilloscopeStatus(_readOscilloscopeStatus);
     // The macro agent can inspect the same runtime output the editor shows:
@@ -549,7 +558,10 @@ class _OsciHomePageState extends State<OsciHomePage>
     );
     _controlPanelChatController.attachCommandListener(_onControlPanelAiCommand);
     _controlPanelChatController.attachWaveformSummary(_waveformSummaryForAi);
-    _wakeWordService.status.addListener(_onWakeWordStatusChanged);
+    _controlPanelChatController.attachScreenDumpRefresh(
+      _refreshScreenDumpForAi,
+    );
+    _voiceInputService.status.addListener(_onVoiceStatusChanged);
     windowManager.addListener(this);
     windowManager.setPreventClose(true);
     HardwareKeyboard.instance.addHandler(_onGlobalKeyEvent);
@@ -561,432 +573,55 @@ class _OsciHomePageState extends State<OsciHomePage>
     _initialize();
   }
 
-  void _onWakeWordStatusChanged() {
-    final current = _wakeWordService.status.value;
-    if (current.errorCount <= _lastWakeWordErrorCount) return;
-    _lastWakeWordErrorCount = current.errorCount;
-    _showErrorSnackBar(current.errorMessage ?? 'Wakeword detection failed.');
+  void _onVoiceStatusChanged() {
+    final current = _voiceInputService.status.value;
+    if (current.errorCount <= _lastVoiceErrorCount) return;
+    _lastVoiceErrorCount = current.errorCount;
+    _showErrorSnackBar(current.errorMessage ?? 'Voice input failed.');
   }
 
-  String _wakeWordTooltip(WakeWordStatus status) {
-    switch (status.phase) {
-      case WakeWordPhase.preparing:
-        return status.message.isEmpty
-            ? 'Preparing wakeword detection...'
-            : status.message;
-      case WakeWordPhase.listening:
-        if (status.message.contains('Whisper')) {
-          return status.message;
-        }
-        return 'Disable wakeword detection ("Hey Assistant")';
-      case WakeWordPhase.commandListening:
-        return status.message.isEmpty
-            ? 'Listening for a command...'
-            : status.message;
-      case WakeWordPhase.transcribing:
-        return status.message.isEmpty
-            ? 'Recognizing command...'
-            : status.message;
-      case WakeWordPhase.off:
-        return 'Enable wakeword detection ("Hey Assistant")';
-    }
-  }
-
-  /// Panel context for the voice app agent, derived from the current UI state.
-  AppPanelContext get _currentAppPanelContext {
-    if (_showSettings) {
-      return const AppPanelContext(id: 'settings', title: 'Settings');
-    }
-    if (_activePanel == ActivePanel.none) {
-      if (_waveformAcquired) {
-        return const AppPanelContext(id: 'waveform', title: 'Waveform');
-      }
-      if (_screenDump != null) {
-        return AppPanelContext.controlPanel(channelCount: _numChannels);
-      }
-      return const AppPanelContext(id: 'welcome', title: 'Welcome');
-    }
-    return switch (_activePanel) {
-      ActivePanel.help => const AppPanelContext(id: 'help', title: 'Help'),
-      ActivePanel.chat => const AppPanelContext(
-        id: 'ai_chat',
-        title: 'AI Chat',
-      ),
-      ActivePanel.profiles => const AppPanelContext(
-        id: 'profiles',
-        title: 'Profiles',
-      ),
-      ActivePanel.dataLogger => const AppPanelContext(
-        id: 'data_logger',
-        title: 'Data Logger',
-      ),
-      ActivePanel.macroRecorder => const AppPanelContext(
-        id: 'macro_recorder',
-        title: 'Macro Recorder',
-      ),
-      ActivePanel.bode => const AppPanelContext(id: 'bode', title: 'Bode Plot'),
-      ActivePanel.none => const AppPanelContext(
-        id: 'welcome',
-        title: 'Welcome',
-      ),
-    };
-  }
-
-  Future<void> _handleVoiceCommand(String transcript) async {
-    // While the Control Panel AI assistant is open, most spoken commands are
-    // routed to it. App-control commands (close AI panel, switch a top-bar
-    // menu) bypass it and go to the App-Agent. The wakeword and the 10-second
-    // command-mode timeout still apply.
-    final assistant = _controlPanelChatController;
-    if (_isControlPanelVisible &&
-        assistant.isOpen &&
-        !shouldBypassControlPanelAssistant(transcript)) {
-      if (!assistant.isAvailable) {
-        _showErrorSnackBar(
-          'The Control Panel AI assistant is not available. Configure the AI '
-          'provider in Settings.',
-        );
-        return;
-      }
-      if (assistant.isChatting) {
-        _showInfoSnackBar(
-          'The Control Panel AI assistant is still answering. Please repeat '
-          'the command when it has finished.',
-          backgroundColor: const Color(0xFF1E293B),
-        );
-        return;
-      }
-      await AppLogger(
-        agentName: 'Voice',
-        toolName: 'control_panel_ai',
-      ).log('Voice command to Control Panel AI assistant: "$transcript"');
-      try {
-        await assistant.send(transcript);
-      } catch (error) {
-        await AppLogger(
-          agentName: 'Voice',
-          toolName: 'control_panel_ai',
-        ).error('Control Panel AI assistant voice command failed: $error');
-        _showErrorSnackBar('Control Panel AI assistant failed: $error');
-      }
-      return;
-    }
-
-    final settings = _aiSettings;
-    if (settings == null) {
-      _showErrorSnackBar(
-        'Voice command ignored: configure the AI provider, token and model '
-        'in Settings.',
-      );
-      return;
-    }
-
-    try {
-      final result = await _appAgentService.run(
-        settings: settings,
-        transcript: transcript,
-        panelContext: _currentAppPanelContext,
-        onMenuAction: _executeAppMenuAction,
-        onPanelButton: _pressControlPanelButton,
-      );
-      if (!result.executed && result.text.isNotEmpty) {
-        _showInfoSnackBar(
-          result.text,
-          backgroundColor: const Color(0xFF1E293B),
-        );
-      }
-    } catch (error) {
-      await AppLogger(
-        agentName: 'Voice',
-        toolName: 'command',
-      ).error('Voice command failed: $error');
-      _showErrorSnackBar('Voice command failed: $error');
-    }
-  }
-
-  Future<Map<String, dynamic>> _executeAppMenuAction(String action) async {
-    Map<String, dynamic> unavailable(String message) => {
-      'success': false,
-      'action': action,
-      'message': message,
-    };
-    Map<String, dynamic> executed(String message) => {
-      'success': true,
-      'action': action,
-      'message': message,
-    };
-
-    if (!mounted) {
-      return unavailable('The application window is not available.');
-    }
-    if (_isMacroPlaying && action != 'macro_recorder') {
-      return unavailable('Menu buttons are disabled during macro playback.');
-    }
-
-    switch (action) {
-      case 'control_panel':
-        if (_isAcquiring || _isAcquiringWaveform || !_isOnline) {
-          return unavailable(
-            'The Control Panel is not available while the oscilloscope is '
-            'offline or busy.',
-          );
-        }
-        await _acquireScreenDump();
-        if (mounted && _isControlPanelVisible) {
-          _openControlPanelAiAfterActivation();
-        }
-        return executed(
-          _controlPanelChatController.isAvailable
-              ? 'Control Panel opened with the AI assistant.'
-              : 'Control Panel opened.',
-        );
-      case 'acquire_waveform':
-        if (_isAcquiringWaveform || !_isOnline) {
-          return unavailable(
-            'Waveform acquisition is not available while the oscilloscope is '
-            'offline or busy.',
-          );
-        }
-        unawaited(_acquireWaveform());
-        return executed('Waveform acquisition started.');
-      case 'ai_chat':
-        if (!_isAiEnabled) {
-          return unavailable('AI is not configured.');
-        }
-        _togglePanel(ActivePanel.chat);
-        return executed('AI panel toggled.');
-      case 'profiles':
-        if (!_isOnline) {
-          return unavailable(
-            'Profiles are not available while the oscilloscope is offline.',
-          );
-        }
-        _togglePanel(ActivePanel.profiles);
-        return executed('Profiles panel toggled.');
-      case 'data_logger':
-        if (!_isOnline) {
-          return unavailable(
-            'The Data Logger is not available while the oscilloscope is '
-            'offline.',
-          );
-        }
-        _togglePanel(ActivePanel.dataLogger);
-        return executed('Data Logger panel toggled.');
-      case 'bode':
-        final hasSignalGenerator =
-            _signalGenerator == 'jds6600' || _signalGenerator == 'fy6900';
-        if (!hasSignalGenerator ||
-            !_isOnline ||
-            !_sigGenDetected ||
-            _isAcquiring ||
-            _isAcquiringWaveform) {
-          return unavailable(
-            'The Bode plot is not available. Check the signal generator and '
-            'oscilloscope connection.',
-          );
-        }
-        _togglePanel(ActivePanel.bode);
-        return executed('Bode plot panel toggled.');
-      case 'macro_recorder':
-        _togglePanel(ActivePanel.macroRecorder);
-        return executed('Macro Recorder panel toggled.');
-      case 'help':
-        _togglePanel(ActivePanel.help);
-        return executed('Help window toggled.');
-      case 'timelapse':
-        if (!_isOnline && !_timelapseRunning) {
-          return unavailable(
-            'The timelapse is not available while the oscilloscope is '
-            'offline.',
-          );
-        }
-        if (_timelapseRunning) {
-          _stopTimelapse();
-          return executed('Timelapse stopped.');
-        }
-        unawaited(_showTimelapseDialog());
-        return executed('Timelapse dialog opened.');
-      case 'news':
-        unawaited(_showNewsDialog());
-        return executed('News dialog opened.');
-      case 'settings':
-        _showConfigDialog(context);
-        return executed('Settings dialog opened.');
-      case 'save':
-        if (!(_canSaveStandard ||
-            _canSaveDataLoggerReport ||
-            _canSaveBodeReport)) {
-          return unavailable('There is nothing to save.');
-        }
-        unawaited(_saveCurrentView());
-        return executed('Current view saved.');
-      case 'export_data':
-        if (!_canExportWaveform) {
-          return unavailable('No waveform is available for export.');
-        }
-        unawaited(_showWaveformExportDialog());
-        return executed('Export dialog opened.');
-      case 'close_control_panel_ai':
-        if (!_controlPanelChatController.isOpen) {
-          return executed('The Control Panel AI assistant is already closed.');
-        }
-        _controlPanelChatController.toggleOpen();
-        return executed('Control Panel AI assistant closed.');
-      default:
-        return unavailable('Unknown menu action "$action".');
-    }
-  }
-
-  /// Opens the Control Panel AI assistant after an App-Agent activation of
-  /// the Control Panel. Manual toolbar clicks keep the assistant closed.
-  void _openControlPanelAiAfterActivation() {
+  /// Stops an assistant microphone when its chat panel is no longer visible.
+  ///
+  /// Most top-bar switches already stop the microphone directly, but the
+  /// Control Panel and Acquire Waveform toolbar buttons replace the main view
+  /// without going through `_togglePanel`. This check runs on every build and
+  /// closes a session whose owning chat disappeared, regardless of the route
+  /// that left the panel.
+  void _scheduleVoiceInputVisibilityCheck() {
+    final status = _voiceInputService.status.value;
+    final owner = status.ownerId;
+    if (!status.isActive || owner == null) return;
+    if (_isVoiceOwnerVisible(owner)) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted || !_isControlPanelVisible) return;
-      final settings = _aiSettings;
-      if (settings == null) return;
-
-      final controller = _controlPanelChatController;
-      // The overlay normally configures the controller in its own post-frame
-      // callback, which can run after this one. Configure it here first so the
-      // assistant is available and can be opened in the same frame.
-      controller.configure(settings, vxi11Host: _ipAddress);
-      final available = controller.isAvailable;
-      if (available && !controller.isOpen) {
-        controller.toggleOpen();
-      }
-      unawaited(
-        AppLogger(agentName: 'Voice', toolName: 'control_panel_ai').log(
-          'Control Panel AI auto-open: available=$available, '
-          'open=${controller.isOpen}',
-        ),
-      );
+      if (!mounted) return;
+      final current = _voiceInputService.status.value;
+      if (!current.isActiveFor(owner)) return;
+      if (_isVoiceOwnerVisible(owner)) return;
+      unawaited(_voiceInputService.stop(ownerId: owner));
     });
-    // Ensure the callback runs even when no other frame is pending.
-    WidgetsBinding.instance.scheduleFrame();
   }
 
-  bool _isFourChannelOnlyControlPanelButton(ControlPanelButton button) {
-    return button.id == 'search' ||
-        button.id == 'digital' ||
-        button.id == 'navigate' ||
-        button.id == 'arrow_left' ||
-        button.id == 'square' ||
-        button.id == 'arrow_right';
-  }
-
-  /// Executes a spoken Control Panel button command.
-  Future<Map<String, dynamic>> _pressControlPanelButton(
-    ControlPanelButton button,
-  ) async {
-    Map<String, dynamic> unavailable(String message) => {
-      'success': false,
-      'button': button.id,
-      'message': message,
+  /// Whether the chat that owns the microphone is still on screen.
+  bool _isVoiceOwnerVisible(String owner) {
+    return switch (owner) {
+      'ai_chat' => _activePanel == ActivePanel.chat,
+      'control_panel_ai' =>
+        _activePanel == ActivePanel.none &&
+            !_waveformAcquired &&
+            _screenDump != null &&
+            _controlPanelChatController.isOpen,
+      'waveform_ai' =>
+        _activePanel == ActivePanel.none &&
+            _waveformAcquired &&
+            _showWaveformAi &&
+            _waveformChatController.isOpen,
+      'macro_ai' =>
+        _activePanel == ActivePanel.macroRecorder &&
+            _showMacroEditor &&
+            _macroChatController.isOpen,
+      'help_ai' => _activePanel == ActivePanel.help,
+      _ => true,
     };
-    Map<String, dynamic> executed(String message) => {
-      'success': true,
-      'button': button.id,
-      'message': message,
-    };
-
-    if (!mounted) {
-      return unavailable('The application window is not available.');
-    }
-    if (!_isControlPanelVisible) {
-      return unavailable(
-        'The Control Panel is not the active panel. Open the Control Panel '
-        'first.',
-      );
-    }
-    if (!_isOnline) {
-      return unavailable('The oscilloscope is offline.');
-    }
-    if (_isProcessingEvent) {
-      return unavailable('Another panel command is still running.');
-    }
-    if (_autoCaptureEnabled &&
-        button.kind != ControlPanelButtonKind.autoCapture &&
-        button.kind != ControlPanelButtonKind.liveScreen) {
-      return unavailable(
-        'Panel input is locked while automatic screen capture is active.',
-      );
-    }
-    if (button.channelNumber != null && button.channelNumber! > _numChannels) {
-      return unavailable(
-        'Channel ${button.channelNumber} is not available on the connected '
-        'instrument.',
-      );
-    }
-    if (_isFourChannelOnlyControlPanelButton(button) && _numChannels < 4) {
-      return unavailable(
-        'The ${button.label} button is only available on four-channel '
-        'instruments.',
-      );
-    }
-
-    switch (button.kind) {
-      case ControlPanelButtonKind.channel:
-        final success = await _handleChannelButtonPress(button.label);
-        return success
-            ? executed('${button.label} toggled.')
-            : unavailable('${button.label} could not be toggled.');
-      case ControlPanelButtonKind.softKey:
-        final number = button.softKeyNumber;
-        if (number == null) {
-          return unavailable('Soft key number is missing.');
-        }
-        final success = await _handleSoftKeyPress(number);
-        return success
-            ? executed('Soft key M$number pressed.')
-            : unavailable('Soft key M$number could not be pressed.');
-      case ControlPanelButtonKind.menu:
-        final success = await _handleMenuPress();
-        return success
-            ? executed('Menu pressed.')
-            : unavailable('Menu could not be pressed.');
-      case ControlPanelButtonKind.autoCapture:
-        final target = !_autoCaptureEnabled;
-        if (target && (_vncLive || _timelapseRunning)) {
-          return unavailable(
-            'Auto capture cannot be enabled while the live screen or a '
-            'timelapse is active.',
-          );
-        }
-        _setAutoCaptureEnabled(target);
-        return executed('Auto capture ${target ? 'enabled' : 'disabled'}.');
-      case ControlPanelButtonKind.liveScreen:
-        if (_vncLive) {
-          _setVncLiveEnabled(false);
-          return executed('Live screen disabled.');
-        }
-        if (!_showLiveButton || !_vncReachable) {
-          return unavailable(
-            'The live screen is not available for this instrument.',
-          );
-        }
-        _setVncLiveEnabled(true);
-        return executed('Live screen enabled.');
-      case ControlPanelButtonKind.aiAssistant:
-        final controller = _controlPanelChatController;
-        if (!_isAiEnabled || !controller.isAvailable) {
-          return unavailable(
-            'The Control Panel AI assistant is not configured.',
-          );
-        }
-        if (controller.isOpen) {
-          return executed('Control Panel AI assistant is already open.');
-        }
-        controller.toggleOpen();
-        return executed('Control Panel AI assistant opened.');
-      case ControlPanelButtonKind.button:
-        final label = button.id == 'auto_setup'
-            ? autoSetupButtonLabel
-            : button.label;
-        final success = await _handleButtonPress(label);
-        return success
-            ? executed('${button.label} pressed.')
-            : unavailable('${button.label} could not be pressed.');
-    }
   }
 
   Future<void> _checkNewsNotification() async {
@@ -1084,8 +719,8 @@ class _OsciHomePageState extends State<OsciHomePage>
     _controlPanelChatController.dispose();
     _waveformChatController.dispose();
     _macroPrintController.dispose();
-    _wakeWordService.status.removeListener(_onWakeWordStatusChanged);
-    unawaited(_wakeWordService.dispose());
+    _voiceInputService.status.removeListener(_onVoiceStatusChanged);
+    unawaited(_voiceInputService.dispose());
     super.dispose();
   }
 
@@ -1157,6 +792,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   @override
   Widget build(BuildContext context) {
+    _scheduleVoiceInputVisibilityCheck();
     return Scaffold(
       body: Stack(
         children: [
@@ -1234,6 +870,7 @@ class _OsciHomePageState extends State<OsciHomePage>
                           child: WaveformAiPanel(
                             controller: _waveformChatController,
                             onClose: _closeWaveformAi,
+                            voiceInput: _voiceInputService,
                           ),
                         ),
                       ),
@@ -1820,6 +1457,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       aiSettings: _aiSettings,
       chatController: _controlPanelChatController,
       vxi11Host: _ipAddress,
+      voiceInput: _voiceInputService,
     );
   }
 
@@ -1979,6 +1617,18 @@ class _OsciHomePageState extends State<OsciHomePage>
               child: _buildLeftToolbarButtons(),
             ),
           ),
+          ValueListenableBuilder<VoiceInputStatus>(
+            valueListenable: _voiceInputService.status,
+            builder: (context, status, _) {
+              final color = status.isTranscribing || status.isResponding
+                  ? Colors.greenAccent
+                  : Colors.cyanAccent;
+              return VoiceActivityIndicator(
+                active: status.isActive,
+                color: color,
+              );
+            },
+          ),
           IconButton(
             icon: _timelapseRunning
                 ? const AnimatedSyncIcon(size: 20, color: Colors.cyanAccent)
@@ -1988,50 +1638,6 @@ class _OsciHomePageState extends State<OsciHomePage>
             onPressed: _isMacroPlaying
                 ? null
                 : (_timelapseRunning ? _stopTimelapse : _showTimelapseDialog),
-          ),
-          ValueListenableBuilder<WakeWordStatus>(
-            valueListenable: _wakeWordService.status,
-            builder: (context, status, _) {
-              final active = status.isListening || status.isCommandMode;
-              final busy = status.isPreparing || status.isTranscribing;
-              final color = status.isCommandMode
-                  ? Colors.greenAccent
-                  : Colors.cyanAccent;
-              return Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  WakeWordIndicator(
-                    detectionCount: status.detectionCount,
-                    active: active,
-                    persistent: status.isCommandMode,
-                    color: color,
-                  ),
-                  IconButton(
-                    icon: busy
-                        ? SizedBox(
-                            width: 22,
-                            height: 22,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2.5,
-                              value: status.isPreparing
-                                  ? status.downloadProgress
-                                  : null,
-                              color: color,
-                            ),
-                          )
-                        : Icon(
-                            status.isOff ? Icons.mic_off : Icons.mic,
-                            size: 25,
-                          ),
-                    color: active ? color : Colors.white70,
-                    tooltip: _wakeWordTooltip(status),
-                    onPressed: busy
-                        ? null
-                        : () => unawaited(_wakeWordService.toggle()),
-                  ),
-                ],
-              );
-            },
           ),
           const SizedBox(width: 8),
           OsciToolbarButton(
@@ -2200,7 +1806,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   // =========================================================================
 
   Widget _buildHelpWindow() {
-    return HelpWindow(aiSettings: _aiSettings);
+    return HelpWindow(aiSettings: _aiSettings, voiceInput: _voiceInputService);
   }
 
   Widget _buildChatWindow() {
@@ -2210,11 +1816,15 @@ class _OsciHomePageState extends State<OsciHomePage>
       isInitialized: _aiChatService.isInitialized,
       onSendMessage: _onChatSendMessage,
       onCancel: _cancelChat,
+      voiceInput: _aiChatVoice,
+      inputHistory: _chatInputHistory.entries,
+      onHistorySelected: _onChatSendMessage,
     );
   }
 
-  void _onChatSendMessage(String text) async {
+  Future<void> _onChatSendMessage(String text) async {
     if (_isChatting) return;
+    _chatInputHistory.record(text);
     setState(() {
       _chatMessages.add({'role': 'user', 'content': text});
       _isChatting = true;
@@ -2335,6 +1945,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         isModified: _isMacroModified,
         aiSettings: _aiSettings,
         chatController: _macroChatController,
+        voiceInput: _voiceInputService,
         layout: _macroEditorLayout,
         isPlaying: _isMacroPlaying,
         hasDebugSession: _macroDebugSession != null,
@@ -2627,6 +2238,29 @@ class _OsciHomePageState extends State<OsciHomePage>
   void _onControlPanelAiCommand(String command, String operation) {
     if (operation != 'write') return;
     _scheduleRefresh(extraDelay: _controlPanelAiRefreshDelay, reschedule: true);
+  }
+
+  /// Fetches a fresh Control Panel screen dump for a short capture command
+  /// such as "snapshot" or "Aufnahme" in the Control Panel AI assistant.
+  Future<Map<String, dynamic>> _refreshScreenDumpForAi() async {
+    if (!mounted) {
+      return {'error': 'The application window is not available.'};
+    }
+    if (!_isOnline) {
+      return {'error': 'The oscilloscope is offline.'};
+    }
+    if (_isAcquiring || _isAcquiringWaveform || _timelapseRunning) {
+      return {'error': 'The oscilloscope is busy.'};
+    }
+    await _acquireScreenDump(keepPanels: true);
+    if (!mounted || !_isOnline || _screenDump == null) {
+      return {
+        'error':
+            'The screen dump could not be read. Check the connection and the '
+            'application log.',
+      };
+    }
+    return {'success': true};
   }
 
   /// Shows an error snackbar and logs the error.
@@ -3125,6 +2759,9 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   void _togglePanel(ActivePanel panel) {
+    // Switching between top-bar panels always ends an assistant microphone
+    // session; the microphone starts switched off when the next panel opens.
+    unawaited(_voiceInputService.stop());
     final previousActivePanel = _activePanel;
     final bool wasOnControlPanel =
         _activePanel == ActivePanel.none && !_waveformAcquired;
@@ -5590,12 +5227,14 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   void _toggleWaveformAi() {
     final open = !_showWaveformAi;
+    if (!open) unawaited(_voiceInputService.stop());
     setState(() => _showWaveformAi = open);
     _waveformChatController.setOpen(open);
   }
 
   void _closeWaveformAi() {
     if (!_showWaveformAi) return;
+    unawaited(_voiceInputService.stop());
     setState(() => _showWaveformAi = false);
     _waveformChatController.setOpen(false);
   }
@@ -5616,7 +5255,169 @@ class _OsciHomePageState extends State<OsciHomePage>
       analyzeWaveformFaults: _analyzeWaveformFaultsForAi,
       manageFaultProfile: _manageFaultAnalysisProfileForAi,
       clearMeasurementHistory: _clearMeasurementHistory,
+      vxi11Host: _ipAddress,
+      readSignalGeneratorStatus: _readSignalGeneratorStatusForAi,
+      applySignalGenerator: _applySignalGeneratorForAi,
+      controlSignalGenerator: _controlSignalGeneratorForAi,
     );
+  }
+
+  /// Reports the live signal-generator status to the Waveform Agent.
+  Future<Map<String, dynamic>> _readSignalGeneratorStatusForAi() async {
+    final device = _signalGenerator;
+    final supported = device == 'jds6600' || device == 'fy6900';
+    final service = _sigGenService;
+    if (!supported || service == null) {
+      return {
+        'configured_device': device,
+        'supported': supported,
+        'connected': false,
+        'error':
+            'No signal generator is configured. Select JDS6600 or FY6900 in '
+            'Settings -> Signal Generator.',
+      };
+    }
+    if (!service.isConnected) {
+      return {
+        'configured_device': device,
+        'supported': true,
+        'detected': _sigGenDetected,
+        'connected': false,
+        'port': _sigGenPort,
+        'error':
+            'The signal generator is not connected. Check the USB connection '
+            'and the device selection.',
+      };
+    }
+    try {
+      await service.refreshAll();
+    } catch (_) {
+      // Keep the cached values; the status below reports the last error.
+    }
+    final status = readMacroSiggenStatus(
+      configuredDevice: device,
+      detected: _sigGenDetected,
+      service: service,
+      rememberedPort: _sigGenPort,
+    );
+    final info = service.deviceInfo;
+    if (info != null) {
+      status['limits'] = {
+        'min_frequency_hz': info.limits.minFrequencyHz,
+        'max_frequency_hz_by_waveform': {
+          for (final waveform in Jds6600Waveform.selectableFor(info.family))
+            waveform.scpiMnemonic: info.maxFrequencyHz(waveform),
+        },
+        'min_offset_v': info.limits.minOffsetV,
+        'max_offset_v': info.limits.maxOffsetV,
+        'min_duty_percent': info.limits.minDutyPercent,
+        'max_duty_percent': info.limits.maxDutyPercent,
+        'min_phase_deg': info.limits.minPhaseDegrees,
+        'max_phase_deg': info.limits.maxPhaseDegrees,
+      };
+    }
+    return status;
+  }
+
+  /// Applies a Waveform Agent signal-generator change request.
+  Future<Map<String, dynamic>> _applySignalGeneratorForAi(
+    SignalGeneratorSettings settings,
+  ) async {
+    final service = _sigGenService;
+    if (service == null || !service.isConnected) {
+      return {'error': 'The signal generator is not connected.'};
+    }
+    final applied = <String, dynamic>{};
+    try {
+      // Order matters: the device limits depend on the waveform and the
+      // frequency, so set the waveform first and the frequency before the
+      // amplitude.
+      if (settings.waveform != null) {
+        await service.setWaveform(settings.channel, settings.waveform!);
+        applied['waveform'] = settings.waveform!.scpiMnemonic;
+      }
+      if (settings.frequencyHz != null) {
+        await service.setFrequency(settings.channel, settings.frequencyHz!);
+        applied['frequency_hz'] = settings.frequencyHz;
+      }
+      if (settings.amplitudeVpp != null) {
+        await service.setAmplitude(settings.channel, settings.amplitudeVpp!);
+        applied['amplitude_vpp'] = settings.amplitudeVpp;
+      }
+      if (settings.offsetV != null) {
+        await service.setOffset(settings.channel, settings.offsetV!);
+        applied['offset_v'] = settings.offsetV;
+      }
+      if (settings.dutyPercent != null) {
+        await service.setDuty(settings.channel, settings.dutyPercent!);
+        applied['duty_percent'] = settings.dutyPercent;
+      }
+      if (settings.phaseDeg != null) {
+        await service.setPhase(settings.channel, settings.phaseDeg!);
+        applied['phase_deg'] = settings.phaseDeg;
+      }
+      if (settings.output != null) {
+        await service.setOutput(settings.channel, settings.output!);
+        applied['output'] = settings.output;
+      }
+      return {
+        'success': true,
+        'channel': settings.channel,
+        'applied': applied,
+        'status': readMacroSiggenStatus(
+          configuredDevice: _signalGenerator,
+          detected: _sigGenDetected,
+          service: service,
+          rememberedPort: _sigGenPort,
+        ),
+      };
+    } on Jds6600Exception catch (error) {
+      return {
+        'error': error.message,
+        'channel': settings.channel,
+        'applied': applied,
+      };
+    } catch (error) {
+      return {
+        'error': 'Signal generator command failed: $error',
+        'channel': settings.channel,
+        'applied': applied,
+      };
+    }
+  }
+
+  /// Runs a reset or stop action on the connected signal generator.
+  Future<Map<String, dynamic>> _controlSignalGeneratorForAi(
+    String operation,
+  ) async {
+    final service = _sigGenService;
+    if (service == null || !service.isConnected) {
+      return {'error': 'The signal generator is not connected.'};
+    }
+    try {
+      switch (operation) {
+        case 'reset_safe_state':
+          await service.resetSafeState();
+        case 'stop_action':
+          await service.stopActions();
+        default:
+          return {'error': 'Unknown signal generator operation "$operation".'};
+      }
+      return {
+        'success': true,
+        'operation': operation,
+        'status': readMacroSiggenStatus(
+          configuredDevice: _signalGenerator,
+          detected: _sigGenDetected,
+          service: service,
+          rememberedPort: _sigGenPort,
+        ),
+      };
+    } on Jds6600Exception catch (error) {
+      return {'error': error.message};
+    } catch (error) {
+      return {'error': 'Signal generator command failed: $error'};
+    }
   }
 
   /// Clears the Waveform AI acquisition history and the per-channel
@@ -6113,6 +5914,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       // Null until the device has answered its first *IDN? query; the ping
       // timer reports the name via updateInstrumentModel() once it is known.
       instrumentModel: _deviceModel,
+      readSignalGeneratorStatus: _readSignalGeneratorStatusForAi,
+      applySignalGenerator: _applySignalGeneratorForAi,
+      controlSignalGenerator: _controlSignalGeneratorForAi,
     );
 
     logger.log(

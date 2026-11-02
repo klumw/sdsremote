@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import 'ai_settings.dart';
 import 'help_ai_service.dart';
+import 'input_history.dart';
 
 /// Owns the help window's AI conversation.
 ///
@@ -23,6 +24,7 @@ class HelpChatController extends ChangeNotifier {
   final HelpAiService Function() _serviceFactory;
 
   final List<Map<String, String>> _messages = <Map<String, String>>[];
+  final InputHistory _inputHistory = InputHistory();
 
   HelpAiService? _service;
   AiSettings? _settings;
@@ -58,6 +60,9 @@ class HelpChatController extends ChangeNotifier {
   /// The complete chat transcript. The list is owned by the controller and is
   /// only read by the chat window.
   List<Map<String, String>> get messages => _messages;
+
+  /// Most recent user inputs, newest first.
+  List<String> get inputHistory => _inputHistory.entries;
 
   /// Cancels an in-flight response without changing the transcript.
   void _cancelActiveRequest() {
@@ -140,6 +145,8 @@ class HelpChatController extends ChangeNotifier {
     final trimmed = text.trim();
     if (_disposed || service == null || !service.isInitialized) return;
     if (trimmed.isEmpty || _isChatting) return;
+
+    _inputHistory.record(trimmed);
 
     final generation = _generation;
     final aiMessage = <String, String>{'role': 'ai', 'content': ''};

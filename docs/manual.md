@@ -138,23 +138,15 @@ See [12. Application Directory](#12-application-directory) for a complete breakd
   * Captures the oscilloscope screen at a fixed interval into a timestamped folder (see [8.12 Timelapse](#812-timelapse))
   * While a run is active, the icon shows the rotating arrows indicator and pressing it stops the run
 
-* **Microphone** (mic icon)
-  * Enables or disables voice control. Detection is always off when the application starts; the crossed-out microphone icon shows the inactive state.
-  * While active, the icon turns cyan and the default microphone is continuously analysed for the English wakeword **"Hey Assistant"** by a local sherpa-onnx keyword spotter.
-  * On first activation the ~17.6 MB keyword-spotting model archive is downloaded from the official sherpa-onnx GitHub release and only its int8 model (~5.5 MB) is extracted to `models/wakeword/` below the application data directory. The button shows a progress spinner while the model is downloaded and loaded.
-  * After the wakeword, the microphone turns green and the animated audio bars stay visible. The following utterance is recorded, transcribed locally by whisper.cpp, and passed to the **AI App-Agent**.
-  * The App-Agent activates the matching toolbar button immediately, without a confirmation step. Supported toolbar buttons are Control Panel, Acquire Waveform, AI Chat, Profiles, Data Logger, Bode, Macro Recorder, Help, Timelapse, News, Settings, Save and Export Data. Availability follows the buttons themselves; for example, Control Panel and Acquire Waveform require an online oscilloscope.
-  * The App-Agent knows the **currently active panel**. While the **Control Panel** is active, it can press every front-panel button using its name or a German/English alias: for example "press Channel 1", "Press Auto Setup", "Auto Setup", "ASET", "Run Stop", "M1" or "Menu". This covers the menu grid, History/Decode/Run Stop, Auto Setup, Math/Ref, CH1-CH4, Roll/Search, the trigger buttons, the four-channel navigation buttons, soft keys M1-M6, Auto Capture and the Live Screen toggle.
-  * Panel buttons are only executed while the Control Panel is on screen. In other panels the agent reports that the button is not available. Knob rotations are not voice-controlled yet; use the on-screen knobs.
-  * Within the Control Panel, **AI**, **AI Assistant**, **KI** or **Assistent** opens the Control Panel AI assistant. **AI Chat**, **AI panel** or **main AI** opens the main-window AI chat instead.
-  * While the Control Panel AI assistant overlay is open and the Control Panel is visible, complete utterances recognised after the wakeword are sent as chat messages to the Control Panel AI assistant instead of the App-Agent. **Exception:** app-control commands such as “close AI panel” / “AI schließen” and top-bar menu changes such as “open Profiles”, “switch to Data Logger” or “open Settings” are executed by the App-Agent. The wakeword and 10-second cycle remain active; closing the overlay returns all voice commands to the App-Agent.
-  * When the App-Agent activates the Control Panel by voice (for example “Open Control Panel”), it also opens the Control Panel AI assistant automatically. Activating the Control Panel with the toolbar button leaves the assistant closed.
-  * The **AI provider, token and model from Settings** must be configured. Without them, the transcript is recognised but the command is ignored with an error message.
-  * The whisper.cpp **base** model (~142 MB, multilingual) is downloaded in the background when voice control is activated and stored as `ggml-base.bin` in the application support directory (Linux: `~/.local/share/sdsremote/ggml-base.bin`). It stays loaded while voice control is enabled.
-  * After **10 seconds without speech**, command mode ends and the button returns to wakeword detection. Say the wakeword again to issue another command.
-  * Transcripts and the actions executed by the App-Agent are written to the application log.
+* **Assistant microphone** (mic icon in the AI assistants)
+  * The main AI Chat and the Control Panel, Waveform, Macro Recorder and Help AI Assistants each have a microphone button next to their input field. The microphone is always switched off when an assistant opens; the crossed-out microphone icon shows the inactive state.
+  * Pressing the microphone switches it on. The icon turns cyan and the microphone listens continuously until it is switched off again or the assistant closes. Every spoken utterance is recorded, transcribed locally by whisper.cpp and sent to the open assistant as a chat message.
+  * While the microphone is active, the animated audio bars appear in the top bar; they turn green while the utterance is transcribed and while the assistant answers.
+  * The microphone is paused while the assistant answers and resumes listening automatically afterwards. Switching to another top-bar panel, opening the Control Panel or Acquire Waveform view, or closing the assistant switches the microphone off, so it starts deactivated the next time.
+  * The **AI provider, token and model from Settings** must be configured. Without them, the microphone button stays disabled.
+  * The whisper.cpp **base** model (~142 MB, multilingual) is downloaded on first use and stored as `ggml-base.bin` in the application support directory (Linux: `~/.local/share/sdsremote/ggml-base.bin`). It stays loaded while the microphone is switched on.
+  * Transcripts are written to the application log.
   * Linux requires the `parecord` tool (provided by the `pulseaudio-utils` package); Windows uses Media Foundation. An error message is shown when no microphone is available. The whisper step uses `ffmpeg` when it is installed; the generated 16 kHz mono WAV also works without it.
-  * Milestone 2 activates top-bar menu buttons and, while the Control Panel is active, all front-panel buttons. Further app actions and knob control are implemented in later milestones.
 
 ---
 
@@ -348,6 +340,7 @@ The chat window consists of:
 * **Message Area** — A scrollable conversation history. User messages appear right-aligned in cyan bubbles. AI responses appear left-aligned with grey backgrounds. The area auto-scrolls as new content arrives.
 * **Streaming Indicator** — While the AI is generating a response, a pulsing cyan cursor (`▊`) might appear at the end of the message, indicating more content is coming.
 * **Input Field** — A text field at the bottom for typing messages. Press **Enter** to send (Shift+Enter for newline is not supported — text wraps automatically).
+* **History Button** — A history icon next to the input field expands the last five user inputs. Selecting an entry sends that prompt again. It appears once the chat has at least one user input. The same history is available in the Control Panel, Waveform, Macro Recorder, Help and Calculator AI assistants.
 * **Send Button** — A paper-plane icon to the right of the input field. Disabled while the AI is generating a response.
 * **Stop Button** — While the AI is generating a response, the send button changes to a square stop button.  
   Pressing it aborts the response immediately and marks it as `terminated by user`.
@@ -400,6 +393,12 @@ The device response (for queries) is returned verbatim.
 * `send command C1:TRA ON`
 * `send command C1:VDIV?`
 * `send command *IDN?`
+
+#### Signal Generator Control
+
+When a JDS6600 or FY6900 is configured and connected, the AI Chat can also control the separate signal generator. The keyword **Signalgenerator** (also accepted: Signalgeber, **Generator** (AI Chat only), Funktionsgenerator, Frequenzgenerator, Testsignalgenerator, Prüfsignalgenerator, Signalquelle, Signal Generator, Signal Source, Function Generator, Frequency Generator, Waveform Generator, Test Signal Generator, Signal Synthesizer, SignalGen, siggen, WaveGen) must appear in the request, for example “Signalgenerator Frequenz Kanal 1 10 kHz”. Without the keyword the AI Chat never touches the generator; a request such as “set the frequency on channel 1 to 10 kHz” is treated as an oscilloscope command or asks for clarification.
+
+With the keyword it applies the requested settings immediately — the keyword is the confirmation — and supports channel 1/2, frequency, amplitude (Vpp), DC offset, waveform, duty cycle, phase and output on/off, reading the current settings and device limits, resetting both channels to safe defaults and stopping a running modulation or sweep. The same behavior is available in the [Waveform AI Assistant](#810-waveform-ai-assistant).
 
 #### SDS-Remote Software Help
 
@@ -1519,6 +1518,24 @@ Example questions:
 
 The assistant can start a new acquisition itself, either immediately or after a requested delay. For "acquire in 10 seconds" it waits inside the tool and then captures; a combined request such as "acquire in 10 seconds and then measure Vpp on CH2" is answered from the measurements returned with the capture. Delays up to 600 seconds are supported. Pressing Stop cancels a pending delayed acquisition before it starts.
 
+The short commands **Aufnahme**, **record**, **update** and **snapshot** start an immediate acquisition directly, without an AI model round trip. They can be typed into the chat or spoken through the assistant microphone.
+
+#### Oscilloscope Control
+
+The assistant can also control the oscilloscope through the instrument agent. Read-only queries — for example the current volts/div or a live measurement — are executed immediately. Every setting change (channel on/off, volts/div, offset, coupling, timebase, trigger or acquisition mode) is first proposed with the exact channel, parameter and new value and is applied only after an explicit confirmation such as “yes” or “apply it”. After a confirmed change the assistant verifies the value with a read-back query and starts a fresh acquisition so the chart and measurements reflect the new setting.
+
+A message that starts with **Scope**, **Oscilloscope**, **Oszi** or **Oszilloskop** is an explicit oscilloscope command, for example “Scope Kanal 1 1 V/div”. The keyword itself counts as confirmation: the rest of the message is applied immediately without an extra question, then verified with a read-back. Messages without the keyword keep the confirmation step.
+
+#### Signal Generator Control
+
+When a JDS6600 or FY6900 is configured and connected, the assistant can also control the signal generator. The keyword **Signalgenerator** (also accepted: Signalgeber, Funktionsgenerator, Frequenzgenerator, Testsignalgenerator, Prüfsignalgenerator, Signalquelle, Signal Generator, Signal Source, Function Generator, Frequency Generator, Waveform Generator, Test Signal Generator, Signal Synthesizer, SignalGen, siggen, WaveGen) must appear in the request, for example “Signalgenerator Frequenz Kanal 1 10 kHz”. Without the keyword the assistant never touches the generator, so a plain “frequency on channel 1” keeps referring to the oscilloscope display. With the keyword it applies the requested settings immediately — the keyword is the confirmation — and supports:
+
+* channel 1 or 2, frequency, amplitude (Vpp), DC offset, waveform, duty cycle, phase and output on/off
+* reading the current generator settings and the device limits
+* resetting both channels to safe defaults and stopping a running modulation or sweep
+
+The tool sets the waveform first, then frequency, amplitude, offset, duty, phase and output, because the device limits depend on the waveform and the frequency. Out-of-range values are rejected by the device driver and reported; the assistant asks for a corrected value. The keyword works with typed input and with the assistant microphone.
+
 #### Fault Analysis
 
 For an explicit fault-analysis request (“analyze this fault”, “why is the signal wrong”, “find the error”), the assistant can run a deterministic fault analyzer on every raw sample of the current acquisition. It selects only the tests that match the symptom from twenty categories: amplitude, signal loss/dropout, transients/spikes, clipping, frequency error/drift, noise, ringing, duty cycle, glitches, period jitter, DC offset, distortion, spurious frequency components, rise/fall time, amplitude stability, settling, phase/delay, crosstalk, intermittent faults and measurement artifacts. Before the call it asks for the reference value, tolerance or limit each selected test needs. Without a specification the tool reports measurements and clear anomalies but does not claim a confirmed violation. Results are reported per test with status (pass, fail, warning, informational, inconclusive, not applicable), measured vs expected values, deviations and event times; measurement artifacts and limitations are listed separately. Phase/delay and crosstalk require a second acquired channel.
@@ -1747,6 +1764,8 @@ Describe the desired setup in plain language, for example:
 * "Set channel 1 to 200 mV per division with an offset of 0.2 V, then do an autoset."
 * "Give me the frequency on channel 3 and the RMS voltage."
 * "Why is the signal on CH1 so noisy? Suggest better settings."
+
+The short commands **Aufnahme**, **record**, **update** and **snapshot** fetch a fresh screen dump of the current oscilloscope display directly, without an AI model round trip. They can be typed into the chat or spoken through the assistant microphone.
 
 ---
 

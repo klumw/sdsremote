@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'agents/calculator_agent.dart';
 import 'ai_settings.dart';
 import 'calculator_ai_service.dart';
+import 'input_history.dart';
 
 /// One structured result returned by the Calculator Agent's deterministic
 /// calculator tool. The chat panel renders these as cards with explicit
@@ -76,6 +77,7 @@ class CalculatorChatController extends ChangeNotifier {
   final CalculatorAiService Function() _serviceFactory;
   final List<Map<String, String>> _messages = [];
   final Map<int, List<CalculatorChatResult>> _results = {};
+  final InputHistory _inputHistory = InputHistory();
 
   CalculatorAiService? _service;
   AiSettings? _settings;
@@ -95,6 +97,9 @@ class CalculatorChatController extends ChangeNotifier {
   bool get isInitialized => _service?.isInitialized ?? false;
   bool get isAvailable => _settings?.isConfigured == true && isInitialized;
   List<Map<String, String>> get messages => _messages;
+
+  /// Most recent user inputs, newest first.
+  List<String> get inputHistory => _inputHistory.entries;
 
   List<CalculatorChatResult> resultsFor(int messageIndex) =>
       _results[messageIndex] ?? const [];
@@ -163,6 +168,8 @@ class CalculatorChatController extends ChangeNotifier {
         _isChatting) {
       return;
     }
+
+    _inputHistory.record(trimmed);
 
     final generation = _generation;
     final aiMessage = <String, String>{'role': 'ai', 'content': ''};

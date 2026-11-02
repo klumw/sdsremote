@@ -10,6 +10,8 @@ import '../macro/macro_debug.dart';
 import '../macro/macro_lint_controller.dart';
 import '../macro/macro_linter.dart';
 import '../macro/macro_print_controller.dart';
+import '../voice/voice_input_binding.dart';
+import '../voice/voice_input_service.dart';
 import 'osci_chat_window.dart';
 
 /// Layout state of the Macro Editor's side panels.
@@ -78,6 +80,11 @@ class MacroEditorPanel extends StatefulWidget {
   /// null, the panel creates its own controller and disposes it with the
   /// panel.
   final MacroChatController? chatController;
+
+  /// Shared microphone service passed to the macro assistant.
+  ///
+  /// Null hides the microphone button in the chat.
+  final VoiceInputService? voiceInput;
 
   /// Optional layout state of the side panels.
   ///
@@ -167,6 +174,7 @@ class MacroEditorPanel extends StatefulWidget {
     this.errorMessage,
     this.aiSettings,
     this.chatController,
+    this.voiceInput,
     this.layout,
     this.isPlaying = false,
     this.hasDebugSession = false,
@@ -212,6 +220,9 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   /// A controller passed by the parent outlives the panel; without one the
   /// panel owns a controller for its own lifetime.
   MacroChatController? _ownedChatController;
+
+  /// Microphone binding of this assistant; null when voice input is disabled.
+  VoiceInputBinding? _voice;
 
   MacroChatController get _chat =>
       widget.chatController ?? _ownedChatController!;
@@ -334,6 +345,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     // Attach this editor to the (possibly shared) AI chat controller and
     // create the agent when the AI is already configured.
     _initMacroChat();
+    _initVoiceInput();
     _chat.addListener(_onMacroChatChanged);
 
     // Keep the lower half of the output sidebar in sync with print output.
@@ -392,6 +404,18 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     _chat.configure(widget.aiSettings);
   }
 
+  /// Creates the microphone binding for the shared voice input service.
+  void _initVoiceInput() {
+    final service = widget.voiceInput;
+    _voice = service == null
+        ? null
+        : VoiceInputBinding(
+            ownerId: 'macro_ai',
+            service: service,
+            onTranscript: _chat.send,
+          );
+  }
+
   void _onMacroChatChanged() {
     if (mounted) setState(() {});
   }
@@ -400,6 +424,8 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   void dispose() {
     _lintDebounce?.cancel();
     HardwareKeyboard.instance.removeHandler(_hardwareKeyHandler);
+    unawaited(_voice?.detach());
+    _voice = null;
     // Detach instead of disposing a controller owned by the parent: the
     // transcript and agent must survive until the editor is opened again.
     _chat.removeListener(_onMacroChatChanged);
@@ -510,6 +536,11 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
       _ownedChatController = null;
       _initMacroChat();
       _chat.addListener(_onMacroChatChanged);
+      unawaited(_voice?.detach());
+      _initVoiceInput();
+    } else if (widget.voiceInput != oldWidget.voiceInput) {
+      unawaited(_voice?.detach());
+      _initVoiceInput();
     } else if (widget.aiSettings != oldWidget.aiSettings) {
       // Reconfigure the agent when the AI settings change while the editor is
       // open (e.g. after saving the settings dialog). The controller keeps
@@ -1653,6 +1684,7 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     _chat.toggleOpen();
 
     if (!_chat.isOpen) {
+      unawaited(_voice?.detach());
       // Give the focus back to the editor so its keyboard shortcuts work
       // immediately after closing the chat.
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -1674,6 +1706,9 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
       isInitialized: _chat.isInitialized,
       onSendMessage: _onMacroChatSend,
       onCancel: _chat.cancel,
+      voiceInput: _voice,
+      inputHistory: _chat.inputHistory,
+      onHistorySelected: _onMacroChatSend,
       hintText: 'Ask the macro assistant...',
       emptyStateText:
           'Ask me to create or change the macro.\n'

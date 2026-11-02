@@ -4,8 +4,12 @@ import 'package:file_selector/file_selector.dart' show XFile;
 import 'package:flutter/foundation.dart';
 
 import 'ai_settings.dart';
+import 'capture_command.dart';
+import 'input_history.dart';
 import 'specification_upload.dart';
+import 'tools/signal_generator_tool.dart';
 import 'tools/spectrum_summary_tool.dart';
+import 'tools/vxi11_tool.dart';
 import 'tools/waveform_analysis_tools.dart';
 import 'tools/waveform_fault_profile_tool.dart';
 import 'tools/waveform_fault_tool.dart';
@@ -29,18 +33,23 @@ class WaveformChatController extends ChangeNotifier {
        _filePicker = filePicker ?? pickSpecificationFile,
        _textExtractor = textExtractor ?? extractSpecificationText;
 
-  static const int _maxInputHistoryEntries = 5;
-
   final WaveformAiService Function() _serviceFactory;
   final SpecificationFilePicker _filePicker;
   final SpecificationTextExtractor _textExtractor;
   final List<Map<String, String>> _messages = [];
-  final List<String> _inputHistory = [];
+  final InputHistory _inputHistory = InputHistory();
 
   WaveformAiService? _service;
   AiSettings? _settings;
+  String? _vxi11Host;
   WaveformAcquisitionCallback? _acquireWaveform;
   VoidCallback? _clearMeasurementHistory;
+  SignalGeneratorStatusProvider? _readSignalGeneratorStatus;
+  SignalGeneratorApplyProvider? _applySignalGenerator;
+  SignalGeneratorActionProvider? _controlSignalGenerator;
+
+  /// Whether the current user request contains the signal-generator keyword.
+  bool _signalGeneratorIntent = false;
 
   bool _isOpen = false;
   bool _isChatting = false;
@@ -62,7 +71,7 @@ class WaveformChatController extends ChangeNotifier {
   List<Map<String, String>> get messages => _messages;
 
   /// Most recent user inputs, newest first.
-  List<String> get inputHistory => List<String>.unmodifiable(_inputHistory);
+  List<String> get inputHistory => _inputHistory.entries;
 
   /// Whether the Waveform Agent requested a specification file upload.
   bool get isSpecificationUploadVisible => _specUpload != null;
@@ -93,14 +102,23 @@ class WaveformChatController extends ChangeNotifier {
     WaveformFaultProfileProvider? manageFaultProfile,
     WaveformAcquisitionCallback? acquireWaveform,
     VoidCallback? clearMeasurementHistory,
+    String? vxi11Host,
+    ScpiCommandCallback? onCommandSent,
+    SignalGeneratorStatusProvider? readSignalGeneratorStatus,
+    SignalGeneratorApplyProvider? applySignalGenerator,
+    SignalGeneratorActionProvider? controlSignalGenerator,
   }) {
     if (_disposed) return;
     _acquireWaveform = acquireWaveform;
     _clearMeasurementHistory = clearMeasurementHistory;
+    _readSignalGeneratorStatus = readSignalGeneratorStatus;
+    _applySignalGenerator = applySignalGenerator;
+    _controlSignalGenerator = controlSignalGenerator;
     final configured = settings != null && settings.isConfigured;
     if (!configured) {
       _cancelActiveRequest();
       _settings = null;
+      _vxi11Host = null;
       _generation++;
       _isChatting = false;
       _service?.dispose();
@@ -108,10 +126,13 @@ class WaveformChatController extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    if (_settings == settings && _service != null) return;
+    if (_settings == settings && _vxi11Host == vxi11Host && _service != null) {
+      return;
+    }
 
     _cancelActiveRequest();
     _settings = settings;
+    _vxi11Host = vxi11Host;
     _generation++;
     _isChatting = false;
     _service?.dispose();
@@ -133,6 +154,12 @@ class WaveformChatController extends ChangeNotifier {
       manageFaultProfile: manageFaultProfile,
       requestSpecUpload: requestSpecificationUpload,
       acquireWaveform: _acquireWaveformForAi,
+      vxi11Host: vxi11Host,
+      onCommandSent: onCommandSent,
+      readSignalGeneratorStatus: _readSignalGeneratorStatus,
+      applySignalGenerator: _applySignalGenerator,
+      controlSignalGenerator: _controlSignalGenerator,
+      isSignalGeneratorIntentEnabled: () => _signalGeneratorIntent,
     );
     _service = service;
     notifyListeners();
@@ -156,6 +183,18 @@ class WaveformChatController extends ChangeNotifier {
         !service.isInitialized ||
         trimmed.isEmpty ||
         _isChatting) {
+      return;
+    }
+
+    // Signal generator control is only allowed when the user explicitly
+    // prefixes the request with the keyword "Signalgenerator". The flag is
+    // read by the signal-generator tools during this request.
+    _signalGeneratorIntent = hasSignalGeneratorKeyword(trimmed);
+
+    // Short capture commands read a fresh waveform without a model round
+    // trip, so "Aufnahme", "record", "update" and "snapshot" always work.
+    if (isCaptureCommand(trimmed)) {
+      await _runCaptureCommand(trimmed);
       return;
     }
 
@@ -210,6 +249,34 @@ class WaveformChatController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Handles a short capture command without calling the AI model.
+  ///
+  /// The command reads a new waveform from the oscilloscope and reports the
+  /// result in the transcript.
+  Future<void> _runCaptureCommand(String trimmed) async {
+    _recordInput(trimmed);
+    _messages.add(<String, String>{'role': 'user', 'content': trimmed});
+    final aiMessage = <String, String>{'role': 'ai', 'content': ''};
+    _messages.add(aiMessage);
+    _isChatting = true;
+    _cancelRequested = false;
+    final generation = _generation;
+    notifyListeners();
+
+    final result = await _acquireWaveformForAi();
+    if (_disposed || generation != _generation || _cancelRequested) return;
+
+    if (result['cancelled'] == true) {
+      aiMessage['content'] = 'The waveform acquisition was cancelled.';
+    } else if (result['error'] != null) {
+      aiMessage['content'] = '${result['error']}';
+    } else {
+      aiMessage['content'] = 'New waveform captured.';
+    }
+    _isChatting = false;
+    notifyListeners();
+  }
+
   Future<void> cancel() async {
     if (_disposed || !_isChatting) return;
     _cancelRequested = true;
@@ -229,13 +296,7 @@ class WaveformChatController extends ChangeNotifier {
   }
 
   /// Records a user input in the bounded history, newest first.
-  void _recordInput(String text) {
-    _inputHistory.remove(text);
-    _inputHistory.insert(0, text);
-    if (_inputHistory.length > _maxInputHistoryEntries) {
-      _inputHistory.removeRange(_maxInputHistoryEntries, _inputHistory.length);
-    }
-  }
+  void _recordInput(String text) => _inputHistory.record(text);
 
   /// Clears the transcript and the agent conversation history.
   ///

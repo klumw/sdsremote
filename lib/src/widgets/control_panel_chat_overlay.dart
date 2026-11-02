@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../ai/ai_settings.dart';
 import '../ai/control_panel_chat_controller.dart';
+import '../voice/voice_input_binding.dart';
+import '../voice/voice_input_service.dart';
 import 'osci_chat_window.dart';
 
 /// Overlay that hosts the Control Panel's AI chat on top of the controls.
@@ -16,6 +20,7 @@ class ControlPanelChatOverlay extends StatefulWidget {
     required this.controller,
     this.aiSettings,
     this.vxi11Host,
+    this.voiceInput,
   });
 
   /// Owns the transcript and the agent for the Control Panel chat.
@@ -26,6 +31,9 @@ class ControlPanelChatOverlay extends StatefulWidget {
 
   /// Instrument address used by the agent's instrument sub-agent.
   final String? vxi11Host;
+
+  /// Shared microphone service; null hides the assistant microphone.
+  final VoiceInputService? voiceInput;
 
   @override
   State<ControlPanelChatOverlay> createState() =>
@@ -45,9 +53,13 @@ class _ControlPanelChatOverlayState extends State<ControlPanelChatOverlay>
   late final Animation<Offset> _slideAnimation;
   late final Animation<double> _fadeAnimation;
 
+  /// Microphone binding of this assistant; null when voice input is disabled.
+  VoiceInputBinding? _voice;
+
   @override
   void initState() {
     super.initState();
+    _initVoiceInput();
     _animationController = AnimationController(
       vsync: this,
       duration: _showDuration,
@@ -84,17 +96,42 @@ class _ControlPanelChatOverlayState extends State<ControlPanelChatOverlay>
         oldWidget.vxi11Host != widget.vxi11Host) {
       _scheduleConfigure();
     }
+    if (oldWidget.controller != widget.controller ||
+        oldWidget.voiceInput != widget.voiceInput) {
+      unawaited(_voice?.detach());
+      _initVoiceInput();
+    }
   }
 
   @override
   void dispose() {
+    unawaited(_voice?.detach());
+    _voice = null;
     widget.controller.removeListener(_onChatControllerChanged);
     _animationController.dispose();
     super.dispose();
   }
 
-  /// Starts the slide-in or slide-out animation for the current chat state.
-  void _onChatControllerChanged() => _syncAnimation();
+  /// Creates the microphone binding for the shared voice input service.
+  void _initVoiceInput() {
+    final service = widget.voiceInput;
+    _voice = service == null
+        ? null
+        : VoiceInputBinding(
+            ownerId: 'control_panel_ai',
+            service: service,
+            onTranscript: widget.controller.send,
+          );
+  }
+
+  /// Starts the slide-in or slide-out animation and stops the microphone
+  /// when the assistant is collapsed.
+  void _onChatControllerChanged() {
+    _syncAnimation();
+    if (!widget.controller.isOpen) {
+      unawaited(_voice?.detach());
+    }
+  }
 
   void _syncAnimation() {
     if (widget.controller.isOpen && widget.controller.isAvailable) {
@@ -199,6 +236,9 @@ class _ControlPanelChatOverlayState extends State<ControlPanelChatOverlay>
                 isInitialized: widget.controller.isInitialized,
                 onSendMessage: widget.controller.send,
                 onCancel: widget.controller.cancel,
+                voiceInput: _voice,
+                inputHistory: widget.controller.inputHistory,
+                onHistorySelected: widget.controller.send,
                 hintText: 'Ask the control panel assistant...',
                 emptyStateText:
                     'Ask me to configure the oscilloscope.\n'

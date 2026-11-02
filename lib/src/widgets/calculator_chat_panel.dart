@@ -81,6 +81,8 @@ class _CalculatorChatPanelState extends State<CalculatorChatPanel> {
                     isInitialized: _chat.isAvailable,
                     onSendMessage: _chat.send,
                     onCancel: _chat.cancel,
+                    inputHistory: _chat.inputHistory,
+                    onHistorySelected: _chat.send,
                     autofocus: _chat.isOpen,
                     inputController: _input,
                     markdownBuilders: {

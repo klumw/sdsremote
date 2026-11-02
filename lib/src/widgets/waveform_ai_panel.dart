@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../ai/waveform_chat_controller.dart';
 import '../app/app_theme.dart';
+import '../voice/voice_input_binding.dart';
+import '../voice/voice_input_service.dart';
 import 'osci_chat_window.dart';
 
 /// Sliding AI side panel of the Acquire Waveform view.
@@ -13,10 +17,14 @@ class WaveformAiPanel extends StatefulWidget {
     super.key,
     required this.controller,
     required this.onClose,
+    this.voiceInput,
   });
 
   final WaveformChatController controller;
   final VoidCallback onClose;
+
+  /// Shared microphone service; null hides the assistant microphone.
+  final VoiceInputService? voiceInput;
 
   @override
   State<WaveformAiPanel> createState() => _WaveformAiPanelState();
@@ -25,12 +33,51 @@ class WaveformAiPanel extends StatefulWidget {
 class _WaveformAiPanelState extends State<WaveformAiPanel> {
   final TextEditingController _input = TextEditingController();
 
+  /// Microphone binding of this assistant; null when voice input is disabled.
+  VoiceInputBinding? _voice;
+
   WaveformChatController get _chat => widget.controller;
 
   @override
+  void initState() {
+    super.initState();
+    _initVoiceInput();
+  }
+
+  @override
+  void didUpdateWidget(covariant WaveformAiPanel oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.controller != widget.controller ||
+        oldWidget.voiceInput != widget.voiceInput) {
+      unawaited(_voice?.detach());
+      _initVoiceInput();
+    }
+  }
+
+  @override
   void dispose() {
+    unawaited(_voice?.detach());
+    _voice = null;
     _input.dispose();
     super.dispose();
+  }
+
+  /// Creates the microphone binding for the shared voice input service.
+  void _initVoiceInput() {
+    final service = widget.voiceInput;
+    _voice = service == null
+        ? null
+        : VoiceInputBinding(
+            ownerId: 'waveform_ai',
+            service: service,
+            onTranscript: _chat.send,
+          );
+  }
+
+  /// Stops the microphone before the panel slides out.
+  void _closePanel() {
+    unawaited(_voice?.detach());
+    widget.onClose();
   }
 
   @override
@@ -69,6 +116,7 @@ class _WaveformAiPanelState extends State<WaveformAiPanel> {
                     isInitialized: _chat.isAvailable,
                     onSendMessage: _chat.send,
                     onCancel: _chat.cancel,
+                    voiceInput: _voice,
                     autofocus: _chat.isOpen,
                     inputController: _input,
                     inputHistory: _chat.inputHistory,
@@ -130,7 +178,7 @@ class _WaveformAiPanelState extends State<WaveformAiPanel> {
           ),
           IconButton(
             tooltip: 'Close',
-            onPressed: widget.onClose,
+            onPressed: _closePanel,
             icon: const Icon(Icons.close, size: 18),
             color: Colors.white70,
             visualDensity: VisualDensity.compact,

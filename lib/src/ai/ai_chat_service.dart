@@ -4,12 +4,16 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../core/logger.dart';
 import 'agents/frontend_agent.dart';
+import 'tools/signal_generator_tool.dart';
 
 /// Service that wraps a [FrontendAgent] instance and provides a streaming
 /// chat interface for the UI.
 class AiChatService {
   FrontendAgent? _agent;
   bool _isDisposed = false;
+
+  /// Whether the current user message contains the signal-generator keyword.
+  bool _signalGeneratorIntent = false;
 
   /// The underlying [FrontendAgent] instance, if created.
   FrontendAgent? get agent => _agent;
@@ -44,6 +48,9 @@ class AiChatService {
     String? instrumentModel,
     int? instrumentToolCalls,
     int? searchToolCalls,
+    SignalGeneratorStatusProvider? readSignalGeneratorStatus,
+    SignalGeneratorApplyProvider? applySignalGenerator,
+    SignalGeneratorActionProvider? controlSignalGenerator,
   }) {
     if (_isDisposed) return;
 
@@ -72,6 +79,10 @@ class AiChatService {
             instrumentToolCalls ?? FrontendAgent.defaultInstrumentToolCalls,
         searchToolCalls:
             searchToolCalls ?? FrontendAgent.defaultSearchToolCalls,
+        readSignalGeneratorStatus: readSignalGeneratorStatus,
+        applySignalGenerator: applySignalGenerator,
+        controlSignalGenerator: controlSignalGenerator,
+        isSignalGeneratorIntentEnabled: () => _signalGeneratorIntent,
       );
       logger.debug('SUCCESS: FrontendAgent created, agent=${_agent != null}');
     } catch (e) {
@@ -94,6 +105,14 @@ class AiChatService {
       'sendMessageStream called: isInitialized=$isInitialized, text="$text"',
     );
     if (_isDisposed) throw Exception('Service is disposed');
+
+    // The signal-generator tools only act when the user included the
+    // keyword "Signalgenerator" in this message.
+    _signalGeneratorIntent = hasSignalGeneratorKeyword(
+      text,
+      includeGenericGenerator: true,
+    );
+
     if (_agent == null) {
       AppLogger(
         agentName: 'AiChatService',

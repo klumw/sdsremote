@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -10,6 +12,8 @@ import '../ai/help_chat_controller.dart';
 import '../core/logger.dart';
 import '../help/help_link_history.dart';
 import '../help/help_sections.dart';
+import '../voice/voice_input_binding.dart';
+import '../voice/voice_input_service.dart';
 import 'animated_sync_icon.dart';
 import 'osci_chat_window.dart';
 
@@ -108,11 +112,14 @@ List<int> _headingOffsets(String content) {
 /// `[section 4.1](#41-ai-model-configuration)` — scroll to the heading they
 /// point at instead of being handed to the browser.
 class HelpWindow extends StatefulWidget {
-  const HelpWindow({super.key, this.aiSettings});
+  const HelpWindow({super.key, this.aiSettings, this.voiceInput});
 
   /// AI provider/token/model settings for the help assistant; null (or an
   /// unconfigured value) disables the sparkle button in the header.
   final AiSettings? aiSettings;
+
+  /// Shared microphone service; null hides the assistant microphone.
+  final VoiceInputService? voiceInput;
 
   @override
   State<HelpWindow> createState() => _HelpWindowState();
@@ -150,6 +157,9 @@ class _HelpWindowState extends State<HelpWindow>
   /// reopening the chat panel keeps the transcript; leaving the help page
   /// disposes it and discards the chat.
   late final HelpChatController _helpChatController;
+
+  /// Microphone binding of this assistant; null when voice input is disabled.
+  VoiceInputBinding? _voice;
 
   /// Drives the chat panel's slide-in from the right and its slide-out.
   late final AnimationController _helpChatAnimation;
@@ -230,6 +240,7 @@ class _HelpWindowState extends State<HelpWindow>
           ),
         );
     _helpChatController = HelpChatController();
+    _initVoiceInput();
     _helpChatController.addListener(_syncHelpChatPanel);
     // The agent itself is created once the manual has loaded; with valid
     // settings the panel can already be opened until then.
@@ -252,11 +263,29 @@ class _HelpWindowState extends State<HelpWindow>
         manual: _isLoading ? '' : _manualContent,
       );
     }
+    if (oldWidget.voiceInput != widget.voiceInput) {
+      unawaited(_voice?.detach());
+      _initVoiceInput();
+    }
+  }
+
+  /// Creates the microphone binding for the shared voice input service.
+  void _initVoiceInput() {
+    final service = widget.voiceInput;
+    _voice = service == null
+        ? null
+        : VoiceInputBinding(
+            ownerId: 'help_ai',
+            service: service,
+            onTranscript: _helpChatController.send,
+          );
   }
 
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_onHardwareKeyEvent);
+    unawaited(_voice?.detach());
+    _voice = null;
     _helpChatController.removeListener(_syncHelpChatPanel);
     _helpChatController.dispose();
     _helpChatAnimation.dispose();
@@ -714,6 +743,7 @@ class _HelpWindowState extends State<HelpWindow>
     if (_helpChatController.isOpen && _helpChatController.isAvailable) {
       _helpChatAnimation.forward();
     } else {
+      unawaited(_voice?.detach());
       _helpChatAnimation.reverse();
     }
   }
@@ -826,6 +856,9 @@ class _HelpWindowState extends State<HelpWindow>
                   isInitialized: _helpChatController.isInitialized,
                   onSendMessage: _helpChatController.send,
                   onCancel: _helpChatController.cancel,
+                  voiceInput: _voice,
+                  inputHistory: _helpChatController.inputHistory,
+                  onHistorySelected: _helpChatController.send,
                   onLinkTap: _handleHelpChatLink,
                   hintText: 'Ask about SDS-Remote...',
                   emptyStateText:

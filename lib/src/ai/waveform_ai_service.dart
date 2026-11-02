@@ -6,7 +6,9 @@ import '../core/logger.dart';
 import 'agents/waveform_agent.dart';
 import 'tools/acquire_waveform_tool.dart';
 import 'tools/specification_upload_tool.dart';
+import 'tools/signal_generator_tool.dart';
 import 'tools/spectrum_summary_tool.dart';
+import 'tools/vxi11_tool.dart';
 import 'tools/waveform_analysis_tools.dart';
 import 'tools/waveform_fault_profile_tool.dart';
 import 'tools/waveform_fault_tool.dart';
@@ -46,6 +48,12 @@ class WaveformAiService {
     WaveformFaultAnalysisProvider? analyzeWaveformFaults,
     WaveformFaultProfileProvider? manageFaultProfile,
     SpecificationUploadProvider? requestSpecUpload,
+    String? vxi11Host,
+    ScpiCommandCallback? onCommandSent,
+    SignalGeneratorStatusProvider? readSignalGeneratorStatus,
+    SignalGeneratorApplyProvider? applySignalGenerator,
+    SignalGeneratorActionProvider? controlSignalGenerator,
+    SignalGeneratorIntentCheck? isSignalGeneratorIntentEnabled,
     int maxToolCalls = WaveformAgent.defaultMaxToolCalls,
   }) {
     if (_isDisposed) return;
@@ -67,6 +75,12 @@ class WaveformAiService {
         analyzeWaveformFaults: analyzeWaveformFaults,
         manageFaultProfile: manageFaultProfile,
         requestSpecUpload: requestSpecUpload,
+        vxi11Host: vxi11Host,
+        onCommandSent: onCommandSent,
+        readSignalGeneratorStatus: readSignalGeneratorStatus,
+        applySignalGenerator: applySignalGenerator,
+        controlSignalGenerator: controlSignalGenerator,
+        isSignalGeneratorIntentEnabled: isSignalGeneratorIntentEnabled,
         maxToolCalls: maxToolCalls,
       );
       AppLogger(

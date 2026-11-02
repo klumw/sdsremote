@@ -5,6 +5,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import '../../core/logger.dart';
 import '../tools/scpi_agent_tool.dart';
 import '../tools/search_agent_tool.dart';
+import '../tools/signal_generator_tool.dart';
 import '../tools/vxi11_tool.dart';
 import 'instrument_agent.dart';
 import 'search_agent.dart';
@@ -107,9 +108,17 @@ class FrontendAgent {
     String? instrumentModel,
     List<Tool>? tools,
     ScpiCommandCallback? onCommandSent,
+    SignalGeneratorStatusProvider? readSignalGeneratorStatus,
+    SignalGeneratorApplyProvider? applySignalGenerator,
+    SignalGeneratorActionProvider? controlSignalGenerator,
+    SignalGeneratorIntentCheck? isSignalGeneratorIntentEnabled,
     this.instrumentToolCalls = defaultInstrumentToolCalls,
     this.searchToolCalls = defaultSearchToolCalls,
-  }) : _ownsSystemPrompt = systemPrompt == null,
+  }) : _hasSignalGeneratorTools =
+           readSignalGeneratorStatus != null ||
+           applySignalGenerator != null ||
+           controlSignalGenerator != null,
+       _ownsSystemPrompt = systemPrompt == null,
        _frontendAgent = Agent(
          model,
          displayName: 'FrontendAgent',
@@ -132,6 +141,24 @@ class FrontendAgent {
              ),
              agentName: 'FrontendAgent',
            ),
+           if (readSignalGeneratorStatus != null)
+             createReadSignalGeneratorStatusTool(
+               readStatus: readSignalGeneratorStatus,
+               isEnabled: isSignalGeneratorIntentEnabled,
+               agentName: 'FrontendAgent',
+             ),
+           if (applySignalGenerator != null)
+             createSetSignalGeneratorTool(
+               apply: applySignalGenerator,
+               isEnabled: isSignalGeneratorIntentEnabled,
+               agentName: 'FrontendAgent',
+             ),
+           if (controlSignalGenerator != null)
+             createSignalGeneratorActionTool(
+               control: controlSignalGenerator,
+               isEnabled: isSignalGeneratorIntentEnabled,
+               agentName: 'FrontendAgent',
+             ),
            ...?tools,
          ],
        ) {
@@ -147,6 +174,9 @@ class FrontendAgent {
   /// caller via [FrontendAgent.new]'s `systemPrompt`.
   final bool _ownsSystemPrompt;
 
+  /// Whether the signal-generator tools are part of this agent.
+  final bool _hasSignalGeneratorTools;
+
   /// Model designation of the instrument the agent is working with (e.g.
   /// `SDS1202X-E`), or null when no instrument is connected.
   String? _instrumentModel;
@@ -158,6 +188,7 @@ class FrontendAgent {
     if (!_ownsSystemPrompt) return;
     final prompt = buildFrontendAgentSystemPrompt(
       instrumentModel: _instrumentModel,
+      includeSignalGenerator: _hasSignalGeneratorTools,
     );
     if (_history.isEmpty) {
       _history.add(ChatMessage.system(prompt));

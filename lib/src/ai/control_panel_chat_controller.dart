@@ -4,10 +4,17 @@ import 'package:flutter/foundation.dart';
 
 import '../macro/macro_oscope_status.dart';
 import 'ai_settings.dart';
+import 'capture_command.dart';
 import 'control_panel_ai_service.dart';
+import 'input_history.dart';
 import 'tools/macro_tools.dart';
 import 'tools/vxi11_tool.dart';
 import 'tools/waveform_summary_tool.dart';
+
+/// Fetches a fresh Control Panel screen dump.
+///
+/// Returns a map with `success: true` or an `error` message.
+typedef ScreenDumpRefreshCallback = Future<Map<String, dynamic>> Function();
 
 /// Owns the Control Panel's AI conversation.
 ///
@@ -30,6 +37,7 @@ class ControlPanelChatController extends ChangeNotifier {
   final ControlPanelAiService Function() _serviceFactory;
 
   final List<Map<String, String>> _messages = <Map<String, String>>[];
+  final InputHistory _inputHistory = InputHistory();
 
   ControlPanelAiService? _service;
   AiSettings? _settings;
@@ -37,6 +45,7 @@ class ControlPanelChatController extends ChangeNotifier {
   MacroOscilloscopeStatusReader? _readOscilloscopeStatus;
   ScpiCommandCallback? _onCommandSent;
   WaveformSummaryProvider? _readWaveformSummary;
+  ScreenDumpRefreshCallback? _refreshScreenDump;
 
   bool _isOpen = false;
   bool _isChatting = false;
@@ -67,6 +76,9 @@ class ControlPanelChatController extends ChangeNotifier {
   /// only read by the chat window.
   List<Map<String, String>> get messages => _messages;
 
+  /// Most recent user inputs, newest first.
+  List<String> get inputHistory => _inputHistory.entries;
+
   /// Registers the live oscilloscope connection/model source used by the
   /// agent's `read_oscilloscope_status` tool.
   ///
@@ -93,6 +105,15 @@ class ControlPanelChatController extends ChangeNotifier {
   /// [configure]. It returns null when no waveform is displayed.
   void attachWaveformSummary(WaveformSummaryProvider readSummary) {
     _readWaveformSummary = readSummary;
+  }
+
+  /// Registers the source of a fresh screen dump for short capture commands
+  /// such as "snapshot" or "Aufnahme".
+  ///
+  /// The callback is read dynamically, so it may be registered before or after
+  /// [configure].
+  void attachScreenDumpRefresh(ScreenDumpRefreshCallback refreshScreenDump) {
+    _refreshScreenDump = refreshScreenDump;
   }
 
   /// Cancels an in-flight response without changing the transcript.
@@ -180,6 +201,15 @@ class ControlPanelChatController extends ChangeNotifier {
     if (_disposed || service == null || !service.isInitialized) return;
     if (trimmed.isEmpty || _isChatting) return;
 
+    _inputHistory.record(trimmed);
+
+    // Short capture commands fetch a new screen dump without a model round
+    // trip, so "Aufnahme", "record", "update" and "snapshot" always work.
+    if (isCaptureCommand(trimmed)) {
+      await _runScreenDumpCommand(trimmed);
+      return;
+    }
+
     final generation = _generation;
     final aiMessage = <String, String>{'role': 'ai', 'content': ''};
     _messages.add(<String, String>{'role': 'user', 'content': trimmed});
@@ -228,6 +258,42 @@ class ControlPanelChatController extends ChangeNotifier {
 
     if (!hasReceivedChunk && !hasError) {
       aiMessage['content'] = 'No response from AI-Server';
+    }
+    _isChatting = false;
+    notifyListeners();
+  }
+
+  /// Handles a short capture command without calling the AI model.
+  ///
+  /// The command fetches a new screen dump and reports the result in the
+  /// transcript.
+  Future<void> _runScreenDumpCommand(String trimmed) async {
+    _messages.add(<String, String>{'role': 'user', 'content': trimmed});
+    final aiMessage = <String, String>{'role': 'ai', 'content': ''};
+    _messages.add(aiMessage);
+    _isChatting = true;
+    _cancelRequested = false;
+    final generation = _generation;
+    notifyListeners();
+
+    final refresh = _refreshScreenDump;
+    if (refresh == null) {
+      aiMessage['content'] = 'The screen dump is not available.';
+    } else {
+      try {
+        final result = await refresh();
+        if (_disposed || generation != _generation || _cancelRequested) {
+          return;
+        }
+        aiMessage['content'] = result['error'] != null
+            ? '${result['error']}'
+            : 'Screen dump updated.';
+      } catch (error) {
+        if (_disposed || generation != _generation || _cancelRequested) {
+          return;
+        }
+        aiMessage['content'] = 'Failed to update the screen dump: $error';
+      }
     }
     _isChatting = false;
     notifyListeners();

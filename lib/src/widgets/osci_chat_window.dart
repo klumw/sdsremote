@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
+import '../voice/voice_input_binding.dart';
+import '../voice/voice_input_service.dart';
 import 'animated_sync_icon.dart';
 
 /// Regular expression to match bare URLs (http, https, ftp).
@@ -132,6 +136,12 @@ class ChatWindow extends StatefulWidget {
   /// of handing them to the browser.
   final void Function(String href)? onLinkTap;
 
+  /// Optional microphone control shown next to the input field.
+  ///
+  /// The four AI assistants pass a binding for their own microphone; other
+  /// chats leave it null and show no microphone button.
+  final VoiceInputBinding? voiceInput;
+
   const ChatWindow({
     super.key,
     required this.chatMessages,
@@ -149,6 +159,7 @@ class ChatWindow extends StatefulWidget {
     this.inputHistory = const [],
     this.onHistorySelected,
     this.onLinkTap,
+    this.voiceInput,
   });
 
   @override
@@ -412,6 +423,12 @@ class _ChatWindowState extends State<ChatWindow> {
                     ),
                   ),
                 ),
+                if (widget.voiceInput != null)
+                  ValueListenableBuilder<VoiceInputStatus>(
+                    valueListenable: widget.voiceInput!.status,
+                    builder: (context, voice, _) =>
+                        _buildMicrophoneButton(voice),
+                  ),
                 if (widget.inputHistory.isNotEmpty)
                   IconButton(
                     tooltip: _showHistory
@@ -444,6 +461,45 @@ class _ChatWindowState extends State<ChatWindow> {
           ),
         ],
       ),
+    );
+  }
+
+  /// Microphone button of an AI assistant.
+  ///
+  /// The button starts switched off whenever the assistant opens. Activating
+  /// it keeps the microphone listening until the user switches it off again
+  /// or the assistant closes.
+  Widget _buildMicrophoneButton(VoiceInputStatus voice) {
+    final binding = widget.voiceInput!;
+    final active = voice.isActiveFor(binding.ownerId);
+    final answering = active && voice.isResponding;
+    final preparing = active && voice.isPreparing;
+    // The microphone cannot be switched off while the model is prepared or an
+    // utterance is transcribed; stopping then would cut into whisper.cpp.
+    final locked = active && (voice.isPreparing || voice.isTranscribing);
+    final color = active && (voice.isTranscribing || answering)
+        ? Colors.greenAccent
+        : (active ? Colors.cyanAccent : Colors.white70);
+    final tooltip = active
+        ? (answering ? voice.message : 'Turn off the assistant microphone')
+        : 'Turn on the assistant microphone';
+    return IconButton(
+      tooltip: tooltip,
+      icon: preparing
+          ? SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2.2,
+                value: voice.downloadProgress,
+                color: color,
+              ),
+            )
+          : Icon(active ? Icons.mic : Icons.mic_off),
+      color: color,
+      onPressed: widget.isInitialized && !locked
+          ? () => unawaited(binding.toggle())
+          : null,
     );
   }
 

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../macro/macro_oscope_status.dart';
 import 'ai_settings.dart';
+import 'input_history.dart';
 import 'macro_ai_service.dart';
 import 'tools/macro_tools.dart';
 
@@ -29,6 +30,7 @@ class MacroChatController extends ChangeNotifier {
   final MacroAiService Function() _serviceFactory;
 
   final List<Map<String, String>> _messages = <Map<String, String>>[];
+  final InputHistory _inputHistory = InputHistory();
 
   MacroAiService? _service;
   AiSettings? _settings;
@@ -70,6 +72,9 @@ class MacroChatController extends ChangeNotifier {
   /// The complete chat transcript. The list is owned by the controller and is
   /// only read by the chat window.
   List<Map<String, String>> get messages => _messages;
+
+  /// Most recent user inputs, newest first.
+  List<String> get inputHistory => _inputHistory.entries;
 
   /// Registers the currently mounted editor.
   ///
@@ -220,6 +225,8 @@ class MacroChatController extends ChangeNotifier {
     final trimmed = text.trim();
     if (_disposed || service == null || !service.isInitialized) return;
     if (trimmed.isEmpty || _isChatting) return;
+
+    _inputHistory.record(trimmed);
 
     final generation = _generation;
     final aiMessage = <String, String>{'role': 'ai', 'content': ''};

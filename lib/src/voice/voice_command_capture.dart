@@ -10,7 +10,7 @@ import 'dart:typed_data';
 class VoiceCommandCapture {
   VoiceCommandCapture({
     required this.onUtterance,
-    required this.onInactivityTimeout,
+    this.onInactivityTimeout,
     this.sampleRate = 16000,
     this.speechOnset = const Duration(milliseconds: 60),
     this.speechEndSilence = const Duration(milliseconds: 1000),
@@ -32,7 +32,9 @@ class VoiceCommandCapture {
   final void Function(Uint8List pcm16) onUtterance;
 
   /// Called when no speech was detected for [inactivityTimeout].
-  final void Function() onInactivityTimeout;
+  ///
+  /// When null, silence never ends the capture; the owner stops it explicitly.
+  final void Function()? onInactivityTimeout;
 
   /// Sample rate of the PCM stream. The app always uses 16 kHz.
   final int sampleRate;
@@ -156,10 +158,12 @@ class VoiceCommandCapture {
         _appendPreRoll(frame);
       }
 
-      if (!_speechActive && _samplesSinceSpeech >= _inactivitySamples) {
+      if (onInactivityTimeout != null &&
+          !_speechActive &&
+          _samplesSinceSpeech >= _inactivitySamples) {
         _resetSpeechState(clearPreRoll: true);
         _samplesSinceSpeech = 0;
-        onInactivityTimeout();
+        onInactivityTimeout!();
       }
       return;
     }

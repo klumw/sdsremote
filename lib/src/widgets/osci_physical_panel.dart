@@ -7,6 +7,7 @@ import 'osci_knob_widgets.dart';
 import '../ai/ai_settings.dart';
 import '../ai/control_panel_chat_controller.dart';
 import '../app/app_config.dart' show KnobId, autoSetupButtonLabel;
+import '../voice/voice_input_service.dart';
 import 'control_panel_chat_overlay.dart';
 
 /// A widget that renders a physical oscilloscope control panel overlay
@@ -74,6 +75,9 @@ class PhysicalControlPanel extends StatelessWidget {
   /// Instrument address used by the Control Panel assistant.
   final String? vxi11Host;
 
+  /// Shared microphone service for the Control Panel assistant.
+  final VoiceInputService? voiceInput;
+
   const PhysicalControlPanel({
     super.key,
     required this.isOnline,
@@ -103,6 +107,7 @@ class PhysicalControlPanel extends StatelessWidget {
     this.aiSettings,
     this.chatController,
     this.vxi11Host,
+    this.voiceInput,
   });
 
   /// Input is locked while a SCPI event is being processed or while the
@@ -542,6 +547,7 @@ class PhysicalControlPanel extends StatelessWidget {
                     controller: chatController!,
                     aiSettings: aiSettings,
                     vxi11Host: vxi11Host,
+                    voiceInput: voiceInput,
                   ),
                 ),
             ],

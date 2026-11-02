@@ -16,12 +16,12 @@ class WhisperException implements Exception {
   String toString() => message;
 }
 
-/// Downloads and runs the whisper.cpp model used for voice commands.
+/// Downloads and runs the whisper.cpp model used for assistant voice input.
 ///
 /// The model is downloaded on first use from the official whisper.cpp model
 /// repository into the package's application-support directory. One whisper
-/// model is kept resident between commands (`keepModelLoaded`); the caller
-/// releases it when command mode ends.
+/// model is kept resident between utterances (`keepModelLoaded`); the caller
+/// releases it when the microphone is switched off.
 class WhisperTranscriber {
   WhisperTranscriber({
     http.Client? httpClient,
@@ -37,14 +37,16 @@ class WhisperTranscriber {
   /// Multilingual model used for German and English commands.
   static const WhisperModel defaultModel = WhisperModel.base;
 
-  /// Vocabulary hint for whisper. Menu names are unusual words for the
-  /// generic model, so biasing the decoder towards them improves recognition.
+  /// Vocabulary hint for whisper. Instrument and assistant terms are unusual
+  /// words for the generic model, so biasing the decoder towards them improves
+  /// recognition.
   static const String defaultInitialPrompt =
-      'SDS-Remote menu commands. Control Panel, Acquire Waveform, AI, '
-      'Profiles, Data Logger, Bode, Macro Recorder, Help, Timelapse, News, '
-      'Settings, Save, Export Data. Menübefehle: Control Panel, Acquire '
-      'Waveform, Profile, Datenlogger, Bode, Makro Recorder, Hilfe, '
-      'Zeitlupenaufnahme, Einstellungen, Speichern, Daten exportieren.';
+      'SDS-Remote voice input. Control Panel, Acquire Waveform, AI, Profiles, '
+      'Data Logger, Bode, Macro Recorder, Help, Settings, Save, Export Data. '
+      'Channel, Trigger, Timebase, Volts per division, Autoset, Measure, '
+      'Cursor. Menübefehle: Control Panel, Acquire Waveform, Profile, '
+      'Datenlogger, Bode, Makro Recorder, Hilfe, Einstellungen, Speichern, '
+      'Daten exportieren.';
 
   final WhisperModel model;
   final String initialPrompt;

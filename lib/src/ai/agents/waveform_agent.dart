@@ -5,14 +5,18 @@ import '../tools/calculator_tool.dart';
 import '../tools/date_time_tool.dart';
 import '../tools/logic_level_reference_tool.dart';
 import '../tools/math_tool.dart';
+import '../tools/scpi_agent_tool.dart';
+import '../tools/signal_generator_tool.dart';
 import '../tools/spec_analyst_tool.dart';
 import '../tools/specification_upload_tool.dart';
 import '../tools/spectrum_summary_tool.dart';
+import '../tools/vxi11_tool.dart';
 import '../tools/waveform_analysis_tools.dart';
 import '../tools/waveform_fault_profile_tool.dart';
 import '../tools/waveform_fault_tool.dart';
 import '../tools/waveform_history_tool.dart';
 import '../tools/waveform_summary_tool.dart';
+import 'instrument_agent.dart';
 import 'spec_analyst_agent.dart';
 import 'systemprompts.dart';
 
@@ -21,9 +25,12 @@ import 'systemprompts.dart';
 /// The agent sees the current time-domain measurements and the FFT spectrum
 /// through deterministic read tools, performs derived calculations with the
 /// math and calculator tools, and can place results in time with the
-/// date/time tool.
+/// date/time tool. When an instrument address is configured it can also read
+/// live values and change scope settings through the instrument agent; the
+/// system prompt requires explicit user confirmation before any change.
 class WaveformAgent {
   static const int defaultMaxToolCalls = 16;
+  static const int defaultInstrumentToolCalls = 8;
   static const int _maxHistoryMessages = 12;
 
   final Agent _agent;
@@ -43,6 +50,13 @@ class WaveformAgent {
     WaveformFaultAnalysisProvider? analyzeWaveformFaults,
     WaveformFaultProfileProvider? manageFaultProfile,
     SpecificationUploadProvider? requestSpecUpload,
+    String? vxi11Host,
+    ScpiCommandCallback? onCommandSent,
+    SignalGeneratorStatusProvider? readSignalGeneratorStatus,
+    SignalGeneratorApplyProvider? applySignalGenerator,
+    SignalGeneratorActionProvider? controlSignalGenerator,
+    SignalGeneratorIntentCheck? isSignalGeneratorIntentEnabled,
+    int instrumentToolCalls = defaultInstrumentToolCalls,
     int maxToolCalls = defaultMaxToolCalls,
   }) : _agent = Agent(
          model,
@@ -102,6 +116,35 @@ class WaveformAgent {
              generate: generateReferenceWaveform,
              agentName: 'WaveformAgent',
            ),
+           if (vxi11Host != null)
+             createScpiAgentTool(
+               InstrumentAgent(
+                 model: model,
+                 vxi11Host: vxi11Host,
+                 maxToolCalls: instrumentToolCalls,
+                 onCommandSent: onCommandSent,
+                 systemPrompt: instrumentAgentSystemPrompt,
+               ),
+               agentName: 'WaveformAgent',
+             ),
+           if (readSignalGeneratorStatus != null)
+             createReadSignalGeneratorStatusTool(
+               readStatus: readSignalGeneratorStatus,
+               isEnabled: isSignalGeneratorIntentEnabled,
+               agentName: 'WaveformAgent',
+             ),
+           if (applySignalGenerator != null)
+             createSetSignalGeneratorTool(
+               apply: applySignalGenerator,
+               isEnabled: isSignalGeneratorIntentEnabled,
+               agentName: 'WaveformAgent',
+             ),
+           if (controlSignalGenerator != null)
+             createSignalGeneratorActionTool(
+               control: controlSignalGenerator,
+               isEnabled: isSignalGeneratorIntentEnabled,
+               agentName: 'WaveformAgent',
+             ),
            createMathTool(agentName: 'WaveformAgent'),
            createCalculatorTool(agentName: 'WaveformAgent'),
            createDateTimeTool(agentName: 'WaveformAgent'),
