@@ -19,6 +19,7 @@ import 'dart:io';
 ///   bode/csv/           Bode plot CSV data files
 ///   automation/macros/  Macro (.m) files
 ///   automation/reports/ Macro PDF reports
+///   models/wakeword/    sherpa-onnx wakeword model (downloaded on first use)
 class AppPaths {
   AppPaths._();
 
@@ -114,6 +115,13 @@ class AppPaths {
   static File get faultAnalysisProfileFile => File(
     '${defaultSaveDirectory.path}${_sep}preferences${_sep}fault_analysis_profile.json',
   );
+
+  /// `<app working dir>/models/wakeword/`
+  ///
+  /// Holds the sherpa-onnx keyword-spotting model downloaded on first use by
+  /// `WakeWordModelManager`.
+  static Directory get wakeWordModelDirectory =>
+      Directory('${defaultSaveDirectory.path}${_sep}models${_sep}wakeword');
 
   // ---------------------------------------------------------------------------
   // Convenience: ensure-and-get

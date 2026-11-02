@@ -63,8 +63,11 @@ import 'timelapse_dialog.dart';
 import '../timelapse/timelapse.dart';
 import '../ai/ai_chat_service.dart';
 import '../ai/ai_settings.dart';
+import '../ai/agents/app_panel_context.dart';
+import '../ai/app_agent_service.dart';
 import '../ai/control_panel_chat_controller.dart';
 import '../ai/macro_chat_controller.dart';
+import '../ai/tools/control_panel_tool.dart';
 import '../ai/waveform_chat_controller.dart';
 import '../core/logger.dart';
 import 'osci_physical_panel.dart';
@@ -110,6 +113,8 @@ import '../macro/macro_oscope_status.dart';
 import '../macro/macro_siggen.dart';
 import '../macro/macro_siggen_app.dart';
 import '../macro/macro_templates.dart';
+import '../voice/wake_word_indicator.dart';
+import '../voice/wake_word_service.dart';
 import '../ai/tools/vxi11_tool.dart' show onScpiCommandSent;
 
 class OsciHomePage extends StatefulWidget {
@@ -502,6 +507,13 @@ class _OsciHomePageState extends State<OsciHomePage>
       const WaveformFaultProfileStore();
   bool _showWaveformAi = false;
 
+  // Wakeword / voice control
+  /// Owns the wakeword spotter, the whisper transcriber and the microphone
+  /// stream. Detection starts disabled on every application start.
+  late final WakeWordService _wakeWordService;
+  final AppAgentService _appAgentService = AppAgentService();
+  int _lastWakeWordErrorCount = 0;
+
   // Data Logger
   bool _dlIsRunning = false;
 
@@ -522,6 +534,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   @override
   void initState() {
     super.initState();
+    _wakeWordService = WakeWordService(onCommand: _handleVoiceCommand);
     _macroChatController.attachSignalGeneratorStatus(_readMacroSiggenStatus);
     _macroChatController.attachOscilloscopeStatus(_readOscilloscopeStatus);
     // The macro agent can inspect the same runtime output the editor shows:
@@ -535,6 +548,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     );
     _controlPanelChatController.attachCommandListener(_onControlPanelAiCommand);
     _controlPanelChatController.attachWaveformSummary(_waveformSummaryForAi);
+    _wakeWordService.status.addListener(_onWakeWordStatusChanged);
     windowManager.addListener(this);
     windowManager.setPreventClose(true);
     HardwareKeyboard.instance.addHandler(_onGlobalKeyEvent);
@@ -544,6 +558,354 @@ class _OsciHomePageState extends State<OsciHomePage>
     // shared connection, so a replug can reconnect without an app restart.
     Vxi11Instrument.onUsbConnectionLost = _onUsbConnectionLost;
     _initialize();
+  }
+
+  void _onWakeWordStatusChanged() {
+    final current = _wakeWordService.status.value;
+    if (current.errorCount <= _lastWakeWordErrorCount) return;
+    _lastWakeWordErrorCount = current.errorCount;
+    _showErrorSnackBar(current.errorMessage ?? 'Wakeword detection failed.');
+  }
+
+  String _wakeWordTooltip(WakeWordStatus status) {
+    switch (status.phase) {
+      case WakeWordPhase.preparing:
+        return status.message.isEmpty
+            ? 'Preparing wakeword detection...'
+            : status.message;
+      case WakeWordPhase.listening:
+        if (status.message.contains('Whisper')) {
+          return status.message;
+        }
+        return 'Disable wakeword detection ("Hey Assistant")';
+      case WakeWordPhase.commandListening:
+        return status.message.isEmpty
+            ? 'Listening for a command...'
+            : status.message;
+      case WakeWordPhase.transcribing:
+        return status.message.isEmpty
+            ? 'Recognizing command...'
+            : status.message;
+      case WakeWordPhase.off:
+        return 'Enable wakeword detection ("Hey Assistant")';
+    }
+  }
+
+  /// Panel context for the voice app agent, derived from the current UI state.
+  AppPanelContext get _currentAppPanelContext {
+    if (_showSettings) {
+      return const AppPanelContext(id: 'settings', title: 'Settings');
+    }
+    if (_activePanel == ActivePanel.none) {
+      if (_waveformAcquired) {
+        return const AppPanelContext(id: 'waveform', title: 'Waveform');
+      }
+      if (_screenDump != null) {
+        return AppPanelContext.controlPanel(channelCount: _numChannels);
+      }
+      return const AppPanelContext(id: 'welcome', title: 'Welcome');
+    }
+    return switch (_activePanel) {
+      ActivePanel.help => const AppPanelContext(id: 'help', title: 'Help'),
+      ActivePanel.chat => const AppPanelContext(
+        id: 'ai_chat',
+        title: 'AI Chat',
+      ),
+      ActivePanel.profiles => const AppPanelContext(
+        id: 'profiles',
+        title: 'Profiles',
+      ),
+      ActivePanel.dataLogger => const AppPanelContext(
+        id: 'data_logger',
+        title: 'Data Logger',
+      ),
+      ActivePanel.macroRecorder => const AppPanelContext(
+        id: 'macro_recorder',
+        title: 'Macro Recorder',
+      ),
+      ActivePanel.bode => const AppPanelContext(id: 'bode', title: 'Bode Plot'),
+      ActivePanel.none => const AppPanelContext(
+        id: 'welcome',
+        title: 'Welcome',
+      ),
+    };
+  }
+
+  Future<void> _handleVoiceCommand(String transcript) async {
+    final settings = _aiSettings;
+    if (settings == null) {
+      _showErrorSnackBar(
+        'Voice command ignored: configure the AI provider, token and model '
+        'in Settings.',
+      );
+      return;
+    }
+
+    try {
+      final result = await _appAgentService.run(
+        settings: settings,
+        transcript: transcript,
+        panelContext: _currentAppPanelContext,
+        onMenuAction: _executeAppMenuAction,
+        onPanelButton: _pressControlPanelButton,
+      );
+      if (!result.executed && result.text.isNotEmpty) {
+        _showInfoSnackBar(
+          result.text,
+          backgroundColor: const Color(0xFF1E293B),
+        );
+      }
+    } catch (error) {
+      await AppLogger(
+        agentName: 'Voice',
+        toolName: 'command',
+      ).error('Voice command failed: $error');
+      _showErrorSnackBar('Voice command failed: $error');
+    }
+  }
+
+  Future<Map<String, dynamic>> _executeAppMenuAction(String action) async {
+    Map<String, dynamic> unavailable(String message) => {
+      'success': false,
+      'action': action,
+      'message': message,
+    };
+    Map<String, dynamic> executed(String message) => {
+      'success': true,
+      'action': action,
+      'message': message,
+    };
+
+    if (!mounted) {
+      return unavailable('The application window is not available.');
+    }
+    if (_isMacroPlaying && action != 'macro_recorder') {
+      return unavailable('Menu buttons are disabled during macro playback.');
+    }
+
+    switch (action) {
+      case 'control_panel':
+        if (_isAcquiring || _isAcquiringWaveform || !_isOnline) {
+          return unavailable(
+            'The Control Panel is not available while the oscilloscope is '
+            'offline or busy.',
+          );
+        }
+        unawaited(_acquireScreenDump());
+        return executed('Control Panel opened.');
+      case 'acquire_waveform':
+        if (_isAcquiringWaveform || !_isOnline) {
+          return unavailable(
+            'Waveform acquisition is not available while the oscilloscope is '
+            'offline or busy.',
+          );
+        }
+        unawaited(_acquireWaveform());
+        return executed('Waveform acquisition started.');
+      case 'ai_chat':
+        if (!_isAiEnabled) {
+          return unavailable('AI is not configured.');
+        }
+        _togglePanel(ActivePanel.chat);
+        return executed('AI panel toggled.');
+      case 'profiles':
+        if (!_isOnline) {
+          return unavailable(
+            'Profiles are not available while the oscilloscope is offline.',
+          );
+        }
+        _togglePanel(ActivePanel.profiles);
+        return executed('Profiles panel toggled.');
+      case 'data_logger':
+        if (!_isOnline) {
+          return unavailable(
+            'The Data Logger is not available while the oscilloscope is '
+            'offline.',
+          );
+        }
+        _togglePanel(ActivePanel.dataLogger);
+        return executed('Data Logger panel toggled.');
+      case 'bode':
+        final hasSignalGenerator =
+            _signalGenerator == 'jds6600' || _signalGenerator == 'fy6900';
+        if (!hasSignalGenerator ||
+            !_isOnline ||
+            !_sigGenDetected ||
+            _isAcquiring ||
+            _isAcquiringWaveform) {
+          return unavailable(
+            'The Bode plot is not available. Check the signal generator and '
+            'oscilloscope connection.',
+          );
+        }
+        _togglePanel(ActivePanel.bode);
+        return executed('Bode plot panel toggled.');
+      case 'macro_recorder':
+        _togglePanel(ActivePanel.macroRecorder);
+        return executed('Macro Recorder panel toggled.');
+      case 'help':
+        _togglePanel(ActivePanel.help);
+        return executed('Help window toggled.');
+      case 'timelapse':
+        if (!_isOnline && !_timelapseRunning) {
+          return unavailable(
+            'The timelapse is not available while the oscilloscope is '
+            'offline.',
+          );
+        }
+        if (_timelapseRunning) {
+          _stopTimelapse();
+          return executed('Timelapse stopped.');
+        }
+        unawaited(_showTimelapseDialog());
+        return executed('Timelapse dialog opened.');
+      case 'news':
+        unawaited(_showNewsDialog());
+        return executed('News dialog opened.');
+      case 'settings':
+        _showConfigDialog(context);
+        return executed('Settings dialog opened.');
+      case 'save':
+        if (!(_canSaveStandard ||
+            _canSaveDataLoggerReport ||
+            _canSaveBodeReport)) {
+          return unavailable('There is nothing to save.');
+        }
+        unawaited(_saveCurrentView());
+        return executed('Current view saved.');
+      case 'export_data':
+        if (!_canExportWaveform) {
+          return unavailable('No waveform is available for export.');
+        }
+        unawaited(_showWaveformExportDialog());
+        return executed('Export dialog opened.');
+      default:
+        return unavailable('Unknown menu action "$action".');
+    }
+  }
+
+  bool _isFourChannelOnlyControlPanelButton(ControlPanelButton button) {
+    return button.id == 'search' ||
+        button.id == 'digital' ||
+        button.id == 'navigate' ||
+        button.id == 'arrow_left' ||
+        button.id == 'square' ||
+        button.id == 'arrow_right';
+  }
+
+  /// Executes a spoken Control Panel button command.
+  Future<Map<String, dynamic>> _pressControlPanelButton(
+    ControlPanelButton button,
+  ) async {
+    Map<String, dynamic> unavailable(String message) => {
+      'success': false,
+      'button': button.id,
+      'message': message,
+    };
+    Map<String, dynamic> executed(String message) => {
+      'success': true,
+      'button': button.id,
+      'message': message,
+    };
+
+    if (!mounted) {
+      return unavailable('The application window is not available.');
+    }
+    if (!_isControlPanelVisible) {
+      return unavailable(
+        'The Control Panel is not the active panel. Open the Control Panel '
+        'first.',
+      );
+    }
+    if (!_isOnline) {
+      return unavailable('The oscilloscope is offline.');
+    }
+    if (_isProcessingEvent) {
+      return unavailable('Another panel command is still running.');
+    }
+    if (_autoCaptureEnabled &&
+        button.kind != ControlPanelButtonKind.autoCapture &&
+        button.kind != ControlPanelButtonKind.liveScreen) {
+      return unavailable(
+        'Panel input is locked while automatic screen capture is active.',
+      );
+    }
+    if (button.channelNumber != null && button.channelNumber! > _numChannels) {
+      return unavailable(
+        'Channel ${button.channelNumber} is not available on the connected '
+        'instrument.',
+      );
+    }
+    if (_isFourChannelOnlyControlPanelButton(button) && _numChannels < 4) {
+      return unavailable(
+        'The ${button.label} button is only available on four-channel '
+        'instruments.',
+      );
+    }
+
+    switch (button.kind) {
+      case ControlPanelButtonKind.channel:
+        final success = await _handleChannelButtonPress(button.label);
+        return success
+            ? executed('${button.label} toggled.')
+            : unavailable('${button.label} could not be toggled.');
+      case ControlPanelButtonKind.softKey:
+        final number = button.softKeyNumber;
+        if (number == null) {
+          return unavailable('Soft key number is missing.');
+        }
+        final success = await _handleSoftKeyPress(number);
+        return success
+            ? executed('Soft key M$number pressed.')
+            : unavailable('Soft key M$number could not be pressed.');
+      case ControlPanelButtonKind.menu:
+        final success = await _handleMenuPress();
+        return success
+            ? executed('Menu pressed.')
+            : unavailable('Menu could not be pressed.');
+      case ControlPanelButtonKind.autoCapture:
+        final target = !_autoCaptureEnabled;
+        if (target && (_vncLive || _timelapseRunning)) {
+          return unavailable(
+            'Auto capture cannot be enabled while the live screen or a '
+            'timelapse is active.',
+          );
+        }
+        _setAutoCaptureEnabled(target);
+        return executed('Auto capture ${target ? 'enabled' : 'disabled'}.');
+      case ControlPanelButtonKind.liveScreen:
+        if (_vncLive) {
+          _setVncLiveEnabled(false);
+          return executed('Live screen disabled.');
+        }
+        if (!_showLiveButton || !_vncReachable) {
+          return unavailable(
+            'The live screen is not available for this instrument.',
+          );
+        }
+        _setVncLiveEnabled(true);
+        return executed('Live screen enabled.');
+      case ControlPanelButtonKind.aiAssistant:
+        final controller = _controlPanelChatController;
+        if (!_isAiEnabled || !controller.isAvailable) {
+          return unavailable(
+            'The Control Panel AI assistant is not configured.',
+          );
+        }
+        if (controller.isOpen) {
+          return executed('Control Panel AI assistant is already open.');
+        }
+        controller.toggleOpen();
+        return executed('Control Panel AI assistant opened.');
+      case ControlPanelButtonKind.button:
+        final label = button.id == 'auto_setup'
+            ? autoSetupButtonLabel
+            : button.label;
+        final success = await _handleButtonPress(label);
+        return success
+            ? executed('${button.label} pressed.')
+            : unavailable('${button.label} could not be pressed.');
+    }
   }
 
   Future<void> _checkNewsNotification() async {
@@ -641,6 +1003,8 @@ class _OsciHomePageState extends State<OsciHomePage>
     _controlPanelChatController.dispose();
     _waveformChatController.dispose();
     _macroPrintController.dispose();
+    _wakeWordService.status.removeListener(_onWakeWordStatusChanged);
+    unawaited(_wakeWordService.dispose());
     super.dispose();
   }
 
@@ -1544,7 +1908,51 @@ class _OsciHomePageState extends State<OsciHomePage>
                 ? null
                 : (_timelapseRunning ? _stopTimelapse : _showTimelapseDialog),
           ),
-          const SizedBox(width: 16),
+          ValueListenableBuilder<WakeWordStatus>(
+            valueListenable: _wakeWordService.status,
+            builder: (context, status, _) {
+              final active = status.isListening || status.isCommandMode;
+              final busy = status.isPreparing || status.isTranscribing;
+              final color = status.isCommandMode
+                  ? Colors.greenAccent
+                  : Colors.cyanAccent;
+              return Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  WakeWordIndicator(
+                    detectionCount: status.detectionCount,
+                    active: active,
+                    persistent: status.isCommandMode,
+                    color: color,
+                  ),
+                  IconButton(
+                    icon: busy
+                        ? SizedBox(
+                            width: 22,
+                            height: 22,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.5,
+                              value: status.isPreparing
+                                  ? status.downloadProgress
+                                  : null,
+                              color: color,
+                            ),
+                          )
+                        : Icon(
+                            status.isOff ? Icons.mic_off : Icons.mic,
+                            size: 25,
+                          ),
+                    color: active ? color : Colors.white70,
+                    tooltip: _wakeWordTooltip(status),
+                    onPressed: busy
+                        ? null
+                        : () => unawaited(_wakeWordService.toggle()),
+                  ),
+                ],
+              );
+            },
+          ),
+          const SizedBox(width: 8),
           OsciToolbarButton(
             label: "Help",
             icon: const Icon(Icons.help_outline, size: 25),
@@ -5883,7 +6291,7 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   /// Handles soft key button press (M1-M6).
   /// Sends $$SY_FP X,1 command where X is button number, then refreshes screen.
-  void _handleSoftKeyPress(int buttonNumber) => _processScpiEvent(
+  Future<bool> _handleSoftKeyPress(int buttonNumber) => _processScpiEvent(
     '\$\$SY_FP $buttonNumber,1',
     errorContext: 'M$buttonNumber',
   );
@@ -5891,7 +6299,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// Handles MENU button press.
   /// Sends $$SY_FP 0,1 command (VXI special SPCI command for MENU button),
   /// then immediately requests a screen dump image.
-  void _handleMenuPress() =>
+  Future<bool> _handleMenuPress() =>
       _processScpiEvent('\$\$SY_FP 0,1', errorContext: 'MENU');
 
   /// Generic handler for knob rotation (value changes).
@@ -5920,26 +6328,26 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   /// Channel buttons select the channel the shared vertical knobs act on and
   /// then send the front-panel toggle command for it.
-  Future<void> _handleChannelButtonPress(String channel) async {
+  Future<bool> _handleChannelButtonPress(String channel) async {
     final number = int.tryParse(channel.replaceFirst('CH', ''));
     if (number != null && number >= 1 && number <= _numChannels) {
       setState(() => _selectedChannel = number);
     }
-    await _handleButtonPress(channel);
+    return _handleButtonPress(channel);
   }
 
   /// Generic handler for any button press (menu, vertical, horizontal, trigger, channel).
   /// Looks up the SCPI command from [buttonCommands] and sends it.
-  Future<void> _handleButtonPress(String buttonLabel) async {
+  Future<bool> _handleButtonPress(String buttonLabel) async {
     final command = buttonCommands[buttonLabel];
     if (command == null) {
       AppLogger().log('Button "$buttonLabel" not implemented yet');
       if (mounted) {
         _showInfoSnackBar('Button "$buttonLabel" not implemented yet');
       }
-      return;
+      return false;
     }
-    await _processScpiEvent(
+    return _processScpiEvent(
       command,
       errorContext: buttonLabel,
       // Auto Setup needs the instrument's full acquisition setup to finish

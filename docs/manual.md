@@ -138,6 +138,22 @@ See [12. Application Directory](#12-application-directory) for a complete breakd
   * Captures the oscilloscope screen at a fixed interval into a timestamped folder (see [8.12 Timelapse](#812-timelapse))
   * While a run is active, the icon shows the rotating arrows indicator and pressing it stops the run
 
+* **Microphone** (mic icon)
+  * Enables or disables voice control. Detection is always off when the application starts; the crossed-out microphone icon shows the inactive state.
+  * While active, the icon turns cyan and the default microphone is continuously analysed for the English wakeword **"Hey Assistant"** by a local sherpa-onnx keyword spotter.
+  * On first activation the ~17.6 MB keyword-spotting model archive is downloaded from the official sherpa-onnx GitHub release and only its int8 model (~5.5 MB) is extracted to `models/wakeword/` below the application data directory. The button shows a progress spinner while the model is downloaded and loaded.
+  * After the wakeword, the microphone turns green and the animated audio bars stay visible. The following utterance is recorded, transcribed locally by whisper.cpp, and passed to the **AI App-Agent**.
+  * The App-Agent activates the matching toolbar button immediately, without a confirmation step. Supported toolbar buttons are Control Panel, Acquire Waveform, AI, Profiles, Data Logger, Bode, Macro Recorder, Help, Timelapse, News, Settings, Save and Export Data. Availability follows the buttons themselves; for example, Control Panel and Acquire Waveform require an online oscilloscope.
+  * The App-Agent knows the **currently active panel**. While the **Control Panel** is active, it can press every front-panel button using its name or a German/English alias: for example "press Channel 1", "Press Auto Setup", "Auto Setup", "ASET", "Run Stop", "M1" or "Menu". This covers the menu grid, History/Decode/Run Stop, Auto Setup, Math/Ref, CH1-CH4, Roll/Search, the trigger buttons, the four-channel navigation buttons, soft keys M1-M6, Auto Capture and the Live Screen toggle.
+  * Panel buttons are only executed while the Control Panel is on screen. In other panels the agent reports that the button is not available. Knob rotations are not voice-controlled yet; use the on-screen knobs.
+  * Within the Control Panel, **AI**, **AI Assistant**, **KI** or **Assistent** opens the Control Panel AI assistant. **AI Chat**, **AI panel** or **main AI** opens the main-window AI chat instead.
+  * The **AI provider, token and model from Settings** must be configured. Without them, the transcript is recognised but the command is ignored with an error message.
+  * The whisper.cpp **base** model (~142 MB, multilingual) is downloaded in the background when voice control is activated and stored as `ggml-base.bin` in the application support directory (Linux: `~/.local/share/sdsremote/ggml-base.bin`). It stays loaded while voice control is enabled.
+  * After **10 seconds without speech**, command mode ends and the button returns to wakeword detection. Say the wakeword again to issue another command.
+  * Transcripts and the actions executed by the App-Agent are written to the application log.
+  * Linux requires the `parecord` tool (provided by the `pulseaudio-utils` package); Windows uses Media Foundation. An error message is shown when no microphone is available. The whisper step uses `ffmpeg` when it is installed; the generated 16 kHz mono WAV also works without it.
+  * Milestone 2 activates top-bar menu buttons and, while the Control Panel is active, all front-panel buttons. Further app actions and knob control are implemented in later milestones.
+
 ---
 
 ### 2.2 Status Bar
