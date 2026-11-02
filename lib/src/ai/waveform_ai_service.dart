@@ -6,6 +6,8 @@ import '../core/logger.dart';
 import 'agents/waveform_agent.dart';
 import 'tools/spectrum_summary_tool.dart';
 import 'tools/waveform_analysis_tools.dart';
+import 'tools/waveform_fault_profile_tool.dart';
+import 'tools/waveform_fault_tool.dart';
 import 'tools/waveform_history_tool.dart';
 import 'tools/waveform_summary_tool.dart';
 
@@ -34,6 +36,8 @@ class WaveformAiService {
     WaveformFeaturesProvider? readWaveformFeatures,
     WaveformPairComparisonProvider? compareWaveforms,
     ReferenceGenerationProvider? generateReferenceWaveform,
+    WaveformFaultAnalysisProvider? analyzeWaveformFaults,
+    WaveformFaultProfileProvider? manageFaultProfile,
     int maxToolCalls = WaveformAgent.defaultMaxToolCalls,
   }) {
     if (_isDisposed) return;
@@ -51,6 +55,8 @@ class WaveformAiService {
         readWaveformFeatures: readWaveformFeatures,
         compareWaveforms: compareWaveforms,
         generateReferenceWaveform: generateReferenceWaveform,
+        analyzeWaveformFaults: analyzeWaveformFaults,
+        manageFaultProfile: manageFaultProfile,
         maxToolCalls: maxToolCalls,
       );
       AppLogger(

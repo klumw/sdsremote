@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'ai_settings.dart';
 import 'tools/spectrum_summary_tool.dart';
 import 'tools/waveform_analysis_tools.dart';
+import 'tools/waveform_fault_profile_tool.dart';
+import 'tools/waveform_fault_tool.dart';
 import 'tools/waveform_history_tool.dart';
 import 'tools/waveform_summary_tool.dart';
 import 'waveform_ai_service.dart';
@@ -54,6 +56,8 @@ class WaveformChatController extends ChangeNotifier {
     WaveformFeaturesProvider? readWaveformFeatures,
     WaveformPairComparisonProvider? compareWaveforms,
     ReferenceGenerationProvider? generateReferenceWaveform,
+    WaveformFaultAnalysisProvider? analyzeWaveformFaults,
+    WaveformFaultProfileProvider? manageFaultProfile,
   }) {
     if (_disposed) return;
     final configured = settings != null && settings.isConfigured;
@@ -88,6 +92,8 @@ class WaveformChatController extends ChangeNotifier {
       readWaveformFeatures: readWaveformFeatures,
       compareWaveforms: compareWaveforms,
       generateReferenceWaveform: generateReferenceWaveform,
+      analyzeWaveformFaults: analyzeWaveformFaults,
+      manageFaultProfile: manageFaultProfile,
     );
     _service = service;
     notifyListeners();

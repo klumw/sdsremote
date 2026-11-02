@@ -1496,6 +1496,62 @@ Example questions:
 “How similar are CH1 and CH2?”,  
 “Acquire a new waveform and compare it with the previous one”.
 
+#### Fault Analysis
+
+For an explicit fault-analysis request (“analyze this fault”, “why is the signal wrong”, “find the error”), the assistant can run a deterministic fault analyzer on every raw sample of the current acquisition. It selects only the tests that match the symptom from twenty categories: amplitude, signal loss/dropout, transients/spikes, clipping, frequency error/drift, noise, ringing, duty cycle, glitches, period jitter, DC offset, distortion, spurious frequency components, rise/fall time, amplitude stability, settling, phase/delay, crosstalk, intermittent faults and measurement artifacts. Before the call it asks for the reference value, tolerance or limit each selected test needs. Without a specification the tool reports measurements and clear anomalies but does not claim a confirmed violation. Results are reported per test with status (pass, fail, warning, informational, inconclusive, not applicable), measured vs expected values, deviations and event times; measurement artifacts and limitations are listed separately. Phase/delay and crosstalk require a second acquired channel.
+
+#### Long-Term Profile
+
+For recurring fault sessions the assistant keeps a per-channel long-term profile of the reference values, tolerances and limits the user supplied. The profile is stored as `preferences/fault_analysis_profile.json` below the application data directory; it never contains measured values, findings or waveform samples. At the start of a fault-analysis request the assistant reads the profile and, when data exists for the relevant channel, asks whether to reuse it. If the user accepts, the stored values are applied and newly supplied values are merged. If the user declines, the old channel block is overwritten by the new values once the analysis has run. The profile can also be cleared on request. The file is managed by the Waveform Agent; no manual editing is required.
+
+#### Digital Signal Logic Levels
+
+For digital-signal fault analysis the assistant can read the standard logic-level table from Wikipedia ("Logikpegel") and ask which standard should be checked. The table contains the input thresholds VIL/VIH and the output levels VOL/VOH:
+
+| Standard | Supply | VIL max | VIH min | VOL max | VOH min |
+|:---------|:-------|:--------|:--------|:--------|:--------|
+| TTL 5 V | 5 V | 0.8 V | 2.0 V | 0.4 V | 2.4 V |
+| CMOS 5 V | 5 V | 1.5 V | 3.5 V | 0.5 V | 4.44 V |
+| LVTTL 3.3 V | 3.3 V | 0.8 V | 2.0 V | 0.4 V | 2.4 V |
+| CMOS 2.5 V | 2.5 V | 0.7 V | 1.7 V | 0.2 V | 2.3 V |
+| CMOS 1.8 V | 1.8 V | 0.7 V | 1.17 V | 0.45 V | 1.2 V |
+| ECL | — | -1.4 V | -1.2 V | not stated | not stated |
+| RS-232 | — | -15…-3 V | +3…+15 V | -15…-5 V | +5…+15 V |
+| HTL 10…30 V | 10…30 V | 0.2 × UB | 0.6 × UB | not stated | ≈ UB |
+
+RS-232 uses negative logic (low = 1, high = 0). HTL thresholds depend on the actual supply voltage; the assistant asks for it and computes the limits. ECL output levels are not stated in the source and require the device datasheet. The assistant uses the selected values as expected levels for the fault tests and quotes the source URL.
+
+The table also contains maximum edge times. These values were supplied by the user and are not part of the Wikipedia logic-level article:
+
+| Family | Example series | Supply | Maximum edge time |
+|:-------|:---------------|:-------|:------------------|
+| Standard CMOS (4000 series) | CD4000B, TC40xxB | 5 V / 10 V / 15 V | 5000 ns / 1000 ns / 500 ns |
+| High-Speed CMOS | 74HC / 74HCT | 2.0 V / 4.5 V / 6.0 V | 1000 ns / 500 ns / 400 ns |
+| Advanced CMOS | 74AC / 74ACT | 3.0–5.5 V | 20 ns/V (e.g., 100 ns at 5 V) |
+| Very High-Speed CMOS | 74VHC / 74VHCT | 3.3–5.0 V | 20–100 ns/V, family-dependent |
+| Low-Voltage CMOS | 74LVC / 74AUC | 1.8–3.3 V | 5–10 ns/V |
+
+For edge-time checks the assistant converts an absolute nanosecond limit to seconds and multiplies an ns/V slope by the actual voltage swing before passing it to the edge-time fault test. The assumed swing is stated when it is not measured.
+
+#### ESP32 Families
+
+The same reference tool also contains ESP32-family values. These values are user-provided and are not part of the Wikipedia logic-level article.
+
+| Parameter | ESP32 | ESP32-S2 | ESP32-S3 | ESP32-C3/C6 |
+|:----------|:------|:---------|:---------|:------------|
+| VDD | 2.3–3.6 V | 3.0–3.6 V | 3.0–3.6 V | 3.0–3.6 V |
+| VIL max | min(0.25 × VDD, 0.825 V) | min(0.25 × VDD, 0.825 V) | min(0.25 × VDD, 0.825 V) | min(0.25 × VDD, 0.825 V) |
+| VIH min | max(0.75 × VDD, 2.475 V) | max(0.75 × VDD, 2.475 V) | max(0.75 × VDD, 2.475 V) | max(0.75 × VDD, 2.475 V) |
+| VOL max | min(0.1 × VDD, 0.33 V) at 5 mA | min(0.1 × VDD, 0.33 V) | min(0.1 × VDD, 0.33 V) | min(0.1 × VDD, 0.33 V) |
+| VOH min | max(0.8 × VDD, 2.64 V) at 5 mA | max(0.8 × VDD, 2.64 V) | max(0.8 × VDD, 2.64 V) | max(0.8 × VDD, 2.64 V) |
+| Max. output current | 40 mA | 28 mA | 40 mA | 28 mA |
+| Recommended continuous current | 20 mA | 20 mA | 20 mA | 20 mA |
+| Rise/fall time | 2.5–6.0 ns | 2.0–5.5 ns | 2.0–5.5 ns | 2.0–5.0 ns |
+| Internal pull-up/down | 45 kΩ | 45 kΩ | 45 kΩ | 45 kΩ |
+| Absolute max. input | -0.3…VDD+0.3 V | -0.3…VDD+0.3 V | -0.3…VDD+0.3 V | -0.3…VDD+0.3 V |
+
+The assistant asks for the ESP32 variant and the actual VDD. It uses the scaled VIL/VIH/VOL/VOH values as expected levels and treats the rise/fall ranges, drive currents and pull resistors as reference values, not automatic pass/fail limits. The absolute maximum input voltage is a protection limit, not a logic threshold.
+
 ### 8.11 Waveform Export
 
 Click the **Export** button in the top toolbar while a waveform is displayed to open the export dialog. Formats and options:

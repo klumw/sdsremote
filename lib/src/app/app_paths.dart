@@ -106,6 +106,15 @@ class AppPaths {
     '${defaultSaveDirectory.path}${_sep}calculator${_sep}workspace.json',
   );
 
+  /// `<app working dir>/preferences/fault_analysis_profile.json`
+  ///
+  /// Long-term store for user-supplied fault-analysis specifications. The
+  /// file is organized per channel and contains reference values, tolerances
+  /// and limits only; measured values and analysis results are not stored.
+  static File get faultAnalysisProfileFile => File(
+    '${defaultSaveDirectory.path}${_sep}preferences${_sep}fault_analysis_profile.json',
+  );
+
   // ---------------------------------------------------------------------------
   // Convenience: ensure-and-get
   // ---------------------------------------------------------------------------

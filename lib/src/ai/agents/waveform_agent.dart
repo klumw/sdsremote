@@ -2,9 +2,12 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../tools/calculator_tool.dart';
 import '../tools/date_time_tool.dart';
+import '../tools/logic_level_reference_tool.dart';
 import '../tools/math_tool.dart';
 import '../tools/spectrum_summary_tool.dart';
 import '../tools/waveform_analysis_tools.dart';
+import '../tools/waveform_fault_profile_tool.dart';
+import '../tools/waveform_fault_tool.dart';
 import '../tools/waveform_history_tool.dart';
 import '../tools/waveform_summary_tool.dart';
 import 'systemprompts.dart';
@@ -32,6 +35,8 @@ class WaveformAgent {
     WaveformFeaturesProvider? readWaveformFeatures,
     WaveformPairComparisonProvider? compareWaveforms,
     ReferenceGenerationProvider? generateReferenceWaveform,
+    WaveformFaultAnalysisProvider? analyzeWaveformFaults,
+    WaveformFaultProfileProvider? manageFaultProfile,
     int maxToolCalls = defaultMaxToolCalls,
   }) : _agent = Agent(
          model,
@@ -66,6 +71,15 @@ class WaveformAgent {
              readFeatures: readWaveformFeatures,
              agentName: 'WaveformAgent',
            ),
+           createWaveformFaultAnalysisTool(
+             analyze: analyzeWaveformFaults,
+             agentName: 'WaveformAgent',
+           ),
+           createWaveformFaultProfileTool(
+             manage: manageFaultProfile,
+             agentName: 'WaveformAgent',
+           ),
+           createLogicLevelReferenceTool(agentName: 'WaveformAgent'),
            createGenerateReferenceWaveformTool(
              generate: generateReferenceWaveform,
              agentName: 'WaveformAgent',
