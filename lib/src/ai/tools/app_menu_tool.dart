@@ -34,7 +34,7 @@ const List<AppMenuAction> appMenuActions = [
   ),
   AppMenuAction(
     'ai_chat',
-    'AI',
+    'AI Chat',
     'Show or hide the main-window AI chat panel. In the Control Panel '
         'context, "AI" or "AI assistant" means the Control Panel AI '
         'assistant (control_panel_ai) instead; use this action only for '
@@ -70,6 +70,13 @@ const List<AppMenuAction> appMenuActions = [
     'Export Data',
     'Open the waveform export dialog.',
   ),
+  AppMenuAction(
+    'close_control_panel_ai',
+    'Close AI Assistant',
+    'Close the Control Panel AI assistant overlay when it is open. Use this '
+        'for "close AI panel", "close AI assistant", "AI schließen" or '
+        '"Assistent schließen".',
+  ),
 ];
 
 /// Creates the tool that activates an SDS-Remote menu button.
@@ -89,9 +96,10 @@ Tool<Map<String, dynamic>> createAppMenuTool({
   return Tool<Map<String, dynamic>>(
     name: 'activate_app_menu_button',
     description:
-        'Activate exactly one menu button in the SDS-Remote main window. '
+        'Activate exactly one menu button or app action in the SDS-Remote '
+        'main window. '
         'Call this tool immediately when the user command refers to a menu '
-        'button; never ask for confirmation. Available actions:\n'
+        'button or app action; never ask for confirmation. Available actions:\n'
         '$actionDescriptions\n'
         'If the command does not clearly refer to one of these actions, do '
         'not call the tool and reply briefly that the command is unsupported.',

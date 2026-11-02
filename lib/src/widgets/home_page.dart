@@ -115,6 +115,7 @@ import '../macro/macro_siggen_app.dart';
 import '../macro/macro_templates.dart';
 import '../voice/wake_word_indicator.dart';
 import '../voice/wake_word_service.dart';
+import '../voice/voice_command_router.dart';
 import '../ai/tools/vxi11_tool.dart' show onScpiCommandSent;
 
 class OsciHomePage extends StatefulWidget {
@@ -632,6 +633,45 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   Future<void> _handleVoiceCommand(String transcript) async {
+    // While the Control Panel AI assistant is open, most spoken commands are
+    // routed to it. App-control commands (close AI panel, switch a top-bar
+    // menu) bypass it and go to the App-Agent. The wakeword and the 10-second
+    // command-mode timeout still apply.
+    final assistant = _controlPanelChatController;
+    if (_isControlPanelVisible &&
+        assistant.isOpen &&
+        !shouldBypassControlPanelAssistant(transcript)) {
+      if (!assistant.isAvailable) {
+        _showErrorSnackBar(
+          'The Control Panel AI assistant is not available. Configure the AI '
+          'provider in Settings.',
+        );
+        return;
+      }
+      if (assistant.isChatting) {
+        _showInfoSnackBar(
+          'The Control Panel AI assistant is still answering. Please repeat '
+          'the command when it has finished.',
+          backgroundColor: const Color(0xFF1E293B),
+        );
+        return;
+      }
+      await AppLogger(
+        agentName: 'Voice',
+        toolName: 'control_panel_ai',
+      ).log('Voice command to Control Panel AI assistant: "$transcript"');
+      try {
+        await assistant.send(transcript);
+      } catch (error) {
+        await AppLogger(
+          agentName: 'Voice',
+          toolName: 'control_panel_ai',
+        ).error('Control Panel AI assistant voice command failed: $error');
+        _showErrorSnackBar('Control Panel AI assistant failed: $error');
+      }
+      return;
+    }
+
     final settings = _aiSettings;
     if (settings == null) {
       _showErrorSnackBar(
@@ -691,8 +731,15 @@ class _OsciHomePageState extends State<OsciHomePage>
             'offline or busy.',
           );
         }
-        unawaited(_acquireScreenDump());
-        return executed('Control Panel opened.');
+        await _acquireScreenDump();
+        if (mounted && _isControlPanelVisible) {
+          _openControlPanelAiAfterActivation();
+        }
+        return executed(
+          _controlPanelChatController.isAvailable
+              ? 'Control Panel opened with the AI assistant.'
+              : 'Control Panel opened.',
+        );
       case 'acquire_waveform':
         if (_isAcquiringWaveform || !_isOnline) {
           return unavailable(
@@ -779,9 +826,43 @@ class _OsciHomePageState extends State<OsciHomePage>
         }
         unawaited(_showWaveformExportDialog());
         return executed('Export dialog opened.');
+      case 'close_control_panel_ai':
+        if (!_controlPanelChatController.isOpen) {
+          return executed('The Control Panel AI assistant is already closed.');
+        }
+        _controlPanelChatController.toggleOpen();
+        return executed('Control Panel AI assistant closed.');
       default:
         return unavailable('Unknown menu action "$action".');
     }
+  }
+
+  /// Opens the Control Panel AI assistant after an App-Agent activation of
+  /// the Control Panel. Manual toolbar clicks keep the assistant closed.
+  void _openControlPanelAiAfterActivation() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_isControlPanelVisible) return;
+      final settings = _aiSettings;
+      if (settings == null) return;
+
+      final controller = _controlPanelChatController;
+      // The overlay normally configures the controller in its own post-frame
+      // callback, which can run after this one. Configure it here first so the
+      // assistant is available and can be opened in the same frame.
+      controller.configure(settings, vxi11Host: _ipAddress);
+      final available = controller.isAvailable;
+      if (available && !controller.isOpen) {
+        controller.toggleOpen();
+      }
+      unawaited(
+        AppLogger(agentName: 'Voice', toolName: 'control_panel_ai').log(
+          'Control Panel AI auto-open: available=$available, '
+          'open=${controller.isOpen}',
+        ),
+      );
+    });
+    // Ensure the callback runs even when no other frame is pending.
+    WidgetsBinding.instance.scheduleFrame();
   }
 
   bool _isFourChannelOnlyControlPanelButton(ControlPanelButton button) {
@@ -1808,9 +1889,9 @@ class _OsciHomePageState extends State<OsciHomePage>
               : _acquireWaveform,
         ),
         const SizedBox(width: 16),
-        // AI
+        // AI Chat
         OsciToolbarButton(
-          label: "AI",
+          label: "AI Chat",
           icon: const Icon(Icons.auto_awesome, size: 25),
           active: _activePanel == ActivePanel.chat,
           onPressed: (_isAiEnabled && !_isMacroPlaying)

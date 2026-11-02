@@ -97,7 +97,7 @@ See [12. Application Directory](#12-application-directory) for a complete breakd
   * Displays status during acquisition
   * Supports cursor measurements
 
-* **AI**  
+* **AI Chat**  
   * Shows/hides [AI chat](#42-ai-chat-interface) interface
   * Disabled if AI is not configured
 
@@ -143,10 +143,12 @@ See [12. Application Directory](#12-application-directory) for a complete breakd
   * While active, the icon turns cyan and the default microphone is continuously analysed for the English wakeword **"Hey Assistant"** by a local sherpa-onnx keyword spotter.
   * On first activation the ~17.6 MB keyword-spotting model archive is downloaded from the official sherpa-onnx GitHub release and only its int8 model (~5.5 MB) is extracted to `models/wakeword/` below the application data directory. The button shows a progress spinner while the model is downloaded and loaded.
   * After the wakeword, the microphone turns green and the animated audio bars stay visible. The following utterance is recorded, transcribed locally by whisper.cpp, and passed to the **AI App-Agent**.
-  * The App-Agent activates the matching toolbar button immediately, without a confirmation step. Supported toolbar buttons are Control Panel, Acquire Waveform, AI, Profiles, Data Logger, Bode, Macro Recorder, Help, Timelapse, News, Settings, Save and Export Data. Availability follows the buttons themselves; for example, Control Panel and Acquire Waveform require an online oscilloscope.
+  * The App-Agent activates the matching toolbar button immediately, without a confirmation step. Supported toolbar buttons are Control Panel, Acquire Waveform, AI Chat, Profiles, Data Logger, Bode, Macro Recorder, Help, Timelapse, News, Settings, Save and Export Data. Availability follows the buttons themselves; for example, Control Panel and Acquire Waveform require an online oscilloscope.
   * The App-Agent knows the **currently active panel**. While the **Control Panel** is active, it can press every front-panel button using its name or a German/English alias: for example "press Channel 1", "Press Auto Setup", "Auto Setup", "ASET", "Run Stop", "M1" or "Menu". This covers the menu grid, History/Decode/Run Stop, Auto Setup, Math/Ref, CH1-CH4, Roll/Search, the trigger buttons, the four-channel navigation buttons, soft keys M1-M6, Auto Capture and the Live Screen toggle.
   * Panel buttons are only executed while the Control Panel is on screen. In other panels the agent reports that the button is not available. Knob rotations are not voice-controlled yet; use the on-screen knobs.
   * Within the Control Panel, **AI**, **AI Assistant**, **KI** or **Assistent** opens the Control Panel AI assistant. **AI Chat**, **AI panel** or **main AI** opens the main-window AI chat instead.
+  * While the Control Panel AI assistant overlay is open and the Control Panel is visible, complete utterances recognised after the wakeword are sent as chat messages to the Control Panel AI assistant instead of the App-Agent. **Exception:** app-control commands such as “close AI panel” / “AI schließen” and top-bar menu changes such as “open Profiles”, “switch to Data Logger” or “open Settings” are executed by the App-Agent. The wakeword and 10-second cycle remain active; closing the overlay returns all voice commands to the App-Agent.
+  * When the App-Agent activates the Control Panel by voice (for example “Open Control Panel”), it also opens the Control Panel AI assistant automatically. Activating the Control Panel with the toolbar button leaves the assistant closed.
   * The **AI provider, token and model from Settings** must be configured. Without them, the transcript is recognised but the command is ignored with an error message.
   * The whisper.cpp **base** model (~142 MB, multilingual) is downloaded in the background when voice control is activated and stored as `ggml-base.bin` in the application support directory (Linux: `~/.local/share/sdsremote/ggml-base.bin`). It stays loaded while voice control is enabled.
   * After **10 seconds without speech**, command mode ends and the button returns to wakeword detection. Say the wakeword again to issue another command.
@@ -200,7 +202,7 @@ The Settings panel provides three fields for AI configuration:
 * **AI API Token** — Your provider API key. The field masks input for privacy. A minimum of 8 characters is required.
 * **LLM Model** — The exact model name string as specified by your provider (e.g. `gpt-4o`, `deepseek-v4-flash`, `claude-haiku`).
 
-The AI chat feature is only enabled when all three fields are populated. If the AI button in the top toolbar appears disabled, verify these settings.
+The AI chat feature is only enabled when all three fields are populated. If the AI Chat button in the top toolbar appears disabled, verify these settings.
 
 ### 3.5 Export Options
 
@@ -300,7 +302,7 @@ Before using the AI, configure it in the **Settings** panel (see [3.4 AI Provide
 4. Enter the **LLM Model** name exactly as specified by your provider.
 5. Click **SAVE CONFIGURATION**.
 
-After saving, the **AI** button in the top toolbar becomes enabled (colored icon instead of greyed out).  
+After saving, the **AI Chat** button in the top toolbar becomes enabled (colored icon instead of greyed out).  
 The application initializes the agent system immediately — no restart is needed.
 
 #### Supported Providers
@@ -334,7 +336,7 @@ For the exact model name string required by your provider, consult your provider
 
 #### Opening and Closing
 
-Click the **AI** button in the top toolbar to open or close the chat interface. The chat replaces the main content area ([Control Panel](#9-control-panel), Waveform, etc.) while open.  
+Click the **AI Chat** button in the top toolbar to open or close the chat interface. The chat replaces the main content area ([Control Panel](#9-control-panel), Waveform, etc.) while open.  
 Your conversation history is preserved while the panel remains open; closing and reopening the chat clears the history.
 
 The Macro Editor ([7.2 Macro Editor](#72-macro-editor)), the Control Panel ([9.10 AI Control Panel Assistant](#910-ai-control-panel-assistant)) and the Engineering Calculator ([11.8 Calculator AI Assistant](#118-calculator-ai-assistant-optional)) have their own AI assistants that work directly in those panels without replacing them.
@@ -412,7 +414,7 @@ the AI directs you to the built-in Help system rather than attempting to answer 
 * **Provider Dependency** — Response quality and speed depend entirely on the chosen AI provider and model.  
   Different providers have different strengths for technical content.
 * **Internet Required** — AI features require an active internet connection to reach the provider's API.  
-  Without internet, the AI button is effectively non-functional even if configured.
+  Without internet, the AI Chat button is effectively non-functional even if configured.
 * **API Costs** — The AI communicates directly with your provider's API. Usage may incur costs according to your provider's pricing. Monitor your API usage to avoid unexpected charges.
 * **English Recommended** — The knowledge base and system prompts are written in English.  
   Queries in other languages may produce less accurate results.
@@ -423,7 +425,7 @@ the AI directs you to the built-in Help system rather than attempting to answer 
 
 ### 4.5 Troubleshooting
 
-* **AI button appears disabled (grey)**
+* **AI Chat button appears disabled (grey)**
   * The AI has not been configured or configuration is incomplete.
   * Verify that all three fields in Settings are populated: Provider, API Token, and Model name.
   * The API token must be at least 8 characters.
@@ -826,7 +828,7 @@ The button is enabled only when an AI provider, API token and model are configur
 
 The assistant works directly on the macro that is open in the editor.
 
-Changes are applied immediately and are marked as unsaved. `Ctrl` + `Z` in the editor restores the previous version. Press the AI button again to close the chat panel.
+Changes are applied immediately and are marked as unsaved. `Ctrl` + `Z` in the editor restores the previous version. Press the AI Chat button again to close the chat panel.
 
 The chat stays open, including its complete history, when the editor is closed and reopened later in the same session.  
 An answer that is still streaming when the editor closes continues to update the transcript and is visible on reopen.
