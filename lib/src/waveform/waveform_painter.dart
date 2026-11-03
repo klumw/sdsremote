@@ -2,9 +2,15 @@ import 'dart:math' as math;
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+
+import '../instrument/measurement.dart' show formatMeasurementValue;
 import 'waveform_mask.dart';
 import 'waveform_models.dart';
 import 'waveform_trace.dart';
+
+/// Screen y of the original 0 V level (without channel offset) for [zoom].
+double _originalZeroY(ZoomState zoom, double height) =>
+    (0.5 + zoom.zoomFactor * (zoom.panY - 0.5)) * height;
 
 class WaveformBasePainter extends CustomPainter {
   final WaveformData? ch1;
@@ -68,10 +74,10 @@ class WaveformBasePainter extends CustomPainter {
 
     final hasRef = refVisible && ref != null && ref!.points.isNotEmpty;
     final hasData =
-        (ch1 != null && ch1!.points.isNotEmpty) ||
-        (ch2 != null && ch2!.points.isNotEmpty) ||
-        (ch3 != null && ch3!.points.isNotEmpty) ||
-        (ch4 != null && ch4!.points.isNotEmpty) ||
+        (ch1Enabled && ch1 != null && ch1!.points.isNotEmpty) ||
+        (ch2Enabled && ch2 != null && ch2!.points.isNotEmpty) ||
+        (ch3Enabled && ch3 != null && ch3!.points.isNotEmpty) ||
+        (ch4Enabled && ch4 != null && ch4!.points.isNotEmpty) ||
         hasRef;
 
     if (!hasData) {
@@ -145,6 +151,8 @@ class WaveformBasePainter extends CustomPainter {
 
     // Draw zoom/pan-aware grid.
     _drawGrid(canvas, size, visibleTMin, visibleTMax, visibleVMin, visibleVMax);
+    _drawChannelZeroLines(canvas, size);
+    _drawOriginalZeroLine(canvas, size);
 
     // Reference-derived overlays share the reference channel's voltage scale.
     final bool hasReferenceData = ref != null && ref!.points.isNotEmpty;
@@ -372,6 +380,108 @@ class WaveformBasePainter extends CustomPainter {
       canvas.drawCircle(Offset(x, y), 2.6, paint);
     }
     canvas.restore();
+  }
+
+  /// Draws the original 0 V level (without channel offset) as a dashed yellow
+  /// horizontal line.
+  void _drawOriginalZeroLine(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+
+    final double y = _originalZeroY(zoom, size.height);
+    if (y < 0 || y > size.height) return;
+
+    final paint = Paint()
+      ..color = waveformChannelColors[0].withValues(alpha: 0.55)
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke
+      ..isAntiAlias = true;
+
+    const double dashLength = 9;
+    const double gapLength = 7;
+    for (var x = 0.0; x < size.width; x += dashLength + gapLength) {
+      canvas.drawLine(
+        Offset(x, y),
+        Offset(math.min(x + dashLength, size.width), y),
+        paint,
+      );
+    }
+  }
+
+  /// Draws a white dashed horizontal line through the 0 V level of every
+  /// active channel.
+  void _drawChannelZeroLines(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+
+    final channels =
+        <({bool enabled, WaveformData? data, double? vdiv, double? voffset})>[
+          (
+            enabled: ch1Enabled,
+            data: ch1,
+            vdiv: params.vdivCh1,
+            voffset: params.voffsetCh1,
+          ),
+          (
+            enabled: ch2Enabled,
+            data: ch2,
+            vdiv: params.vdivCh2,
+            voffset: params.voffsetCh2,
+          ),
+          (
+            enabled: ch3Enabled,
+            data: ch3,
+            vdiv: params.vdivCh3,
+            voffset: params.voffsetCh3,
+          ),
+          (
+            enabled: ch4Enabled,
+            data: ch4,
+            vdiv: params.vdivCh4,
+            voffset: params.voffsetCh4,
+          ),
+        ];
+
+    for (final channel in channels) {
+      if (!channel.enabled ||
+          channel.data == null ||
+          channel.data!.points.isEmpty) {
+        continue;
+      }
+
+      final double vdiv = channel.vdiv ?? 1.0;
+      final double voffset = channel.voffset ?? 0.0;
+      if (vdiv <= 0) continue;
+
+      final double vMax = -voffset + 4 * vdiv;
+      final double vMin = -voffset - 4 * vdiv;
+      final double vRange = vMax - vMin;
+      final double centerVoltage = vMin + zoom.panY * vRange;
+      final double visibleVRange = vRange / zoom.zoomFactor;
+      if (visibleVRange <= 0) continue;
+      final double visibleVMax = centerVoltage + visibleVRange / 2;
+      final double y = visibleVMax / visibleVRange * size.height;
+
+      _drawZeroLineAt(canvas, size, y);
+    }
+  }
+
+  void _drawZeroLineAt(Canvas canvas, Size size, double y) {
+    if (y < 0 || y > size.height) return;
+
+    final paint = Paint()
+      ..color = Colors.white.withValues(alpha: 0.45)
+      ..strokeWidth = 1
+      ..style = PaintingStyle.stroke
+      ..isAntiAlias = true;
+
+    const double dashLength = 6;
+    const double gapLength = 5;
+    for (var x = 0.0; x < size.width; x += dashLength + gapLength) {
+      canvas.drawLine(
+        Offset(x, y),
+        Offset(math.min(x + dashLength, size.width), y),
+        paint,
+      );
+    }
   }
 
   /// Draw the grid scaled to the visible time/voltage range.
@@ -638,6 +748,233 @@ class WaveformBasePainter extends CustomPainter {
         oldDelegate.ch4Enabled != ch4Enabled ||
         oldDelegate.zoom != zoom;
   }
+}
+
+/// Draws the per-channel vertical-offset triangles in a gutter to the left of
+/// the waveform chart.
+///
+/// Only channels marked active are shown. The triangles share one vertical
+/// column; each is aligned with the channel's 0 V reference on its own V/div
+/// and offset scale. The channel number is inside the triangle and the offset
+/// value with unit sits to its left.
+class WaveformOffsetMarkerPainter extends CustomPainter {
+  final DeviceParams params;
+  final ZoomState zoom;
+  final bool ch1Active;
+  final bool ch2Active;
+  final bool ch3Active;
+  final bool ch4Active;
+
+  const WaveformOffsetMarkerPainter({
+    required this.params,
+    this.zoom = const ZoomState(),
+    this.ch1Active = false,
+    this.ch2Active = false,
+    this.ch3Active = false,
+    this.ch4Active = false,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final channels =
+        <({int number, bool active, double? vdiv, double? voffset})>[
+          (
+            number: 1,
+            active: ch1Active,
+            vdiv: params.vdivCh1,
+            voffset: params.voffsetCh1,
+          ),
+          (
+            number: 2,
+            active: ch2Active,
+            vdiv: params.vdivCh2,
+            voffset: params.voffsetCh2,
+          ),
+          (
+            number: 3,
+            active: ch3Active,
+            vdiv: params.vdivCh3,
+            voffset: params.voffsetCh3,
+          ),
+          (
+            number: 4,
+            active: ch4Active,
+            vdiv: params.vdivCh4,
+            voffset: params.voffsetCh4,
+          ),
+        ];
+
+    const double triangleWidth = 10;
+    const double triangleHeight = 12;
+    final double halfHeight = triangleHeight / 2;
+    final double triangleX = size.width - triangleWidth - 2;
+
+    canvas.save();
+    canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    for (var i = 0; i < channels.length; i++) {
+      final channel = channels[i];
+      if (!channel.active) continue;
+
+      final double vdiv = channel.vdiv ?? 1.0;
+      final double voffset = channel.voffset ?? 0.0;
+      if (vdiv <= 0) continue;
+
+      final double vMax = -voffset + 4 * vdiv;
+      final double vMin = -voffset - 4 * vdiv;
+      final double vRange = vMax - vMin;
+      final double centerVoltage = vMin + zoom.panY * vRange;
+      final double visibleVRange = vRange / zoom.zoomFactor;
+      if (visibleVRange <= 0) continue;
+      final double visibleVMax = centerVoltage + visibleVRange / 2;
+
+      // Screen y of the channel's 0 V reference, i.e. the offset position.
+      final double rawY = visibleVMax / visibleVRange * size.height;
+      final double y = rawY.clamp(halfHeight + 1, size.height - halfHeight - 1);
+
+      final Color color = waveformChannelColors[i];
+      final Path triangle = Path()
+        ..moveTo(triangleX, y - halfHeight)
+        ..lineTo(triangleX, y + halfHeight)
+        ..lineTo(triangleX + triangleWidth, y)
+        ..close();
+      canvas.drawPath(
+        triangle,
+        Paint()
+          ..color = color
+          ..style = PaintingStyle.fill
+          ..isAntiAlias = true,
+      );
+      canvas.drawPath(
+        triangle,
+        Paint()
+          ..color = Colors.black.withValues(alpha: 0.45)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 0.8
+          ..isAntiAlias = true,
+      );
+
+      final TextPainter number = TextPainter(
+        text: TextSpan(
+          text: '${channel.number}',
+          style: TextStyle(
+            color: color.computeLuminance() > 0.35
+                ? Colors.black
+                : Colors.white,
+            fontSize: 8.5,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      number.paint(
+        canvas,
+        Offset(
+          triangleX + triangleWidth / 3 - number.width / 2,
+          y - number.height / 2,
+        ),
+      );
+
+      final TextPainter value = TextPainter(
+        text: TextSpan(
+          text: formatMeasurementValue(voffset, 'V'),
+          style: TextStyle(
+            color: color,
+            fontSize: 9,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      final double textX = triangleX - 3 - value.width;
+      final Rect textBackground = Rect.fromLTWH(
+        textX - 2,
+        y - value.height / 2 - 1,
+        value.width + 4,
+        value.height + 2,
+      );
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(textBackground, const Radius.circular(2)),
+        Paint()..color = const Color(0xCC0A192F),
+      );
+      value.paint(canvas, Offset(textX, y - value.height / 2));
+    }
+
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(WaveformOffsetMarkerPainter oldDelegate) =>
+      oldDelegate.params != params ||
+      oldDelegate.zoom != zoom ||
+      oldDelegate.ch1Active != ch1Active ||
+      oldDelegate.ch2Active != ch2Active ||
+      oldDelegate.ch3Active != ch3Active ||
+      oldDelegate.ch4Active != ch4Active;
+}
+
+/// Draws the original 0 V point (without channel offset) as a yellow triangle
+/// in a gutter to the right of the waveform chart.
+class WaveformZeroOriginMarkerPainter extends CustomPainter {
+  final ZoomState zoom;
+
+  const WaveformZeroOriginMarkerPainter({this.zoom = const ZoomState()});
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (size.width <= 0 || size.height <= 0) return;
+
+    const double triangleWidth = 10;
+    const double triangleHeight = 12;
+    final double halfHeight = triangleHeight / 2;
+
+    // The zero point without offset is the centre of the graticule at the
+    // default zoom/pan; zooming and panning move it in screen space.
+    final double rawY = _originalZeroY(zoom, size.height);
+    final double y = rawY.clamp(halfHeight + 1, size.height - halfHeight - 1);
+
+    final Color color = waveformChannelColors[0];
+    final Path triangle = Path()
+      ..moveTo(2, y)
+      ..lineTo(2 + triangleWidth, y - halfHeight)
+      ..lineTo(2 + triangleWidth, y + halfHeight)
+      ..close();
+    canvas.drawPath(
+      triangle,
+      Paint()
+        ..color = color
+        ..style = PaintingStyle.fill
+        ..isAntiAlias = true,
+    );
+    canvas.drawPath(
+      triangle,
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.45)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.8
+        ..isAntiAlias = true,
+    );
+
+    final TextPainter label = TextPainter(
+      text: const TextSpan(
+        text: '0',
+        style: TextStyle(
+          color: Colors.black,
+          fontSize: 8.5,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    label.paint(
+      canvas,
+      Offset(2 + triangleWidth * 2 / 3 - label.width / 2, y - label.height / 2),
+    );
+  }
+
+  @override
+  bool shouldRepaint(WaveformZeroOriginMarkerPainter oldDelegate) =>
+      oldDelegate.zoom != zoom;
 }
 
 class CursorPainter extends CustomPainter {

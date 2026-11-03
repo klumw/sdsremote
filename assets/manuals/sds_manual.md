@@ -1160,6 +1160,8 @@ Channel colors in the waveform display:
 | CH4 | Green |
 | Reference | White (dashed) |
 
+Each active channel also shows a coloured triangle in a vertical column directly to the left of the chart, outside the graticule. The triangle is aligned with the channel's vertical offset level; the channel number is inside the triangle, and the offset value with unit is shown beside it. For each active channel, the chart draws a white dashed horizontal line through that channel's 0 V level. A yellow dashed horizontal line marks the original 0 V point without channel offset, and a yellow triangle outside the right edge marks that point.
+
 ### 8.3 Device Parameters Panel
 
 When a waveform is displayed, a sidebar panel appears on the right side showing the current oscilloscope parameters:

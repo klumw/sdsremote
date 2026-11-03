@@ -462,6 +462,14 @@ class _OsciHomePageState extends State<OsciHomePage>
   bool _refreshPending = false;
   static const int _refreshDelayMs = 1758;
 
+  /// Width of the gutter left of the waveform chart that hosts the
+  /// per-channel vertical-offset markers.
+  static const double _waveformMarkerGutterWidth = 78;
+
+  /// Width of the gutter right of the waveform chart that hosts the original
+  /// zero-point marker.
+  static const double _waveformZeroMarkerGutterWidth = 24;
+
   /// Extra settling time after Auto Setup before the screen is captured.
   /// The instrument runs a complete acquisition setup; a live measurement
   /// showed it stays busy for about 6.3 seconds before it serves the updated
@@ -1267,7 +1275,17 @@ class _OsciHomePageState extends State<OsciHomePage>
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      Expanded(child: Center(child: _buildWaveformView())),
+                      Expanded(
+                        child: Center(
+                          child: Padding(
+                            padding: const EdgeInsets.only(
+                              left: _waveformMarkerGutterWidth,
+                              right: _waveformZeroMarkerGutterWidth,
+                            ),
+                            child: _buildWaveformView(),
+                          ),
+                        ),
+                      ),
                       const SizedBox(height: 8),
                       WaveformMeasurementPanel(
                         measurements: _currentMeasurements(),
@@ -1367,90 +1385,153 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   Widget _buildWaveformView() {
     final (dataTMin, dataTMax) = _waveformTimeBounds();
+    final showZeroOriginMarker =
+        (_ch1Enabled && (_waveformCh1?.points.isNotEmpty ?? false)) ||
+        (_ch2Enabled && (_waveformCh2?.points.isNotEmpty ?? false)) ||
+        (_numChannels >= 4 &&
+            _ch3Enabled &&
+            (_waveformCh3?.points.isNotEmpty ?? false)) ||
+        (_numChannels >= 4 &&
+            _ch4Enabled &&
+            (_waveformCh4?.points.isNotEmpty ?? false)) ||
+        (_refVisible && (_refWaveform?.points.isNotEmpty ?? false));
     return AspectRatio(
       aspectRatio: 14 / 8,
-      child: RepaintBoundary(
-        key: _waveformKey,
-        child: MouseRegion(
-          cursor: _refMoving
-              ? (_draggingRef
-                    ? SystemMouseCursors.grabbing
-                    : SystemMouseCursors.move)
-              : _hoveredCursorType == 'x'
-              ? SystemMouseCursors.resizeColumn
-              : _hoveredCursorType == 'y'
-              ? SystemMouseCursors.resizeRow
-              : _hoveredCursorType == 'info'
-              ? SystemMouseCursors.move
-              : SystemMouseCursors.basic,
-          onHover: _onCursorHover,
-          child: GestureDetector(
-            // Both modes share the same pan gesture; the dispatcher decides
-            // between aligning the reference and dragging a cursor.
-            onPanStart: _onWaveformPanStart,
-            onPanUpdate: _onWaveformPanUpdate,
-            onPanEnd: _onWaveformPanEnd,
-            child: Stack(
-              children: [
-                RepaintBoundary(
-                  child: CustomPaint(
-                    painter: WaveformBasePainter(
-                      ch1: _waveformCh1,
-                      ch2: _waveformCh2,
-                      ch3: _waveformCh3,
-                      ch4: _waveformCh4,
-                      ref: _refWaveform,
-                      refVisible: _refVisible,
-                      refChannelOrigin: _refChannelOrigin,
-                      refOffset: _refOffset,
-                      refHighlighted: _refMoving,
-                      diffTrace: _diffTrace,
-                      diffVisible: _diffVisible,
-                      maskBand: _maskBand,
-                      maskVisible: _maskSettings.enabled,
-                      maskViolations: _maskResult?.violationPoints ?? const [],
-                      params: _deviceParams!,
-                      ch1Enabled: _ch1Enabled,
-                      ch2Enabled: _ch2Enabled,
-                      ch3Enabled: _numChannels >= 4 && _ch3Enabled,
-                      ch4Enabled: _numChannels >= 4 && _ch4Enabled,
-                      zoom: _zoomState,
-                    ),
-                    child: const SizedBox.expand(),
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned.fill(
+            child: RepaintBoundary(
+              key: _waveformKey,
+              child: MouseRegion(
+                cursor: _refMoving
+                    ? (_draggingRef
+                          ? SystemMouseCursors.grabbing
+                          : SystemMouseCursors.move)
+                    : _hoveredCursorType == 'x'
+                    ? SystemMouseCursors.resizeColumn
+                    : _hoveredCursorType == 'y'
+                    ? SystemMouseCursors.resizeRow
+                    : _hoveredCursorType == 'info'
+                    ? SystemMouseCursors.move
+                    : SystemMouseCursors.basic,
+                onHover: _onCursorHover,
+                child: GestureDetector(
+                  // Both modes share the same pan gesture; the dispatcher
+                  // decides between aligning the reference and dragging a
+                  // cursor.
+                  onPanStart: _onWaveformPanStart,
+                  onPanUpdate: _onWaveformPanUpdate,
+                  onPanEnd: _onWaveformPanEnd,
+                  child: Stack(
+                    children: [
+                      RepaintBoundary(
+                        child: CustomPaint(
+                          painter: WaveformBasePainter(
+                            ch1: _waveformCh1,
+                            ch2: _waveformCh2,
+                            ch3: _waveformCh3,
+                            ch4: _waveformCh4,
+                            ref: _refWaveform,
+                            refVisible: _refVisible,
+                            refChannelOrigin: _refChannelOrigin,
+                            refOffset: _refOffset,
+                            refHighlighted: _refMoving,
+                            diffTrace: _diffTrace,
+                            diffVisible: _diffVisible,
+                            maskBand: _maskBand,
+                            maskVisible: _maskSettings.enabled,
+                            maskViolations:
+                                _maskResult?.violationPoints ?? const [],
+                            params: _deviceParams!,
+                            ch1Enabled: _ch1Enabled,
+                            ch2Enabled: _ch2Enabled,
+                            ch3Enabled: _numChannels >= 4 && _ch3Enabled,
+                            ch4Enabled: _numChannels >= 4 && _ch4Enabled,
+                            zoom: _zoomState,
+                          ),
+                          child: const SizedBox.expand(),
+                        ),
+                      ),
+                      CustomPaint(
+                        painter: CursorPainter(
+                          cursors: _cursorState,
+                          params: _deviceParams!,
+                          zoom: _zoomState,
+                          dataTMin: dataTMin,
+                          dataTMax: dataTMax,
+                        ),
+                        child: const SizedBox.expand(),
+                      ),
+                      if (_refMoving && _refVisible && _refWaveform != null)
+                        Positioned(
+                          left: 12,
+                          top: 12,
+                          child: _buildRefMoveHint(),
+                        ),
+                      if (_zoomState.zoomFactor > 1.0)
+                        Positioned(
+                          left: 0,
+                          right: 0,
+                          bottom: 0,
+                          height: 24,
+                          child: _buildHorizontalPanSlider(),
+                        ),
+                      if (_zoomState.zoomFactor > 1.0)
+                        Positioned(
+                          top: 0,
+                          bottom: 24,
+                          right: 0,
+                          width: 24,
+                          child: _buildVerticalPanSlider(),
+                        ),
+                    ],
                   ),
                 ),
-                CustomPaint(
-                  painter: CursorPainter(
-                    cursors: _cursorState,
-                    params: _deviceParams!,
-                    zoom: _zoomState,
-                    dataTMin: dataTMin,
-                    dataTMax: dataTMax,
-                  ),
-                  child: const SizedBox.expand(),
-                ),
-                if (_refMoving && _refVisible && _refWaveform != null)
-                  Positioned(left: 12, top: 12, child: _buildRefMoveHint()),
-                if (_zoomState.zoomFactor > 1.0)
-                  Positioned(
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    height: 24,
-                    child: _buildHorizontalPanSlider(),
-                  ),
-                if (_zoomState.zoomFactor > 1.0)
-                  Positioned(
-                    top: 0,
-                    bottom: 24,
-                    right: 0,
-                    width: 24,
-                    child: _buildVerticalPanSlider(),
-                  ),
-              ],
+              ),
             ),
           ),
-        ),
+          Positioned(
+            left: -_waveformMarkerGutterWidth,
+            top: 0,
+            bottom: 0,
+            width: _waveformMarkerGutterWidth,
+            child: IgnorePointer(
+              child: CustomPaint(
+                painter: WaveformOffsetMarkerPainter(
+                  params: _deviceParams!,
+                  zoom: _zoomState,
+                  ch1Active:
+                      _ch1Enabled && (_waveformCh1?.points.isNotEmpty ?? false),
+                  ch2Active:
+                      _ch2Enabled && (_waveformCh2?.points.isNotEmpty ?? false),
+                  ch3Active:
+                      _numChannels >= 4 &&
+                      _ch3Enabled &&
+                      (_waveformCh3?.points.isNotEmpty ?? false),
+                  ch4Active:
+                      _numChannels >= 4 &&
+                      _ch4Enabled &&
+                      (_waveformCh4?.points.isNotEmpty ?? false),
+                ),
+                child: const SizedBox.expand(),
+              ),
+            ),
+          ),
+          if (showZeroOriginMarker)
+            Positioned(
+              right: -_waveformZeroMarkerGutterWidth,
+              top: 0,
+              bottom: 0,
+              width: _waveformZeroMarkerGutterWidth,
+              child: IgnorePointer(
+                child: CustomPaint(
+                  painter: WaveformZeroOriginMarkerPainter(zoom: _zoomState),
+                  child: const SizedBox.expand(),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
