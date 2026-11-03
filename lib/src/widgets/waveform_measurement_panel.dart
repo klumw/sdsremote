@@ -101,6 +101,17 @@ class WaveformMeasurementPanel extends StatefulWidget {
   /// when this is null.
   final VoidCallback? onRippleNoise;
 
+  /// Channel selected as the oscilloscope trigger source (`'ch1'`…`'ch4'`),
+  /// or null when the source is unknown or not an analog channel.
+  final String? triggerSourceChannel;
+
+  /// Optimizes the timebase for time-domain analysis. Null disables the
+  /// button.
+  final VoidCallback? onOptimizeTimeDomain;
+
+  /// Optimizes the timebase for frequency analysis. Null disables the button.
+  final VoidCallback? onOptimizeFrequencyAnalysis;
+
   const WaveformMeasurementPanel({
     super.key,
     required this.measurements,
@@ -114,6 +125,9 @@ class WaveformMeasurementPanel extends StatefulWidget {
     this.maskResult,
     this.onMaskSettingsChanged,
     this.onRippleNoise,
+    this.triggerSourceChannel,
+    this.onOptimizeTimeDomain,
+    this.onOptimizeFrequencyAnalysis,
   });
 
   @override
@@ -260,7 +274,39 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
             selected: _pwmMode,
             onTap: () => setState(() => _pwmMode = true),
           ),
-          const Spacer(),
+          const SizedBox(width: 16),
+          Expanded(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Trigger source '
+                    '${widget.triggerSourceChannel?.toUpperCase() ?? '--'}: '
+                    'Optimize for ',
+                    style: const TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(width: 6),
+                  _buildOptimizeButton(
+                    'Time-Domain Analysis',
+                    widget.onOptimizeTimeDomain,
+                  ),
+                  const SizedBox(width: 6),
+                  _buildOptimizeButton(
+                    'Frequency-Analysis',
+                    widget.onOptimizeFrequencyAnalysis,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(width: 16),
           if (widget.onRippleNoise != null)
             IconButton(
               tooltip: 'Ripple & Noise measurement',
@@ -296,6 +342,15 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildOptimizeButton(String label, VoidCallback? onPressed) {
+    return _ModeButton(
+      label: label,
+      selected: false,
+      onTap: onPressed,
+      pressEffect: true,
     );
   }
 
@@ -702,33 +757,71 @@ class _MetricCell extends StatelessWidget {
 }
 
 /// A small selectable label used for the mode and tolerance switches.
-class _ModeButton extends StatelessWidget {
+class _ModeButton extends StatefulWidget {
   final String label;
   final bool selected;
   final VoidCallback? onTap;
+  final bool pressEffect;
 
-  const _ModeButton({required this.label, required this.selected, this.onTap});
+  const _ModeButton({
+    required this.label,
+    required this.selected,
+    this.onTap,
+    this.pressEffect = false,
+  });
+
+  @override
+  State<_ModeButton> createState() => _ModeButtonState();
+}
+
+class _ModeButtonState extends State<_ModeButton> {
+  bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
+    final enabled = widget.onTap != null;
+    final pressed = widget.pressEffect && _pressed;
     return InkWell(
-      onTap: onTap,
+      onTap: widget.onTap,
+      onHighlightChanged: widget.pressEffect
+          ? (value) => setState(() => _pressed = value)
+          : null,
       borderRadius: BorderRadius.circular(6),
-      child: Container(
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 80),
+        curve: Curves.easeOut,
+        transform: Matrix4.translationValues(0, pressed ? 1.5 : 0, 0),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
         decoration: BoxDecoration(
-          color: selected
+          color: widget.selected
               ? Colors.blueAccent.withValues(alpha: 0.2)
-              : Colors.transparent,
+              : (pressed
+                    ? Colors.blueAccent.withValues(alpha: 0.18)
+                    : Colors.transparent),
           border: Border.all(
-            color: selected ? Colors.blueAccent : Colors.white24,
+            color: widget.selected
+                ? Colors.blueAccent
+                : (pressed
+                      ? Colors.blueAccent
+                      : (enabled ? Colors.white24 : Colors.white12)),
           ),
           borderRadius: BorderRadius.circular(6),
+          boxShadow: pressed
+              ? null
+              : [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.35),
+                    offset: const Offset(0, 2),
+                    blurRadius: 2,
+                  ),
+                ],
         ),
         child: Text(
-          label,
+          widget.label,
           style: TextStyle(
-            color: selected ? Colors.blueAccent : Colors.white54,
+            color: widget.selected
+                ? Colors.blueAccent
+                : (enabled ? Colors.white54 : Colors.white24),
             fontSize: 11,
             fontWeight: FontWeight.bold,
           ),

@@ -9,6 +9,12 @@ import 'windows.dart';
 /// Lowest level reported for empty or zero bins.
 const double minSpectrumDb = -200.0;
 
+/// Minimum number of usable samples for a spectrum trace.
+///
+/// Records below this size produce no FFT values; the UI disables the
+/// Spectrum view for the same threshold.
+const int minSpectrumSamples = 20;
+
 /// Computes the spectrum of every channel in [request].
 ///
 /// The function is pure and isolate-safe: it only uses its arguments and
@@ -38,7 +44,7 @@ SpectrumTrace? _analyzeChannel(
       ? settings.leadingSamplesToSkip
       : 0;
   final available = raw.length - skip;
-  if (available < 8) return null;
+  if (available < minSpectrumSamples) return null;
 
   var limit = settings.maxFftSize;
   if (settings.fftSize > 0 && settings.fftSize < limit) {

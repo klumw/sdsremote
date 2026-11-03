@@ -1346,17 +1346,17 @@ Every metric label in the cards has an info icon. Hovering over it shows a short
 The wave icon in the **Measurements** header opens the **Ripple & Noise** dialog:
 
 * Choose the channel, V/div and offset, and whether the 20 MHz bandwidth limit should be enabled.
+* **Offset (V)** shifts the channel vertically (`C<n>:OFST`) so the AC-coupled ripple stays inside the input range and does not clip. It is a channel offset, not a DC bias on the circuit and not part of the RMS/Vpp calculation; leave it at 0 when the trace is already centered.
 * The preset switches the channel to AC coupling (`A1M`), applies the bandwidth limit, V/div and offset, then reads RMS and Vpp.
 * With **Restore previous channel settings** enabled (default), the coupling, bandwidth limit, V/div and offset observed before the preset are written back afterwards.
 * The result shows the RMS ripple/noise and the peak-to-peak value. Values below a few hundred µV are usually dominated by the probe ground lead and the probe attenuation.
 
-#### Clock Detection
+#### Timebase Optimization
 
-After every acquisition the measurements are checked for a clock signal: a stable frequency, a duty cycle within ±5 % of 50 % and a period jitter of at most 2 %.
-
-* When a clock is detected, a banner above the measurement panel names the channel, frequency and duty cycle and suggests the nearest standard 1-2-5 timebase that puts about four periods on the screen.
-* **Apply** sends the suggested timebase to the oscilloscope; **Dismiss** hides the banner.
-* The timebase is never changed automatically.
+* The Measurements header permanently shows **Trigger source CHx: Optimize for** followed by **Time-Domain Analysis** and **Frequency-Analysis**. The buttons are disabled when the trigger channel has no usable period.
+* **Time-Domain Analysis** sets a timebase that shows about four periods of the trigger source signal and refreshes the waveform view with a fresh acquisition.
+* **Frequency-Analysis** sets a timebase that shows about 50 periods, giving the spectrum enough cycles for a useful FFT, and refreshes the waveform in the same way.
+* Both calculations use only the channel selected as the oscilloscope trigger source; other displayed channels do not influence the result. The timebase is never changed automatically.
 
 #### Difference Trace
 
@@ -1389,6 +1389,8 @@ The waveform analysis area has two tabs above the chart: **Time domain** shows t
 2. Click **Spectrum** above the chart. A progress indicator is shown while the spectrum is computed.
 3. A new acquisition invalidates the cached spectrum and recomputes it automatically while the Spectrum tab is active.
 
+If the acquisition contains fewer than 20 usable samples, or every measured periodic channel shows fewer than 20 full periods, the **Spectrum** button is disabled and no FFT values are shown.
+
 #### Controls
 
 | Control | Meaning |
@@ -1398,7 +1400,7 @@ The waveform analysis area has two tabs above the chart: **Time domain** shows t
 | **FFT size** | `Auto` or an explicit upper bound (4096 to 1,048,576 points). The actual size is always the largest power of two that fits the available samples. |
 | **Unit** | Level unit of the chart and peaks: **dBFS** (dB relative to the channel full scale derived from V/div), **dBV** or **dBm** into 50 Ω. |
 | **Peak markers** | Number of automatic peak markers (3, 5 or 10). Markers are labelled 1…n; marker 1 is the fundamental. |
-| **Log frequency** | Switches the frequency axis between linear and logarithmic. In log mode the DC bin is omitted. |
+| **Logarithmic** | Switches the frequency axis between linear and logarithmic. In logarithmic mode the DC bin is omitted. |
 | **Zoom** | Horizontal frequency zoom: **−** and **+** change the zoom factor, the centre value shows the current factor (1.0x … 1000x) and the reset button returns to the full frequency range. |
 
 #### Horizontal Zoom and Pan
@@ -1410,7 +1412,7 @@ The frequency axis can be stretched horizontally to make closely spaced peaks an
 * The **Zoom** control provides the same function with buttons: **−**, **+** and reset. The factor is relative to the full axis (Nyquist on the right).
 * The x-axis tick labels automatically use more decimals as the visible span shrinks, so neighbouring peaks remain distinguishable.
 * Peak markers outside the visible range are hidden in the chart; their entries remain in the peak table below.
-* A new acquisition, a changed window, an FFT-size change or switching the linear/log axis resets the zoom to the full range. The zoom applies to the chart image in the PDF report but does not filter the exported CSV spectrum.
+* A new acquisition, a changed window, an FFT-size change or switching the linear/log axis resets the zoom to the full range. The zoom applies to the chart image in the PDF report.
 
 #### Chart and Traces
 
@@ -1447,12 +1449,6 @@ The table lists the automatic markers of the selected channel with marker number
 * Amplitude scaling uses the coherent gain of the window, so a sine wave reads its correct peak amplitude; noise and distortion metrics use the noise-power bandwidth of the window.
 * On USB acquisitions the spectrum uses the effective sample rate of the sparsed record, so the frequency axis, resolution and Nyquist frequency refer to that rate.
 * The same spectrum section is included in the PDF measurement report (see [8.7 Saving Waveform Data](#87-saving-waveform-data)).
-
-#### Spectrum CSV Export
-
-The **CSV** button in the spectrum controls writes the computed spectrum of every acquired channel to the `waveform/spectrum/` directory. The file-name prefix from the settings dialog is used when **Ask for filename prefix** is enabled; otherwise the base name is `spectrum_data`.
-
-The file contains `#` metadata lines (device, timestamp, window, requested and maximum FFT size, unit, DC removal, skipped samples, peak and harmonic count) and one parameter block per channel (FFT size, sample rate, frequency resolution, full scale). The data table follows with the columns `Channel,Frequency (Hz),Level (<unit>),dBFS,Amplitude (Vpk)` and one row per FFT bin.
 
 ### 8.10 Waveform Export
 

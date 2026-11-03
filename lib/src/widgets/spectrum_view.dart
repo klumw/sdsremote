@@ -26,7 +26,6 @@ class SpectrumView extends StatefulWidget {
     required this.onChannelSelectionChanged,
     required this.onSettingsChanged,
     required this.onLogFrequencyChanged,
-    required this.onExportCsv,
     this.plotKey,
   });
 
@@ -48,9 +47,6 @@ class SpectrumView extends StatefulWidget {
   final ValueChanged<String?> onChannelSelectionChanged;
   final ValueChanged<SpectrumSettings> onSettingsChanged;
   final ValueChanged<bool> onLogFrequencyChanged;
-
-  /// Exports the current spectrum as a CSV file.
-  final VoidCallback onExportCsv;
 
   final GlobalKey? plotKey;
 
@@ -74,7 +70,6 @@ class _SpectrumViewState extends State<SpectrumView> {
   ValueChanged<SpectrumSettings> get onSettingsChanged =>
       widget.onSettingsChanged;
   ValueChanged<bool> get onLogFrequencyChanged => widget.onLogFrequencyChanged;
-  VoidCallback get onExportCsv => widget.onExportCsv;
 
   @override
   void didUpdateWidget(SpectrumView oldWidget) {
@@ -291,7 +286,7 @@ class _SpectrumViewState extends State<SpectrumView> {
           ),
         ),
         _control(
-          'Log frequency',
+          'Logarithmic',
           SizedBox(
             height: 30,
             child: Switch(
@@ -301,22 +296,6 @@ class _SpectrumViewState extends State<SpectrumView> {
           ),
         ),
         _control('Zoom', _buildZoomControl(axis)),
-        _control(
-          'Export',
-          SizedBox(
-            height: 30,
-            child: OutlinedButton.icon(
-              onPressed: traces.isEmpty ? null : onExportCsv,
-              icon: const Icon(Icons.file_download_outlined, size: 15),
-              label: const Text('CSV', style: TextStyle(fontSize: 12)),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.white70,
-                side: const BorderSide(color: AppColors.border),
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-              ),
-            ),
-          ),
-        ),
       ],
     );
   }

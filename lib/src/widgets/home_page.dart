@@ -27,10 +27,9 @@ import 'unsaved_changes_dialog.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../instrument/dart_vxi11.dart';
-import '../instrument/measurement.dart' show formatMeasurementValue;
+import '../instrument/scpi_parser.dart';
 import '../instrument/vnc_screen_service.dart';
 import '../spectrum/spectrum_analysis.dart';
-import '../spectrum/spectrum_csv.dart';
 import '../spectrum/spectrum_models.dart';
 import '../spectrum/windows.dart';
 import '../waveform/waveform_acquisition.dart';
@@ -323,9 +322,9 @@ class _OsciHomePageState extends State<OsciHomePage>
   MaskBand? _maskBand;
   MaskResult? _maskResult;
 
-  /// Timebase suggestion for a detected clock signal.
-  ClockSuggestion? _clockSuggestion;
-  bool _clockSuggestionDismissed = false;
+  /// Channel used as the oscilloscope trigger source (`'ch1'`…`'ch4'`), or
+  /// null when the trigger source is not an analog channel.
+  String? _triggerSourceChannel;
 
   /// Cached geometry of the loaded reference, used by the mask slider ranges.
   double _referenceVppCache = 0;
@@ -1251,7 +1250,11 @@ class _OsciHomePageState extends State<OsciHomePage>
             children: [
               _buildViewModeButton('Time domain', _WaveformViewMode.time),
               const SizedBox(width: 6),
-              _buildViewModeButton('Spectrum', _WaveformViewMode.spectrum),
+              _buildViewModeButton(
+                'Spectrum',
+                _WaveformViewMode.spectrum,
+                enabled: _hasEnoughSpectrumData,
+              ),
               if (_isWaveformAnalysisAvailable) ...[
                 const SizedBox(width: 6),
                 _buildViewModeButton('Analysis', _WaveformViewMode.analysis),
@@ -1265,11 +1268,6 @@ class _OsciHomePageState extends State<OsciHomePage>
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Expanded(child: Center(child: _buildWaveformView())),
-                      if (_clockSuggestion != null &&
-                          !_clockSuggestionDismissed) ...[
-                        const SizedBox(height: 8),
-                        _buildClockSuggestionBanner(_clockSuggestion!),
-                      ],
                       const SizedBox(height: 8),
                       WaveformMeasurementPanel(
                         measurements: _currentMeasurements(),
@@ -1283,6 +1281,14 @@ class _OsciHomePageState extends State<OsciHomePage>
                         maskResult: _maskResult,
                         onMaskSettingsChanged: _onMaskSettingsChanged,
                         onRippleNoise: _showRippleNoiseDialog,
+                        triggerSourceChannel: _triggerSourceChannel,
+                        onOptimizeTimeDomain: _triggerSourcePeriod() == null
+                            ? null
+                            : () => unawaited(_optimizeTimeDomain()),
+                        onOptimizeFrequencyAnalysis:
+                            _triggerSourcePeriod() == null
+                            ? null
+                            : () => unawaited(_optimizeFrequencyAnalysis()),
                       ),
                     ],
                   )
@@ -1306,7 +1312,6 @@ class _OsciHomePageState extends State<OsciHomePage>
                     onSettingsChanged: _onSpectrumSettingsChanged,
                     onLogFrequencyChanged: (value) =>
                         setState(() => _spectrumLogFrequency = value),
-                    onExportCsv: _exportSpectrumCsv,
                     plotKey: _spectrumKey,
                   ),
           ),
@@ -1315,10 +1320,14 @@ class _OsciHomePageState extends State<OsciHomePage>
     );
   }
 
-  Widget _buildViewModeButton(String label, _WaveformViewMode mode) {
+  Widget _buildViewModeButton(
+    String label,
+    _WaveformViewMode mode, {
+    bool enabled = true,
+  }) {
     final selected = _effectiveWaveformViewMode == mode;
     return TextButton(
-      onPressed: () => _setWaveformViewMode(mode),
+      onPressed: enabled ? () => _setWaveformViewMode(mode) : null,
       style: TextButton.styleFrom(
         foregroundColor: selected ? Colors.white : Colors.white54,
         backgroundColor: selected
@@ -1342,6 +1351,9 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   void _setWaveformViewMode(_WaveformViewMode mode) {
     if (mode == _WaveformViewMode.analysis && !_isWaveformAnalysisAvailable) {
+      return;
+    }
+    if (mode == _WaveformViewMode.spectrum && !_hasEnoughSpectrumData) {
       return;
     }
     if (_effectiveWaveformViewMode == mode) return;
@@ -3581,7 +3593,6 @@ class _OsciHomePageState extends State<OsciHomePage>
       _isAcquiringWaveform = true;
       _activePanel = ActivePanel.none;
       _previousPanel = ActivePanel.none;
-      _clockSuggestion = null;
       // Clear the previous capture immediately: while the new acquisition is
       // in flight the chart and measurement cards must not keep showing the
       // old trace. The device parameters stay so the grid and axes remain.
@@ -3612,6 +3623,20 @@ class _OsciHomePageState extends State<OsciHomePage>
         instr: instr,
       );
 
+      String? triggerSourceChannel;
+      var triggerSourceQueried = false;
+      try {
+        final triggerResponse = await instr?.queryString('TRSE?');
+        if (triggerResponse != null) {
+          triggerSourceChannel = ScpiParser.parseTriggerSourceChannel(
+            triggerResponse,
+          );
+          triggerSourceQueried = true;
+        }
+      } catch (e) {
+        AppLogger().warning('Failed to query trigger source: $e');
+      }
+
       // Run conversion on the main thread instead of via compute() because
       // Dart's isolate serialization does not support record types
       // ((double, double) pairs) — they get silently truncated to ~726 points
@@ -3632,17 +3657,27 @@ class _OsciHomePageState extends State<OsciHomePage>
         _measurementsCh4 = measurements.$4;
         _recordMeasurementHistory(measurements);
         _deviceParams = result.$5;
+        if (triggerSourceQueried) {
+          _triggerSourceChannel = triggerSourceChannel;
+        }
         _screenDump = null;
         _isOnline = true;
         _waveformAcquired = true;
         _lastRawData = raw;
         _spectrumResult = null;
+        _spectrumLoading = false;
+        // Invalidate an in-flight spectrum computation from the previous
+        // acquisition so it cannot publish stale FFT values.
+        _spectrumGeneration++;
+        if (_effectiveWaveformViewMode == _WaveformViewMode.spectrum &&
+            !_hasEnoughSpectrumData) {
+          _waveformViewMode = _WaveformViewMode.time;
+        }
         _acquisitionGeneration++;
         // Reset zoom state on every new acquisition so the user sees the full
         // waveform (14 divisions) instead of a zoomed-in view from a previous
         // interaction that showed only ~4 waves.
         _zoomState = const ZoomState();
-        _updateClockSuggestion();
       });
       _logWaveformMeasurements();
       _recomputeReferenceAnalysis();
@@ -3783,11 +3818,46 @@ class _OsciHomePageState extends State<OsciHomePage>
     'ch4': ?_measurementsCh4,
   };
 
+  /// Whether the last acquisition has enough usable samples and at least one
+  /// channel with enough full periods for a useful spectrum.
+  bool get _hasEnoughSpectrumData {
+    final raw = _lastRawData;
+    if (raw == null) return false;
+
+    final rawByChannel = <String, Uint8List?>{
+      'ch1': raw.ch1Raw,
+      'ch2': raw.ch2Raw,
+      'ch3': raw.ch3Raw,
+      'ch4': raw.ch4Raw,
+    };
+    final measurements = _acquiredMeasurements();
+    var hasUsableSamples = false;
+    var sawMeasurement = false;
+
+    for (final entry in rawByChannel.entries) {
+      final bytes = entry.value;
+      if (bytes == null) continue;
+      final skip = bytes.length > _spectrumSettings.leadingSamplesToSkip * 4
+          ? _spectrumSettings.leadingSamplesToSkip
+          : 0;
+      if (bytes.length - skip < minSpectrumSamples) continue;
+      hasUsableSamples = true;
+
+      final measurement = measurements[entry.key];
+      if (measurement == null) return true;
+      sawMeasurement = true;
+      if (hasEnoughFftPeriods(measurement)) return true;
+    }
+
+    return hasUsableSamples && !sawMeasurement;
+  }
+
   /// Computes (or returns the cached) spectrum of the last acquisition.
   ///
   /// The FFT runs in an isolate so a large record does not block the UI. The
   /// result feeds the PDF report and the spectrum view.
   Future<SpectrumResult?> _spectrumForReport() async {
+    if (!_hasEnoughSpectrumData) return null;
     final cached = _spectrumResult;
     if (cached != null) return cached;
     final result = await _computeSpectrumNow();
@@ -3798,7 +3868,15 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// Recomputes the spectrum for the current acquisition and settings.
   Future<void> _recomputeSpectrum() async {
     final generation = ++_spectrumGeneration;
-    if (_lastRawData == null) return;
+    if (_lastRawData == null || !_hasEnoughSpectrumData) {
+      if (mounted) {
+        setState(() {
+          _spectrumResult = null;
+          _spectrumLoading = false;
+        });
+      }
+      return;
+    }
     setState(() => _spectrumLoading = true);
 
     SpectrumResult? result;
@@ -3853,9 +3931,10 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   Future<SpectrumResult?> _computeSpectrumNow() async {
     final raw = _lastRawData;
-    if (raw == null) return null;
+    if (raw == null || !_hasEnoughSpectrumData) return null;
 
     final channels = <SpectrumChannelInput>[];
+    final measurements = _acquiredMeasurements();
     void addChannel(
       int number,
       Uint8List? bytes,
@@ -3863,6 +3942,10 @@ class _OsciHomePageState extends State<OsciHomePage>
       double? voffset,
     ) {
       if (bytes == null || bytes.isEmpty || vdiv == null || vdiv <= 0) return;
+      final measurement = measurements['ch$number'];
+      if (measurement != null && !hasEnoughFftPeriods(measurement)) {
+        return;
+      }
       channels.add(
         SpectrumChannelInput(
           label: 'ch$number',
@@ -3888,34 +3971,6 @@ class _OsciHomePageState extends State<OsciHomePage>
       settings: _spectrumSettings,
     );
     return compute(computeSpectrum, request);
-  }
-
-  /// Writes the spectrum of all acquired channels to a CSV file in
-  /// `waveform/spectrum/`.
-  Future<void> _exportSpectrumCsv() async {
-    try {
-      final prefix = await _askForFilenamePrefixIfNeeded();
-      if (prefix == null) return; // user cancelled
-      final result = await _spectrumForReport();
-      if (result == null || result.traces.isEmpty) {
-        _showInfoSnackBar('No spectrum data available.');
-        return;
-      }
-      final directory = await AppPaths.getOrCreateWaveformSpectrumDir();
-      final baseName = prefix.isNotEmpty ? prefix : 'spectrum_data';
-      final file = await AppPaths.getUniqueFilePath(directory, baseName, 'csv');
-      await writeSpectrumCsv(
-        file: file,
-        result: result,
-        deviceName: _deviceName ?? _ipAddress,
-      );
-      if (mounted) {
-        _showInfoSnackBar('Saved ${file.uri.pathSegments.last}');
-      }
-    } catch (e) {
-      AppLogger().error('Spectrum CSV export failed: $e');
-      _showErrorSnackBar('Spectrum CSV export failed: $e');
-    }
   }
 
   /// Stores the current acquisition in the four-entry Waveform AI history.
@@ -4219,73 +4274,69 @@ class _OsciHomePageState extends State<OsciHomePage>
     _recomputeReferenceAnalysis();
   }
 
-  /// Picks the first displayed channel whose measurements look like a clock.
-  void _updateClockSuggestion() {
-    _clockSuggestion = null;
-    _clockSuggestionDismissed = false;
-    for (final measurement in _currentMeasurements().values) {
-      final suggestion = detectClock(measurement);
-      if (suggestion != null) {
-        _clockSuggestion = suggestion;
-        return;
-      }
-    }
+  /// Measurement of the trigger source channel, or null when unavailable.
+  WaveformMeasurements? get _triggerSourceMeasurement {
+    final channel = _triggerSourceChannel;
+    if (channel == null) return null;
+    return _acquiredMeasurements()[channel];
   }
 
-  /// Applies the suggested timebase through the normal command path.
-  Future<void> _applyClockSuggestion() async {
-    final suggestion = _clockSuggestion;
-    if (suggestion == null) return;
-    final value = suggestion.suggestedTimebaseSeconds
-        .toStringAsExponential(2)
-        .toUpperCase();
+  /// Period of the trigger source signal, or null when it cannot be measured.
+  double? _triggerSourcePeriod() {
+    final measurement = _triggerSourceMeasurement;
+    if (measurement == null) return null;
+    final period = measurement.periodSeconds;
+    if (period != null && period.isFinite && period > 0) return period;
+    final frequency = measurement.frequencyHz;
+    if (frequency != null && frequency.isFinite && frequency > 0) {
+      return 1 / frequency;
+    }
+    return null;
+  }
+
+  /// Sets a timebase with about four visible periods on the trigger channel.
+  Future<void> _optimizeTimeDomain() async {
+    final period = _triggerSourcePeriod();
+    if (period == null) return;
+    final timebase = timebaseForPeriods(
+      period,
+      targetPeriods: timeDomainTargetPeriodsOnScreen,
+    );
+    await _setTimebaseAndRefresh(
+      timebase,
+      'Timebase optimized for time-domain analysis: '
+      '${formatTimebase(timebase)}',
+    );
+  }
+
+  /// Sets a timebase with about 50 visible periods on the trigger channel.
+  Future<void> _optimizeFrequencyAnalysis() async {
+    final period = _triggerSourcePeriod();
+    if (period == null) return;
+    final timebase = timebaseForPeriods(period);
+    await _setTimebaseAndRefresh(
+      timebase,
+      'Timebase optimized for frequency analysis: '
+      '${formatTimebase(timebase)}',
+    );
+  }
+
+  /// Sends [timebaseSeconds] to the instrument and refreshes the waveform.
+  Future<void> _setTimebaseAndRefresh(
+    double timebaseSeconds,
+    String message,
+  ) async {
+    final value = timebaseSeconds.toStringAsExponential(2).toUpperCase();
     if (!await _sendCommand('TDIV $value')) return;
     if (!mounted) return;
-    setState(() => _clockSuggestionDismissed = true);
-    _showInfoSnackBar(
-      'Timebase set to ${formatTimebase(suggestion.suggestedTimebaseSeconds)}',
-    );
-  }
-
-  /// Banner for a detected clock signal. It only suggests a timebase; the
-  /// setting is applied when the user presses Apply.
-  Widget _buildClockSuggestionBanner(ClockSuggestion suggestion) {
-    final channel = suggestion.channel.toUpperCase();
-    final frequency = formatMeasurementValue(suggestion.frequencyHz, 'Hz');
-    final timebase = formatTimebase(suggestion.suggestedTimebaseSeconds);
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: const Color(0xFF172A45),
-        border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.5)),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.schedule, size: 16, color: Colors.cyanAccent),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              'Clock signal on $channel: $frequency, '
-              '${suggestion.dutyPercent.toStringAsFixed(1)} % duty. '
-              'Suggested timebase: $timebase '
-              '(${suggestion.periodsOnScreen.toStringAsFixed(1)} periods).',
-              style: const TextStyle(color: Colors.white70, fontSize: 12),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          TextButton(
-            onPressed: _applyClockSuggestion,
-            child: const Text('Apply'),
-          ),
-          IconButton(
-            tooltip: 'Dismiss',
-            onPressed: () => setState(() => _clockSuggestionDismissed = true),
-            icon: const Icon(Icons.close, size: 16, color: Colors.white54),
-          ),
-        ],
-      ),
-    );
+    _showInfoSnackBar(message);
+    // Let the instrument apply the new timebase and acquire a fresh trace
+    // before refreshing the waveform view.
+    await Future.delayed(const Duration(milliseconds: _refreshDelayMs));
+    // A manual acquisition started during the settling delay already refreshes
+    // the view with the new timebase, so do not start a second one.
+    if (!mounted || _isAcquiringWaveform) return;
+    await _acquireWaveform();
   }
 
   /// Opens the timelapse settings dialog and starts the run.

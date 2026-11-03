@@ -31,6 +31,23 @@ class ClockSuggestion {
   });
 }
 
+/// Target number of visible periods for the time-domain suggestion.
+const int timeDomainTargetPeriodsOnScreen = 4;
+
+/// Minimum number of visible periods for an effective FFT.
+///
+/// The spectrum transforms the largest power of two that fits the transferred
+/// record, which is roughly half of the visible acquisition. Twenty visible
+/// periods therefore leave about ten periods in the FFT window.
+const int minFftPeriodsOnScreen = 20;
+
+/// Target number of visible periods when optimizing the timebase for FFT.
+const int fftTargetPeriodsOnScreen = 50;
+
+/// Whether [periodsOnScreen] is too low for an effective FFT.
+bool needsFftOptimization(double periodsOnScreen) =>
+    periodsOnScreen < minFftPeriodsOnScreen;
+
 /// Standard Siglent timebase steps from 1 ns/div to 50 s/div.
 final List<double> _timebaseSteps = [
   for (var exponent = -9; exponent <= 1; exponent++)
@@ -61,7 +78,7 @@ ClockSuggestion? detectClock(
   WaveformMeasurements measurement, {
   double maxDutyDeviationPercent = 5,
   double maxRelativeJitter = 0.02,
-  int targetPeriods = 4,
+  int targetPeriods = timeDomainTargetPeriodsOnScreen,
 }) {
   final frequency = measurement.frequencyHz;
   final duty = measurement.dutyPercent;
@@ -103,6 +120,25 @@ double nearestTimebase(double seconds) {
     }
   }
   return best;
+}
+
+/// Timebase in seconds per division that shows about [targetPeriods] periods
+/// of a signal with [periodSeconds].
+double timebaseForPeriods(
+  double periodSeconds, {
+  int targetPeriods = fftTargetPeriodsOnScreen,
+}) {
+  return nearestTimebase(periodSeconds * targetPeriods / 14);
+}
+
+/// Whether [measurement] contains at least [minFftPeriodsOnScreen] complete
+/// periods for an effective FFT.
+///
+/// A signal without a measurable frequency is treated as usable because
+/// non-periodic signals can still be analysed with an FFT.
+bool hasEnoughFftPeriods(WaveformMeasurements measurement) {
+  if (measurement.frequencyHz == null) return true;
+  return measurement.periodCount >= minFftPeriodsOnScreen;
 }
 
 /// Formats a timebase with an SI prefix for banner display.

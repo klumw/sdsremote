@@ -146,6 +146,20 @@ class ScpiParser {
     return numValue;
   }
 
+  /// Parses the trigger source channel from a `TRSE?` response.
+  ///
+  /// Returns `'ch1'` … `'ch4'` for `SR,C1` … `SR,C4`, or `null` when the
+  /// trigger source is not an analog channel (`LINE`, `EX`, `EX5`) or the
+  /// response is malformed.
+  static String? parseTriggerSourceChannel(String raw) {
+    final match = RegExp(
+      r'\bSR\s*,\s*C([1-4])\b',
+      caseSensitive: false,
+    ).firstMatch(raw);
+    if (match == null) return null;
+    return 'ch${match.group(1)}';
+  }
+
   /// Parses a SCPI SANU response such as `"C1:WF SANU 50000,25000"` or
   /// `"50000,25000"` returning a [(pointCount, triggerPosition)] pair.
   ///
