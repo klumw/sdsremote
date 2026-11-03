@@ -30,7 +30,7 @@ class HelpAgent {
   late List<ChatMessage> _history;
 
   /// Creates a [HelpAgent] whose knowledge is [manual] — the raw markdown of
-  /// `docs/manual.md`.
+  /// `assets/manuals/sds_manual.md`.
   ///
   /// [readLog] is primarily useful for tests; production code reads the
   /// application log through the default [AppLogger] reader.

@@ -1034,7 +1034,7 @@ Query: `XYDS?`
   Query only.
 
 ───────────────────────────────────────────
-ADDITIONAL KNOWN SCPI COMMANDS (from knowledgebase.md)
+ADDITIONAL KNOWN SCPI COMMANDS (from siglent_sds1000xe_qa.md)
 ───────────────────────────────────────────
 
 **ACQ:CSW** (ACQuire:CSWeep)  
@@ -2129,8 +2129,9 @@ $sds1000xeScpiReference
 /// window scrolls to, which lets the model link to sections instead of
 /// guessing fragments.
 ///
-/// [manual] is the raw markdown of `docs/manual.md`; [sections] is its heading
-/// index in document order (see `extractHelpSections`).
+/// [manual] is the raw markdown of `assets/manuals/sds_manual.md`;
+/// [sections] is its heading index in document order (see
+/// `extractHelpSections`).
 String helpAgentSystemPrompt({
   required String manual,
   required List<HelpSection> sections,

@@ -17,6 +17,9 @@ splits that knowledge into two independently maintainable sources:
 2. **Device knowledge** – Markdown operating knowledge in
    `assets/devices/knowledge/`.
 
+The full Siglent SDS1000X-E question-answering knowledgebase used by the
+search agent is stored in `assets/devices/qa/siglent_sds1000xe_qa.md`.
+
 The active device profile supplies both at runtime. The general system prompt
 keeps only agent-wide rules.
 
@@ -28,10 +31,12 @@ assets/devices/
 │   ├── fy6900_scpi_commands.json
 │   ├── jds6600_scpi_commands.json
 │   └── siglent_sds1000xe_scpi_commands.json
-└── knowledge/
-    ├── fy6900.md
-    ├── jds6600.md
-    └── sds1000xe.md
+├── knowledge/
+│   ├── fy6900.md
+│   ├── jds6600.md
+│   └── sds1000xe.md
+└── qa/
+    └── siglent_sds1000xe_qa.md
 
 lib/src/devices/
 ├── device_profile_models.dart      data model, profile ids, error codes
@@ -396,8 +401,8 @@ profile layer.
 | same | Embedded signal-generator SCPI reference | C commands | `device_command_reference` tool | Removed; the Macro Agent queries the profile registry dynamically |
 | same | Embedded SDS SCPI reference | C commands | Macro prompt | Retained for oscilloscope macros |
 | `controlPanelAgentSystemPrompt` | Front-panel `$$SY_FP` table | B/C | `sds1000xe.md` §9 | Still embedded in the Control Panel agent prompt; controlled by the same raw validator |
-| `docs/manual.md` | Sections 10.2 and 15 | B/C | Knowledge files | Source |
-| `docs/knowledgebase.md` | Siglent documentation | B | Referenced by `sds1000xe.md` | Source |
+| `assets/manuals/sds_manual.md` | Sections 10.2 and 15 | B/C | Knowledge files | Source |
+| `assets/devices/qa/siglent_sds1000xe_qa.md` | Siglent documentation | B | Referenced by `sds1000xe.md` | Source |
 
 Categories: A = general agent knowledge, B = device knowledge,
 C = machine-readable command definition.

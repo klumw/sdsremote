@@ -24,7 +24,8 @@ import 'max_tool_calls_handler.dart';
 /// ```
 class SearchAgent with MaxToolCallsHandler {
   /// Path to the knowledgebase Markdown file.
-  static const _defaultKnowledgebasePath = 'docs/knowledgebase.md';
+  static const _defaultKnowledgebasePath =
+      'assets/devices/qa/siglent_sds1000xe_qa.md';
 
   /// Default maximum number of tool calls per user input.
   static const int defaultMaxToolCalls = 4;
@@ -45,7 +46,8 @@ class SearchAgent with MaxToolCallsHandler {
   /// format.
   ///
   /// The [knowledgebasePath] parameter specifies the path to the Markdown
-  /// knowledgebase file. Defaults to `docs/knowledgebase.md`.
+  /// knowledgebase file. Defaults to
+  /// `assets/devices/qa/siglent_sds1000xe_qa.md`.
   ///
   /// The [systemPrompt] parameter sets an optional system message.
   ///

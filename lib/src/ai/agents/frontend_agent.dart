@@ -83,7 +83,8 @@ class FrontendAgent {
   /// If null, no VXI-11 tool is added. Defaults to `192.168.178.95`.
   ///
   /// The [knowledgebasePath] parameter sets the path to the knowledgebase
-  /// Markdown file. Defaults to `docs/knowledgebase.md`.
+  /// Markdown file. Defaults to
+  /// `assets/devices/qa/siglent_sds1000xe_qa.md`.
   ///
   /// The [instrumentModel] parameter is the model designation of the
   /// instrument the agent is working with, taken from the second field of the
@@ -112,7 +113,7 @@ class FrontendAgent {
     String model = 'deepseek:deepseek-v4-flash',
     String? systemPrompt,
     String? vxi11Host,
-    String knowledgebasePath = 'docs/knowledgebase.md',
+    String knowledgebasePath = 'assets/devices/qa/siglent_sds1000xe_qa.md',
     String? instrumentModel,
     List<Tool>? tools,
     ScpiCommandCallback? onCommandSent,

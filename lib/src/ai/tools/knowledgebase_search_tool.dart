@@ -239,15 +239,15 @@ Tool<Map<String, dynamic>> createKnowledgebaseSearchTool(
 /// 2. Relative to the executable's directory (installed .deb at
 ///    `/usr/local/lib/sdsremote/`).
 /// 3. Relative to the executable's parent directory.
-/// 4. Walk up from the executable's directory, looking for
-///    `docs/knowledgebase.md` at each ancestor level. This handles Flutter
+/// 4. Walk up from the executable's directory, looking for the configured
+///    bundle-relative path at each ancestor level. This handles Flutter
 ///    Windows development builds where the exe lives deep in
 ///    `build\windows\x64\runner\Release\` and the project root is several
 ///    levels up.
 /// 5. Inside the Flutter assets bundle directory
-///    (`data/flutter_assets/docs/knowledgebase.md` relative to the
-///    executable). This handles Windows release installs where the asset
-///    is bundled by Flutter at `C:\Program Files\SDS-Remote\data\flutter_assets\`.
+///    (`data/flutter_assets/<path>` relative to the executable). This
+///    handles Windows release installs where the asset is bundled by
+///    Flutter at `C:\Program Files\SDS-Remote\data\flutter_assets\`.
 ///
 /// Returns an empty list if no file is found anywhere, logging a warning
 /// rather than crashing.
@@ -259,6 +259,13 @@ List<Document> _loadKnowledgebase(String path) {
 
   String? resolvedPath;
 
+  // Normalize the configured bundle-relative path for the local filesystem.
+  final relativePath = path
+      .replaceAll('\\', '/')
+      .split('/')
+      .where((part) => part.isNotEmpty && part != '.')
+      .join(Platform.pathSeparator);
+
   // 1. Try the provided path as-is (works during development).
   if (File(path).existsSync()) {
     resolvedPath = path;
@@ -268,9 +275,7 @@ List<Document> _loadKnowledgebase(String path) {
   if (resolvedPath == null) {
     try {
       final exeDir = File(Platform.resolvedExecutable).parent.path;
-      final altPath =
-          '$exeDir${Platform.pathSeparator}docs'
-          '${Platform.pathSeparator}knowledgebase.md';
+      final altPath = '$exeDir${Platform.pathSeparator}$relativePath';
       if (File(altPath).existsSync()) {
         resolvedPath = altPath;
       }
@@ -285,8 +290,7 @@ List<Document> _loadKnowledgebase(String path) {
       final exeDir = File(Platform.resolvedExecutable).parent.path;
       final altPath =
           '$exeDir${Platform.pathSeparator}..'
-          '${Platform.pathSeparator}docs'
-          '${Platform.pathSeparator}knowledgebase.md';
+          '${Platform.pathSeparator}$relativePath';
       if (File(altPath).existsSync()) {
         resolvedPath = altPath;
       }
@@ -304,9 +308,7 @@ List<Document> _loadKnowledgebase(String path) {
       var dir = File(Platform.resolvedExecutable).parent;
       // Walk up at most 10 levels to avoid infinite loops.
       for (var i = 0; i < 10; i++) {
-        final candidate =
-            '${dir.path}${Platform.pathSeparator}docs'
-            '${Platform.pathSeparator}knowledgebase.md';
+        final candidate = '${dir.path}${Platform.pathSeparator}$relativePath';
         if (File(candidate).existsSync()) {
           resolvedPath = candidate;
           break;
@@ -323,14 +325,15 @@ List<Document> _loadKnowledgebase(String path) {
   // 5. Try inside the Flutter assets bundle directory.
   //    On Windows release installs, Flutter bundles declared assets at:
   //      <exe_dir>/data/flutter_assets/<asset_path>
-  //    e.g. C:\Program Files\SDS-Remote\data\flutter_assets\docs\knowledgebase.md
+  //    e.g. C:\Program Files\SDS-Remote\data\flutter_assets\assets\devices\qa\siglent_sds1000xe_qa.md
   if (resolvedPath == null) {
     try {
       final exeDir = File(Platform.resolvedExecutable).parent.path;
       final flutterAssetsDir =
           '$exeDir${Platform.pathSeparator}data'
           '${Platform.pathSeparator}flutter_assets';
-      final assetsPath = '$flutterAssetsDir${Platform.pathSeparator}$path';
+      final assetsPath =
+          '$flutterAssetsDir${Platform.pathSeparator}$relativePath';
       if (File(assetsPath).existsSync()) {
         resolvedPath = assetsPath;
       }

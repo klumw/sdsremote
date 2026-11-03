@@ -488,7 +488,7 @@ LLM under test is configured in the test itself (currently
 sub-agent), while the grader LLM is currently `deepseek:deepseek-v4-flash`.
 Both provider keys must therefore be exported. Run the test from the project
 root so that the relative paths to `test/ai_test_data.json` and
-`docs/knowledgebase.md` resolve:
+`assets/devices/qa/siglent_sds1000xe_qa.md` resolve:
 
 ```bash
 export EDENAI_API_KEY="..."
@@ -660,6 +660,7 @@ general system prompts. They are loaded from the active device profile:
 
 - `assets/devices/commands/` — machine-readable SCPI command packages.
 - `assets/devices/knowledge/` — device operating knowledge in Markdown.
+- `assets/devices/qa/` — device question-answering knowledge in Markdown.
 - `lib/src/devices/` — profile loading, command registry, knowledge loader,
   identity resolution and the validated execution gate.
 

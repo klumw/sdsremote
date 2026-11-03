@@ -302,7 +302,9 @@ class _HelpWindowState extends State<HelpWindow>
     final minLoadTime = Future.delayed(const Duration(milliseconds: 400));
     final sw = Stopwatch()..start();
     try {
-      _manualContent = await rootBundle.loadString('docs/manual.md');
+      _manualContent = await rootBundle.loadString(
+        'assets/manuals/sds_manual.md',
+      );
       log.log(
         'Manual asset loaded: ${_manualContent.length} chars in '
         '${sw.elapsedMilliseconds} ms',

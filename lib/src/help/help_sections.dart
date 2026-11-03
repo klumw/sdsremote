@@ -1,9 +1,9 @@
 /// Section index of the user manual.
 ///
-/// The help window renders `docs/manual.md` and scrolls to headings through
-/// their anchor slugs; the AI help assistant must emit exactly those slugs so
-/// its links land on the same headings. Both sides therefore share the slug
-/// rules and the section extraction in this file.
+/// The help window renders `assets/manuals/sds_manual.md` and scrolls to
+/// headings through their anchor slugs; the AI help assistant must emit
+/// exactly those slugs so its links land on the same headings. Both sides
+/// therefore share the slug rules and the section extraction in this file.
 library;
 
 /// One heading of the manual: its display title and the anchor slug that

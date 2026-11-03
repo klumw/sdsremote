@@ -22,9 +22,9 @@ class HelpAiService {
 
   /// Creates or recreates the [HelpAgent] with the given configuration.
   ///
-  /// [manual] is the complete markdown of `docs/manual.md`. While it is empty
-  /// (the manual is still loading) no agent is created; the next call with the
-  /// loaded manual sets it up.
+  /// [manual] is the complete markdown of `assets/manuals/sds_manual.md`.
+  /// While it is empty (the manual is still loading) no agent is created; the
+  /// next call with the loaded manual sets it up.
   ///
   /// The [apiKey] parameter is the environment variable name for the API key
   /// (e.g. "DEEPSEEK_API_KEY"); [apiToken] is the actual token value.

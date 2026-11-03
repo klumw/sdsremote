@@ -1,7 +1,7 @@
 <!--
 device_profile: sds1000xe
 knowledge_version: 1.0
-source: instrumentAgentSystemPrompt and sds1000xeScpiReference in systemprompts.dart, frontPanelCommandsReference, docs/manual.md technical details, docs/knowledgebase.md, app_config.dart
+source: instrumentAgentSystemPrompt and sds1000xeScpiReference in systemprompts.dart, frontPanelCommandsReference, assets/manuals/sds_manual.md technical details, assets/devices/qa/siglent_sds1000xe_qa.md, app_config.dart
 validation_status: derived_from_repository_sources_not_independently_verified
 -->
 
@@ -33,7 +33,7 @@ scope, not as proof that every listed command is accepted by every firmware.
 ## 2. Operating model
 
 - Communication: VXI-11 over TCP/IP or USBTMC over USB (source:
-  `docs/manual.md` section 14).
+  `assets/manuals/sds_manual.md` section 14).
 - One SCPI command per request. The command package is a declarative list; the
   agent copies the documented pattern and substitutes only user-supplied
   values.
@@ -280,8 +280,8 @@ two-channel instrument.
 - `lib/src/ai/agents/systemprompts.dart`: `instrumentAgentSystemPrompt`,
   `sds1000xeScpiReference`, `frontPanelCommandsReference`
 - `lib/src/app/app_config.dart`: channel count helpers
-- `docs/manual.md`: technical details
-- `docs/knowledgebase.md`: Siglent device documentation
+- `assets/manuals/sds_manual.md`: technical details
+- `assets/devices/qa/siglent_sds1000xe_qa.md`: Siglent device documentation
 
 ## Provenance
 
