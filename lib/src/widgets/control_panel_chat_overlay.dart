@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../ai/ai_settings.dart';
 import '../ai/control_panel_chat_controller.dart';
+import '../devices/device_agent_context.dart';
 import '../voice/voice_input_binding.dart';
 import '../voice/voice_input_service.dart';
 import 'osci_chat_window.dart';
@@ -20,6 +21,7 @@ class ControlPanelChatOverlay extends StatefulWidget {
     required this.controller,
     this.aiSettings,
     this.vxi11Host,
+    this.instrumentDeviceContext,
     this.voiceInput,
   });
 
@@ -31,6 +33,9 @@ class ControlPanelChatOverlay extends StatefulWidget {
 
   /// Instrument address used by the agent's instrument sub-agent.
   final String? vxi11Host;
+
+  /// Active device profile context for command validation.
+  final DeviceAgentContext? instrumentDeviceContext;
 
   /// Shared microphone service; null hides the assistant microphone.
   final VoiceInputService? voiceInput;
@@ -93,7 +98,8 @@ class _ControlPanelChatOverlayState extends State<ControlPanelChatOverlay>
     }
     if (oldWidget.controller != widget.controller ||
         oldWidget.aiSettings != widget.aiSettings ||
-        oldWidget.vxi11Host != widget.vxi11Host) {
+        oldWidget.vxi11Host != widget.vxi11Host ||
+        oldWidget.instrumentDeviceContext != widget.instrumentDeviceContext) {
       _scheduleConfigure();
     }
     if (oldWidget.controller != widget.controller ||
@@ -154,7 +160,11 @@ class _ControlPanelChatOverlayState extends State<ControlPanelChatOverlay>
   }
 
   void _configure() {
-    widget.controller.configure(widget.aiSettings, vxi11Host: widget.vxi11Host);
+    widget.controller.configure(
+      widget.aiSettings,
+      vxi11Host: widget.vxi11Host,
+      instrumentDeviceContext: widget.instrumentDeviceContext,
+    );
   }
 
   @override

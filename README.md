@@ -260,7 +260,7 @@ the complete syntax, key reference and AI assistant notes.
 
 ### Macro Recorder
 
-Record, edit and play back SCPI command sequences to automate repetitive measurement and configuration tasks. Supports variables, conditionals (`if`/`else`), loops (`while`), assertions, and both network (`connect("IP")`) and USB (`connect(usb)`) connections. A macro can additionally address the configured signal generator over USB with `connect(SIG, usb)`, `cmd(SIG, …)` and `query(SIG, …)`. Four templates (5 V supply check, UART baud rate, PWM duty cycle, clock signal present) are available from the **Templates** button in the file-list header as a starting point.
+Record, edit and play back SCPI command sequences to automate repetitive measurement and configuration tasks. Supports variables, conditionals (`if`/`else`), loops (`while`), assertions, and both network (`connect("IP")`) and USB (`connect(usb)`) connections. A macro can additionally address the configured signal generator over USB with `connect(SIG, usb)`, `cmd(SIG, …)` and `query(SIG, …)`. Four templates (5 V supply check, UART baud rate, PWM duty cycle, clock signal present) are available from the **Templates** button in the file-list header as a starting point. Loading, editing, saving and deleting macro files work without a connected device; only recording capture, playback and debug stepping require an instrument.
 
 > ⚠️ USB connection support in macros is experimental.
 
@@ -652,6 +652,24 @@ Non-widget, domain-specific support code is grouped into subfolders under
 - `lib/src/widgets/` — all Flutter widget classes (see Widget Code Layout).
 
 The application entry point `main.dart` stays at `lib/`.
+
+### Device Profiles
+
+Device-specific commands and operating knowledge are not embedded in the
+general system prompts. They are loaded from the active device profile:
+
+- `assets/devices/commands/` — machine-readable SCPI command packages.
+- `assets/devices/knowledge/` — device operating knowledge in Markdown.
+- `lib/src/devices/` — profile loading, command registry, knowledge loader,
+  identity resolution and the validated execution gate.
+
+Supported profiles: Siglent SDS1000X-E (`sds1000xe`), FeelElec FY6900
+(`fy6900`) and JOY-IT/Juntek JDS6600 (`jds6600`, alias `jd6600`). The
+Instrument Agent owns the oscilloscope and signal-generator tools; the AI Chat
+and Waveform agents delegate through it, and the Macro Editor uses the same
+registry through a dynamic command-reference tool. See
+[`docs/device-profiles.md`](docs/device-profiles.md) for the schema, the
+extraction overview and the migration notes.
 
 ---
 

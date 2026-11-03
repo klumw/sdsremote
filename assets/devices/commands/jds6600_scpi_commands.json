@@ -1,0 +1,459 @@
+{
+  "schema_version": "1.0",
+  "package_id": "siglent.jd6600.scpi",
+  "manufacturer": "SIGLENT / compatible command dialect per supplied specification",
+  "configured_device": "jd6600",
+  "device_scope": {
+    "model": "JD6600 / JDS6600",
+    "firmware": "not_specified"
+  },
+  "protocol": "SCPI-like",
+  "waveforms": {
+    "supported": [
+      "SIN",
+      "SQU",
+      "PULS",
+      "TRI",
+      "PSIN",
+      "CMOS",
+      "DC",
+      "HALF",
+      "FULL",
+      "POSL",
+      "NEGL",
+      "NOIS",
+      "ERIS",
+      "EDEC",
+      "MTON",
+      "SINC",
+      "LOR"
+    ],
+    "accepted_aliases": [
+      "SINE",
+      "SQUARE",
+      "PULSE",
+      "TRIANGLE",
+      "NOISE"
+    ],
+    "unsupported_note": "FY6900-only names (RECT, TRAP, RAMP, ...) return -222.",
+    "cross_model_mapping": null
+  },
+  "syntax": {
+    "source_channel": {
+      "placeholder": "<n>",
+      "allowed_values": [
+        1,
+        2
+      ]
+    },
+    "units_optional": true,
+    "unit_case_insensitive": true,
+    "unit_rules": {
+      "FREQ": {
+        "accepted": [
+          "HZ",
+          "KHZ",
+          "MHZ"
+        ],
+        "default": "Hz"
+      },
+      "VOLT_and_OFFS": {
+        "accepted": [
+          "V",
+          "VPP",
+          "MV"
+        ],
+        "default": "V"
+      },
+      "DCYC": {
+        "accepted": [
+          "%",
+          "PCT"
+        ],
+        "default": "%"
+      },
+      "PHAS": {
+        "accepted": [
+          "DEG",
+          "DEGREE"
+        ],
+        "default": "degrees"
+      }
+    },
+    "header_aliases": {
+      "SOURCE": "SOUR",
+      "OUTPUT": "OUTP",
+      "VOLTAGE": "VOLT",
+      "OFFSET": "OFFS",
+      "FUNCTION": "FUNC",
+      "DCYCLE": "DCYC",
+      "PHASE": "PHAS",
+      "STATE": "STAT",
+      "FREQUENCY": "FREQ"
+    },
+    "header_alias_notes": "Whole header segments may use the aliases above. SQUARE and PULSE are not header aliases; use SQU and PULS."
+  },
+  "commands": [
+    {
+      "command_id": "staridn_q",
+      "name": "Identity",
+      "scpi_pattern": "*IDN?",
+      "operation_kind": "query",
+      "query_pattern": "*IDN?",
+      "query_support": "query_only",
+      "description": "Returns instrument identity, e.g. JOY-IT,JDS6600-LITE,12345,N/A or FeelElec,FY6900-20M,12345,N/A."
+    },
+    {
+      "command_id": "starrst",
+      "name": "Reset",
+      "scpi_pattern": "*RST",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "description": "Safe reset: outputs off, sine, 1 kHz, 1 Vpp, 0 V offset, duty 50 %, phase 0."
+    },
+    {
+      "command_id": "starcls",
+      "name": "Clear status",
+      "scpi_pattern": "*CLS",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "description": "Clears the error queue."
+    },
+    {
+      "command_id": "staropc_q",
+      "name": "Operation complete",
+      "scpi_pattern": "*OPC?",
+      "operation_kind": "query",
+      "query_pattern": "*OPC?",
+      "query_support": "query_only",
+      "description": "Returns 1."
+    },
+    {
+      "command_id": "syst_err_q",
+      "name": "System error",
+      "scpi_pattern": "SYST:ERR?",
+      "operation_kind": "query",
+      "query_pattern": "SYST:ERR?",
+      "query_support": "query_only",
+      "description": "Returns oldest queued error as code,\"message\"; 0,\"No error\" when empty."
+    },
+    {
+      "command_id": "syst_err_coun_q",
+      "name": "Error count",
+      "scpi_pattern": "SYST:ERR:COUN?",
+      "operation_kind": "query",
+      "query_pattern": "SYST:ERR:COUN?",
+      "query_support": "query_only",
+      "description": "Returns number of queued errors."
+    },
+    {
+      "command_id": "syst_vers_q",
+      "name": "SCPI version",
+      "scpi_pattern": "SYST:VERS?",
+      "operation_kind": "query",
+      "query_pattern": "SYST:VERS?",
+      "query_support": "query_only",
+      "description": "Returns 1999.0."
+    },
+    {
+      "command_id": "syst_comm_baud_q",
+      "name": "Communication baud rate",
+      "scpi_pattern": "SYST:COMM:BAUD?",
+      "operation_kind": "query",
+      "query_pattern": "SYST:COMM:BAUD?",
+      "query_support": "query_only",
+      "description": "Returns 115200."
+    },
+    {
+      "command_id": "syst_loc",
+      "name": "Local mode",
+      "scpi_pattern": "SYST:LOC",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "description": "Accepted, no effect."
+    },
+    {
+      "command_id": "syst_rem",
+      "name": "Remote mode",
+      "scpi_pattern": "SYST:REM",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "description": "Accepted, no effect."
+    },
+    {
+      "command_id": "func",
+      "name": "Waveform",
+      "scpi_pattern": "SOUR<n>:FUNC <shape>",
+      "query_pattern": "SOUR<n>:FUNC?",
+      "operation_kind": "setter_query",
+      "query_support": "documented",
+      "description": "Sets or queries waveform shape.",
+      "parameters": [
+        {
+          "name": "n",
+          "type": "integer",
+          "allowed_values": [
+            1,
+            2
+          ]
+        },
+        {
+          "name": "shape",
+          "type": "enum",
+          "values_ref": "waveforms.supported_and_aliases"
+        }
+      ]
+    },
+    {
+      "command_id": "freq",
+      "name": "Frequency",
+      "scpi_pattern": "SOUR<n>:FREQ <value>[unit]",
+      "query_pattern": "SOUR<n>:FREQ?",
+      "operation_kind": "setter_query",
+      "query_support": "documented",
+      "description": "Sets or queries frequency; query returns Hz with 2 decimals.",
+      "parameters": [
+        {
+          "name": "n",
+          "type": "integer",
+          "allowed_values": [
+            1,
+            2
+          ]
+        },
+        {
+          "name": "value",
+          "type": "number",
+          "unit": {
+            "accepted": [
+              "HZ",
+              "KHZ",
+              "MHZ"
+            ],
+            "default": "Hz"
+          }
+        }
+      ]
+    },
+    {
+      "command_id": "volt",
+      "name": "Amplitude",
+      "scpi_pattern": "SOUR<n>:VOLT <value>[unit]",
+      "query_pattern": "SOUR<n>:VOLT?",
+      "operation_kind": "setter_query",
+      "query_support": "documented",
+      "description": "Sets or queries amplitude in Vpp; query returns 3 decimals.",
+      "parameters": [
+        {
+          "name": "n",
+          "type": "integer",
+          "allowed_values": [
+            1,
+            2
+          ]
+        },
+        {
+          "name": "value",
+          "type": "number",
+          "unit": {
+            "accepted": [
+              "V",
+              "VPP",
+              "MV"
+            ],
+            "default": "V"
+          }
+        }
+      ]
+    },
+    {
+      "command_id": "volt_offs",
+      "name": "DC offset",
+      "scpi_pattern": "SOUR<n>:VOLT:OFFS <value>[unit]",
+      "query_pattern": "SOUR<n>:VOLT:OFFS?",
+      "operation_kind": "setter_query",
+      "query_support": "documented",
+      "description": "Sets or queries DC offset; query returns 2 decimals.",
+      "parameters": [
+        {
+          "name": "n",
+          "type": "integer",
+          "allowed_values": [
+            1,
+            2
+          ]
+        },
+        {
+          "name": "value",
+          "type": "number",
+          "unit": {
+            "accepted": [
+              "V",
+              "VPP",
+              "MV"
+            ],
+            "default": "V"
+          }
+        }
+      ]
+    },
+    {
+      "command_id": "phas",
+      "name": "Phase",
+      "scpi_pattern": "SOUR<n>:PHAS <value>[unit]",
+      "query_pattern": "SOUR<n>:PHAS?",
+      "operation_kind": "setter_query",
+      "query_support": "documented",
+      "description": "Sets or queries phase; query returns degrees with 1 decimal.",
+      "parameters": [
+        {
+          "name": "n",
+          "type": "integer",
+          "allowed_values": [
+            1,
+            2
+          ]
+        },
+        {
+          "name": "value",
+          "type": "number",
+          "unit": {
+            "accepted": [
+              "DEG",
+              "DEGREE"
+            ],
+            "default": "degrees"
+          }
+        }
+      ]
+    },
+    {
+      "command_id": "puls_dcyc",
+      "name": "Pulse duty cycle",
+      "scpi_pattern": "SOUR<n>:PULS:DCYC <value>[unit]",
+      "query_pattern": "SOUR<n>:PULS:DCYC?",
+      "operation_kind": "setter_query",
+      "query_support": "documented",
+      "description": "Sets or queries pulse duty in %; query returns 1 decimal.",
+      "parameters": [
+        {
+          "name": "n",
+          "type": "integer",
+          "allowed_values": [
+            1,
+            2
+          ]
+        },
+        {
+          "name": "value",
+          "type": "number",
+          "unit": {
+            "accepted": [
+              "%",
+              "PCT"
+            ],
+            "default": "%"
+          }
+        }
+      ]
+    },
+    {
+      "command_id": "squ_dcyc",
+      "name": "Square duty cycle",
+      "scpi_pattern": "SOUR<n>:FUNC:SQU:DCYC <value>[unit]",
+      "query_pattern": "SOUR<n>:FUNC:SQU:DCYC?",
+      "operation_kind": "setter_query",
+      "query_support": "documented",
+      "description": "Sets or queries square duty in %; query returns 1 decimal.",
+      "parameters": [
+        {
+          "name": "n",
+          "type": "integer",
+          "allowed_values": [
+            1,
+            2
+          ]
+        },
+        {
+          "name": "value",
+          "type": "number",
+          "unit": {
+            "accepted": [
+              "%",
+              "PCT"
+            ],
+            "default": "%"
+          }
+        }
+      ]
+    },
+    {
+      "command_id": "output_state",
+      "name": "Output state",
+      "scpi_pattern": "OUTP<n>:STAT ON|OFF|1|0",
+      "query_pattern": "OUTP<n>:STAT?",
+      "scpi_pattern_aliases": [
+        "OUTP<n> <state>"
+      ],
+      "query_pattern_aliases": [
+        "OUTP<n>?"
+      ],
+      "operation_kind": "setter_query",
+      "query_support": "documented",
+      "description": "Sets or queries output state; query returns 1 or 0. STAT may be omitted: OUTP1 ON and OUTP1? are equivalent.",
+      "parameters": [
+        {
+          "name": "n",
+          "type": "integer",
+          "allowed_values": [
+            1,
+            2
+          ]
+        },
+        {
+          "name": "state",
+          "type": "enum",
+          "allowed_values": [
+            "ON",
+            "OFF",
+            "1",
+            "0"
+          ]
+        }
+      ]
+    },
+    {
+      "command_id": "output_all",
+      "name": "All outputs state",
+      "scpi_pattern": "OUTP:ALL ON|OFF|1|0",
+      "query_pattern": "OUTP:ALL?",
+      "operation_kind": "setter_query",
+      "query_support": "documented",
+      "description": "Sets both outputs; query returns 1 only when both are on.",
+      "parameters": [
+        {
+          "name": "state",
+          "type": "enum",
+          "allowed_values": [
+            "ON",
+            "OFF",
+            "1",
+            "0"
+          ]
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "source": "User-provided specification",
+    "validation_status": "transcribed_not_independently_verified",
+    "notes": [
+      "Ranges, resolution limits and firmware-specific differences were not supplied.",
+      "Waveform behavior is reproduced as provided."
+    ]
+  }
+}

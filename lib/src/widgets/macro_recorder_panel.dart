@@ -9,6 +9,10 @@ enum MacroSortType { name, date }
 
 /// The main Macro Recorder panel widget.
 ///
+/// Macro file operations (load, edit, save and delete) are local actions and
+/// do not depend on the device connection. Only recording capture, playback
+/// and debug stepping require a connected instrument.
+///
 /// Displays:
 /// - A header with title and Close button
 /// - Action buttons: Start, Stop, Edit, Save
@@ -20,9 +24,6 @@ enum MacroSortType { name, date }
 class MacroRecorderPanel extends StatefulWidget {
   /// The list of available macro files.
   final List<MacroInfo> macroFiles;
-
-  /// Whether the device is currently online (enables Load buttons).
-  final bool isOnline;
 
   /// Whether a macro recording is currently in progress.
   final bool isRecording;
@@ -75,7 +76,6 @@ class MacroRecorderPanel extends StatefulWidget {
   const MacroRecorderPanel({
     super.key,
     required this.macroFiles,
-    required this.isOnline,
     required this.isRecording,
     this.isPlaying = false,
     this.isSaveEnabled = false,
@@ -755,23 +755,18 @@ class _MacroRecorderPanelState extends State<MacroRecorderPanel>
                                                 ],
                                               ),
                                             ),
-                                            // Load button
+                                            // Load button — loading is a
+                                            // local file operation and does
+                                            // not require a device.
                                             IconButton(
-                                              icon: Icon(
+                                              icon: const Icon(
                                                 Icons.file_upload,
-                                                color: widget.isOnline
-                                                    ? Colors.greenAccent
-                                                    : Colors.white24,
+                                                color: Colors.greenAccent,
                                                 size: 20,
                                               ),
-                                              tooltip: widget.isOnline
-                                                  ? 'Load Macro'
-                                                  : 'Device Offline',
-                                              onPressed: widget.isOnline
-                                                  ? () => widget.onLoad(
-                                                      macro.fileName,
-                                                    )
-                                                  : null,
+                                              tooltip: 'Load Macro',
+                                              onPressed: () =>
+                                                  widget.onLoad(macro.fileName),
                                             ),
                                             // Delete button
                                             IconButton(

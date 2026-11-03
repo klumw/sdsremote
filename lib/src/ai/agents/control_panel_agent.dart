@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../devices/device_agent_context.dart';
 import '../tools/date_time_tool.dart';
 import '../tools/macro_tools.dart';
 import '../tools/vxi11_tool.dart';
@@ -40,6 +41,7 @@ class ControlPanelAgent {
   ControlPanelAgent({
     String model = 'deepseek:deepseek-v4-flash',
     String? vxi11Host,
+    DeviceAgentContext? instrumentDeviceContext,
     MacroOscilloscopeStatusReader? readOscilloscopeStatus,
     ScpiCommandCallback? onCommandSent,
     WaveformSummaryProvider? readWaveformSummary,
@@ -49,6 +51,7 @@ class ControlPanelAgent {
          model: model,
          vxi11Host: vxi11Host,
          systemPrompt: controlPanelAgentSystemPrompt,
+         instrumentDeviceContext: instrumentDeviceContext,
          onCommandSent: onCommandSent,
          instrumentToolCalls: instrumentToolCalls,
          searchToolCalls: searchToolCalls,

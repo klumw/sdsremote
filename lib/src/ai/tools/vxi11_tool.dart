@@ -1,6 +1,7 @@
 import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../../core/logger.dart';
+import '../../devices/device_agent_context.dart';
 import '../../instrument/dart_vxi11.dart';
 
 /// Callback invoked whenever a SCPI command is sent to the device via the
@@ -27,6 +28,7 @@ Tool<Map<String, dynamic>> createVxi11Tool({
   required String host,
   String agentName = 'unknown',
   ScpiCommandCallback? onCommandSent,
+  DeviceCommandGate? commandGate,
 }) {
   return Tool<Map<String, dynamic>>(
     name: 'vxi11',
@@ -34,6 +36,9 @@ Tool<Map<String, dynamic>> createVxi11Tool({
         'Send SCPI commands and queries to a VXI-11 instrument. '
         'Use "write" to send a command (no response), '
         'or "query" to send a query and get a response. '
+        'Every command is validated against the active device profile before '
+        'it is sent; a rejected command returns success=false and an '
+        'error_code. '
         'The configured device IP is $host.',
     inputSchema: Schema.fromMap({
       'type': 'object',
@@ -62,13 +67,34 @@ Tool<Map<String, dynamic>> createVxi11Tool({
       final command = args['command'] as String;
       final effectiveHost = (args['host'] as String?) ?? host;
 
+      final logger = AppLogger(agentName: agentName, toolName: 'vxi11');
+
+      // Validate before any callback or transport work: a blocked command must
+      // not be recorded into a macro and must never reach the device.
+      final validation = commandGate?.validate(
+        command,
+        isQuery: operation == 'query',
+      );
+      if (validation != null && !validation.isValid) {
+        final rejection = {
+          'success': false,
+          'operation': operation,
+          'command': command,
+          ...validation.error!.toJson(),
+          'host': effectiveHost,
+        };
+        logger.warning(
+          'SCPI $operation rejected by the device profile: ${validation.error}',
+        );
+        logger.logToolCall(input: args, output: rejection);
+        return rejection;
+      }
+
       // Notify the macro recorder (if any) that a SCPI command is being sent.
       onScpiCommandSent?.call(command, operation);
       // Notify the owning feature (for example the Control Panel's screen
       // refresh) without disturbing the global recorder callback.
       onCommandSent?.call(command, operation);
-
-      final logger = AppLogger(agentName: agentName, toolName: 'vxi11');
 
       final instrument = Vxi11Instrument(
         effectiveHost,
@@ -87,6 +113,8 @@ Tool<Map<String, dynamic>> createVxi11Tool({
               'operation': 'write',
               'command': command,
               'response': null,
+              if (validation != null && validation.warnings.isNotEmpty)
+                'warnings': validation.warnings,
               'host': effectiveHost,
             };
 
@@ -98,6 +126,8 @@ Tool<Map<String, dynamic>> createVxi11Tool({
               'operation': 'query',
               'command': command,
               'response': response,
+              if (validation != null && validation.warnings.isNotEmpty)
+                'warnings': validation.warnings,
               'host': effectiveHost,
             };
 

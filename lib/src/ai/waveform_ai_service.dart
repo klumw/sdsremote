@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../core/logger.dart';
+import '../devices/device_agent_context.dart';
 import 'agents/waveform_agent.dart';
 import 'tools/acquire_waveform_tool.dart';
 import 'tools/specification_upload_tool.dart';
@@ -50,6 +51,7 @@ class WaveformAiService {
     SpecificationUploadProvider? requestSpecUpload,
     String? vxi11Host,
     ScpiCommandCallback? onCommandSent,
+    DeviceAgentContext? instrumentDeviceContext,
     SignalGeneratorStatusProvider? readSignalGeneratorStatus,
     SignalGeneratorApplyProvider? applySignalGenerator,
     SignalGeneratorActionProvider? controlSignalGenerator,
@@ -77,6 +79,7 @@ class WaveformAiService {
         requestSpecUpload: requestSpecUpload,
         vxi11Host: vxi11Host,
         onCommandSent: onCommandSent,
+        instrumentDeviceContext: instrumentDeviceContext,
         readSignalGeneratorStatus: readSignalGeneratorStatus,
         applySignalGenerator: applySignalGenerator,
         controlSignalGenerator: controlSignalGenerator,

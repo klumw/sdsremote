@@ -1,5 +1,6 @@
 import 'package:dartantic_ai/dartantic_ai.dart';
 
+import '../../devices/device_agent_context.dart';
 import '../tools/acquire_waveform_tool.dart';
 import '../tools/calculator_tool.dart';
 import '../tools/date_time_tool.dart';
@@ -33,8 +34,12 @@ class WaveformAgent {
   static const int defaultInstrumentToolCalls = 8;
   static const int _maxHistoryMessages = 12;
 
-  final Agent _agent;
+  late final Agent _agent;
   List<ChatMessage> _history;
+  InstrumentAgent? _instrumentAgent;
+
+  /// The instrument sub-agent, exposed for diagnostics and tests.
+  InstrumentAgent? get instrumentAgent => _instrumentAgent;
 
   WaveformAgent({
     String model = 'deepseek:deepseek-v4-flash',
@@ -52,105 +57,94 @@ class WaveformAgent {
     SpecificationUploadProvider? requestSpecUpload,
     String? vxi11Host,
     ScpiCommandCallback? onCommandSent,
+    DeviceAgentContext? instrumentDeviceContext,
     SignalGeneratorStatusProvider? readSignalGeneratorStatus,
     SignalGeneratorApplyProvider? applySignalGenerator,
     SignalGeneratorActionProvider? controlSignalGenerator,
     SignalGeneratorIntentCheck? isSignalGeneratorIntentEnabled,
     int instrumentToolCalls = defaultInstrumentToolCalls,
     int maxToolCalls = defaultMaxToolCalls,
-  }) : _agent = Agent(
-         model,
-         displayName: 'WaveformAgent',
-         maxToolCalls: maxToolCalls,
-         tools: [
-           createWaveformSummaryTool(
-             readSummary: readWaveformSummary,
-             agentName: 'WaveformAgent',
-           ),
-           createSpectrumSummaryTool(
-             readSummary: readSpectrumSummary,
-             agentName: 'WaveformAgent',
-           ),
-           createAcquireWaveformTool(
-             acquire: acquireWaveform,
-             agentName: 'WaveformAgent',
-           ),
-           createWaveformHistoryTool(
-             readHistory: readWaveformHistory,
-             agentName: 'WaveformAgent',
-           ),
-           createClassifyWaveformTool(
-             classify: classifyWaveform,
-             agentName: 'WaveformAgent',
-           ),
-           createCompareWaveformToReferencesTool(
-             compare: compareWaveformToReferences,
-             agentName: 'WaveformAgent',
-           ),
-           createCompareWaveformsTool(
-             compare: compareWaveforms,
-             agentName: 'WaveformAgent',
-           ),
-           createGetWaveformFeaturesTool(
-             readFeatures: readWaveformFeatures,
-             agentName: 'WaveformAgent',
-           ),
-           createWaveformFaultAnalysisTool(
-             analyze: analyzeWaveformFaults,
-             agentName: 'WaveformAgent',
-           ),
-           createWaveformFaultProfileTool(
-             manage: manageFaultProfile,
-             agentName: 'WaveformAgent',
-           ),
-           createSpecificationUploadTool(
-             requestUpload: requestSpecUpload,
-             agentName: 'WaveformAgent',
-           ),
-           createSpecificationAnalysisTool(
-             analyze: SpecAnalystAgent(model: model).analyze,
-             agentName: 'WaveformAgent',
-           ),
-           createLogicLevelReferenceTool(agentName: 'WaveformAgent'),
-           createGenerateReferenceWaveformTool(
-             generate: generateReferenceWaveform,
-             agentName: 'WaveformAgent',
-           ),
-           if (vxi11Host != null)
-             createScpiAgentTool(
-               InstrumentAgent(
-                 model: model,
-                 vxi11Host: vxi11Host,
-                 maxToolCalls: instrumentToolCalls,
-                 onCommandSent: onCommandSent,
-                 systemPrompt: instrumentAgentSystemPrompt,
-               ),
-               agentName: 'WaveformAgent',
-             ),
-           if (readSignalGeneratorStatus != null)
-             createReadSignalGeneratorStatusTool(
-               readStatus: readSignalGeneratorStatus,
-               isEnabled: isSignalGeneratorIntentEnabled,
-               agentName: 'WaveformAgent',
-             ),
-           if (applySignalGenerator != null)
-             createSetSignalGeneratorTool(
-               apply: applySignalGenerator,
-               isEnabled: isSignalGeneratorIntentEnabled,
-               agentName: 'WaveformAgent',
-             ),
-           if (controlSignalGenerator != null)
-             createSignalGeneratorActionTool(
-               control: controlSignalGenerator,
-               isEnabled: isSignalGeneratorIntentEnabled,
-               agentName: 'WaveformAgent',
-             ),
-           createMathTool(agentName: 'WaveformAgent'),
-           createCalculatorTool(agentName: 'WaveformAgent'),
-           createDateTimeTool(agentName: 'WaveformAgent'),
-         ],
-       ),
-       _history = [ChatMessage.system(waveformAgentSystemPrompt)];
+  }) : _history = [ChatMessage.system(waveformAgentSystemPrompt)] {
+    final instrumentAgent = vxi11Host == null
+        ? null
+        : InstrumentAgent(
+            model: model,
+            vxi11Host: vxi11Host,
+            maxToolCalls: instrumentToolCalls,
+            onCommandSent: onCommandSent,
+            deviceContext: instrumentDeviceContext,
+            readSignalGeneratorStatus: readSignalGeneratorStatus,
+            applySignalGenerator: applySignalGenerator,
+            controlSignalGenerator: controlSignalGenerator,
+            isSignalGeneratorIntentEnabled: isSignalGeneratorIntentEnabled,
+          );
+    _instrumentAgent = instrumentAgent;
+    _agent = Agent(
+      model,
+      displayName: 'WaveformAgent',
+      maxToolCalls: maxToolCalls,
+      tools: [
+        createWaveformSummaryTool(
+          readSummary: readWaveformSummary,
+          agentName: 'WaveformAgent',
+        ),
+        createSpectrumSummaryTool(
+          readSummary: readSpectrumSummary,
+          agentName: 'WaveformAgent',
+        ),
+        createAcquireWaveformTool(
+          acquire: acquireWaveform,
+          agentName: 'WaveformAgent',
+        ),
+        createWaveformHistoryTool(
+          readHistory: readWaveformHistory,
+          agentName: 'WaveformAgent',
+        ),
+        createClassifyWaveformTool(
+          classify: classifyWaveform,
+          agentName: 'WaveformAgent',
+        ),
+        createCompareWaveformToReferencesTool(
+          compare: compareWaveformToReferences,
+          agentName: 'WaveformAgent',
+        ),
+        createCompareWaveformsTool(
+          compare: compareWaveforms,
+          agentName: 'WaveformAgent',
+        ),
+        createGetWaveformFeaturesTool(
+          readFeatures: readWaveformFeatures,
+          agentName: 'WaveformAgent',
+        ),
+        createWaveformFaultAnalysisTool(
+          analyze: analyzeWaveformFaults,
+          agentName: 'WaveformAgent',
+        ),
+        createWaveformFaultProfileTool(
+          manage: manageFaultProfile,
+          agentName: 'WaveformAgent',
+        ),
+        createSpecificationUploadTool(
+          requestUpload: requestSpecUpload,
+          agentName: 'WaveformAgent',
+        ),
+        createSpecificationAnalysisTool(
+          analyze: SpecAnalystAgent(model: model).analyze,
+          agentName: 'WaveformAgent',
+        ),
+        createLogicLevelReferenceTool(agentName: 'WaveformAgent'),
+        createGenerateReferenceWaveformTool(
+          generate: generateReferenceWaveform,
+          agentName: 'WaveformAgent',
+        ),
+        if (instrumentAgent != null)
+          createScpiAgentTool(instrumentAgent, agentName: 'WaveformAgent'),
+        createMathTool(agentName: 'WaveformAgent'),
+        createCalculatorTool(agentName: 'WaveformAgent'),
+        createDateTimeTool(agentName: 'WaveformAgent'),
+      ],
+    );
+  }
 
   String get displayName => _agent.displayName;
 

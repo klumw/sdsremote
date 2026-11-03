@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../core/logger.dart';
+import '../devices/device_agent_context.dart';
 import 'agents/control_panel_agent.dart';
 import 'tools/macro_tools.dart';
 import 'tools/vxi11_tool.dart';
@@ -38,6 +39,7 @@ class ControlPanelAiService {
     required String apiToken,
     required String model,
     String? vxi11Host,
+    DeviceAgentContext? instrumentDeviceContext,
     MacroOscilloscopeStatusReader? readOscilloscopeStatus,
     ScpiCommandCallback? onCommandSent,
     WaveformSummaryProvider? readWaveformSummary,
@@ -63,6 +65,7 @@ class ControlPanelAiService {
       _agent = ControlPanelAgent(
         model: model,
         vxi11Host: vxi11Host,
+        instrumentDeviceContext: instrumentDeviceContext,
         readOscilloscopeStatus: readOscilloscopeStatus,
         onCommandSent: onCommandSent,
         readWaveformSummary: readWaveformSummary,

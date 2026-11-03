@@ -2,13 +2,17 @@ import 'dart:async';
 
 import 'package:dartantic_ai/dartantic_ai.dart';
 
+import '../../devices/device_agent_context.dart';
 import '../tools/calculator_tool.dart';
 import '../tools/date_time_tool.dart';
 import '../tools/log_tool.dart';
 import '../tools/math_tool.dart';
 import '../tools/measurement_tool.dart';
+import '../tools/resolve_device_command_tool.dart';
+import '../tools/signal_generator_tool.dart';
 import '../tools/vxi11_tool.dart';
 import 'max_tool_calls_handler.dart';
+import 'systemprompts.dart';
 
 /// A reusable AI agent for instrument control via an AI model.
 ///
@@ -48,19 +52,49 @@ class InstrumentAgent with MaxToolCallsHandler {
   /// The chat history for multi-turn conversations.
   final List<ChatMessage> _history = [];
 
+  /// Shared validation hook used by the already constructed VXI-11 tool.
+  final DeviceCommandGate _commandGate;
+
+  /// Tools registered with the underlying agent, exposed for tests and
+  /// diagnostics.
+  final List<Tool> _tools;
+
+  List<Tool> get tools => List.unmodifiable(_tools);
+
+  /// The current system prompt.
+  String get systemPrompt => _history.isEmpty ? '' : _history.first.text;
+
+  /// Whether this class built the system prompt from the device context.
+  ///
+  /// A caller-supplied prompt is kept verbatim; only the validation hook is
+  /// updated when the device context changes.
+  final bool _ownsSystemPrompt;
+
+  /// Whether the signal-generator tools are part of this agent.
+  final bool _hasSignalGeneratorTools;
+
+  DeviceAgentContext? _deviceContext;
+
   /// Maximum number of tool calls allowed per user input.
   @override
   final int maxToolCalls;
 
-  /// Creates a [InstrumentAgent] configured for the specified model with optional tools.
+  /// Creates an [InstrumentAgent] configured for the specified model.
   ///
   /// The [model] parameter specifies the model to use in `provider:model`
   /// format.
   ///
-  /// The [systemPrompt] parameter sets an optional system message.
+  /// The [deviceContext] parameter binds the agent to a loaded device profile.
+  /// Its command definitions and knowledge form the device-specific part of
+  /// the system prompt, and the same registry validates every command sent by
+  /// the VXI-11 tool. When it is null the prompt fails closed: the agent is
+  /// told not to send commands until a profile is configured.
+  ///
+  /// The [systemPrompt] parameter overrides the generated prompt. The
+  /// validation hook from [deviceContext] still applies.
   ///
   /// The [vxi11Host] parameter sets the default VXI-11 instrument IP.
-  /// If null, no VXI-11 tool is added. Defaults to `192.168.178.95`.
+  /// If null, no VXI-11 tool is added.
   ///
   /// The [tools] parameter allows adding additional custom tools.
   ///
@@ -69,58 +103,151 @@ class InstrumentAgent with MaxToolCallsHandler {
   /// the default reader for `sds/logging/sds.log`.
   ///
   /// The [maxToolCalls] parameter limits the number of tool calls per
-  /// user input. Defaults to [defaultMaxToolCalls] (10).
-  InstrumentAgent({
+  /// user input. Defaults to [defaultMaxToolCalls] (3).
+  factory InstrumentAgent({
     String model = 'deepseek:deepseek-v4-flash',
     String? systemPrompt,
     String? vxi11Host,
     List<Tool>? tools,
     ScpiCommandCallback? onCommandSent,
     LogReader? readLog,
-    this.maxToolCalls = defaultMaxToolCalls,
-  }) : _agent = Agent(
+    DeviceAgentContext? deviceContext,
+    DeviceCommandGate? commandGate,
+    SignalGeneratorStatusProvider? readSignalGeneratorStatus,
+    SignalGeneratorApplyProvider? applySignalGenerator,
+    SignalGeneratorActionProvider? controlSignalGenerator,
+    SignalGeneratorIntentCheck? isSignalGeneratorIntentEnabled,
+    int maxToolCalls = defaultMaxToolCalls,
+  }) {
+    final gate =
+        commandGate ?? DeviceCommandGate(deviceContext, vxi11Host != null);
+    final hasSignalGeneratorTools =
+        readSignalGeneratorStatus != null &&
+        applySignalGenerator != null &&
+        controlSignalGenerator != null;
+    final prompt =
+        systemPrompt ??
+        buildInstrumentAgentSystemPrompt(
+          deviceContext: deviceContext?.buildPromptSection(),
+          includeSignalGenerator: hasSignalGeneratorTools,
+        );
+    final agentTools = <Tool>[
+      if (vxi11Host != null)
+        createVxi11Tool(
+          host: vxi11Host,
+          agentName: 'InstrumentAgent',
+          onCommandSent: onCommandSent,
+          commandGate: gate,
+        ),
+      // Resolves a semantic command against the active device profile. It
+      // never sends anything; the returned string goes through the
+      // communication tool and its validator.
+      createResolveDeviceCommandTool(
+        contextProvider: () => gate.context,
+        agentName: 'InstrumentAgent',
+      ),
+      // Deterministic measurement parser; needs no instrument connection.
+      createMeasurementTool(agentName: 'InstrumentAgent'),
+      // Deterministic math on measured numbers (gain in dB, and any
+      // operation added later); needs no instrument connection.
+      createMathTool(agentName: 'InstrumentAgent'),
+      // Unit-aware, complex-capable engineering calculator with the
+      // electronics, measurement, audio and RF formula library.
+      createCalculatorTool(agentName: 'InstrumentAgent'),
+      // Lets the agent inspect the application log when a SCPI command or
+      // the communication itself fails.
+      createLogFileTool(
+        readLog: readLog,
+        agentName: 'InstrumentAgent',
+        description:
+            'Return the most recent lines of the SDS-Remote application '
+            'log (sds.log in the application temp directory). Call this '
+            'when a SCPI command fails, the communication tool returns an '
+            'error, or the instrument reports an unexpected error: search '
+            'for the failing command with "contains", quote the matching '
+            'lines and explain the failure with one concrete next step. '
+            'By default only warning and error lines are returned; set '
+            'errors_only to false to include all recent lines for '
+            'context.',
+      ),
+      createDateTimeTool(agentName: 'InstrumentAgent'),
+      if (readSignalGeneratorStatus != null)
+        createReadSignalGeneratorStatusTool(
+          readStatus: readSignalGeneratorStatus,
+          isEnabled: isSignalGeneratorIntentEnabled,
+          agentName: 'InstrumentAgent',
+        ),
+      if (applySignalGenerator != null)
+        createSetSignalGeneratorTool(
+          apply: applySignalGenerator,
+          isEnabled: isSignalGeneratorIntentEnabled,
+          agentName: 'InstrumentAgent',
+        ),
+      if (controlSignalGenerator != null)
+        createSignalGeneratorActionTool(
+          control: controlSignalGenerator,
+          isEnabled: isSignalGeneratorIntentEnabled,
+          agentName: 'InstrumentAgent',
+        ),
+      ...?tools,
+    ];
+    return InstrumentAgent._(
+      model: model,
+      agentTools: agentTools,
+      deviceContext: deviceContext,
+      commandGate: gate,
+      systemPrompt: prompt,
+      ownsSystemPrompt: systemPrompt == null,
+      hasSignalGeneratorTools: hasSignalGeneratorTools,
+      maxToolCalls: maxToolCalls,
+    );
+  }
+
+  InstrumentAgent._({
+    required String model,
+    required List<Tool> agentTools,
+    required DeviceAgentContext? deviceContext,
+    required DeviceCommandGate commandGate,
+    required String systemPrompt,
+    required bool ownsSystemPrompt,
+    required bool hasSignalGeneratorTools,
+    required this.maxToolCalls,
+  }) : _deviceContext = deviceContext,
+       _commandGate = commandGate,
+       _ownsSystemPrompt = ownsSystemPrompt,
+       _hasSignalGeneratorTools = hasSignalGeneratorTools,
+       _tools = List.unmodifiable(agentTools),
+       _agent = Agent(
          model,
          displayName: 'InstrumentAgent',
-         tools: [
-           if (vxi11Host != null)
-             createVxi11Tool(
-               host: vxi11Host,
-               agentName: 'InstrumentAgent',
-               onCommandSent: onCommandSent,
-             ),
-           // Deterministic measurement parser; needs no instrument connection.
-           createMeasurementTool(agentName: 'InstrumentAgent'),
-           // Deterministic math on measured numbers (gain in dB, and any
-           // operation added later); needs no instrument connection.
-           createMathTool(agentName: 'InstrumentAgent'),
-           // Unit-aware, complex-capable engineering calculator with the
-           // electronics, measurement, audio and RF formula library.
-           createCalculatorTool(agentName: 'InstrumentAgent'),
-           // Lets the agent inspect the application log when a SCPI command or
-           // the communication itself fails.
-           createLogFileTool(
-             readLog: readLog,
-             agentName: 'InstrumentAgent',
-             description:
-                 'Return the most recent lines of the SDS-Remote application '
-                 'log (sds.log in the application temp directory). Call this '
-                 'when a SCPI command fails, the communication tool returns an '
-                 'error, or the instrument reports an unexpected error: search '
-                 'for the failing command with "contains", quote the matching '
-                 'lines and explain the failure with one concrete next step. '
-                 'By default only warning and error lines are returned; set '
-                 'errors_only to false to include all recent lines for '
-                 'context.',
-           ),
-           createDateTimeTool(agentName: 'InstrumentAgent'),
-           ...?tools,
-         ],
+         tools: agentTools,
          maxToolCalls: maxToolCalls,
        ) {
-    if (systemPrompt != null) {
-      _history.add(ChatMessage.system(systemPrompt));
+    _history.add(ChatMessage.system(systemPrompt));
+  }
+
+  /// Replaces the active device context.
+  ///
+  /// Updates the validation hook used by the VXI-11 tool immediately. When this
+  /// agent owns its system prompt, the prompt is regenerated with the new
+  /// device context (for example after `*IDN?` reported the instrument model).
+  void updateDeviceContext(DeviceAgentContext? context) {
+    _deviceContext = context;
+    _commandGate.update(context);
+    if (!_ownsSystemPrompt) return;
+    final prompt = buildInstrumentAgentSystemPrompt(
+      deviceContext: context?.buildPromptSection(),
+      includeSignalGenerator: _hasSignalGeneratorTools,
+    );
+    if (_history.isEmpty) {
+      _history.add(ChatMessage.system(prompt));
+    } else {
+      _history[0] = ChatMessage.system(prompt);
     }
   }
+
+  /// The active device context, if one is bound.
+  DeviceAgentContext? get deviceContext => _deviceContext;
 
   /// The display name of the agent.
   String get displayName => _agent.displayName;
@@ -189,8 +316,10 @@ class InstrumentAgent with MaxToolCallsHandler {
     }
   }
 
-  /// Clears the conversation history.
+  /// Clears the conversation history but keeps the system prompt.
   void clearHistory() {
-    _history.clear();
+    if (_history.length > 1) {
+      _history.removeRange(1, _history.length);
+    }
   }
 }

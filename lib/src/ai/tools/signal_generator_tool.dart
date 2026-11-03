@@ -27,6 +27,7 @@ class SignalGeneratorSettings {
     this.amplitudeVpp,
     this.offsetV,
     this.waveform,
+    this.requestedWaveform,
     this.dutyPercent,
     this.phaseDeg,
     this.output,
@@ -36,7 +37,16 @@ class SignalGeneratorSettings {
   final double? frequencyHz;
   final double? amplitudeVpp;
   final double? offsetV;
+
+  /// Resolved waveform enum used by the transport.
   final Jds6600Waveform? waveform;
+
+  /// Waveform name exactly as requested by the agent.
+  ///
+  /// The provider validates this name against the active device profile and
+  /// reports the requested and resolved names when they differ.
+  final String? requestedWaveform;
+
   final double? dutyPercent;
   final double? phaseDeg;
   final bool? output;
@@ -57,6 +67,7 @@ class SignalGeneratorSettings {
     if (amplitudeVpp != null) 'amplitude_vpp': amplitudeVpp,
     if (offsetV != null) 'offset_v': offsetV,
     if (waveform != null) 'waveform': waveform!.scpiMnemonic,
+    if (requestedWaveform != null) 'requested_waveform': requestedWaveform,
     if (dutyPercent != null) 'duty_percent': dutyPercent,
     if (phaseDeg != null) 'phase_deg': phaseDeg,
     if (output != null) 'output': output,
@@ -228,9 +239,11 @@ Tool<Map<String, dynamic>> createSetSignalGeneratorTool({
         'waveform': {
           'type': 'string',
           'description':
-              'Waveform name. Common values: sine, square, triangle, pulse, '
-              'ramp, noise. Other supported names use the device mnemonics, '
-              'for example SIN, SQU, TRI, PULS, NOIS.',
+              'Waveform name accepted by the configured device profile. '
+              'Common values: sine, square, triangle, pulse, ramp, noise; '
+              'device mnemonics such as SIN, SQU, TRI, PULS and NOIS are also '
+              'accepted. The tool validates the name against the active '
+              'profile and returns UNSUPPORTED_WAVEFORM instead of guessing.',
         },
         'dutyPercent': {
           'type': 'number',
@@ -278,10 +291,12 @@ Tool<Map<String, dynamic>> createSetSignalGeneratorTool({
           : _resolveWaveform(waveformText);
       if (waveformText != null && waveform == null) {
         final result = {
+          'error_code': 'UNSUPPORTED_WAVEFORM',
           'error':
-              'Unknown waveform "$waveformText". Use sine, square, triangle, '
-              'pulse, ramp, noise or a device mnemonic such as SIN, SQU, TRI, '
-              'PULS or NOIS.',
+              'Unknown waveform "$waveformText". Use a waveform name from the '
+              'configured signal-generator profile or a common name such as '
+              'sine, square, triangle, pulse, ramp or noise.',
+          'requested_value': waveformText,
         };
         await logger.logToolCall(input: args, output: result);
         return result;
@@ -293,6 +308,7 @@ Tool<Map<String, dynamic>> createSetSignalGeneratorTool({
         amplitudeVpp: _doubleArg(args, 'amplitudeVpp'),
         offsetV: _doubleArg(args, 'offsetV'),
         waveform: waveform,
+        requestedWaveform: waveformText,
         dutyPercent: _doubleArg(args, 'dutyPercent'),
         phaseDeg: _doubleArg(args, 'phaseDeg'),
         output: args['output'] is bool ? args['output'] as bool : null,

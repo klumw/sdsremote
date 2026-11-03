@@ -5,6 +5,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import '../../core/logger.dart';
 import '../tools/calculator_tool.dart';
 import '../tools/date_time_tool.dart';
+import '../tools/device_command_reference_tool.dart';
 import '../tools/macro_tools.dart';
 import '../tools/math_tool.dart';
 import 'systemprompts.dart';
@@ -77,7 +78,7 @@ class MacroAgent {
     required MacroReader readMacro,
     required MacroWriter writeMacro,
     String? Function()? macroFileName,
-    MacroSiggenStatusReader? readSiggenStatus,
+    DeviceCommandReferenceReader? readDeviceCommandReference,
     MacroOscilloscopeStatusReader? readOscilloscopeStatus,
     MacroVariablesReader? readVariables,
     MacroPrintOutputReader? readPrintOutput,
@@ -101,8 +102,8 @@ class MacroAgent {
              readMacro: readMacro,
              agentName: 'MacroAgent',
            ),
-           createReadSiggenStatusTool(
-             readStatus: readSiggenStatus,
+           createDeviceCommandReferenceTool(
+             readReference: readDeviceCommandReference,
              agentName: 'MacroAgent',
            ),
            createReadOscilloscopeStatusTool(

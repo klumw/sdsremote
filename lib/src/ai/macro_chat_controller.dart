@@ -6,6 +6,7 @@ import '../macro/macro_oscope_status.dart';
 import 'ai_settings.dart';
 import 'input_history.dart';
 import 'macro_ai_service.dart';
+import 'tools/device_command_reference_tool.dart';
 import 'tools/macro_tools.dart';
 
 /// Owns the Macro Editor's AI conversation.
@@ -38,7 +39,7 @@ class MacroChatController extends ChangeNotifier {
   MacroReader? _readMacro;
   MacroWriter? _writeMacro;
   String? Function()? _macroFileName;
-  MacroSiggenStatusReader? _readSiggenStatus;
+  DeviceCommandReferenceReader? _readDeviceCommandReference;
   MacroOscilloscopeStatusReader? _readOscilloscopeStatus;
   MacroVariablesReader? _readVariables;
   MacroPrintOutputReader? _readPrintOutput;
@@ -100,14 +101,16 @@ class MacroChatController extends ChangeNotifier {
     _macroFileName = null;
   }
 
-  /// Registers the live signal-generator settings/status source used by the
-  /// agent's `read_siggen_status` tool.
+  /// Registers the device-command reference used by the agent's
+  /// `device_command_reference` tool.
   ///
   /// The callback is read dynamically, so it may be registered before or after
-  /// [configure]. Without it the tool falls back to the persisted generator
-  /// selection in [readStoredSiggenStatus].
-  void attachSignalGeneratorStatus(MacroSiggenStatusReader readStatus) {
-    _readSiggenStatus = readStatus;
+  /// [configure]. It returns the authorized commands and knowledge from the
+  /// device-profile registry for the oscilloscope or the signal generator.
+  void attachDeviceCommandReference(
+    DeviceCommandReferenceReader readReference,
+  ) {
+    _readDeviceCommandReference = readReference;
   }
 
   /// Registers the live oscilloscope connection/model source used by the
@@ -192,10 +195,7 @@ class MacroChatController extends ChangeNotifier {
       readMacro: () => _readMacro?.call() ?? '',
       writeMacro: (content) => _writeMacro?.call(content) ?? false,
       macroFileName: () => _macroFileName?.call(),
-      readSiggenStatus: () async {
-        final reader = _readSiggenStatus;
-        return reader != null ? reader() : readStoredSiggenStatus();
-      },
+      readDeviceCommandReference: _readDeviceCommandReference,
       readOscilloscopeStatus: () async {
         final reader = _readOscilloscopeStatus;
         return reader != null ? reader() : readUnavailableOscilloscopeStatus();

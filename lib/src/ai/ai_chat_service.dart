@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../core/logger.dart';
+import '../devices/device_agent_context.dart';
 import 'agents/frontend_agent.dart';
 import 'tools/signal_generator_tool.dart';
 
@@ -46,6 +47,7 @@ class AiChatService {
     String model = 'deepseek:deepseek-v4-flash',
     String? vxi11Host,
     String? instrumentModel,
+    DeviceAgentContext? instrumentDeviceContext,
     int? instrumentToolCalls,
     int? searchToolCalls,
     SignalGeneratorStatusProvider? readSignalGeneratorStatus,
@@ -75,6 +77,7 @@ class AiChatService {
         model: model,
         vxi11Host: vxi11Host,
         instrumentModel: instrumentModel,
+        instrumentDeviceContext: instrumentDeviceContext,
         instrumentToolCalls:
             instrumentToolCalls ?? FrontendAgent.defaultInstrumentToolCalls,
         searchToolCalls:

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../../core/logger.dart';
+import '../../devices/device_agent_context.dart';
 import '../tools/scpi_agent_tool.dart';
 import '../tools/search_agent_tool.dart';
 import '../tools/signal_generator_tool.dart';
@@ -46,7 +47,14 @@ class FrontendAgent {
   static const int defaultSearchToolCalls = 8;
 
   /// The underlying dartantic_ai Agent instance for the frontend.
-  final Agent _frontendAgent;
+  late final Agent _frontendAgent;
+
+  /// The instrument sub-agent, kept so its device context can be updated when
+  /// the connected instrument model becomes known.
+  final InstrumentAgent? _instrumentAgent;
+
+  /// Base device context used to derive the sub-agent's context per model.
+  final DeviceAgentContext? _instrumentDeviceContext;
 
   /// The chat history for multi-turn conversations.
   List<ChatMessage> _history = [];
@@ -100,7 +108,7 @@ class FrontendAgent {
   ///
   /// Note: [maxToolCalls] (frontend-level) has been removed — the sub-agents'
   /// limits are sufficient. The frontend agent streams all responses as-is.
-  FrontendAgent({
+  factory FrontendAgent({
     String model = 'deepseek:deepseek-v4-flash',
     String? systemPrompt,
     String? vxi11Host,
@@ -112,56 +120,66 @@ class FrontendAgent {
     SignalGeneratorApplyProvider? applySignalGenerator,
     SignalGeneratorActionProvider? controlSignalGenerator,
     SignalGeneratorIntentCheck? isSignalGeneratorIntentEnabled,
-    this.instrumentToolCalls = defaultInstrumentToolCalls,
-    this.searchToolCalls = defaultSearchToolCalls,
-  }) : _hasSignalGeneratorTools =
-           readSignalGeneratorStatus != null ||
-           applySignalGenerator != null ||
-           controlSignalGenerator != null,
-       _ownsSystemPrompt = systemPrompt == null,
-       _frontendAgent = Agent(
-         model,
-         displayName: 'FrontendAgent',
-         tools: [
-           if (vxi11Host != null)
-             createScpiAgentTool(
-               _createVxiAgent(
-                 model: model,
-                 vxi11Host: vxi11Host,
-                 maxToolCalls: instrumentToolCalls,
-                 onCommandSent: onCommandSent,
-               ),
-               agentName: 'FrontendAgent',
-             ),
-           createSearchAgentTool(
-             _createSearchSubAgent(
-               model: model,
-               knowledgebasePath: knowledgebasePath,
-               maxToolCalls: searchToolCalls,
-             ),
-             agentName: 'FrontendAgent',
-           ),
-           if (readSignalGeneratorStatus != null)
-             createReadSignalGeneratorStatusTool(
-               readStatus: readSignalGeneratorStatus,
-               isEnabled: isSignalGeneratorIntentEnabled,
-               agentName: 'FrontendAgent',
-             ),
-           if (applySignalGenerator != null)
-             createSetSignalGeneratorTool(
-               apply: applySignalGenerator,
-               isEnabled: isSignalGeneratorIntentEnabled,
-               agentName: 'FrontendAgent',
-             ),
-           if (controlSignalGenerator != null)
-             createSignalGeneratorActionTool(
-               control: controlSignalGenerator,
-               isEnabled: isSignalGeneratorIntentEnabled,
-               agentName: 'FrontendAgent',
-             ),
-           ...?tools,
-         ],
-       ) {
+    DeviceAgentContext? instrumentDeviceContext,
+    int instrumentToolCalls = defaultInstrumentToolCalls,
+    int searchToolCalls = defaultSearchToolCalls,
+  }) {
+    final instrumentAgent = vxi11Host == null
+        ? null
+        : InstrumentAgent(
+            model: model,
+            vxi11Host: vxi11Host,
+            maxToolCalls: instrumentToolCalls,
+            onCommandSent: onCommandSent,
+            deviceContext: instrumentDeviceContext,
+            readSignalGeneratorStatus: readSignalGeneratorStatus,
+            applySignalGenerator: applySignalGenerator,
+            controlSignalGenerator: controlSignalGenerator,
+            isSignalGeneratorIntentEnabled: isSignalGeneratorIntentEnabled,
+          );
+    return FrontendAgent._(
+      model: model,
+      systemPrompt: systemPrompt,
+      instrumentModel: instrumentModel,
+      knowledgebasePath: knowledgebasePath,
+      instrumentAgent: instrumentAgent,
+      instrumentDeviceContext: instrumentDeviceContext,
+      instrumentToolCalls: instrumentToolCalls,
+      searchToolCalls: searchToolCalls,
+      tools: tools,
+    );
+  }
+
+  FrontendAgent._({
+    required String model,
+    required String? systemPrompt,
+    required String? instrumentModel,
+    required String knowledgebasePath,
+    required InstrumentAgent? instrumentAgent,
+    required DeviceAgentContext? instrumentDeviceContext,
+    required this.instrumentToolCalls,
+    required this.searchToolCalls,
+    required List<Tool>? tools,
+  }) : _instrumentAgent = instrumentAgent,
+       _instrumentDeviceContext = instrumentDeviceContext,
+       _ownsSystemPrompt = systemPrompt == null {
+    _frontendAgent = Agent(
+      model,
+      displayName: 'FrontendAgent',
+      tools: [
+        if (instrumentAgent != null)
+          createScpiAgentTool(instrumentAgent, agentName: 'FrontendAgent'),
+        createSearchAgentTool(
+          _createSearchSubAgent(
+            model: model,
+            knowledgebasePath: knowledgebasePath,
+            maxToolCalls: searchToolCalls,
+          ),
+          agentName: 'FrontendAgent',
+        ),
+        ...?tools,
+      ],
+    );
     if (systemPrompt != null) {
       _history.add(ChatMessage.system(systemPrompt));
     }
@@ -174,9 +192,6 @@ class FrontendAgent {
   /// caller via [FrontendAgent.new]'s `systemPrompt`.
   final bool _ownsSystemPrompt;
 
-  /// Whether the signal-generator tools are part of this agent.
-  final bool _hasSignalGeneratorTools;
-
   /// Model designation of the instrument the agent is working with (e.g.
   /// `SDS1202X-E`), or null when no instrument is connected.
   String? _instrumentModel;
@@ -188,7 +203,6 @@ class FrontendAgent {
     if (!_ownsSystemPrompt) return;
     final prompt = buildFrontendAgentSystemPrompt(
       instrumentModel: _instrumentModel,
-      includeSignalGenerator: _hasSignalGeneratorTools,
     );
     if (_history.isEmpty) {
       _history.add(ChatMessage.system(prompt));
@@ -213,6 +227,9 @@ class FrontendAgent {
     if (name == _instrumentModel) return;
     _instrumentModel = name;
     _applySystemPrompt();
+    _instrumentAgent?.updateDeviceContext(
+      _instrumentDeviceContext?.withInstrumentModel(name),
+    );
   }
 
   /// Treats null, an empty string and whitespace as "no instrument connected".
@@ -221,6 +238,9 @@ class FrontendAgent {
     final trimmed = instrumentModel.trim();
     return trimmed.isEmpty ? null : trimmed;
   }
+
+  /// The instrument sub-agent, exposed for diagnostics and tests.
+  InstrumentAgent? get instrumentAgent => _instrumentAgent;
 
   /// The display name of the agent.
   String get displayName => _frontendAgent.displayName;
@@ -375,22 +395,6 @@ class FrontendAgent {
   /// Clears the conversation history.
   void clearHistory() {
     _history.clear();
-  }
-
-  /// Creates the internal instrument agent.
-  static InstrumentAgent _createVxiAgent({
-    required String model,
-    required String? vxi11Host,
-    required int maxToolCalls,
-    ScpiCommandCallback? onCommandSent,
-  }) {
-    return InstrumentAgent(
-      model: model,
-      vxi11Host: vxi11Host,
-      maxToolCalls: maxToolCalls,
-      onCommandSent: onCommandSent,
-      systemPrompt: instrumentAgentSystemPrompt,
-    );
   }
 
   /// Creates the internal search agent.

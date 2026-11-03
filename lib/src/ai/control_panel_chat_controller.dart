@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../macro/macro_oscope_status.dart';
+import '../devices/device_agent_context.dart';
 import 'ai_settings.dart';
 import 'capture_command.dart';
 import 'control_panel_ai_service.dart';
@@ -42,6 +43,7 @@ class ControlPanelChatController extends ChangeNotifier {
   ControlPanelAiService? _service;
   AiSettings? _settings;
   String? _vxi11Host;
+  DeviceAgentContext? _instrumentDeviceContext;
   MacroOscilloscopeStatusReader? _readOscilloscopeStatus;
   ScpiCommandCallback? _onCommandSent;
   WaveformSummaryProvider? _readWaveformSummary;
@@ -138,7 +140,12 @@ class ControlPanelChatController extends ChangeNotifier {
   /// kept, including its conversation history. Passing null or an unconfigured
   /// value closes the chat and disposes the agent; the transcript is retained
   /// so it is still there when the AI is configured again.
-  void configure(AiSettings? settings, {String? vxi11Host}) {
+  void configure(
+    AiSettings? settings, {
+    String? vxi11Host,
+    DeviceAgentContext? instrumentDeviceContext,
+  }) {
+    _instrumentDeviceContext = instrumentDeviceContext;
     if (_disposed) return;
     final configured = settings != null && settings.isConfigured;
 
@@ -156,7 +163,10 @@ class ControlPanelChatController extends ChangeNotifier {
       return;
     }
 
-    if (_settings == settings && _vxi11Host == vxi11Host && _service != null) {
+    if (_settings == settings &&
+        _vxi11Host == vxi11Host &&
+        _instrumentDeviceContext == instrumentDeviceContext &&
+        _service != null) {
       return;
     }
 
@@ -173,6 +183,7 @@ class ControlPanelChatController extends ChangeNotifier {
       apiToken: settings.apiToken,
       model: settings.model,
       vxi11Host: vxi11Host,
+      instrumentDeviceContext: _instrumentDeviceContext,
       readOscilloscopeStatus: () async {
         final reader = _readOscilloscopeStatus;
         return reader != null ? reader() : readUnavailableOscilloscopeStatus();

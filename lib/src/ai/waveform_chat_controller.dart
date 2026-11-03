@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:file_selector/file_selector.dart' show XFile;
 import 'package:flutter/foundation.dart';
 
+import '../devices/device_agent_context.dart';
 import 'ai_settings.dart';
 import 'capture_command.dart';
 import 'input_history.dart';
@@ -42,6 +43,7 @@ class WaveformChatController extends ChangeNotifier {
   WaveformAiService? _service;
   AiSettings? _settings;
   String? _vxi11Host;
+  DeviceAgentContext? _instrumentDeviceContext;
   WaveformAcquisitionCallback? _acquireWaveform;
   VoidCallback? _clearMeasurementHistory;
   SignalGeneratorStatusProvider? _readSignalGeneratorStatus;
@@ -104,6 +106,7 @@ class WaveformChatController extends ChangeNotifier {
     VoidCallback? clearMeasurementHistory,
     String? vxi11Host,
     ScpiCommandCallback? onCommandSent,
+    DeviceAgentContext? instrumentDeviceContext,
     SignalGeneratorStatusProvider? readSignalGeneratorStatus,
     SignalGeneratorApplyProvider? applySignalGenerator,
     SignalGeneratorActionProvider? controlSignalGenerator,
@@ -114,6 +117,7 @@ class WaveformChatController extends ChangeNotifier {
     _readSignalGeneratorStatus = readSignalGeneratorStatus;
     _applySignalGenerator = applySignalGenerator;
     _controlSignalGenerator = controlSignalGenerator;
+    _instrumentDeviceContext = instrumentDeviceContext;
     final configured = settings != null && settings.isConfigured;
     if (!configured) {
       _cancelActiveRequest();
@@ -126,7 +130,10 @@ class WaveformChatController extends ChangeNotifier {
       notifyListeners();
       return;
     }
-    if (_settings == settings && _vxi11Host == vxi11Host && _service != null) {
+    if (_settings == settings &&
+        _vxi11Host == vxi11Host &&
+        _instrumentDeviceContext == instrumentDeviceContext &&
+        _service != null) {
       return;
     }
 
@@ -156,6 +163,7 @@ class WaveformChatController extends ChangeNotifier {
       acquireWaveform: _acquireWaveformForAi,
       vxi11Host: vxi11Host,
       onCommandSent: onCommandSent,
+      instrumentDeviceContext: _instrumentDeviceContext,
       readSignalGeneratorStatus: _readSignalGeneratorStatus,
       applySignalGenerator: _applySignalGenerator,
       controlSignalGenerator: _controlSignalGenerator,

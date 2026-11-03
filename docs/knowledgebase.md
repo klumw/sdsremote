@@ -3942,6 +3942,310 @@ For 9600 baud:
 
 
 
+## How To: Use This Hobbyist Measurement Guide (beginner, intermediate, analog, digital, troubleshooting) [2+4-channel]
+
+This guide teaches hobby electronics users how to measure analog and digital signals, find faults in circuits and interpret oscilloscope readings. Every section is self-contained and ends with a practical example. Start with probe safety and preparation, then follow the topic you need. The examples assume an SDS1000X-E at its default setup unless stated otherwise. Work on low-voltage circuits only.
+
+Example: To check a 3.3 V sensor, read "How To: Check a Sensor Output" and "How To: Read Volts/Div and Time/Div Correctly" first; together they cover the measurement and the interpretation.
+
+## How To: Connect a Probe Safely (ground clip, earth, floating circuit, isolation) [2+4-channel]
+
+When the oscilloscope is powered from a grounded outlet, the probe ground clip is connected to protective earth. Clip it only to the circuit ground (0 V reference). Never clip it to a live wire, a mains phase or a point that is not earthed, because that creates a short through the oscilloscope. For floating or mains-referenced circuits use a differential probe or an isolation transformer. Keep the ground lead short.
+
+Example: On a 5 V Arduino board, clip the ground lead to the board GND pin, not to the 5 V pin or a MOSFET drain. Measuring a mains-powered SMPS requires a differential probe; the scope's CAT rating does not permit direct mains work.
+
+## How To: Prepare the Oscilloscope Before a Measurement (default, probe compensation, Auto Setup) [2+4-channel]
+
+1. Press Default to start from a known state.
+2. Select the probe attenuation (1X or 10X) in the channel menu to match the probe.
+3. Compensate a 10X probe on the probe-compensation terminal until the square wave has flat tops.
+4. Connect the probe tip to the signal and the ground clip to circuit ground.
+5. Press Auto Setup to obtain a first display, then refine scale and trigger.
+
+Example: A 10X probe set to 1X in the menu displays every voltage ten times too high; a 5 V signal appears as 50 V until the setting is corrected.
+
+## How To: Compensate a 10X Probe (square wave, trimming capacitor, flat top) [2+4-channel]
+
+Connect the probe tip to the compensation output and the ground clip to the ground terminal beside it. Set the probe switch to 10X and the channel attenuation to 10X. Press Auto Setup. Adjust the small trimmer in the probe with a non-metallic tool until the square wave has straight horizontal tops and sharp corners. Overcompensation shows peaks, undercompensation shows rounded corners.
+
+Example: A 1 kHz square wave that looks like a spike at each edge is overcompensated; turn the trimmer until the top is flat. Recheck the probe on each channel you use.
+
+## How To: Display an Unknown Analog Signal (Auto Setup, scaling, trigger) [2+4-channel]
+
+Press Auto Setup for a quick capture. Then set the vertical scale so the waveform fills about three to six divisions, set the time base so two to five periods are visible, and adjust the trigger level to the middle of the waveform. Use Edge trigger on the rising edge for periodic signals. If the trace is unstable, check the trigger source and level.
+
+Example: An unknown audio signal fills less than half a division; turn the Volts/Div knob until it spans four divisions, set 1 ms/div and trigger on CH1. The waveform then shows about two 1 kHz cycles.
+
+## How To: Read Volts/Div and Time/Div Correctly (grid, scale, divisions) [2+4-channel]
+
+Each horizontal grid division represents the time/div setting and each vertical division represents the volts/div setting. Count full divisions across the waveform for time and full divisions high for voltage, then multiply. The channel indicator shows the scale and the probe attenuation is already included. Use the fine adjustment only when the menu shows it is enabled.
+
+Example: A signal is 3.2 divisions high with 0.5 V/div: 3.2 × 0.5 V = 1.6 V. One period spans 2 divisions at 200 µs/div: 400 µs, so f = 1/400 µs = 2.5 kHz.
+
+## How To: Measure Peak-to-Peak and Amplitude (Vpp, top, base, max, min) [2+4-channel]
+
+Press Measure, select the source channel and add Peak-Peak. Vpp is the difference between the highest and lowest sample. Amplitude uses the most probable top and base levels, which is better for pulses with overshoot. Use Max and Min when you need the absolute extremes, and use the Y cursors for a quick manual check.
+
+Example: A 3.3 V square wave with 0.4 V overshoot shows Vpp = 3.7 V but Amplitude = 3.3 V. Use Amplitude when checking logic levels; the overshoot is a separate signal-integrity issue.
+
+## How To: Measure RMS and Mean Voltage (Vrms, DC level, true RMS) [2+4-channel]
+
+Add the Rms and Mean measurements to the channel. Mean is the average over the acquired record and equals the DC component for a symmetrical waveform. Rms is the effective value that produces the same heating as a DC voltage. For a pure sine, Vrms = Vpp / (2 × √2) ≈ 0.354 × Vpp. AC coupling removes the DC part before measurement.
+
+Example: A 2 Vpp sine has Vrms ≈ 0.707 V and Mean ≈ 0 V. If the same sine sits on 1.5 V DC, the DC-coupled Mean reads 1.5 V and the Rms rises to about 1.66 V; AC coupling restores the 0.707 V reading.
+
+## How To: Measure Frequency and Period (Hz, period, 1/T) [2+4-channel]
+
+Add Frequency and Period measurements, or count divisions with the X cursors. Frequency is the reciprocal of the period. For best accuracy let several cycles fit on screen and use the frequency counter, which is more precise than counting divisions. The measurement uses the 50 % crossing and the selected slope.
+
+Example: A period of 2.5 divisions at 200 µs/div is 500 µs. f = 1 / 500 µs = 2 kHz. If the counter shows 1.998 kHz, the small difference is normal measurement resolution and timebase accuracy.
+
+## How To: Measure Rise and Fall Time (10-90%, edge speed, bandwidth) [2+4-channel]
+
+Measure the time a signal needs to change from 10 % to 90 % of its amplitude. Add Rise Time or Fall Time in the Measure menu, or use X cursors. A slow scope or probe cannot show a faster edge than its own rise time; the displayed value combines the real edge and the scope rise time. Keep the time base fast enough to spread the edge over several divisions.
+
+Example: A 3.3 V logic edge displayed as 8 ns on a 100 MHz scope has a true rise time of about 7.2 ns, because the scope's own 3.5 ns rise time adds in quadrature. Use a faster scope for edges below 10 ns.
+
+## How To: Measure Pulse Width and Duty Cycle (positive width, period, %) [2+4-channel]
+
+Add +Width and Period, then calculate duty = +Width / Period × 100 %. The scope also offers +Duty directly. Use the 50 % level as the reference. For a pulse train, trigger on the rising edge and ensure the full period is visible. If the pulse is very narrow, reduce the time base and use a single acquisition.
+
+Example: A 20 kHz PWM signal has a 50 µs period. A +Width of 7.5 µs means duty = 7.5/50 × 100 % = 15 %. This is the value a motor or LED driver sees.
+
+## How To: Use DC and AC Coupling Correctly (offset, ripple, drift) [2+4-channel]
+
+DC coupling passes the full signal including its DC offset, which is needed to check logic levels, supply rails and pulse tops. AC coupling blocks the DC part and is used to inspect small ripple or noise on a large DC level. GND coupling disconnects the input and shows the zero reference. Remember that AC coupling also removes very slow changes.
+
+Example: To check the ripple on a 5 V rail, select AC coupling, 20 MHz bandwidth limit and 10 mV/div; the trace centers on 0 V and the ripple in millivolts becomes visible. With DC coupling the 5 V level would push the trace off screen.
+
+## How To: Measure DC Voltage and Supply Ripple (rail, Vpp, AC coupling) [2+4-channel]
+
+First measure the DC level with DC coupling: add Mean, which reads the average voltage. Then switch to AC coupling and measure Vpp to see the ripple. Use a 10X probe and the 20 MHz bandwidth limit to remove high-frequency noise. Keep the ground lead short to avoid picking up interference. Compare the result with the regulator datasheet.
+
+Example: A 5 V rail reads Mean = 4.98 V and, with AC coupling and 20 MHz limit, Vpp = 35 mV. That is acceptable for a 7805 supply; 400 mVpp would indicate a dried-out bulk capacitor or excessive load.
+
+## How To: Measure Phase Difference Between Two Signals (CH1, CH2, time shift, degrees) [2+4-channel]
+
+Connect the reference signal to CH1 and the delayed signal to CH2. Trigger on CH1, use the same vertical scale on both channels, and adjust the second channel's position until both traces are easy to compare. Add the Phase measurement or use the X cursors: phase = Δt / period × 360°. Both signals should have the same frequency and stable shape.
+
+Example: Two 1 kHz sine waves are 0.25 ms apart. The period is 1 ms, so phase = 0.25/1 × 360° = 90°. A reading near 90° confirms a quadrature relationship.
+
+## How To: Use Cursors for Voltage and Time Differences (X cursors, Y cursors, ΔT, ΔV) [2+4-channel]
+
+Press Cursors and choose Manual. X cursors measure time differences (ΔT) and can also show 1/ΔT as frequency. Y cursors measure voltage differences (ΔV). Place the cursors on the two points you want to compare, then read the values in the cursor box. Cursors work on analog, math and reference traces.
+
+Example: Put X1 on one rising edge and X2 on the next; ΔT = 1 ms, so the frequency is 1 kHz. Put Y1 on the top and Y2 on the bottom of a pulse; ΔV = 3.3 V, confirming a 3.3 V logic high.
+
+## How To: Measure Small Signals and Reduce Noise (bandwidth limit, averaging, 10X) [2+4-channel]
+
+Use a 10X probe, the 20 MHz bandwidth limit and averaging for repetitive signals. Averaging reduces random noise but hides one-time events, so never use it when hunting glitches. Set the vertical scale so the signal fills several divisions, and keep the probe ground lead short. A 1X probe picks up more noise and loads the circuit more.
+
+Example: A 10 mV audio signal buried in 30 mV noise becomes readable after selecting the 20 MHz bandwidth limit and Average acquisition mode. For a one-shot pulse, disable averaging and use Peak Detect instead.
+
+## How To: Check an Audio Signal (sine wave, 1 kHz, Vpp, distortion) [2+4-channel]
+
+Connect the probe to the signal point and ground to the audio ground. Use AC coupling when the signal sits on a DC offset, and 1 V/div or less to fill the screen. Measure Vpp, Rms and Frequency. A clean sine has smooth rounded tops; flat tops indicate clipping, and a fuzzy trace indicates noise or oscillation.
+
+Example: A 1 kHz test tone measures 2.0 Vpp and 0.71 Vrms. If the top is flattened at high volume, the amplifier clips: reduce the gain until the sine is round again.
+
+## How To: Measure Current with a Shunt Resistor (Ohm's law, voltage drop) [2+4-channel]
+
+The oscilloscope measures voltage. Insert a small resistor in series with the load and measure the voltage across it; current = voltage / resistance. Use the low side (ground side) for a simple single-ended measurement, or a differential probe on the high side. Keep the shunt small enough not to disturb the circuit. Check the resistor power rating.
+
+Example: A 0.1 Ω shunt in a 5 V LED driver drops 0.1 V, so I = 0.1 V / 0.1 Ω = 1 A. The shunt dissipates 1² × 0.1 = 0.1 W, so a 1 W resistor is safe. Use AC coupling to see the current ripple on top of the DC drop.
+
+## How To: Avoid Probe Loading (1X vs 10X, capacitance, high impedance) [2+4-channel]
+
+A 10X probe divides the voltage by ten and presents roughly 10 MΩ in parallel with a few picofarads. A 1X probe presents about 1 MΩ in parallel with tens of picofarads, which loads high-impedance and high-frequency nodes. Use 10X for most measurements and 1X only for very small signals where the extra attenuation would hurt. Probe loading can stop an oscillator or shift a tuned circuit.
+
+Example: An 8 MHz crystal oscillator stops when a 1X probe touches the crystal pin but runs with a 10X probe. Measure the buffered clock output instead of the oscillator node whenever possible.
+
+## How To: Read a FFT to Find Harmonics and Noise (spectrum, dB, window) [2+4-channel]
+
+Press Math, select FFT, choose the source and a window. Hanning is a good general choice; use Blackman for low noise and rectangular for transients. The horizontal axis is frequency and the vertical axis is amplitude in dB. A square wave shows a fundamental and odd harmonics; a pure sine shows one peak. Increase the record length or the acquisition time for finer frequency resolution.
+
+Example: A 1 kHz square wave shows peaks at 1, 3, 5 and 7 kHz, falling by roughly 1/n. A sine wave with a strong 3 kHz peak is distorted. The FFT uses the acquired record, so set the time base for several cycles.
+
+## How To: Display a Digital Signal (time base, trigger, logic levels) [2+4-channel]
+
+Connect the probe ground to the circuit ground and the tip to the digital line. Set DC coupling, 1 V/div for 3.3 V or 2 V/div for 5 V logic, and a time base that shows two to five periods. Trigger on the rising edge at mid-supply (about 1.65 V for 3.3 V, 2.5 V for 5 V TTL). Press Auto Setup if the trace is missing, then adjust.
+
+Example: A 1 kHz 3.3 V clock at 0.5 ms/div shows two periods across the screen; a trigger level of 1.65 V gives a stable rising edge at the center. The trace should run between about 0 V and 3.3 V.
+
+## How To: Check Logic High and Low Levels (TTL, CMOS, threshold) [2+4-channel]
+
+Use the Mean measurement over a known high phase, or the Max/Min measurements, or Y cursors. Compare the result with the logic family: 5 V TTL needs Vih ≥ 2.0 V and Vil ≤ 0.8 V; 3.3 V CMOS typically uses 0.7 × Vdd and 0.3 × Vdd (2.31 V and 0.99 V). A level between the valid ranges is marginal and can cause random errors. Check the levels with the circuit loaded.
+
+Example: A 3.3 V driver reads 2.4 V high and 0.4 V low. The high level is only 0.09 V above the CMOS minimum, so the receiver may fail when the load increases. Measure at the receiver pin with a 10X probe and look for a voltage drop across the cable.
+
+## How To: Measure a Clock Frequency and Period (crystal, MCU, counter) [2+4-channel]
+
+Add Frequency and Period on the clock channel. Use a 10X probe, DC coupling and a time base that shows several cycles. The hardware frequency counter is more accurate than counting divisions. Check the signal at a buffered output or a test point rather than directly at a high-impedance crystal pin, where probe capacitance can stop the oscillator.
+
+Example: An ATmega328P clock pin measures 16.000 MHz and a 62.5 ns period. A reading of 8 MHz on a 16 MHz board suggests a clock divider setting, not necessarily a bad crystal; check the fuse and software configuration next.
+
+## How To: Measure the Rise Time of a Logic Edge (bandwidth, probe, 10-90%) [2+4-channel]
+
+Use Rise Time measurement or X cursors between the 10 % and 90 % levels. The oscilloscope and probe together have their own rise time; for a 100 MHz scope it is about 3.5 ns. The displayed edge is never faster than that. Use a short ground lead and a 10X probe, and avoid the 20 MHz bandwidth limit. For very fast edges use a probe with adequate bandwidth.
+
+Example: A 3.3 V MCU output rises in 4 ns on a 100 MHz scope. The true edge is about 2 ns, but it is well within the scope's capability. If the scope shows 20 ns with the 20 MHz limit on, switch the limit off before judging the circuit.
+
+## How To: Measure PWM Duty Cycle (motor, LED, servo) [2+4-channel]
+
+Add +Width and Period or use +Duty. Trigger on the rising edge and show at least one full period. Verify the frequency too, because a correct duty cycle at the wrong frequency still causes problems. For a servo, the pulse width itself matters more than the percentage. Use the 50 % crossing as the reference.
+
+Example: A servo signal repeats every 20 ms and the high pulse is 1.5 ms: duty = 7.5 %, which is the center position. A pulse of 1.0 ms gives 5 % and moves the servo to one end. If the period varies, the controller is unstable, not the servo.
+
+## How To: Capture a Narrow Pulse or Glitch (single trigger, peak detect) [2+4-channel]
+
+Set the trigger mode to Single, choose Edge or Pulse trigger, and set the trigger level to the suspected glitch amplitude. Enable Peak Detect in the Acquire menu so short spikes are not missed at slow time bases. Use Normal trigger mode, not Auto. After the event the acquisition stops, so you can inspect it with the time base and cursors.
+
+Example: A 20 ns glitch on a 5 V enable line is missed at 1 ms/div when the memory depth gives only 1 MSa/s. With Peak Detect and a Single rising-edge trigger at 2.5 V, the glitch is captured and can be examined by zooming in.
+
+## How To: Measure a UART Frame (baud rate, bit time, start bit) [2+4-channel]
+
+UART sends a low start bit, then data bits LSB first, an optional parity bit and one or two high stop bits; the line idles high. Measure the start bit width to confirm the baud rate: bit time = 1 / baud. Trigger on a falling edge and set the time base so one frame fills the screen. Use serial decoding for the data value.
+
+Example: At 9600 baud one bit lasts 104 µs. A frame with 8 data bits and one stop bit lasts about 10 bits = 1.04 ms. If a bit measures 52 µs, the sender is actually running at 19200 baud. Check the transmitter configuration first.
+
+## How To: Decode I2C, SPI and UART Traffic (serial decode, threshold) [2+4-channel]
+
+Connect SDA/SCL or MOSI/MISO/CLK/CS to the channels, set the decode protocol and the threshold (mid-supply), and choose the correct channel mapping. Set the baud rate or clock polarity/phase to match the device. Use a trigger condition such as an I2C start or a UART start bit to capture a single transaction. The decode list shows time, address and data.
+
+Example: An I2C sensor at 3.3 V is decoded with threshold 1.65 V, SCL on CH1 and SDA on CH2. Trigger on Start and read address 0x48 followed by register 0x00. If the address is 0x90, the scope is showing the 8-bit write address instead of the 7-bit address.
+
+## How To: Measure Setup and Hold Time (clock, data, two channels) [2+4-channel]
+
+Connect the clock to CH1 and the data to CH2. Trigger on the clock edge and zoom in until the data transition and the clock edge are both visible. Setup time is from the data becoming stable to the clock edge; hold time is from the clock edge to the next data change. Use X cursors. Keep both probes on the same ground and use equal probe lengths.
+
+Example: Data changes 30 ns before the rising clock edge and 10 ns after it. Setup = 30 ns and hold = 10 ns. If the receiver needs 20 ns hold, this interface is marginal; check the clock skew and trace lengths.
+
+## How To: Check Signal Integrity (overshoot, ringing, crosstalk) [2+4-channel]
+
+Look at the edges with a fast time base and a 10X probe. Overshoot is the part above the final level, ringing is the damped oscillation after the edge, and crosstalk is a copy of another signal. Use the shortest possible ground lead; a long ground clip creates ringing that is not in the circuit. Compare a quiet line with the active line.
+
+Example: A 3.3 V clock overshoots to 4.2 V and rings for 15 ns. Add a 22 Ω series resistor at the driver and re-measure; the overshoot should drop. If the ringing appears only when the neighboring data line switches, the cause is crosstalk, not the clock driver.
+
+## How To: Use the Digital Channels and Logic Threshold (MSO, D0-D15) [4-channel only]
+
+With the SLA1016 logic probe connected, press Digital and enable the channels you need. Set the threshold to the middle of the logic swing: about 1.65 V for 3.3 V logic and 2.5 V for 5 V TTL. The digital channels show high/low states, buses and decoded serial data, and they free the analog channels for signal-integrity checks. Connect the logic-probe ground to circuit ground.
+
+Example: A 3.3 V SPI bus is captured with D0 = CS, D1 = CLK, D2 = MOSI and D3 = MISO, threshold 1.65 V. The bus display shows 0x9F while CH1 watches the clock edge for ringing. This is much easier to read than four analog traces.
+
+## How To: Troubleshoot a Dead Circuit Safely (power, fuse, ground) [2+4-channel]
+
+Start with the power source: measure the supply voltage at the input, then at each regulator output. Check fuses, polarity and connectors before probing signals. Verify that the circuit ground and the probe ground are the same node. Do not connect the probe ground to a live mains conductor; use a differential probe for mains-referenced measurements.
+
+Example: A dead 5 V logic board shows 12 V at the barrel jack but 0 V after the regulator. The regulator input and ground are present, so the regulator or its solder joint is the fault. With the scope on the regulator output you see no startup ramp, confirming the regulator is not conducting.
+
+## How To: Trace a Signal from Input to Output (signal path, stage by stage) [2+4-channel]
+
+Probe the signal at the input connector, then at the output of each stage, following the schematic. Compare amplitude, shape and DC level with the expected values. A stage that has a correct input but no output is the fault. Check the power rail of that stage first, then its bias and components. Use AC or DC coupling as appropriate.
+
+Example: An audio amplifier has 100 mV at the input, 1 V at the first-stage output, 0 V at the volume-pot wiper and 0 V at the power-amp input. The pot or its coupling capacitor is open; the amplifier itself is probably fine.
+
+## How To: Find a Missing Clock Signal (oscillator, MCU, probe loading) [2+4-channel]
+
+Check whether the clock reaches the MCU or the target chip. Probe the clock output pin or a test point, not the high-impedance crystal pin, because probe capacitance can stop the oscillator. Verify the supply and the enable/reset pins. If a clock is present at the source but missing at the load, trace the series resistor and the PCB track.
+
+Example: The 16 MHz crystal pins show a weak, distorted sine but the MCU clock-output pin shows a clean 16 MHz square. The oscillator runs, and the fault is in the MCU configuration or the downstream clock divider. Probe the crystal only with a 10X probe and a short ground lead.
+
+## How To: Check a Voltage Regulator Rail (input, output, dropout) [2+4-channel]
+
+Measure the input voltage, the output voltage and the output ripple. A linear regulator needs enough input voltage above the output (dropout); a switching regulator needs a correct feedback divider. Use DC coupling for the levels and AC coupling for the ripple. Check the regulator temperature and the load current.
+
+Example: A 7805 has 12 V at its input and 4.6 V at its output with a 300 mV ripple. The input is fine, so the regulator is either overloaded or faulty. Disconnect the load: if the output returns to 5.0 V, the load draws too much current; if not, replace the regulator.
+
+## How To: Find an Intermittent Fault (persistence, single, mask) [2+4-channel]
+
+Use infinite persistence to accumulate many acquisitions and reveal occasional levels or timing shifts. Use Single trigger to catch a one-time event, and Pass/Fail with a mask to log repeated out-of-tolerance signals. Wiggling the board or heating it with a hair dryer can provoke the fault while the scope watches. Note the conditions when the fault appears.
+
+Example: A 3.3 V enable line looks clean, but with infinite persistence a faint 1.8 V level appears at random. Holding the probe on the line while flexing the board changes the display, pointing to a cracked solder joint rather than a software bug.
+
+## How To: Check an Oscillator or Crystal (frequency, amplitude, load) [2+4-channel]
+
+Measure the oscillator output at a buffered pin or test point. Check the frequency, the amplitude and that the waveform is periodic. A crystal oscillator often produces a sine-like signal, while a clock output is a square wave. A 10X probe is mandatory at the crystal; 1X loading can stop the oscillation. Compare the measured frequency with the marked value and the expected load capacitance.
+
+Example: An 8.000 MHz crystal measures 7.9998 MHz, which is within normal tolerance. If the display shows 4 MHz, the MCU may be using a divider, or the crystal is being overdriven. Check the configuration before replacing the crystal.
+
+## How To: Check a MOSFET or Transistor Switch (gate, drain, PWM) [2+4-channel]
+
+Connect CH1 to the gate or base and CH2 to the drain or collector. Trigger on the control signal. Check that the control signal reaches the threshold, that the output switches fully, and that the rise/fall times are reasonable. Look for ringing and for slow turn-off caused by a weak gate resistor or a missing pull-down. Verify the load supply and ground.
+
+Example: A 20 kHz PWM drives a MOSFET gate through 100 Ω at 3.3 V. The gate rises in 200 ns and the drain falls cleanly. A gate waveform that stays at 1.8 V means the drive is too weak; check the resistor and the MCU pin, or use a gate driver.
+
+## How To: Diagnose Excessive Supply Ripple (bad capacitor, ESR, load) [2+4-channel]
+
+Measure the rail with AC coupling, 20 MHz bandwidth limit and a short ground lead. Low-frequency ripple at twice the mains frequency points to the bulk reservoir capacitor; high-frequency spikes point to the output capacitor, ESR or the switching loop. Increase the load and see whether the ripple grows. Compare against the regulator datasheet.
+
+Example: A 12 V supply shows 900 mVpp ripple at 100 Hz under load, rising when a lamp is connected. The bulk capacitor has dried out. Replacing it reduces the ripple to 40 mVpp. A 100 kHz spike instead would indicate a problem in the switching regulator's output filter.
+
+## How To: Use Pass/Fail to Monitor a Signal (mask, tolerance, output) [2+4-channel]
+
+Capture a known-good waveform, enable Pass/Fail, and create a mask with X and Y tolerances. The oscilloscope counts failures and can stop or output a pulse on the rear-panel Pass/Fail connector. Use this for long tests, burn-in and production checks. Set the mask just wide enough to accept normal noise but tight enough to catch faults.
+
+Example: A 3.3 V clock is tested with a mask of 0.2 divisions. A board with a missing pull-up leaves the line at 1.5 V and immediately fails. The Pass/Fail output drives a counter, giving a simple go/no-go test fixture.
+
+## How To: Avoid Ground Loops and Floating Measurements (earth, differential probe) [2+4-channel]
+
+The probe ground is earthed, so connecting it to two different ground points creates a loop that can inject noise or current. Use one ground clip per probe, keep leads short, and do not create a second earth path through a USB cable to the same PC. For measurements across a non-grounded component, use a differential probe or an isolation transformer.
+
+Example: A motor driver on a separate supply shows huge spikes only when the USB cable connects the board to the PC. The PC earth and the scope earth form a loop. Power the board from a battery or use an isolated USB adapter, and the spikes disappear.
+
+## How To: Check a Sensor Output (potentiometer, analog voltage) [2+4-channel]
+
+Connect the probe to the sensor output and ground to the sensor ground. Use DC coupling and measure the voltage while you change the physical input. Check that the output moves smoothly over the expected range and does not jump or stick. For a ratiometric sensor, compare the output with its supply. Add Mean and Peak-Peak measurements.
+
+Example: A potentiometer across 3.3 V should give 0 V at one end, about 1.65 V at the center and 3.3 V at the other end. A reading that jumps from 1.2 V to 3.1 V while the shaft moves smoothly indicates a worn track or a bad wiper contact.
+
+## How To: Interpret Volts/Div and Time/Div Values (screen math, probe factor) [2+4-channel]
+
+The displayed volts/div already includes the probe attenuation set in the channel menu. Count the waveform height in divisions and multiply by volts/div to get the voltage; count the width in divisions and multiply by time/div to get the time. The trigger position is the time reference, and the horizontal position delay shifts the zero point. Check the channel label for the actual scale.
+
+Example: A pulse is 2.4 divisions high at 2 V/div with a 10X probe correctly configured: 4.8 V. If the probe menu is set to 1X, the scope displays 48 V and the reading is wrong by a factor of ten.
+
+## How To: Interpret Peak-to-Peak, RMS and Amplitude (which value to use) [2+4-channel]
+
+Peak-Peak is the full excursion including overshoot. Amplitude is the difference between the stable top and base, so it ignores overshoot and ringing. RMS is the effective value and is the right choice for power and heating. Mean is the DC component. Use Amplitude for logic levels, Vpp for signal swing and Rms for power calculations.
+
+Example: A 0–5 V square wave with 1 V overshoot reads Vpp = 6 V but Amplitude = 5 V. Its RMS is about 3.54 V because the duty cycle is nearly 50 %. Into 50 Ω, power = 3.54² / 50 = 0.25 W; using Vpp here would overestimate the power.
+
+## How To: Interpret "****" or Erratic Measurement Values (invalid parameter) [2+4-channel]
+
+The scope displays "****" when a parameter does not match the acquired waveform, for example when there is no edge for a rise-time measurement, the signal is outside the gate, or the trigger does not produce enough data. Check the source channel, the vertical scale, the time base and the gate. A very noisy signal can also produce unstable values; use averaging or the bandwidth limit for a stable reading.
+
+Example: Rise Time shows "****" on a DC level because there is no edge. On a 1 kHz sine it works, but with a 1 V/div setting that clips the tops it reports an incorrect value. Set the scale so the waveform is not clipped, then measure again.
+
+## How To: Recognize Aliasing and Undersampling (false slow waveform) [2+4-channel]
+
+If the displayed frequency is lower than expected, the signal may be aliased. Aliasing occurs when the sample rate is below twice the signal frequency. Check the sample rate shown at the top of the screen and compare it with the signal frequency. Increase the sample rate by using a faster time base or a larger memory depth, and see whether the displayed frequency changes.
+
+Example: A 1.05 MHz clock sampled at 100 kSa/s appears as a 50 kHz waveform. If the displayed frequency changes when you increase the sample rate, the first reading was an alias. A real 50 kHz signal does not change with the sample rate.
+
+## How To: Recognize Bandwidth Limit Effects (20 MHz, rounded edges) [2+4-channel]
+
+The 20 MHz bandwidth limit removes high-frequency content. It cleans up noise on low-frequency signals but rounds fast edges and hides short glitches. Compare the measurement with the limit on and off. Never use the limit when measuring rise time, glitches or fast digital signals. The probe bandwidth must also be sufficient.
+
+Example: A 1 kHz square wave looks acceptable with the 20 MHz limit, but its 10 ns edges become 20 ns. A 100 ns glitch disappears completely. Turn the limit off for digital troubleshooting and use averaging instead to control noise.
+
+## How To: Interpret Trigger Status Indicators (Trig'd, Auto, Ready, Stop) [2+4-channel]
+
+Trig'd means the scope is triggered and updating the display. Auto means it is free-running because no trigger occurs, so the display may look stable even with a wrong trigger level. Ready means it is armed and waiting. Stop means acquisition is frozen; Arm is waiting for the next trigger. A stable trace in Auto mode does not prove that the trigger is correct.
+
+Example: The status shows Auto and the waveform looks stable, but changing the trigger level does nothing. Set the trigger mode to Normal: if the trace disappears, the level is outside the signal. Move the level to mid-signal until Trig'd appears.
+
+## How To: Validate a Measurement Before Trusting It (probe, coupling, bandwidth, load) [2+4-channel]
+
+Check four things: the probe attenuation matches the probe switch; the coupling is correct (DC for levels, AC for ripple); the bandwidth limit is off for fast signals; and the probe does not load the circuit. Compare the scope reading with a multimeter for DC levels, and check that the waveform is not clipped by the vertical scale or the screen edges.
+
+Example: A 3.3 V supply reads 3.1 V on the scope and 3.30 V on a multimeter. The scope probe is set to 10X but the channel menu is still 1X, or the trace is clipped. After correcting the menu, the scope reads 3.30 V and the two instruments agree.
+
+## How To: Convert Screen Divisions to Unknown Values (quick math) [2+4-channel]
+
+Use the grid as a ruler. Height in divisions × volts/div = voltage. Width in divisions × time/div = time. Frequency = 1 / period. Duty cycle = high time / period × 100 %. Phase = time shift / period × 360°. With cursors the scope does the math for you, but the division method is a quick sanity check.
+
+Example: A sine spans 6 divisions peak-to-peak at 0.5 V/div, so Vpp = 3 V. One period spans 4 divisions at 250 µs/div, so T = 1 ms and f = 1 kHz. The RMS is approximately 0.354 × 3 V = 1.06 V.
+
 ## Video: FFT Usage
 [FFT Usage](https://youtu.be/2F-qECVs5L0)
 

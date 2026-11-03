@@ -4,6 +4,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../core/logger.dart';
 import 'agents/macro_agent.dart';
+import 'tools/device_command_reference_tool.dart';
 import 'tools/macro_tools.dart';
 
 /// Service that wraps a [MacroAgent] and provides a streaming chat interface
@@ -40,7 +41,7 @@ class MacroAiService {
     required MacroReader readMacro,
     required MacroWriter writeMacro,
     String? Function()? macroFileName,
-    MacroSiggenStatusReader? readSiggenStatus,
+    DeviceCommandReferenceReader? readDeviceCommandReference,
     MacroOscilloscopeStatusReader? readOscilloscopeStatus,
     MacroVariablesReader? readVariables,
     MacroPrintOutputReader? readPrintOutput,
@@ -70,7 +71,7 @@ class MacroAiService {
         readMacro: readMacro,
         writeMacro: writeMacro,
         macroFileName: macroFileName,
-        readSiggenStatus: readSiggenStatus,
+        readDeviceCommandReference: readDeviceCommandReference,
         readOscilloscopeStatus: readOscilloscopeStatus,
         readVariables: readVariables,
         readPrintOutput: readPrintOutput,

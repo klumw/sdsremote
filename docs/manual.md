@@ -206,6 +206,8 @@ Select the signal generator used by the [Bode Plot](#10-bode-plot) and the [sign
 The selection is restored on the next launch. When a generator is selected, the application scans the serial ports, identifies the generator and enables the **Bode** button and the signal generator window (default Ctrl+J, configurable in [3.10 Signal Generator Shortcut](#310-signal-generator-shortcut)).  
 The detected model supplies the frequency, amplitude and offset limits (see [10.2 Signal Generators and Model Limits](#102-signal-generators-and-model-limits)).
 
+The application loads the device profile for the selected generator at startup. The profile contains the supported SCPI commands and the operating knowledge used by the AI assistants. The configured profile and the identity detected from the device are reported separately.
+
 ### 3.7 Network Connection
 
 Basic connection setup for network mode. Skip steps 1–3 if USB is selected in **Connection Mode**.
@@ -373,6 +375,8 @@ The device response (for queries) is returned verbatim.
 When a JDS6600 or FY6900 is configured and connected, the AI Chat can also control the separate signal generator. The request must contain a signal-generator keyword: **Signal Generator**, **Signal Source**, **Function Generator**, **Frequency Generator**, **Waveform Generator**, **Test Signal Generator**, **Signal Synthesizer**, **SignalGen**, **siggen** or **WaveGen**. In the AI Chat the bare word **Generator** is also accepted. For example: “Signal Generator frequency channel 1 10 kHz”. Without a keyword the AI Chat treats the request as an oscilloscope command or asks for clarification.
 
 With a keyword the AI Chat applies the requested settings immediately — the keyword is the confirmation — and supports channel 1/2, frequency, amplitude (Vpp), DC offset, waveform, duty cycle, phase and output on/off, reading the current settings and device limits, resetting both channels to safe defaults and stopping a running modulation or sweep. The Waveform assistant supports the same generator control with the same keyword rule ([8.12 AI Assistant](#812-ai-assistant)).
+
+Waveform names are validated against the active device profile. A name that the selected generator does not support is rejected with a clear message instead of being guessed. The one documented exception is the FY6900 cross-model mapping: JDS6600-only names map to the closest FY6900 preset, and PULS on channel 2 becomes RECT. The assistant reports the requested and the actual name.
 
 #### SDS-Remote Software Help
 
@@ -668,6 +672,8 @@ Macros support variables, conditionals (`if`/`else`), loops (`while`) and assert
 
 Macro files are stored with the `.m` extension in the `automation/macros/` subdirectory of the application working directory.
 
+Loading, editing, saving and deleting macro files are local operations and work without a connected oscilloscope or signal generator. Only recording capture, playback and debug stepping require a device connection.
+
 ### 7.1 Macro Recorder Panel
 
 The Macro Recorder panel is opened by clicking the **Macro** button in the top toolbar.  
@@ -694,7 +700,7 @@ The panel is divided into three areas:
 * **Edit** — Opens the **Macro Editor** (see [7.2 Macro Editor](#72-macro-editor)) with the current macro content for manual editing.  
   Disabled during recording, playback, or when no macro content is available.
 * **Save** — Saves the macro to a `.m` file. If a file was previously loaded, it is overwritten silently. Otherwise, a dialog prompts for a file name (up to 30 characters, alphanumeric plus `_` and `-`).  
-  Enabled only after recording, loading, or editing a macro.
+  Enabled whenever macro content is available, regardless of the device connection.
 
 **File List**
 
@@ -702,7 +708,7 @@ The panel is divided into three areas:
 * Each entry shows the file name (without `.m` extension) and last modified date.
 * **Sorting**: Use the controls above the list to order the entries by **Name** or **Date**, ascending or descending.
 * Per-file actions:
-  * **Load** (upload icon) — Loads the macro content into the editor. Only enabled when the device is online.
+  * **Load** (upload icon) — Loads the macro content into the recorder. Always enabled; loading and saving are local file operations and do not require a device connection.
   * **Delete** (trash icon) — Permanently removes the macro file.
 
 **Print Output**
@@ -717,7 +723,7 @@ The unit is taken from the SCPI query that produced the value when it is known; 
 
 ### 7.2 Macro Editor
 
-Clicking the **Edit** button or the **Load** button on a file opens the Macro Editor.  
+Clicking the **Edit** button opens the Macro Editor with the current macro content.  
 This is a full text editor with line numbers, designed for writing and modifying macro scripts.
 
 **Features**

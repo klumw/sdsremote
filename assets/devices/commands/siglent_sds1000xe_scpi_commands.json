@@ -1,0 +1,4483 @@
+{
+  "schema_version": "1.0",
+  "configured_device": "sds1000xe",
+  "manufacturer": "SIGLENT",
+  "device_scope": {
+    "model": "SDS1000X-E series",
+    "firmware": "not_specified"
+  },
+  "protocol": "SCPI",
+  "syntax": {
+    "source_channel": {
+      "placeholder": "<n>",
+      "allowed_values": [
+        1,
+        2,
+        3,
+        4
+      ]
+    }
+  },
+  "knowledge_package": {
+    "package_id": "siglent.sds1000x-e.scpi",
+    "manufacturer": "SIGLENT",
+    "series": "SDS1000X-E",
+    "scope_note": "Commands transcribed from the supplied list. Model/firmware applicability may vary; listed family scope is not proof of support on every instrument.",
+    "command_count": 212,
+    "source": "User-provided SCPI command list"
+  },
+  "commands": [
+    {
+      "command_id": "acqw",
+      "name": "ACQW",
+      "alias_or_description": "ACQUIRE_WAY",
+      "description": "Sets the acquisition mode.",
+      "scpi_pattern": "ACQW <mode>[,<time>]",
+      "operation_kind": "setter_query",
+      "query_pattern": "ACQW?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "alst",
+      "name": "ALST?",
+      "alias_or_description": "ALL_STATUS?",
+      "description": "Reads and clears all status registers.",
+      "scpi_pattern": "ALST?",
+      "operation_kind": "query",
+      "query_pattern": "ALST?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "arm",
+      "name": "ARM",
+      "alias_or_description": "ARM_ACQUISITION",
+      "description": "Changes acquisition state to single.",
+      "scpi_pattern": "ARM",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "attn",
+      "name": "ATTN",
+      "alias_or_description": "ATTENUATION",
+      "description": "Sets probe attenuation factor.",
+      "scpi_pattern": "C<n>:ATTN <attenuation>",
+      "operation_kind": "setter_query",
+      "query_pattern": "C<n>:ATTN?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "acal",
+      "name": "ACAL",
+      "alias_or_description": "AUTO_CALIBRATE",
+      "description": "Enables/disables quick calibration.",
+      "scpi_pattern": "ACAL <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "ACAL?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "aset",
+      "name": "ASET",
+      "alias_or_description": "AUTO_SETUP",
+      "description": "Performs automatic setup.",
+      "scpi_pattern": "ASET",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "autts",
+      "name": "AUTTS",
+      "alias_or_description": "AUTO_TYPESET",
+      "description": "Selects auto setup display type.",
+      "scpi_pattern": "AUTTS <type>",
+      "operation_kind": "setter_query",
+      "query_pattern": "AUTTS?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "avga",
+      "name": "AVGA",
+      "alias_or_description": "AVERAGE_ACQUIRE",
+      "description": "Sets number of averages.",
+      "scpi_pattern": "AVGA <time>",
+      "operation_kind": "setter_query",
+      "query_pattern": "AVGA?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "bwl",
+      "name": "BWL",
+      "alias_or_description": "BANDWIDTH_LIMIT",
+      "description": "Turns bandwidth filter on/off. mode ON = 20 MHz, mode OFF = full bandwidth.",
+      "scpi_pattern": "BWL <channel>,<mode>[,<channel>,<mode>…]",
+      "operation_kind": "setter_query",
+      "query_pattern": "BWL?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "buzz",
+      "name": "BUZZ",
+      "alias_or_description": "BUZZER",
+      "description": "Enables/disables buzzer.",
+      "scpi_pattern": "BUZZ <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "BUZZ?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "cal",
+      "name": "*CAL?",
+      "alias_or_description": null,
+      "description": "Performs full self‑calibration.",
+      "scpi_pattern": "*CAL?",
+      "operation_kind": "query",
+      "query_pattern": "*CAL?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "chdr",
+      "name": "CHDR",
+      "alias_or_description": "COMM_HEADER",
+      "description": "Sets response header format.",
+      "scpi_pattern": "CHDR <mode>",
+      "operation_kind": "setter_query",
+      "query_pattern": "CHDR?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "cls",
+      "name": "*CLS",
+      "alias_or_description": null,
+      "description": "Clears all status registers.",
+      "scpi_pattern": "*CLS",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "cmr",
+      "name": "CMR?",
+      "alias_or_description": null,
+      "description": "Reads command error register.",
+      "scpi_pattern": "CMR?",
+      "operation_kind": "query",
+      "query_pattern": "CMR?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "conet",
+      "name": "CONET",
+      "alias_or_description": "COMM_NET",
+      "description": "Sets IP address.",
+      "scpi_pattern": "CONET <ip0>,<ip1>,<ip2>,<ip3>",
+      "operation_kind": "setter_query",
+      "query_pattern": "CONET?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "coun",
+      "name": "COUN",
+      "alias_or_description": "COUNTER",
+      "description": "Enables/disables cymometer (non‑SPO).",
+      "scpi_pattern": "COUN <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "COUN?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "cpl",
+      "name": "CPL",
+      "alias_or_description": "COUPLING",
+      "description": "Sets channel coupling & impedance. A1M = AC 1M, D1M = DC 1M, GND = GND.",
+      "scpi_pattern": "C<n>:CPL <coupling>",
+      "operation_kind": "setter_query",
+      "query_pattern": "C<n>:CPL?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "crau",
+      "name": "CRAU",
+      "alias_or_description": "CURSOR_AUTO",
+      "description": "Sets cursor to auto mode (non‑SPO).",
+      "scpi_pattern": "CRAU",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "crms",
+      "name": "CRMS",
+      "alias_or_description": "CURSOR_MEASURE",
+      "description": "Selects cursor/parameter measurement type.",
+      "scpi_pattern": "CRMS <mode>",
+      "operation_kind": "setter_query",
+      "query_pattern": "CRMS?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "crst",
+      "name": "CRST",
+      "alias_or_description": "CURSOR_SET",
+      "description": "Positions a cursor.",
+      "scpi_pattern": "C<n>:CRST <cursor>,<position>[,<cursor>,<position>…]",
+      "operation_kind": "setter_query",
+      "query_pattern": "C<n>:CRST? [<cursor>…]",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "crva",
+      "name": "CRVA?",
+      "alias_or_description": "CURSOR_VALUE?",
+      "description": "Returns cursor measurement values.",
+      "scpi_pattern": "C<n>:CRVA? <mode>",
+      "operation_kind": "query",
+      "query_pattern": "C<n>:CRVA? <mode>",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "csvs",
+      "name": "CSVS",
+      "alias_or_description": "CSV_SAVE",
+      "description": "Sets CSV storage options.",
+      "scpi_pattern": "CSVS SAVE,<state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "CSVS?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "cymt",
+      "name": "CYMT?",
+      "alias_or_description": "CYMOMETER?",
+      "description": "Returns cymometer frequency reading.",
+      "scpi_pattern": "CYMT?",
+      "operation_kind": "query",
+      "query_pattern": "CYMT?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "date",
+      "name": "DATE",
+      "alias_or_description": null,
+      "description": "Sets internal clock (CFL series).",
+      "scpi_pattern": "DATE <day>,<month>,<year>,<hour>,<minute>,<second>",
+      "operation_kind": "setter_query",
+      "query_pattern": "DATE?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "ddr",
+      "name": "DDR?",
+      "alias_or_description": null,
+      "description": "Reads device‑dependent error register.",
+      "scpi_pattern": "DDR?",
+      "operation_kind": "query",
+      "query_pattern": "DDR?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "def",
+      "name": "DEF",
+      "alias_or_description": "DEFINE",
+      "description": "Defines mathematical expression.",
+      "scpi_pattern": "DEF EQN,'<equation>'",
+      "operation_kind": "setter_query",
+      "query_pattern": "DEF?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "delf",
+      "name": "DELF",
+      "alias_or_description": "DELETE_FILE",
+      "description": "Deletes a file from USB.",
+      "scpi_pattern": "DELF DISK,<device>,FILE,<filename>",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "dir",
+      "name": "DIR",
+      "alias_or_description": "DIRECTORY",
+      "description": "Manages directories.",
+      "scpi_pattern": "DIR <action> …",
+      "operation_kind": "setter_query",
+      "query_pattern": "DIR?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "dtjn",
+      "name": "DTJN",
+      "alias_or_description": "DOT_JOIN",
+      "description": "Turns interpolation lines on/off.",
+      "scpi_pattern": "DTJN <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "DTJN?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "ese",
+      "name": "*ESE",
+      "alias_or_description": null,
+      "description": "Sets Standard Event Status Enable register.",
+      "scpi_pattern": "*ESE <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "*ESE?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "esr",
+      "name": "*ESR?",
+      "alias_or_description": null,
+      "description": "Reads and clears Event Status Register.",
+      "scpi_pattern": "*ESR?",
+      "operation_kind": "query",
+      "query_pattern": "*ESR?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "exr",
+      "name": "EXR?",
+      "alias_or_description": null,
+      "description": "Reads execution error register.",
+      "scpi_pattern": "EXR?",
+      "operation_kind": "query",
+      "query_pattern": "EXR?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "flnm",
+      "name": "FLNM",
+      "alias_or_description": "FILENAME",
+      "description": "Sets default filename for storage.",
+      "scpi_pattern": "FLNM TYPE,<type>,FILE,<filename>",
+      "operation_kind": "setter_query",
+      "query_pattern": "FLNM? TYPE,<type>",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "fpar",
+      "name": "FPAR?",
+      "alias_or_description": "FRAME_PARAM?",
+      "description": "Gets history frame parameters (binary).",
+      "scpi_pattern": "FPAR?",
+      "operation_kind": "query",
+      "query_pattern": "FPAR?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "fram",
+      "name": "FRAM",
+      "alias_or_description": "FRAME_SET",
+      "description": "Sets history current frame number.",
+      "scpi_pattern": "FRAM <frame_num>",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "frtr",
+      "name": "FRTR",
+      "alias_or_description": "FORCE_TRIGGER",
+      "description": "Forces one acquisition.",
+      "scpi_pattern": "FRTR",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "ftim",
+      "name": "FTIM?",
+      "alias_or_description": "FRAME_TIME",
+      "description": "Reads the acquisition time of the current history frame (history function must be on).",
+      "scpi_pattern": "FTIM?",
+      "operation_kind": "query",
+      "query_pattern": "FTIM?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "fvdisk",
+      "name": "FVDISK?",
+      "alias_or_description": "FORMAT_VDISK?",
+      "description": "Returns USB memory capacity.",
+      "scpi_pattern": "FVDISK?",
+      "operation_kind": "query",
+      "query_pattern": "FVDISK?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "fftw",
+      "name": "FFTW",
+      "alias_or_description": "FFT_WINDOW",
+      "description": "Selects FFT window type.",
+      "scpi_pattern": "FFTW <window>",
+      "operation_kind": "setter_query",
+      "query_pattern": "FFTW?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "fftz",
+      "name": "FFTZ",
+      "alias_or_description": "FFT_ZOOM",
+      "description": "Sets FFT zoom factor.",
+      "scpi_pattern": "FFTZ <zoom>",
+      "operation_kind": "setter_query",
+      "query_pattern": "FFTZ?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "ffts",
+      "name": "FFTS",
+      "alias_or_description": "FFT_SCALE",
+      "description": "Sets FFT vertical scale.",
+      "scpi_pattern": "FFTS <scale>",
+      "operation_kind": "setter_query",
+      "query_pattern": "FFTS?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "fftf",
+      "name": "FFTF",
+      "alias_or_description": "FFT_FULLSCREEN",
+      "description": "Toggles FFT full‑screen mode.",
+      "scpi_pattern": "FFTF <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "FFTF?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "filt",
+      "name": "FILT",
+      "alias_or_description": "FILTER",
+      "description": "Enables/disables filter (non‑SPO).",
+      "scpi_pattern": "C<n>:FILT <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "C<n>:FILT?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "filts",
+      "name": "FILTS",
+      "alias_or_description": "FILT_SET",
+      "description": "Sets filter type and limits (non‑SPO).",
+      "scpi_pattern": "C<n>:FILTS TYPE,<type>,<limit>,<limit_value>[,<limit>,<limit_value>]",
+      "operation_kind": "setter_query",
+      "query_pattern": "C<n>:FILTS?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "grds",
+      "name": "GRDS",
+      "alias_or_description": "GRID_DISPLAY",
+      "description": "Selects grid type.",
+      "scpi_pattern": "GRDS <type>",
+      "operation_kind": "setter_query",
+      "query_pattern": "GRDS?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "gcsv",
+      "name": "GCSV?",
+      "alias_or_description": "GET_CSV?",
+      "description": "Returns CSV waveform data.",
+      "scpi_pattern": "GCSV? SAVE,<state>",
+      "operation_kind": "query",
+      "query_pattern": "GCSV? SAVE,<state>",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "hmag",
+      "name": "HMAG",
+      "alias_or_description": "HOR_MAGNIFY",
+      "description": "Horizontally magnifies a trace.",
+      "scpi_pattern": "<trace>:HMAG <factor>",
+      "operation_kind": "setter_query",
+      "query_pattern": "<trace>:HMAG?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "hpos",
+      "name": "HPOS",
+      "alias_or_description": "HOR_POSITION",
+      "description": "Positions intensified zone center.",
+      "scpi_pattern": "<trace>:HPOS <hor_position>",
+      "operation_kind": "setter_query",
+      "query_pattern": "<trace>:HPOS?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "hcsu",
+      "name": "HCSU",
+      "alias_or_description": "HARDCOPY_SETUP",
+      "description": "Configures hard copy options.",
+      "scpi_pattern": "HCSU PSIZE,<ps>,ISIZE,<is>,FORMAT,<fmt>,BCKG,<bcg>,PRTKEY,<key>",
+      "operation_kind": "setter_query",
+      "query_pattern": "HCSU?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "idn",
+      "name": "*IDN?",
+      "alias_or_description": null,
+      "description": "Returns instrument identification.",
+      "scpi_pattern": "*IDN?",
+      "operation_kind": "query",
+      "query_pattern": "*IDN?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "ilvd",
+      "name": "ILVD",
+      "alias_or_description": "INTERLEAVED",
+      "description": "Turns RIS on/off (non‑SPO).",
+      "scpi_pattern": "ILVD <mode>",
+      "operation_kind": "setter_query",
+      "query_pattern": "ILVD?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "ints",
+      "name": "INTS",
+      "alias_or_description": "INTENSITY",
+      "description": "Sets grid/trace intensity.",
+      "scpi_pattern": "INTS GRID,<value>,TRACE,<value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "INTS?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "inr",
+      "name": "INR?",
+      "alias_or_description": null,
+      "description": "Reads internal state register.",
+      "scpi_pattern": "INR?",
+      "operation_kind": "query",
+      "query_pattern": "INR?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "invs",
+      "name": "INVS",
+      "alias_or_description": "INVERTSET",
+      "description": "Inverts a waveform.",
+      "scpi_pattern": "<trace>:INVS <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "<trace>:INVS?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "lock",
+      "name": "LOCK",
+      "alias_or_description": null,
+      "description": "Locks/unlocks front panel.",
+      "scpi_pattern": "LOCK <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "LOCK?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "menu",
+      "name": "MENU",
+      "alias_or_description": null,
+      "description": "Shows/hides menu (non‑SPO).",
+      "scpi_pattern": "MENU <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "MENU?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "mtvp",
+      "name": "MTVP",
+      "alias_or_description": "MATH_VERT_POS",
+      "description": "Sets math waveform vertical position.",
+      "scpi_pattern": "MTVP <position>",
+      "operation_kind": "setter_query",
+      "query_pattern": "MTVP?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "mtvd",
+      "name": "MTVD",
+      "alias_or_description": "MATH_VERT_DIV",
+      "description": "Sets math waveform vertical scale.",
+      "scpi_pattern": "MTVD <scale>",
+      "operation_kind": "setter_query",
+      "query_pattern": "MTVD?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "msiz",
+      "name": "MSIZ",
+      "alias_or_description": "MEMORY_SIZE",
+      "description": "Sets maximum memory depth (SPO).",
+      "scpi_pattern": "MSIZ <size>",
+      "operation_kind": "setter_query",
+      "query_pattern": "MSIZ?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "mead",
+      "name": "MEAD",
+      "alias_or_description": "MEASURE_DELAY",
+      "description": "Sets delay measurement type.",
+      "scpi_pattern": "MEAD <type>,<source>",
+      "operation_kind": "setter_query",
+      "query_pattern": "<source>:MEAD? <type>",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "ofst",
+      "name": "OFST",
+      "alias_or_description": "OFFSET",
+      "description": "Sets channel vertical offset.",
+      "scpi_pattern": "C<n>:OFST <offset>",
+      "operation_kind": "setter_query",
+      "query_pattern": "C<n>:OFST?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "opc",
+      "name": "*OPC",
+      "alias_or_description": null,
+      "description": "Sets OPC bit when done.",
+      "scpi_pattern": "*OPC",
+      "operation_kind": "setter_query",
+      "query_pattern": "*OPC?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "opt",
+      "name": "*OPT?",
+      "alias_or_description": null,
+      "description": "Returns installed options.",
+      "scpi_pattern": "*OPT?",
+      "operation_kind": "query",
+      "query_pattern": "*OPT?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "pacl",
+      "name": "PACL",
+      "alias_or_description": "PARAMETER_CLR",
+      "description": "Clears pass/fail counter.",
+      "scpi_pattern": "PACL",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "pacu",
+      "name": "PACU",
+      "alias_or_description": "PARAMETER_CUSTOM",
+      "description": "Defines custom measurement source.",
+      "scpi_pattern": "PACU <parameter>,<qualifier>",
+      "operation_kind": "setter_query",
+      "query_pattern": "not explicitly defined.",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "pava",
+      "name": "PAVA?",
+      "alias_or_description": "PARAMETER_VALUE?",
+      "description": "Returns measurement values.",
+      "scpi_pattern": "C<n>:PAVA? [<parameter>,…]",
+      "operation_kind": "query",
+      "query_pattern": "C<n>:PAVA? [<parameter>,…]",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "pdet",
+      "name": "PDET",
+      "alias_or_description": "PEAK_DETECT",
+      "description": "Turns peak detector on/off.",
+      "scpi_pattern": "PDET <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "PDET?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "pers",
+      "name": "PERS",
+      "alias_or_description": "PERSIST",
+      "description": "Turns persistence on/off.",
+      "scpi_pattern": "PERS <mode>",
+      "operation_kind": "setter_query",
+      "query_pattern": "PERS?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "pesu",
+      "name": "PESU",
+      "alias_or_description": "PERSIST_SETUP",
+      "description": "Sets persistence duration.",
+      "scpi_pattern": "PESU <time>",
+      "operation_kind": "setter_query",
+      "query_pattern": "PESU?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "pnsu",
+      "name": "PNSU",
+      "alias_or_description": "PANEL_SETUP",
+      "description": "Returns encoded panel setup.",
+      "scpi_pattern": "PNSU?",
+      "operation_kind": "unspecified",
+      "query_pattern": null,
+      "query_support": "not_specified",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "pfds",
+      "name": "PFDS",
+      "alias_or_description": "PF_DISPLAY",
+      "description": "Enables pass/fail test and message display.",
+      "scpi_pattern": "PFDS TEST,<state>,DISPLAY,<state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "PFDS TEST?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "pfst",
+      "name": "PFST",
+      "alias_or_description": "PF_SET",
+      "description": "Sets X and Y mask in divisions.",
+      "scpi_pattern": "PFST XMASK,<div>,YMASK,<div>",
+      "operation_kind": "setter_query",
+      "query_pattern": "PFST?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "pfsl",
+      "name": "PFSL",
+      "alias_or_description": "PF_SAVELOAD",
+      "description": "Saves/loads mask to/from memory.",
+      "scpi_pattern": "PFSL LOCATION,<location>,ACTION,<action>",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "pfct",
+      "name": "PFCT",
+      "alias_or_description": "PF_CONTROL",
+      "description": "Controls pass/fail operation.",
+      "scpi_pattern": "PFCT TRACE,<trace>,CONTROL,<control>,OUTPUT,<output>,OUTPUTSTOP,<state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "PFCT?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "pfcm",
+      "name": "PFCM",
+      "alias_or_description": "PF_CREATEM",
+      "description": "Creates pass/fail mask from current waveform.",
+      "scpi_pattern": "PFCM",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "pfdd",
+      "name": "PFDD?",
+      "alias_or_description": "PF_DATADIS?",
+      "description": "Returns pass/fail counts (fail, pass, total).",
+      "scpi_pattern": "PFDD?",
+      "operation_kind": "query",
+      "query_pattern": "PFDD?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "rcl",
+      "name": "*RCL",
+      "alias_or_description": null,
+      "description": "Recalls a nonvolatile panel setup.",
+      "scpi_pattern": "*RCL <panel_setup>",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "rec",
+      "name": "REC",
+      "alias_or_description": "RECALL",
+      "description": "Recalls waveform from USB into internal memory (non‑SPO).",
+      "scpi_pattern": "<memory>:REC DISK,<device>,FILE,<filename>",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "rcpn",
+      "name": "RCPN",
+      "alias_or_description": "RECALL_PANEL",
+      "description": "Recalls panel setup from USB file.",
+      "scpi_pattern": "RCPN DISK,<device>,FILE,<filename>",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "rst",
+      "name": "*RST",
+      "alias_or_description": null,
+      "description": "Resets to default setup.",
+      "scpi_pattern": "*RST",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "refs",
+      "name": "REFS",
+      "alias_or_description": "REF_SET",
+      "description": "Saves a trace as reference waveform.",
+      "scpi_pattern": "REFS TRACE,<trace>,REF,<ref>,STATE,<state>,SAVE,DO",
+      "operation_kind": "setter_query",
+      "query_pattern": "REFS? REF,<ref>",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "sav",
+      "name": "*SAV",
+      "alias_or_description": null,
+      "description": "Stores the current instrument state in a nonvolatile panel setup.",
+      "scpi_pattern": "*SAV <panel_setup>",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "scdp",
+      "name": "SCDP",
+      "alias_or_description": "SCREEN_DUMP",
+      "description": "Captures screen image to controller.",
+      "scpi_pattern": "SCDP",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "scsv",
+      "name": "SCSV",
+      "alias_or_description": "SCREEN_SAVE",
+      "description": "Turns screen saver on/off.",
+      "scpi_pattern": "SCSV <enabled>",
+      "operation_kind": "setter_query",
+      "query_pattern": "SCSV?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "sre",
+      "name": "*SRE",
+      "alias_or_description": null,
+      "description": "Sets Service Request Enable register.",
+      "scpi_pattern": "*SRE <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "*SRE?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "stb",
+      "name": "*STB?",
+      "alias_or_description": null,
+      "description": "Reads Status Byte register.",
+      "scpi_pattern": "*STB?",
+      "operation_kind": "query",
+      "query_pattern": "*STB?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "stop",
+      "name": "STOP",
+      "alias_or_description": null,
+      "description": "Stops acquisition.",
+      "scpi_pattern": "STOP",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "sto",
+      "name": "STO",
+      "alias_or_description": "STORE",
+      "description": "Stores waveform to USB or internal memory.",
+      "scpi_pattern": "STO <trace>[,<dest>]",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "stpn",
+      "name": "STPN",
+      "alias_or_description": "STORE_PANEL",
+      "description": "Saves panel setup to USB file.",
+      "scpi_pattern": "STPN DISK,<device>,FILE,<filename>",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "stst",
+      "name": "STST",
+      "alias_or_description": "STORE_SETUP",
+      "description": "Selects which trace to store.",
+      "scpi_pattern": "STST [<trace>,<dest>]",
+      "operation_kind": "setter_query",
+      "query_pattern": "STST?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "sast",
+      "name": "SAST?",
+      "alias_or_description": "SAMPLE_STATUS?",
+      "description": "Returns acquisition status.",
+      "scpi_pattern": "SAST?",
+      "operation_kind": "query",
+      "query_pattern": "SAST?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "sara",
+      "name": "SARA?",
+      "alias_or_description": "SAMPLE_RATE?",
+      "description": "Returns sample rate.",
+      "scpi_pattern": "SARA?",
+      "operation_kind": "query",
+      "query_pattern": "SARA?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "sanu",
+      "name": "SANU?",
+      "alias_or_description": "SAMPLE_NUM?",
+      "description": "Returns number of sampled points.",
+      "scpi_pattern": "SANU? <channel>",
+      "operation_kind": "query",
+      "query_pattern": "SANU? <channel>",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "set50",
+      "name": "SET50",
+      "alias_or_description": null,
+      "description": "Centers trigger level.",
+      "scpi_pattern": "SET50",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "skew",
+      "name": "SKEW",
+      "alias_or_description": null,
+      "description": "Sets channel skew (time offset).",
+      "scpi_pattern": "C<n>:SKEW <skew>",
+      "operation_kind": "setter_query",
+      "query_pattern": "C<n>:SKEW?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "sxsa",
+      "name": "SXSA",
+      "alias_or_description": "SINXX_SAMPLE",
+      "description": "Sets interpolation (ON=sine, OFF=linear).",
+      "scpi_pattern": "SXSA <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "SXSA?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "tdiv",
+      "name": "TDIV",
+      "alias_or_description": "TIME_DIV",
+      "description": "Sets timebase scale.",
+      "scpi_pattern": "TDIV <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TDIV?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "tmpl",
+      "name": "TMPL?",
+      "alias_or_description": "TEMPLATE?",
+      "description": "Returns waveform descriptor template.",
+      "scpi_pattern": "TMPL?",
+      "operation_kind": "query",
+      "query_pattern": "TMPL?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "tra",
+      "name": "TRA",
+      "alias_or_description": "TRACE",
+      "description": "Displays/hides a trace. After sending TRA ON, always query if Channel is really on, if not repeat the command.",
+      "scpi_pattern": "<trace>:TRA <mode>",
+      "operation_kind": "setter_query",
+      "query_pattern": "<trace>:TRA?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trg",
+      "name": "*TRG",
+      "alias_or_description": null,
+      "description": "Triggers acquisition (ARM).",
+      "scpi_pattern": "*TRG",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trcp",
+      "name": "TRCP",
+      "alias_or_description": "TRIG_COUPLING",
+      "description": "Sets trigger coupling.",
+      "scpi_pattern": "<trig_source>:TRCP <trig_coupling>",
+      "operation_kind": "setter_query",
+      "query_pattern": "<trig_source>:TRCP?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trdl",
+      "name": "TRDL",
+      "alias_or_description": "TRIG_DELAY",
+      "description": "Sets the pre/post trigger delay.",
+      "scpi_pattern": "TRDL <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRDL?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trlv",
+      "name": "TRLV",
+      "alias_or_description": "TRIG_LEVEL",
+      "description": "Sets the trigger level of a source.",
+      "scpi_pattern": "<trig_source>:TRLV <trig_level>",
+      "operation_kind": "setter_query",
+      "query_pattern": "<trig_source>:TRLV?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trlv2",
+      "name": "TRLV2",
+      "alias_or_description": "TRIG_LEVEL2",
+      "description": "Sets the second (lower) trigger level for dual-level trigger types such as slope and runt.",
+      "scpi_pattern": "<trig_source>:TRLV2 <trig_level>",
+      "operation_kind": "setter_query",
+      "query_pattern": "<trig_source>:TRLV2?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trmd",
+      "name": "TRMD",
+      "alias_or_description": "TRIG_MODE",
+      "description": "Sets the trigger mode.",
+      "scpi_pattern": "TRMD <mode>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRMD?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trse",
+      "name": "TRSE",
+      "alias_or_description": "TRIG_SELECT",
+      "description": "Selects the trigger type, source and holdoff.",
+      "scpi_pattern": "TRSE <trig_type>,SR,<source>,HT,<hold_type>,HV,<hold_value1>[,HV2,<hold_value2>]",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRSE?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trsl",
+      "name": "TRSL",
+      "alias_or_description": "TRIG_SLOPE",
+      "description": "Sets the trigger slope.",
+      "scpi_pattern": "<trig_source>:TRSL <trig_slope>",
+      "operation_kind": "setter_query",
+      "query_pattern": "<trig_source>:TRSL?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trwi",
+      "name": "TRWI",
+      "alias_or_description": "TRIG_WINDOW",
+      "description": "Sets the window trigger height.",
+      "scpi_pattern": "TRWI <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRWI?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trpa",
+      "name": "TRPA",
+      "alias_or_description": "TRIG_PATTERN",
+      "description": "Sets the pattern trigger.",
+      "scpi_pattern": "TRPA <source>,<status>[,<source>,<status>[,<source>,<status>[,<source>,<status>]]],STATE,<condition>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRPA?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "unit",
+      "name": "UNIT",
+      "alias_or_description": null,
+      "description": "Sets channel unit (V or A).",
+      "scpi_pattern": "C<n>:UNIT <type>",
+      "operation_kind": "setter_query",
+      "query_pattern": "C<n>:UNIT?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "vpos",
+      "name": "VPOS",
+      "alias_or_description": "VERT_POSITION",
+      "description": "Sets FFT trace vertical position.",
+      "scpi_pattern": "<trace>:VPOS <display_offset>",
+      "operation_kind": "setter_query",
+      "query_pattern": "<trace>:VPOS?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "vdiv",
+      "name": "VDIV",
+      "alias_or_description": "VOLT_DIV",
+      "description": "Sets vertical sensitivity.",
+      "scpi_pattern": "C<n>:VDIV <v_gain>",
+      "operation_kind": "setter_query",
+      "query_pattern": "C<n>:VDIV?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "vtcl",
+      "name": "VTCL",
+      "alias_or_description": "VERTICAL",
+      "description": "Sets slope trigger line position.",
+      "scpi_pattern": "C<n>:VTCL <pos>",
+      "operation_kind": "setter_query",
+      "query_pattern": "C<n>:VTCL?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "wf",
+      "name": "WF?",
+      "alias_or_description": "WAVEFORM?",
+      "description": "Transfers waveform data.",
+      "scpi_pattern": "C<n>:WF? [<section>]",
+      "operation_kind": "query",
+      "query_pattern": "C<n>:WF? [<section>]",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "wfsu",
+      "name": "WFSU",
+      "alias_or_description": "WAVEFORM_SETUP",
+      "description": "Sets waveform transfer parameters.",
+      "scpi_pattern": "WFSU SP,<sp>,NP,<np>,FP,<fp>",
+      "operation_kind": "setter_query",
+      "query_pattern": "WFSU?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "wait",
+      "name": "WAIT",
+      "alias_or_description": null,
+      "description": "Waits for acquisition to complete.",
+      "scpi_pattern": "WAIT [<time>]",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "xyds",
+      "name": "XYDS",
+      "alias_or_description": "XY_DISPLAY",
+      "description": "Enables/disables XY mode.",
+      "scpi_pattern": "XYDS <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "XYDS?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "chs",
+      "name": "CHS?",
+      "alias_or_description": null,
+      "description": "Queries available channels.",
+      "scpi_pattern": "CHS?",
+      "operation_kind": "query",
+      "query_pattern": "CHS?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "acq.csw",
+      "name": "ACQ:CSW",
+      "alias_or_description": "ACQuire:CSWeep",
+      "description": "Resets the acquisition; equivalent to the Clear Sweeps button (4-channel models only).",
+      "scpi_pattern": "ACQ:CSW",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "arwv",
+      "name": "ARWV",
+      "alias_or_description": "ARbWaVe",
+      "description": "Sets or gets arbitrary-wave parameters of the waveform generator (4-channel models only, SAG1021I).",
+      "scpi_pattern": "<channel>:ARWV INDEX,<index>",
+      "operation_kind": "setter_query",
+      "query_pattern": "<channel>:ARWV?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "b.n.dccn",
+      "name": "B<n>:DCCN",
+      "alias_or_description": "Decode CAN",
+      "description": "Sets the parameters of the CAN decode bus.",
+      "scpi_pattern": "B<n>:DCCN <param>,<value>[,<param>,<value>[..]]",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "b.n.dcic",
+      "name": "B<n>:DCIC",
+      "alias_or_description": "Decode I2C",
+      "description": "Sets the parameters of the I2C decode bus.",
+      "scpi_pattern": "B<n>:DCIC <param>,<value>[,<param>,<value>[,..]]",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "b.n.dcln",
+      "name": "B<n>:DCLN",
+      "alias_or_description": "Decode LIN",
+      "description": "Sets the parameters of the LIN decode bus.",
+      "scpi_pattern": "B<n>:DCLN <param>,<value>[,<param>,<value>[,..]]",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "b.n.dcsp",
+      "name": "B<n>:DCSP",
+      "alias_or_description": "Decode SPI",
+      "description": "Sets the parameters of the SPI decode bus.",
+      "scpi_pattern": "B<n>:DCSP <param>,<value>[,<param>,<value>[,..]]",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "b.n.dcut",
+      "name": "B<n>:DCUT",
+      "alias_or_description": "Decode UART",
+      "description": "Sets the parameters of the UART decode bus.",
+      "scpi_pattern": "B<n>:DCUT <param>,<value>[,<param>,<value>[,..]]",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "bswv",
+      "name": "BSWV",
+      "alias_or_description": "BaSic_WaVe",
+      "description": "Sets or gets basic-wave parameters of the waveform generator (4-channel models only, SAG1021I).",
+      "scpi_pattern": "<channel>:BSWV <parameter>,<value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "<channel>:BSWV?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "crty",
+      "name": "CRTY",
+      "alias_or_description": "CURSOR_TYPE",
+      "description": "Selects the cursor type in manual cursor mode (X, Y, X-Y).",
+      "scpi_pattern": "CRTY <type>",
+      "operation_kind": "setter_query",
+      "query_pattern": "CRTY?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "cus",
+      "name": "CUS",
+      "alias_or_description": "CUSTOM",
+      "description": "Sets the custom threshold for a digital channel group (4-channel models only, group H8 or L8).",
+      "scpi_pattern": "<group>:CUS <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "<group>:CUS?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "dcpa",
+      "name": "DCPA",
+      "alias_or_description": "Decode common parameters",
+      "description": "Sets the common parameters of the serial decode bus.",
+      "scpi_pattern": "DCPA <param>,<value>[,<param>,<value>[,..]]",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "dcst",
+      "name": "DCST",
+      "alias_or_description": "Decode state",
+      "description": "Turns serial decode on or off.",
+      "scpi_pattern": "DCST <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "DCST?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "di.sw",
+      "name": "DI:SW",
+      "alias_or_description": "DI:SWITCH",
+      "description": "Turns the digital channels on or off (4-channel models only).",
+      "scpi_pattern": "DI:SW <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "DI:SW?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "emod",
+      "name": "EMOD",
+      "alias_or_description": "EduMode",
+      "description": "Sets the education mode that locks Auto Setup, Measure and Cursors.",
+      "scpi_pattern": "EMOD <func>,<lock>",
+      "operation_kind": "setter_query",
+      "query_pattern": "EMOD? <func>",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "fftc",
+      "name": "FFTC",
+      "alias_or_description": "FFT_CENTER",
+      "description": "Sets the center frequency of the FFT waveform (value with unit MHz/kHz/Hz).",
+      "scpi_pattern": "FFTC <center>",
+      "operation_kind": "setter_query",
+      "query_pattern": "FFTC?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "fftp",
+      "name": "FFTP",
+      "alias_or_description": "FFT_POSITION",
+      "description": "Sets the vertical offset of the FFT waveform (-24.4DIV to 15.6DIV).",
+      "scpi_pattern": "FFTP <offset>",
+      "operation_kind": "setter_query",
+      "query_pattern": "FFTP?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "fftt",
+      "name": "FFTT",
+      "alias_or_description": "FFT_TDIV",
+      "description": "Returns the current horizontal scale of the FFT waveform.",
+      "scpi_pattern": "FFTT?",
+      "operation_kind": "query",
+      "query_pattern": "FFTT?",
+      "query_support": "query_only",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "fftu",
+      "name": "FFTU",
+      "alias_or_description": "FFT_UNIT",
+      "description": "Sets the vertical scale type of FFT (VRMS, DBM, DBVRMS).",
+      "scpi_pattern": "FFTU <unit>",
+      "operation_kind": "setter_query",
+      "query_pattern": "FFTU?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "form.data",
+      "name": "FORM:DATA",
+      "alias_or_description": "FORMat:DATA",
+      "description": "Sets the number of significant digits of returned measurement values.",
+      "scpi_pattern": "FORM:DATA <mode>[,<digit>]",
+      "operation_kind": "setter_query",
+      "query_pattern": "FORM:DATA?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "hslst",
+      "name": "HSLST",
+      "alias_or_description": "HISTORY_LIST",
+      "description": "Turns the history list on or off.",
+      "scpi_pattern": "HSLST <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "HSLST?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "hsmd",
+      "name": "HSMD",
+      "alias_or_description": "HISTORY_MODE",
+      "description": "Turns history mode on or off.",
+      "scpi_pattern": "HSMD <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "HSMD?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "meacl",
+      "name": "MEACL",
+      "alias_or_description": "MEASURE_CLEAR",
+      "description": "Removes all user-specified measurements.",
+      "scpi_pattern": "MEACL",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "mega",
+      "name": "MEGA",
+      "alias_or_description": "MEASURE_GATEA",
+      "description": "Sets the position of measurement gate A.",
+      "scpi_pattern": "MEGA <value>",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "megb",
+      "name": "MEGB",
+      "alias_or_description": "MEASURE_GATEB",
+      "description": "Sets the position of measurement gate B.",
+      "scpi_pattern": "MEGB <value>",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "megs",
+      "name": "MEGS",
+      "alias_or_description": "MEASURE_GATE_SWITCH",
+      "description": "Turns the gate measurement on or off.",
+      "scpi_pattern": "MEGS <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "MEGS?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "mtes.mask.load",
+      "name": "MTES:MASK:LOAD",
+      "alias_or_description": "MTESt:MASK:LOAD",
+      "description": "Recalls the Pass/Fail mask from internal or external storage (4-channel models only).",
+      "scpi_pattern": "MTES:MASK:LOAD <path_type>[,<path_string>]",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "mtes.mask.save",
+      "name": "MTES:MASK:SAVE",
+      "alias_or_description": "MTESt:MASK:SAVE",
+      "description": "Saves the Pass/Fail mask to internal or external storage (4-channel models only).",
+      "scpi_pattern": "MTES:MASK:SAVE <path_type>[,<path_string>]",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "outp",
+      "name": "OUTP",
+      "alias_or_description": "OUTPut",
+      "description": "Enables or disables the waveform generator output (4-channel models only, load 50 ohm or HZ).",
+      "scpi_pattern": "<channel>:OUTP <state>,LOAD,<load>",
+      "operation_kind": "setter_query",
+      "query_pattern": "<channel>:OUTP?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "pastat",
+      "name": "PASTAT",
+      "alias_or_description": "Parameter statistics",
+      "description": "Controls operation and display of measurement statistics (OFF, ON, RESET).",
+      "scpi_pattern": "PASTAT <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "PASTAT?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "pfbf",
+      "name": "PFBF",
+      "alias_or_description": "PF_BUFFER",
+      "description": "Sets the Pass/Fail output mode when the test fails.",
+      "scpi_pattern": "PFBF <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "PFBF?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "pfen",
+      "name": "PFEN",
+      "alias_or_description": "PF_ENABLE",
+      "description": "Enables or disables the Pass/Fail mask test.",
+      "scpi_pattern": "PFEN <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "PFEN?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "pffs",
+      "name": "PFFS",
+      "alias_or_description": "PF_FAIL_STOP",
+      "description": "Sets the \"stop on fail\" function of the Pass/Fail test.",
+      "scpi_pattern": "PFFS <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "PFFS?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "pfop",
+      "name": "PFOP",
+      "alias_or_description": "PF_OPERATION",
+      "description": "Runs or stops the Pass/Fail test.",
+      "scpi_pattern": "PFOP <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "PFOP?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "pfsc",
+      "name": "PFSC",
+      "alias_or_description": "PF_SOURCE",
+      "description": "Sets the measurement source for the Pass/Fail test.",
+      "scpi_pattern": "PFSC <trace>",
+      "operation_kind": "setter_query",
+      "query_pattern": "PFSC?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "refcl",
+      "name": "REFCL",
+      "alias_or_description": "REF_CLOSE",
+      "description": "Closes the reference function.",
+      "scpi_pattern": "REFCL",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "refds",
+      "name": "REFDS",
+      "alias_or_description": "REF_DISPLAY",
+      "description": "Turns display of the current reference channel on or off.",
+      "scpi_pattern": "REFDS <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "REFDS?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "refla",
+      "name": "REFLA",
+      "alias_or_description": "REF_LOCATION",
+      "description": "Selects the current reference channel.",
+      "scpi_pattern": "REFLA <location>",
+      "operation_kind": "setter_query",
+      "query_pattern": "REFLA?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "refpo",
+      "name": "REFPO",
+      "alias_or_description": "REF_POSITION",
+      "description": "Sets the vertical offset of the current reference channel.",
+      "scpi_pattern": "REFPO <offset>",
+      "operation_kind": "setter_query",
+      "query_pattern": "REFPO?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "refsa",
+      "name": "REFSA",
+      "alias_or_description": "REF_SAVE",
+      "description": "Saves the waveform of the current source as reference waveform and displays it.",
+      "scpi_pattern": "REFSA",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "refsc",
+      "name": "REFSC",
+      "alias_or_description": "REF_SCALE",
+      "description": "Sets the vertical scale of the current reference channel (500uV to 10V).",
+      "scpi_pattern": "REFSC <scale>",
+      "operation_kind": "setter_query",
+      "query_pattern": "REFSC?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "refsr",
+      "name": "REFSR",
+      "alias_or_description": "REF_SOURCE",
+      "description": "Sets the reference waveform source.",
+      "scpi_pattern": "REFSR <source>",
+      "operation_kind": "setter_query",
+      "query_pattern": "REFSR?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "sync",
+      "name": "SYNC",
+      "alias_or_description": "Waveform generator sync",
+      "description": "Sets or gets the synchronization signal of the waveform generator (4-channel models only, SAG1021I).",
+      "scpi_pattern": "<channel>:SYNC <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "<channel>:SYNC?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "tim.del",
+      "name": "TIM:DEL",
+      "alias_or_description": "TIMebase:DELay",
+      "description": "Sets the time interval from the horizontal center to the trigger event.",
+      "scpi_pattern": "TIM:DEL <delay>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TIM:DEL?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "tra.digital",
+      "name": "TRA (Digital)",
+      "alias_or_description": "TRACE",
+      "description": "Turns the display of a digital channel on or off (4-channel models only, D0-D15).",
+      "scpi_pattern": "<digital>:TRA <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "<digital>:TRA?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trcan.baud",
+      "name": "TRCAN:BAUD",
+      "alias_or_description": "Serial trigger CAN baud rate",
+      "description": "Sets the baud rate for the CAN trigger (CUSTOM allows 5000 to 1000000).",
+      "scpi_pattern": "TRCAN:BAUD <value1>[,<value2>]",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRCAN:BAUD?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trcan.canh",
+      "name": "TRCAN:CANH",
+      "alias_or_description": "Serial trigger CAN source",
+      "description": "Sets source and threshold for the CANH line of the CAN trigger.",
+      "scpi_pattern": "TRCAN:CANH <source>[,<threshold>]",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRCAN:CANH?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trcan.con",
+      "name": "TRCAN:CON",
+      "alias_or_description": "Serial trigger CAN condition",
+      "description": "Sets the trigger condition of the CAN trigger (START, REMOTE, ID, ID_AND_DATA, ERROR).",
+      "scpi_pattern": "TRCAN:CON <condition>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRCAN:CON?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trcan.dat2",
+      "name": "TRCAN:DAT2",
+      "alias_or_description": "Serial trigger CAN data2",
+      "description": "Sets data2 for the CAN trigger when the condition is ID_AND_DATA (0 to 256).",
+      "scpi_pattern": "TRCAN:DAT2 <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRCAN:DAT2?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trcan.data",
+      "name": "TRCAN:DATA",
+      "alias_or_description": "Serial trigger CAN data1",
+      "description": "Sets data1 for the CAN trigger when the condition is ID_AND_DATA (0 to 256).",
+      "scpi_pattern": "TRCAN:DATA <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRCAN:DATA?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trcan.id",
+      "name": "TRCAN:ID",
+      "alias_or_description": "Serial trigger CAN ID",
+      "description": "Sets the ID for the CAN trigger when the condition is ID or ID_AND_DATA.",
+      "scpi_pattern": "TRCAN:ID <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRCAN:ID?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trcan.idl",
+      "name": "TRCAN:IDL",
+      "alias_or_description": "Serial trigger CAN ID length",
+      "description": "Sets the ID length for the CAN trigger (11BITS, 29BITS).",
+      "scpi_pattern": "TRCAN:IDL <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRCAN:IDL?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "triic.addr",
+      "name": "TRIIC:ADDR",
+      "alias_or_description": "Serial trigger I2C address",
+      "description": "Sets the address value for the I2C trigger when the condition is 7ADDA or 10ADDA.",
+      "scpi_pattern": "TRIIC:ADDR <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRIIC:ADDR?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "triic.alen",
+      "name": "TRIIC:ALEN",
+      "alias_or_description": "Serial trigger I2C address length",
+      "description": "Sets the I2C address type (7BIT, 10BIT).",
+      "scpi_pattern": "TRIIC:ALEN <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRIIC:ALEN?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "triic.con",
+      "name": "TRIIC:CON",
+      "alias_or_description": "Serial trigger I2C condition",
+      "description": "Sets the trigger condition of the I2C trigger (START, STOP, RESTART, NOACK, EEPROM, 7ADDA, 10ADDA, DALENTH).",
+      "scpi_pattern": "TRIIC:CON <condition>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRIIC:CON?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "triic.dat2",
+      "name": "TRIIC:DAT2",
+      "alias_or_description": "Serial trigger I2C data2",
+      "description": "Sets data2 for the I2C trigger (0 to 256).",
+      "scpi_pattern": "TRIIC:DAT2 <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRIIC:DAT2?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "triic.data",
+      "name": "TRIIC:DATA",
+      "alias_or_description": "Serial trigger I2C data1",
+      "description": "Sets data1 for the I2C trigger (0 to 256).",
+      "scpi_pattern": "TRIIC:DATA <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRIIC:DATA?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "triic.dlen",
+      "name": "TRIIC:DLEN",
+      "alias_or_description": "Serial trigger I2C data length",
+      "description": "Sets the data length in bytes for the I2C trigger (1 to 12).",
+      "scpi_pattern": "TRIIC:DLEN <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRIIC:DLEN?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "triic.qual",
+      "name": "TRIIC:QUAL",
+      "alias_or_description": "Serial trigger I2C data qualifier",
+      "description": "Sets the I2C data qualifier (EQUAL, MORE, LESS).",
+      "scpi_pattern": "TRIIC:QUAL <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRIIC:QUAL?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "triic.rw",
+      "name": "TRIIC:RW",
+      "alias_or_description": "Serial trigger I2C read/write",
+      "description": "Sets the I2C trigger condition on the R/W bit (READ, WRITE, DONT_CARE).",
+      "scpi_pattern": "TRIIC:RW <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRIIC:RW?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "triic.scl",
+      "name": "TRIIC:SCL",
+      "alias_or_description": "Serial trigger I2C clock",
+      "description": "Sets source and threshold for the serial clock (SCL) of the I2C trigger.",
+      "scpi_pattern": "TRIIC:SCL <source>[,<threshold>]",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRIIC:SCL?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "triic.sda",
+      "name": "TRIIC:SDA",
+      "alias_or_description": "Serial trigger I2C data",
+      "description": "Sets source and threshold for the serial data line (SDA) of the I2C trigger.",
+      "scpi_pattern": "TRIIC:SDA <source>[,<threshold>]",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRIIC:SDA?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trlin.baud",
+      "name": "TRLIN:BAUD",
+      "alias_or_description": "Serial trigger LIN baud rate",
+      "description": "Sets the baud rate for the LIN trigger (CUSTOM allows 300 to 20000).",
+      "scpi_pattern": "TRLIN:BAUD <value1>[,<value2>]",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRLIN:BAUD?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trlin.con",
+      "name": "TRLIN:CON",
+      "alias_or_description": "Serial trigger LIN condition",
+      "description": "Sets the trigger condition of the LIN trigger (BREAK, ID, ID_AND_DATA, DATA_ERROR).",
+      "scpi_pattern": "TRLIN:CON <condition>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRLIN:CON?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trlin.dat2",
+      "name": "TRLIN:DAT2",
+      "alias_or_description": "Serial trigger LIN data2",
+      "description": "Sets data2 for the LIN trigger when the condition is ID_AND_DATA (0 to 256).",
+      "scpi_pattern": "TRLIN:DAT2 <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRLIN:DAT2?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trlin.data",
+      "name": "TRLIN:DATA",
+      "alias_or_description": "Serial trigger LIN data1",
+      "description": "Sets data1 for the LIN trigger when the condition is ID_AND_DATA (0 to 256).",
+      "scpi_pattern": "TRLIN:DATA <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRLIN:DATA?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trlin.id",
+      "name": "TRLIN:ID",
+      "alias_or_description": "Serial trigger LIN ID",
+      "description": "Sets the ID for the LIN trigger when the condition is ID or ID_AND_DATA (0 to 64).",
+      "scpi_pattern": "TRLIN:ID <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRLIN:ID?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trlin.src",
+      "name": "TRLIN:SRC",
+      "alias_or_description": "Serial trigger LIN source",
+      "description": "Sets source and threshold for the source of the LIN trigger.",
+      "scpi_pattern": "TRLIN:SRC <source>[,<threshold>]",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRLIN:SRC?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trspi.bit",
+      "name": "TRSPI:BIT",
+      "alias_or_description": "Serial trigger SPI bit order",
+      "description": "Sets the bit order for the SPI trigger (MSB, LSB).",
+      "scpi_pattern": "TRSPI:BIT <order>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRSPI:BIT?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trspi.clk",
+      "name": "TRSPI:CLK",
+      "alias_or_description": "Serial trigger SPI clock",
+      "description": "Sets source and threshold for the serial clock of the SPI trigger.",
+      "scpi_pattern": "TRSPI:CLK <source>[,<threshold>]",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRSPI:CLK?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trspi.clk.edge",
+      "name": "TRSPI:CLK:EDGE",
+      "alias_or_description": "Serial trigger SPI clock edge",
+      "description": "Selects the clock edge on which SPI data is latched (RISING, FALLING).",
+      "scpi_pattern": "TRSPI:CLK:EDGE <edge>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRSPI:CLK:EDGE?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trspi.clk.tim",
+      "name": "TRSPI:CLK:TIM",
+      "alias_or_description": "Serial trigger SPI clock timeout",
+      "description": "Sets the clock timeout for the SPI trigger when the CS type is TIMEOUT (100ns to 5ms).",
+      "scpi_pattern": "TRSPI:CLK:TIM <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRSPI:CLK:TIM?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trspi.cs",
+      "name": "TRSPI:CS",
+      "alias_or_description": "Serial trigger SPI CS",
+      "description": "Sets source and threshold of the CS signal when the SPI CS type is CS.",
+      "scpi_pattern": "TRSPI:CS <source>[,<threshold>]",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRSPI:CS?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trspi.cstp",
+      "name": "TRSPI:CSTP",
+      "alias_or_description": "Serial trigger SPI CS type",
+      "description": "Sets the chip-select type of the SPI trigger (CS, NCS, TIMEOUT).",
+      "scpi_pattern": "TRSPI:CSTP <type>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRSPI:CSTP?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trspi.data",
+      "name": "TRSPI:DATA",
+      "alias_or_description": "Serial trigger SPI data",
+      "description": "Sets the data value of every bit for the SPI trigger (0, 1, X).",
+      "scpi_pattern": "TRSPI:DATA <value1>[,<value2>[,..[,<value>]]]",
+      "operation_kind": "action",
+      "query_pattern": null,
+      "query_support": "none",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trspi.dlen",
+      "name": "TRSPI:DLEN",
+      "alias_or_description": "Serial trigger SPI data length",
+      "description": "Sets the length of data for the SPI trigger (4 to 96).",
+      "scpi_pattern": "TRSPI:DLEN <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRSPI:DLEN?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trspi.miso",
+      "name": "TRSPI:MISO",
+      "alias_or_description": "Serial trigger SPI MISO",
+      "description": "Sets source and threshold for MISO of the SPI trigger.",
+      "scpi_pattern": "TRSPI:MISO <source>[,<threshold>]",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRSPI:MISO?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trspi.mosi",
+      "name": "TRSPI:MOSI",
+      "alias_or_description": "Serial trigger SPI MOSI",
+      "description": "Sets source and threshold for MOSI of the SPI trigger.",
+      "scpi_pattern": "TRSPI:MOSI <source>[,<threshold>]",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRSPI:MOSI?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trspi.ncs",
+      "name": "TRSPI:NCS",
+      "alias_or_description": "Serial trigger SPI NCS",
+      "description": "Sets source and threshold for the ~CS signal when the SPI CS type is NCS.",
+      "scpi_pattern": "TRSPI:NCS <source>[,<threshold>]",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRSPI:NCS?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "trspi.trty",
+      "name": "TRSPI:TRTY",
+      "alias_or_description": "Serial trigger SPI trigger source",
+      "description": "Sets the trigger source for the SPI trigger (MOSI, MISO).",
+      "scpi_pattern": "TRSPI:TRTY <source>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRSPI:TRTY?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "truart.baud",
+      "name": "TRUART:BAUD",
+      "alias_or_description": "Serial trigger UART baud rate",
+      "description": "Sets the baud rate for the UART trigger (CUSTOM allows 300 to 5000000).",
+      "scpi_pattern": "TRUART:BAUD <value1>[,<value2>]",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRUART:BAUD?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "truart.bit",
+      "name": "TRUART:BIT",
+      "alias_or_description": "Serial trigger UART bit order",
+      "description": "Sets the bit order for the UART trigger (LSB, MSB).",
+      "scpi_pattern": "TRUART:BIT <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRUART:BIT?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "truart.con",
+      "name": "TRUART:CON",
+      "alias_or_description": "Serial trigger UART condition",
+      "description": "Sets the trigger condition of the UART trigger (START, STOP, DATA, ERROR).",
+      "scpi_pattern": "TRUART:CON <condition>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRUART:CON?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "truart.data",
+      "name": "TRUART:DATA",
+      "alias_or_description": "Serial trigger UART data",
+      "description": "Sets the data value for the UART trigger when the condition is DATA (0 to 256).",
+      "scpi_pattern": "TRUART:DATA <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRUART:DATA?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "truart.dlen",
+      "name": "TRUART:DLEN",
+      "alias_or_description": "Serial trigger UART data length",
+      "description": "Sets the data length for the UART trigger (5 to 8).",
+      "scpi_pattern": "TRUART:DLEN <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRUART:DLEN?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "truart.par",
+      "name": "TRUART:PAR",
+      "alias_or_description": "Serial trigger UART parity",
+      "description": "Sets the parity check for the UART trigger (NONE, ODD, EVEN).",
+      "scpi_pattern": "TRUART:PAR <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRUART:PAR?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "truart.pol",
+      "name": "TRUART:POL",
+      "alias_or_description": "Serial trigger UART idle polarity",
+      "description": "Sets the idle level for the UART trigger (LOW, HIGH).",
+      "scpi_pattern": "TRUART:POL <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRUART:POL?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "truart.qual",
+      "name": "TRUART:QUAL",
+      "alias_or_description": "Serial trigger UART data qualifier",
+      "description": "Sets the UART data qualifier when the condition is DATA (EQUAL, MORE, LESS).",
+      "scpi_pattern": "TRUART:QUAL <condition>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRUART:QUAL?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "truart.rx",
+      "name": "TRUART:RX",
+      "alias_or_description": "Serial trigger UART RX",
+      "description": "Sets source and threshold for RX of the UART trigger.",
+      "scpi_pattern": "TRUART:RX <source>[,<threshold>]",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRUART:RX?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "truart.stop",
+      "name": "TRUART:STOP",
+      "alias_or_description": "Serial trigger UART stop bit",
+      "description": "Sets the length of the stop bit for the UART trigger (1, 1.5, 2).",
+      "scpi_pattern": "TRUART:STOP <value>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRUART:STOP?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "truart.trty",
+      "name": "TRUART:TRTY",
+      "alias_or_description": "Serial trigger UART trigger source",
+      "description": "Sets the trigger source for the UART trigger (RX, TX).",
+      "scpi_pattern": "TRUART:TRTY <source>",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRUART:TRTY?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "truart.tx",
+      "name": "TRUART:TX",
+      "alias_or_description": "Serial trigger UART TX",
+      "description": "Sets source and threshold for TX of the UART trigger.",
+      "scpi_pattern": "TRUART:TX <source>[,<threshold>]",
+      "operation_kind": "setter_query",
+      "query_pattern": "TRUART:TX?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "tsm",
+      "name": "TSM",
+      "alias_or_description": "THRESHOLD_MODE",
+      "description": "Sets the threshold type for a digital channel group (4-channel models only, group H8 or L8).",
+      "scpi_pattern": "<group>:TSM <type>",
+      "operation_kind": "setter_query",
+      "query_pattern": "<group>:TSM?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "vert",
+      "name": "VERT",
+      "alias_or_description": "VERTICAL",
+      "description": "Controls the vertical position of the slope trigger line; in TRSE it is passed as VERT,<vertical> with UP, DOWN or BOTH.",
+      "scpi_pattern": "VERT <vertical>",
+      "operation_kind": "unspecified",
+      "query_pattern": null,
+      "query_support": "not_specified",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    },
+    {
+      "command_id": "voltprt",
+      "name": "VOLTPRT",
+      "alias_or_description": "Over voltage protection",
+      "description": "Sets or gets the over-voltage protection state of the waveform generator (4-channel models only).",
+      "scpi_pattern": "VOLTPRT <state>",
+      "operation_kind": "setter_query",
+      "query_pattern": "VOLTPRT?",
+      "query_support": "documented",
+      "device_scope": {
+        "manufacturer": "SIGLENT",
+        "series": "SDS1000X-E",
+        "model": "not_specified",
+        "firmware": "not_specified"
+      },
+      "provenance": {
+        "source_file": "Pasted text(1).txt",
+        "source_section": "known SCPI command list",
+        "verification_status": "source_transcribed_not_independently_verified"
+      }
+    }
+  ]
+}

@@ -7,6 +7,7 @@ import 'osci_knob_widgets.dart';
 import '../ai/ai_settings.dart';
 import '../ai/control_panel_chat_controller.dart';
 import '../app/app_config.dart' show KnobId, autoSetupButtonLabel;
+import '../devices/device_agent_context.dart';
 import '../voice/voice_input_service.dart';
 import 'control_panel_chat_overlay.dart';
 
@@ -75,6 +76,9 @@ class PhysicalControlPanel extends StatelessWidget {
   /// Instrument address used by the Control Panel assistant.
   final String? vxi11Host;
 
+  /// Active device profile context for command validation.
+  final DeviceAgentContext? instrumentDeviceContext;
+
   /// Shared microphone service for the Control Panel assistant.
   final VoiceInputService? voiceInput;
 
@@ -107,6 +111,7 @@ class PhysicalControlPanel extends StatelessWidget {
     this.aiSettings,
     this.chatController,
     this.vxi11Host,
+    this.instrumentDeviceContext,
     this.voiceInput,
   });
 
@@ -547,6 +552,7 @@ class PhysicalControlPanel extends StatelessWidget {
                     controller: chatController!,
                     aiSettings: aiSettings,
                     vxi11Host: vxi11Host,
+                    instrumentDeviceContext: instrumentDeviceContext,
                     voiceInput: voiceInput,
                   ),
                 ),

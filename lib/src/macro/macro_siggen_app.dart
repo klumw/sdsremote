@@ -26,7 +26,8 @@ typedef MacroPortLister = Future<List<String>> Function();
 
 /// Returns the current signal-generator settings and live status.
 ///
-/// Used by the Macro Agent's `read_siggen_status` tool. [configuredDevice] is
+/// Used by the macro runtime and the signal-generator status providers.
+/// [configuredDevice] is
 /// the value selected in the settings (`none`, `jds6600` or `fy6900`). The
 /// channel block is only present while a generator is connected.
 Map<String, dynamic> readMacroSiggenStatus({

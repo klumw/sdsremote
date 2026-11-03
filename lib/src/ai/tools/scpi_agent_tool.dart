@@ -14,11 +14,11 @@ Tool<Map<String, dynamic>> createScpiAgentTool(
   return Tool<Map<String, dynamic>>(
     name: 'scpi_instrument_agent',
     description:
-        'Send SCPI commands and queries to a VXI-11 instrument. '
-        'Use this tool when you need to interact with the connected '
-        'measurement instrument. Describe what you want to do with the '
-        'instrument in natural language, and the instrument agent will '
-        'handle the SCPI communication.',
+        'Send SCPI commands and queries to the connected instrument or the '
+        'separate signal generator. Use this tool when you need to interact '
+        'with an instrument. Describe what you want to do in natural language; '
+        'the instrument agent selects the device, validates the command '
+        'against the active device profile and handles the communication.',
     inputSchema: Schema.fromMap({
       'type': 'object',
       'properties': {
