@@ -67,24 +67,21 @@ All user data (screenshots, waveforms, profiles, macros, reports) is stored unde
 
 ### 2.1 Top Bar
 
-* **[Control Panel](#9-control-panel)**  
+* **[Control](#9-control-panel)**  
 
   * Displays oscilloscope screen
   * Provides a virtual control interface
   * Disabled when offline or during active operations
 
-* **[Acquire Waveform](#8-acquire-waveform)**  
+* **[Waveform](#8-acquire-waveform)**  
   * Captures waveform data from selected channels
   * Displays status during acquisition
   * Supports cursor measurements
 
-* **AI Chat**  
-  * Shows/hides [AI chat](#42-ai-chat-interface) interface
-
 * **Profiles**  
   * Save and Upload your device configuration
 
-* **[Data Logger](#6-data-logger)**
+* **[Logger](#6-data-logger)**
   * Log key parameters over time
   * Export pdf reports or save data points in a csv file
 
@@ -92,11 +89,15 @@ All user data (screenshots, waveforms, profiles, macros, reports) is stored unde
   * Opens the [Bode Plot](#10-bode-plot) panel when a supported signal generator is configured and detected
   * Requires the oscilloscope to be online
 
-* **[Macro Recorder](#7-macro-recorder)**
+* **[Macro](#7-macro-recorder)**
   * Record, edit and play back SCPI command sequences
   * Automate repetitive measurement and configuration tasks
   * Supports variables, conditionals and loops for advanced automation
   * Button label changes to **Recording...** during recording and **Playback** during playback
+
+* **AI Chat** (sparkle icon)
+  * Shows/hides [AI chat](#42-ai-chat-interface) interface
+  * The button shows only its icon and names the panel in its tooltip
 
 * **Help**
   * Opens the [Help panel](#23-help-panel) with this documentation
@@ -135,7 +136,7 @@ All user data (screenshots, waveforms, profiles, macros, reports) is stored unde
 
 ### 2.3 Help Panel
 
-The **Help** button in the top bar opens this documentation in a separate help window. The window provides a search field and links to every manual section.
+The **Help** button in the top bar opens this documentation in a separate help window. The window provides a search field and links to every manual section. A floating button in the bottom-right corner jumps back to the top of the text; it appears as soon as the manual has been scrolled down.
 
 #### AI Assistant
 
@@ -485,7 +486,7 @@ It is ideal for monitoring signal drift, characterizing component behavior over 
 
 ### 6.1 Opening the Data Logger
 
-Click the **Data Logger** button in the top toolbar to open the Data Logger panel.  
+Click the **Logger** button in the top toolbar to open the Data Logger panel.  
 The panel shows a configuration dialog when first opened.  
 The button icon rotates during active recording.
 
@@ -669,7 +670,7 @@ Macro files are stored with the `.m` extension in the `automation/macros/` subdi
 
 ### 7.1 Macro Recorder Panel
 
-The Macro Recorder panel is opened by clicking the **Macro Recorder** button in the top toolbar.  
+The Macro Recorder panel is opened by clicking the **Macro** button in the top toolbar.  
 The panel is divided into three areas:
 
 **Header**
@@ -1128,7 +1129,7 @@ The waveform display supports cursor measurements, zoom and pan controls, [refer
 
 1. Ensure the oscilloscope is connected and online.
 2. Enable the channels you want to capture using the channel toggles in the [Control Panel](#9-control-panel) or the [Device Parameters](#83-device-parameters-panel) sidebar (see [8.2 Channel Selection](#82-channel-selection)).
-3. Click the **Acquire Waveform** button in the top toolbar. A progress indicator is shown during acquisition.
+3. Click the **Waveform** button in the top toolbar. A progress indicator is shown during acquisition.
 4. After acquisition completes, the waveform chart is displayed in the main area with the **Device Parameters** panel on the right side.
 
 > **Note:** At least one channel must be enabled for acquisition to succeed. The oscilloscope must have a valid trigger; otherwise the acquisition may time out.
@@ -1470,6 +1471,7 @@ The clock icon in the top toolbar opens **Timelapse**:
 * Set the interval as a positive whole number of seconds (1–86400), the number of frames (1–10000) and the file-name prefix. The dialog shows the resulting total duration.
 * **Start** stops auto capture and the live screen and captures the oscilloscope screen at the chosen interval. Frames are written as PNG files into a timestamped run folder under `timelapse/` in the application directory, for example `timelapse/2026-10-31_14-30-05/timelapse_0001.png`.
 * A snackbar reports the current frame and offers **Stop**; the toolbar icon also turns into the rotating arrows indicator that stops the run.
+* The clock icon is disabled while no oscilloscope is online; a running timelapse can still be stopped if the connection drops.
 * Auto capture and the live screen cannot be started while a timelapse runs.
 * The run ends after the planned frame count, on **Stop**, or when a capture fails. The final snackbar names the number of frames and the output folder.
 
@@ -1522,7 +1524,7 @@ For digital-signal fault analysis the assistant provides built-in logic-level re
 
 The Control Panel provides a virtual representation of the oscilloscope's physical front panel,  
 allowing remote operation of the device.  
-Click the **Control Panel** button in the top toolbar to open it — the current oscilloscope screen is captured and displayed with interactive control overlays.  
+Click the **Control** button in the top toolbar to open it — the current oscilloscope screen is captured and displayed with interactive control overlays.  
 After each command, the screen is automatically refreshed.
 
 The panel is divided into two main areas: the **Screen Display** on the left and the **Control Sidebar** on the right.  

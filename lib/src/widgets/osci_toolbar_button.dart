@@ -3,10 +3,14 @@ import 'package:flutter/material.dart';
 /// A reusable toolbar button with the standard SDS-Remote dark theme styling.
 /// Used in the top bar for Control Panel, Acquire Waveform, AI, Profiles, and Help buttons.
 class OsciToolbarButton extends StatelessWidget {
-  final String label;
+  /// Text shown next to the icon; null renders an icon-only button.
+  final String? label;
   final Widget icon;
   final VoidCallback? onPressed;
   final bool alwaysEnabled;
+
+  /// Optional tooltip. It also gives an icon-only button its accessible name.
+  final String? tooltip;
 
   /// Whether this button belongs to the currently open panel. An active
   /// button gets a cyan border and a subtle glow.
@@ -14,18 +18,19 @@ class OsciToolbarButton extends StatelessWidget {
 
   const OsciToolbarButton({
     super.key,
-    required this.label,
+    this.label,
     required this.icon,
     this.onPressed,
     this.alwaysEnabled = false,
     this.active = false,
+    this.tooltip,
   });
 
   @override
   Widget build(BuildContext context) {
     final isDisabled = !alwaysEnabled && onPressed == null;
     final isActive = active && !isDisabled;
-    return Material(
+    final button = Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: onPressed,
@@ -73,19 +78,24 @@ class OsciToolbarButton extends StatelessWidget {
                 )
               else
                 icon,
-              const SizedBox(width: 8),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white.withValues(alpha: isDisabled ? 0.3 : 1.0),
+              if (label != null) ...[
+                const SizedBox(width: 8),
+                Text(
+                  label!,
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white.withValues(
+                      alpha: isDisabled ? 0.3 : 1.0,
+                    ),
+                  ),
                 ),
-              ),
+              ],
             ],
           ),
         ),
       ),
     );
+    return tooltip == null ? button : Tooltip(message: tooltip!, child: button);
   }
 }

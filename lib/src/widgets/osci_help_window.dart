@@ -738,6 +738,16 @@ class _HelpWindowState extends State<HelpWindow>
     _scrollToHeading(target, recordHistory: false);
   }
 
+  /// Scrolls the manual back to the top, past the table of contents.
+  void _scrollToTop() {
+    if (!_scrollController.hasClients) return;
+    _scrollController.animateTo(
+      0,
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+    );
+  }
+
   /// Starts the slide-in or slide-out animation for the chat panel.
   void _syncHelpChatPanel() {
     if (_helpChatController.isOpen && _helpChatController.isAvailable) {
@@ -870,6 +880,58 @@ class _HelpWindowState extends State<HelpWindow>
           ),
         ],
       ),
+    );
+  }
+
+  /// Floating button in the bottom-right corner that jumps back to the top
+  /// of the manual.
+  ///
+  /// It fades in once the reader has scrolled a little way down, so it is
+  /// always at hand while reading but never covers the start of the text.
+  Widget _buildBackToTopButton() {
+    return ListenableBuilder(
+      listenable: _scrollController,
+      builder: (context, _) {
+        final visible =
+            _scrollController.hasClients && _scrollController.offset > 200;
+        return AnimatedOpacity(
+          opacity: visible ? 1 : 0,
+          duration: const Duration(milliseconds: 180),
+          child: IgnorePointer(
+            ignoring: !visible,
+            // A hidden button must not be announced by screen readers.
+            child: ExcludeSemantics(
+              excluding: !visible,
+              child: Tooltip(
+                message: 'Back to top',
+                child: Material(
+                  color: const Color(0xFF0A192F),
+                  elevation: 6,
+                  shadowColor: Colors.black87,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(24),
+                    side: BorderSide(
+                      color: Colors.cyanAccent.withValues(alpha: 0.6),
+                    ),
+                  ),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: _scrollToTop,
+                    child: const Padding(
+                      padding: EdgeInsets.all(10),
+                      child: Icon(
+                        Icons.vertical_align_top,
+                        size: 22,
+                        color: Colors.cyanAccent,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -1041,6 +1103,9 @@ class _HelpWindowState extends State<HelpWindow>
                   ],
                 ),
               ),
+              // Floating jump-to-top control, above the manual but below the
+              // chat panel, which slides over it.
+              Positioned(right: 24, bottom: 24, child: _buildBackToTopButton()),
               Positioned.fill(
                 child: Align(
                   alignment: Alignment.centerRight,

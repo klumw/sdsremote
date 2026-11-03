@@ -1498,7 +1498,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       children: [
         // Control Panel
         OsciToolbarButton(
-          label: _isAcquiring ? "Acquiring..." : "Control Panel",
+          label: _isAcquiring ? "Acquiring..." : "Control",
           active:
               _activePanel == ActivePanel.none &&
               !_waveformAcquired &&
@@ -1517,7 +1517,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         const SizedBox(width: 16),
         // Acquire Waveform
         OsciToolbarButton(
-          label: _isAcquiringWaveform ? "Acquiring..." : "Acquire Waveform",
+          label: _isAcquiringWaveform ? "Acquiring..." : "Waveform",
           active: _activePanel == ActivePanel.none && _waveformAcquired,
           icon: _isAcquiringWaveform
               ? const AnimatedSyncIcon(size: 25, color: Colors.white)
@@ -1525,16 +1525,6 @@ class _OsciHomePageState extends State<OsciHomePage>
           onPressed: (_isAcquiringWaveform || !_isOnline || _isMacroPlaying)
               ? null
               : _acquireWaveform,
-        ),
-        const SizedBox(width: 16),
-        // AI Chat
-        OsciToolbarButton(
-          label: "AI Chat",
-          icon: const Icon(Icons.auto_awesome, size: 25),
-          active: _activePanel == ActivePanel.chat,
-          onPressed: (_isAiEnabled && !_isMacroPlaying)
-              ? () => _togglePanel(ActivePanel.chat)
-              : null,
         ),
         const SizedBox(width: 16),
         // Profiles
@@ -1549,7 +1539,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         const SizedBox(width: 16),
         // Data Logger
         OsciToolbarButton(
-          label: "Data Logger",
+          label: "Logger",
           icon: _buildDlButtonIcon(),
           active: _activePanel == ActivePanel.dataLogger,
           onPressed: (_isOnline && !_isMacroPlaying)
@@ -1577,7 +1567,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         OsciToolbarButton(
           label: _isMacroPlaying
               ? "Playback"
-              : (_isMacroRecording ? "Recording..." : "Macro Recorder"),
+              : (_isMacroRecording ? "Recording..." : "Macro"),
           active: _activePanel == ActivePanel.macroRecorder,
           icon: _isMacroPlaying
               ? const Icon(
@@ -1596,6 +1586,16 @@ class _OsciHomePageState extends State<OsciHomePage>
           // oscilloscope is offline; the panel disables the device-dependent
           // actions itself.
           onPressed: () => _togglePanel(ActivePanel.macroRecorder),
+        ),
+        const SizedBox(width: 16),
+        // AI Chat — icon only; its label lives in the tooltip.
+        OsciToolbarButton(
+          tooltip: 'AI Chat',
+          icon: const Icon(Icons.auto_awesome, size: 25),
+          active: _activePanel == ActivePanel.chat,
+          onPressed: (_isAiEnabled && !_isMacroPlaying)
+              ? () => _togglePanel(ActivePanel.chat)
+              : null,
         ),
       ],
     );
@@ -1633,11 +1633,19 @@ class _OsciHomePageState extends State<OsciHomePage>
             icon: _timelapseRunning
                 ? const AnimatedSyncIcon(size: 20, color: Colors.cyanAccent)
                 : const Icon(Icons.timelapse, size: 25),
-            color: _isMacroPlaying ? Colors.white24 : Colors.white70,
-            tooltip: _timelapseRunning ? 'Stop timelapse' : 'Timelapse',
+            // A running timelapse can always be stopped, even when the
+            // device has gone offline in the meantime.
+            color: (_isMacroPlaying || (!_isOnline && !_timelapseRunning))
+                ? Colors.white24
+                : Colors.white70,
+            tooltip: _timelapseRunning
+                ? 'Stop timelapse'
+                : (_isOnline ? 'Timelapse' : 'Timelapse (device offline)'),
             onPressed: _isMacroPlaying
                 ? null
-                : (_timelapseRunning ? _stopTimelapse : _showTimelapseDialog),
+                : (_timelapseRunning
+                      ? _stopTimelapse
+                      : (_isOnline ? _showTimelapseDialog : null)),
           ),
           const SizedBox(width: 8),
           OsciToolbarButton(
