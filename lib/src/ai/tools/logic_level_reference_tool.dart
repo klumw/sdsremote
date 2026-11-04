@@ -9,7 +9,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import '../../core/logger.dart';
 import '../../waveform/analysis/logic_level_reference.dart';
 
-/// Registers `read_logic_level_reference` for the Waveform Agent.
+/// Registers `read_logic_level_reference` for the DigitalAgent.
 Tool<Map<String, dynamic>> createLogicLevelReferenceTool({
   String agentName = 'unknown',
 }) {

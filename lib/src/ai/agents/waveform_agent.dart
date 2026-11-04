@@ -7,7 +7,7 @@ import '../tools/audio/audio_tools.dart';
 import '../tools/audio_agent_tool.dart';
 import '../tools/calculator_tool.dart';
 import '../tools/date_time_tool.dart';
-import '../tools/logic_level_reference_tool.dart';
+import '../tools/digital_agent_tool.dart';
 import '../tools/math_tool.dart';
 import '../tools/scpi_agent_tool.dart';
 import '../tools/signal_generator_tool.dart';
@@ -22,6 +22,7 @@ import '../tools/waveform_history_tool.dart';
 import '../tools/waveform_report_tool.dart';
 import '../tools/waveform_summary_tool.dart';
 import 'audio_agent.dart';
+import 'digital_agent.dart';
 import 'instrument_agent.dart';
 import 'spec_analyst_agent.dart';
 import 'systemprompts.dart';
@@ -43,6 +44,7 @@ class WaveformAgent {
   List<ChatMessage> _history;
   InstrumentAgent? _instrumentAgent;
   late final AudioAgent _audioAgent;
+  late final DigitalAgent _digitalAgent;
   CancellationToken? _activeCancelToken;
 
   /// The instrument sub-agent, exposed for diagnostics and tests.
@@ -50,6 +52,9 @@ class WaveformAgent {
 
   /// The audio measurement sub-agent, exposed for diagnostics and tests.
   AudioAgent get audioAgent => _audioAgent;
+
+  /// The digital measurement sub-agent, exposed for diagnostics and tests.
+  DigitalAgent get digitalAgent => _digitalAgent;
 
   WaveformAgent({
     String model = 'deepseek:deepseek-v4-flash',
@@ -98,6 +103,17 @@ class WaveformAgent {
       model: model,
       contextProvider: audioAnalysisContext ?? () => null,
       sweepProvider: audioSweep,
+      acquireWaveform: acquireWaveform,
+      instrumentAgent: instrumentAgent,
+    );
+    _digitalAgent = DigitalAgent(
+      model: model,
+      readWaveformSummary: readWaveformSummary,
+      readSpectrumSummary: readSpectrumSummary,
+      readWaveformFeatures: readWaveformFeatures,
+      classifyWaveform: classifyWaveform,
+      analyzeWaveformFaults: analyzeWaveformFaults,
+      manageFaultProfile: manageFaultProfile,
       acquireWaveform: acquireWaveform,
       instrumentAgent: instrumentAgent,
     );
@@ -158,7 +174,6 @@ class WaveformAgent {
           analyze: SpecAnalystAgent(model: model).analyze,
           agentName: 'WaveformAgent',
         ),
-        createLogicLevelReferenceTool(agentName: 'WaveformAgent'),
         createGenerateReferenceWaveformTool(
           generate: generateReferenceWaveform,
           agentName: 'WaveformAgent',
@@ -173,6 +188,24 @@ class WaveformAgent {
                 String? channel,
                 String? focus,
               }) => _audioAgent.analyze(
+                request: request,
+                autonomous: autonomous,
+                channel: channel,
+                focus: focus,
+                cancelToken: _activeCancelToken,
+              ),
+          onLongRunningStart: suspendResponseTimeout,
+          onLongRunningEnd: resumeResponseTimeout,
+          agentName: 'WaveformAgent',
+        ),
+        createDigitalAnalysisAgentTool(
+          analyze:
+              ({
+                required String request,
+                bool autonomous = false,
+                String? channel,
+                String? focus,
+              }) => _digitalAgent.analyze(
                 request: request,
                 autonomous: autonomous,
                 channel: channel,

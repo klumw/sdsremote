@@ -1528,7 +1528,9 @@ For a fault-analysis request, the assistant can ask for a PDF or plain-text spec
 
 For recurring fault sessions the assistant stores the reference values, tolerances and limits per channel. At the start of a fault-analysis request it offers to reuse the stored values for the relevant channel; newly supplied values are merged, or replace the stored block when the user declines reuse. The profile contains no measured values, findings or waveform samples and can be cleared on request.
 
-#### Digital Signal Logic Levels
+#### Digital Signal Measurements and Logic Levels
+
+Digital-specific measurements are delegated to a DigitalAgent sub-agent. It covers logic levels and thresholds, logic families, edge/rise/fall times, duty and timing, clock jitter, overshoot, ringing, glitches, protocol signal integrity and digital fault analysis. The assistant asks once whether the measurements may run autonomously, including the necessary scope/generator changes; after confirmation the DigitalAgent returns structured measurements that the Waveform AI presents.
 
 For digital-signal fault analysis the assistant provides built-in logic-level references for TTL, CMOS, LVTTL, ECL, RS-232 and HTL, maximum edge times for common logic families, and ESP32-family values. It asks for the standard, logic family or ESP32 variant and the supply voltage, then uses the resulting thresholds as expected levels for the fault tests. Digital signals are not checked for clipping because flat tops and bottoms are valid levels.
 
