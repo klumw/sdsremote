@@ -78,7 +78,9 @@ class SignalGeneratorSettings {
 const String signalGeneratorKeywordError =
     'Signal generator control requires a signal-generator keyword such as '
     '"Signalgenerator", "Funktionsgenerator" or "Function Generator" in the '
-    'user request, for example "Signalgenerator Frequenz Kanal 1 10 kHz".';
+    'user request, for example "Signalgenerator Frequenz Kanal 1 10 kHz". '
+    'If the user is confirming a previously proposed generator change, ask '
+    'them to repeat the request with a signal-generator keyword.';
 
 /// Words and phrases that explicitly address the signal generator.
 ///

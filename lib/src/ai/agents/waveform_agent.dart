@@ -1,7 +1,10 @@
 import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../../devices/device_agent_context.dart';
+import '../cancellation.dart';
 import '../tools/acquire_waveform_tool.dart';
+import '../tools/audio/audio_tools.dart';
+import '../tools/audio_agent_tool.dart';
 import '../tools/calculator_tool.dart';
 import '../tools/date_time_tool.dart';
 import '../tools/logic_level_reference_tool.dart';
@@ -16,7 +19,9 @@ import '../tools/waveform_analysis_tools.dart';
 import '../tools/waveform_fault_profile_tool.dart';
 import '../tools/waveform_fault_tool.dart';
 import '../tools/waveform_history_tool.dart';
+import '../tools/waveform_report_tool.dart';
 import '../tools/waveform_summary_tool.dart';
+import 'audio_agent.dart';
 import 'instrument_agent.dart';
 import 'spec_analyst_agent.dart';
 import 'systemprompts.dart';
@@ -37,9 +42,14 @@ class WaveformAgent {
   late final Agent _agent;
   List<ChatMessage> _history;
   InstrumentAgent? _instrumentAgent;
+  late final AudioAgent _audioAgent;
+  CancellationToken? _activeCancelToken;
 
   /// The instrument sub-agent, exposed for diagnostics and tests.
   InstrumentAgent? get instrumentAgent => _instrumentAgent;
+
+  /// The audio measurement sub-agent, exposed for diagnostics and tests.
+  AudioAgent get audioAgent => _audioAgent;
 
   WaveformAgent({
     String model = 'deepseek:deepseek-v4-flash',
@@ -54,6 +64,7 @@ class WaveformAgent {
     ReferenceGenerationProvider? generateReferenceWaveform,
     WaveformFaultAnalysisProvider? analyzeWaveformFaults,
     WaveformFaultProfileProvider? manageFaultProfile,
+    WaveformReportProvider? createWaveformReport,
     SpecificationUploadProvider? requestSpecUpload,
     String? vxi11Host,
     ScpiCommandCallback? onCommandSent,
@@ -62,6 +73,10 @@ class WaveformAgent {
     SignalGeneratorApplyProvider? applySignalGenerator,
     SignalGeneratorActionProvider? controlSignalGenerator,
     SignalGeneratorIntentCheck? isSignalGeneratorIntentEnabled,
+    AudioAnalysisContextProvider? audioAnalysisContext,
+    AudioSweepProvider? audioSweep,
+    void Function()? suspendResponseTimeout,
+    void Function()? resumeResponseTimeout,
     int instrumentToolCalls = defaultInstrumentToolCalls,
     int maxToolCalls = defaultMaxToolCalls,
   }) : _history = [ChatMessage.system(waveformAgentSystemPrompt)] {
@@ -79,6 +94,13 @@ class WaveformAgent {
             isSignalGeneratorIntentEnabled: isSignalGeneratorIntentEnabled,
           );
     _instrumentAgent = instrumentAgent;
+    _audioAgent = AudioAgent(
+      model: model,
+      contextProvider: audioAnalysisContext ?? () => null,
+      sweepProvider: audioSweep,
+      acquireWaveform: acquireWaveform,
+      instrumentAgent: instrumentAgent,
+    );
     _agent = Agent(
       model,
       displayName: 'WaveformAgent',
@@ -98,6 +120,10 @@ class WaveformAgent {
         ),
         createWaveformHistoryTool(
           readHistory: readWaveformHistory,
+          agentName: 'WaveformAgent',
+        ),
+        createWaveformReportTool(
+          createReport: createWaveformReport,
           agentName: 'WaveformAgent',
         ),
         createClassifyWaveformTool(
@@ -139,6 +165,24 @@ class WaveformAgent {
         ),
         if (instrumentAgent != null)
           createScpiAgentTool(instrumentAgent, agentName: 'WaveformAgent'),
+        createAudioAnalysisAgentTool(
+          analyze:
+              ({
+                required String request,
+                bool autonomous = false,
+                String? channel,
+                String? focus,
+              }) => _audioAgent.analyze(
+                request: request,
+                autonomous: autonomous,
+                channel: channel,
+                focus: focus,
+                cancelToken: _activeCancelToken,
+              ),
+          onLongRunningStart: suspendResponseTimeout,
+          onLongRunningEnd: resumeResponseTimeout,
+          agentName: 'WaveformAgent',
+        ),
         createMathTool(agentName: 'WaveformAgent'),
         createCalculatorTool(agentName: 'WaveformAgent'),
         createDateTimeTool(agentName: 'WaveformAgent'),
@@ -152,65 +196,80 @@ class WaveformAgent {
 
   /// Streams the final answer, suppressing intermediate "thinking aloud" text
   /// that precedes tool calls (same buffering policy as the calculator agent).
-  Stream<String> sendStream(String prompt) async* {
-    final textBuffer = <String>[];
-    final allChunks = <String>[];
-    var hasSeenToolCall = false;
-    var hasFlushedAfterTools = false;
+  Stream<String> sendStream(
+    String prompt, {
+    CancellationToken? cancelToken,
+  }) async* {
+    _audioAgent.clearSweepCache();
+    _activeCancelToken = cancelToken;
+    // A cancelled or abandoned audio analysis must not leave generator access
+    // open for the next request. The AudioAgent also resets the grant in its
+    // own cleanup path.
+    _instrumentAgent?.setAutonomousGeneratorAccess(false);
+    try {
+      final textBuffer = <String>[];
+      final allChunks = <String>[];
+      var hasSeenToolCall = false;
+      var hasFlushedAfterTools = false;
 
-    await for (final chunk in _agent.sendStream(prompt, history: _history)) {
-      final hasToolCalls = chunk.messages.any(
-        (message) => message.hasToolCalls,
-      );
-      if (hasToolCalls) {
-        textBuffer.clear();
-        hasSeenToolCall = true;
-        hasFlushedAfterTools = false;
-      }
-      final hasToolResults = chunk.messages.any(
-        (message) => message.hasToolResults,
-      );
-      if (hasToolResults) hasFlushedAfterTools = false;
+      await for (final chunk in _agent.sendStream(prompt, history: _history)) {
+        final hasToolCalls = chunk.messages.any(
+          (message) => message.hasToolCalls,
+        );
+        if (hasToolCalls) {
+          textBuffer.clear();
+          hasSeenToolCall = true;
+          hasFlushedAfterTools = false;
+        }
+        final hasToolResults = chunk.messages.any(
+          (message) => message.hasToolResults,
+        );
+        if (hasToolResults) hasFlushedAfterTools = false;
 
-      if (chunk.output.isNotEmpty) {
-        if (!hasSeenToolCall || !hasFlushedAfterTools) {
-          textBuffer.add(chunk.output);
-        } else {
-          allChunks.add(chunk.output);
+        if (chunk.output.isNotEmpty) {
+          if (!hasSeenToolCall || !hasFlushedAfterTools) {
+            textBuffer.add(chunk.output);
+          } else {
+            allChunks.add(chunk.output);
+          }
+        }
+
+        if (hasSeenToolCall &&
+            !hasFlushedAfterTools &&
+            chunk.output.isNotEmpty &&
+            !hasToolCalls &&
+            !hasToolResults) {
+          hasFlushedAfterTools = true;
+          for (final buffered in textBuffer) {
+            allChunks.add(buffered);
+          }
+          textBuffer.clear();
         }
       }
 
-      if (hasSeenToolCall &&
-          !hasFlushedAfterTools &&
-          chunk.output.isNotEmpty &&
-          !hasToolCalls &&
-          !hasToolResults) {
-        hasFlushedAfterTools = true;
-        for (final buffered in textBuffer) {
-          allChunks.add(buffered);
-        }
+      if (textBuffer.isNotEmpty) {
+        allChunks.addAll(textBuffer);
         textBuffer.clear();
       }
-    }
 
-    if (textBuffer.isNotEmpty) {
-      allChunks.addAll(textBuffer);
-      textBuffer.clear();
-    }
-
-    // The final answer is emitted once, after the tool-limit wording has been
-    // removed. The model can see the orchestrator's rejected tool results in
-    // its history and sometimes quotes the technical message; the user must
-    // never receive it as the answer.
-    final output = _sanitizeToolLimitText(allChunks.join());
-    if (output.isNotEmpty) {
-      yield output;
-      _history.addAll([ChatMessage.user(prompt), ChatMessage.model(output)]);
-      if (_history.length > _maxHistoryMessages + 1) {
-        _history = [
-          _history.first,
-          ..._history.sublist(_history.length - _maxHistoryMessages),
-        ];
+      // The final answer is emitted once, after the tool-limit wording has
+      // been removed. The model can see the orchestrator's rejected tool
+      // results in its history and sometimes quotes the technical message; the
+      // user must never receive it as the answer.
+      final output = _sanitizeToolLimitText(allChunks.join());
+      if (output.isNotEmpty) {
+        yield output;
+        _history.addAll([ChatMessage.user(prompt), ChatMessage.model(output)]);
+        if (_history.length > _maxHistoryMessages + 1) {
+          _history = [
+            _history.first,
+            ..._history.sublist(_history.length - _maxHistoryMessages),
+          ];
+        }
+      }
+    } finally {
+      if (identical(_activeCancelToken, cancelToken)) {
+        _activeCancelToken = null;
       }
     }
   }

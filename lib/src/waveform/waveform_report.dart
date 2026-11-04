@@ -35,6 +35,7 @@ class WaveformReport {
     ComparisonMetrics? comparison,
     MaskResult? maskResult,
     SpectrumResult? spectrum,
+    String? agentAnalysis,
     String? reportName,
     String deviceName = '',
     DateTime? timestamp,
@@ -230,6 +231,7 @@ class WaveformReport {
           ),
           pw.SizedBox(height: 12),
           ..._referenceRows(comparison, maskResult),
+          ..._agentAnalysisSection(agentAnalysis),
         ],
       ),
     );
@@ -517,6 +519,80 @@ class WaveformReport {
       widgets.add(pw.Text('No reference comparison or mask result available.'));
     }
     return widgets;
+  }
+
+  static List<pw.Widget> _agentAnalysisSection(String? analysis) {
+    final text = analysis?.trim();
+    if (text == null || text.isEmpty) return const <pw.Widget>[];
+    final safeText = _truncateAnalysis(_asciiSafe(text));
+    return [
+      pw.SizedBox(height: 24),
+      pw.Header(
+        text: 'Agent Analysis',
+        level: 1,
+        textStyle: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold),
+      ),
+      pw.SizedBox(height: 12),
+      for (final paragraph in _analysisParagraphs(safeText)) ...[
+        pw.Text(paragraph, style: const pw.TextStyle(fontSize: 10)),
+        pw.SizedBox(height: 6),
+      ],
+    ];
+  }
+
+  /// Splits the analysis into page-safe paragraphs without interpreting
+  /// Markdown. The PDF's built-in font only supports ASCII.
+  static List<String> _analysisParagraphs(String text) {
+    final paragraphs = <String>[];
+    for (final block in text.split(RegExp(r'\n\s*\n'))) {
+      var remaining = block.trim();
+      if (remaining.isEmpty) continue;
+      while (remaining.length > 1200) {
+        var cut = remaining.lastIndexOf('\n', 1200);
+        if (cut <= 0) cut = remaining.lastIndexOf(' ', 1200);
+        if (cut <= 0) cut = 1200;
+        paragraphs.add(remaining.substring(0, cut).trim());
+        remaining = remaining.substring(cut).trim();
+      }
+      if (remaining.isNotEmpty) paragraphs.add(remaining);
+    }
+    return paragraphs;
+  }
+
+  static String _truncateAnalysis(String text, {int maxCharacters = 6000}) {
+    if (text.length <= maxCharacters) return text;
+    return '${text.substring(0, maxCharacters).trimRight()}\n\n'
+        '[Analysis truncated]';
+  }
+
+  static String _asciiSafe(String text) {
+    const replacements = <String, String>{
+      'µ': 'u',
+      'μ': 'u',
+      'Ω': 'Ohm',
+      '°': 'deg',
+      '±': '+/-',
+      '×': 'x',
+      '≤': '<=',
+      '≥': '>=',
+      '≈': '~',
+      '→': '->',
+      '←': '<-',
+      '–': '-',
+      '—': '-',
+      '’': "'",
+      '‘': "'",
+      '“': '"',
+      '”': '"',
+      '…': '...',
+      '·': '.',
+      'Δ': 'Delta',
+    };
+    var result = text;
+    for (final entry in replacements.entries) {
+      result = result.replaceAll(entry.key, entry.value);
+    }
+    return result.replaceAll(RegExp(r'[^\x00-\x7F]'), '?');
   }
 
   static String _fmtTimestamp(DateTime value) {

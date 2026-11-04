@@ -213,90 +213,117 @@ class _SpectrumViewState extends State<SpectrumView> {
     final selected = detail?.channel;
     final fftOptions = _fftOptions();
 
-    return Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.end,
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.end,
       children: [
-        if (selected != null)
-          _control(
-            'Channel',
-            _dropdown<String>(
-              value: showAllChannels ? _allChannelsValue : selected,
-              items: [_allChannelsValue, ...channels],
-              label: _channelLabel,
-              onChanged: (value) {
-                if (value == null) return;
-                onChannelSelectionChanged(
-                  value == _allChannelsValue ? null : value,
-                );
-              },
-            ),
-          ),
-        _control(
-          'Window',
-          _dropdown<SpectrumWindow>(
-            value: settings.window,
-            items: SpectrumWindow.values,
-            label: _windowLabel,
-            onChanged: (value) {
-              if (value != null) {
-                onSettingsChanged(settings.copyWith(window: value));
-              }
-            },
+        Expanded(
+          child: Wrap(
+            spacing: 12,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.end,
+            children: [
+              if (selected != null)
+                _control(
+                  'Channel',
+                  _dropdown<String>(
+                    value: showAllChannels ? _allChannelsValue : selected,
+                    items: [_allChannelsValue, ...channels],
+                    label: _channelLabel,
+                    onChanged: (value) {
+                      if (value == null) return;
+                      onChannelSelectionChanged(
+                        value == _allChannelsValue ? null : value,
+                      );
+                    },
+                  ),
+                ),
+              _control(
+                'Window',
+                _dropdown<SpectrumWindow>(
+                  value: settings.window,
+                  items: SpectrumWindow.values,
+                  label: _windowLabel,
+                  onChanged: (value) {
+                    if (value != null) {
+                      onSettingsChanged(settings.copyWith(window: value));
+                    }
+                  },
+                ),
+              ),
+              _control(
+                'FFT size',
+                _dropdown<int>(
+                  value: fftOptions.contains(settings.fftSize)
+                      ? settings.fftSize
+                      : 0,
+                  items: fftOptions,
+                  label: _fftLabel,
+                  onChanged: (value) {
+                    if (value != null) {
+                      onSettingsChanged(settings.copyWith(fftSize: value));
+                    }
+                  },
+                ),
+              ),
+              _control(
+                'Unit',
+                _dropdown<SpectrumUnit>(
+                  value: settings.unit,
+                  items: SpectrumUnit.values,
+                  label: spectrumUnitLabel,
+                  onChanged: (value) {
+                    if (value != null) {
+                      onSettingsChanged(settings.copyWith(unit: value));
+                    }
+                  },
+                ),
+              ),
+              _control(
+                'Peak markers',
+                _dropdown<int>(
+                  value: settings.peakCount,
+                  items: const [3, 5, 10],
+                  label: (value) => '$value',
+                  onChanged: (value) {
+                    if (value != null) {
+                      onSettingsChanged(settings.copyWith(peakCount: value));
+                    }
+                  },
+                ),
+              ),
+              _control(
+                'Logarithmic',
+                SizedBox(
+                  height: 30,
+                  child: Switch(
+                    value: logFrequency,
+                    onChanged: onLogFrequencyChanged,
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
-        _control(
-          'FFT size',
-          _dropdown<int>(
-            value: fftOptions.contains(settings.fftSize) ? settings.fftSize : 0,
-            items: fftOptions,
-            label: _fftLabel,
-            onChanged: (value) {
-              if (value != null) {
-                onSettingsChanged(settings.copyWith(fftSize: value));
-              }
-            },
-          ),
-        ),
-        _control(
-          'Unit',
-          _dropdown<SpectrumUnit>(
-            value: settings.unit,
-            items: SpectrumUnit.values,
-            label: spectrumUnitLabel,
-            onChanged: (value) {
-              if (value != null) {
-                onSettingsChanged(settings.copyWith(unit: value));
-              }
-            },
-          ),
-        ),
-        _control(
-          'Peak markers',
-          _dropdown<int>(
-            value: settings.peakCount,
-            items: const [3, 5, 10],
-            label: (value) => '$value',
-            onChanged: (value) {
-              if (value != null) {
-                onSettingsChanged(settings.copyWith(peakCount: value));
-              }
-            },
-          ),
-        ),
-        _control(
-          'Logarithmic',
-          SizedBox(
-            height: 30,
-            child: Switch(
-              value: logFrequency,
-              onChanged: onLogFrequencyChanged,
-            ),
-          ),
-        ),
-        _control('Zoom', _buildZoomControl(axis)),
+        const SizedBox(width: 12),
+        _buildZoomGroup(axis),
       ],
+    );
+  }
+
+  /// Puts the Zoom label above the framed zoom controls, like the other
+  /// controls, and keeps the group at the right edge.
+  Widget _buildZoomGroup(SpectrumAxisRange axis) {
+    return _control(
+      'Zoom',
+      Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        decoration: BoxDecoration(
+          color: const Color(0xFF172A45),
+          border: Border.all(color: AppColors.border),
+          borderRadius: BorderRadius.circular(4),
+        ),
+        child: _buildZoomControl(axis),
+      ),
     );
   }
 

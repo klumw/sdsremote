@@ -1,15 +1,13 @@
 /// Standard logic-level reference table.
 ///
-/// Values are taken from the German Wikipedia article "Logikpegel", section
-/// "Standardwerte", table "gängige Logikpegel (alle Angaben in Volt)".
-/// VIL/VIH are input thresholds; VOL/VOH are output levels. Levels between
-/// VIL and VIH are forbidden and have no defined logic value.
+/// The table contains common standard logic levels: VIL/VIH are input
+/// thresholds, VOL/VOH are output levels. Levels between VIL and VIH are
+/// forbidden and have no defined logic value.
 library;
 
 import 'dart:math' as math;
 
-const String logicLevelSourceUrl = 'https://de.wikipedia.org/wiki/Logikpegel';
-const String logicLevelSourceTitle = 'Wikipedia: Logikpegel';
+const String logicLevelSource = 'Standard logic-level reference table';
 
 /// One logic family from the reference table.
 class LogicLevelStandard {
@@ -134,12 +132,12 @@ class LogicLevelStandard {
           ? 'negative (low=1, high=0)'
           : 'positive (low=0, high=1)',
       'notes': notes,
-      'source': logicLevelSourceUrl,
+      'source': logicLevelSource,
     };
   }
 }
 
-/// The table rows in the order used by the Wikipedia article.
+/// The table rows in the standard order.
 const List<LogicLevelStandard> logicLevelStandards = [
   LogicLevelStandard(
     id: 'ttl_5v',
@@ -232,7 +230,7 @@ const List<LogicLevelStandard> logicLevelStandards = [
 ];
 
 /// Source label for the edge-time values. These values were supplied by the
-/// user and are not part of the Wikipedia logic-level table.
+/// user and are not part of the logic-level reference table.
 const String logicEdgeTimeSource = 'User-provided reference values';
 
 /// One supply-dependent maximum edge time.
@@ -364,7 +362,7 @@ const List<LogicEdgeTimeReference> logicEdgeTimeReferences = [
 ];
 
 /// Source label for the ESP32 values. These values were supplied by the user
-/// and are not part of the Wikipedia logic-level table.
+/// and are not part of the logic-level reference table.
 const String esp32LogicSource = 'User-provided reference values';
 
 /// Logic, drive and edge reference for one ESP32 variant.

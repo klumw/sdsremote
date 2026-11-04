@@ -5,7 +5,9 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import '../core/logger.dart';
 import '../devices/device_agent_context.dart';
 import 'agents/waveform_agent.dart';
+import 'cancellation.dart';
 import 'tools/acquire_waveform_tool.dart';
+import 'tools/audio/audio_tools.dart';
 import 'tools/specification_upload_tool.dart';
 import 'tools/signal_generator_tool.dart';
 import 'tools/spectrum_summary_tool.dart';
@@ -14,6 +16,7 @@ import 'tools/waveform_analysis_tools.dart';
 import 'tools/waveform_fault_profile_tool.dart';
 import 'tools/waveform_fault_tool.dart';
 import 'tools/waveform_history_tool.dart';
+import 'tools/waveform_report_tool.dart';
 import 'tools/waveform_summary_tool.dart';
 
 /// Streaming service for the Waveform AI assistant.
@@ -27,7 +30,13 @@ class WaveformAiService {
   Timer? _responseTimer;
   StreamController<String>? _activeTimeoutController;
   void Function()? _armResponseTimer;
-  bool _timeoutSuspended = false;
+
+  /// Number of active suspension requests.
+  ///
+  /// A counter keeps nested suspensions correct: the audio analysis suspends
+  /// the timeout for its whole run and may itself call `acquire_waveform`,
+  /// which suspends it again for a requested delay.
+  int _timeoutSuspendCount = 0;
 
   static const Duration responseTimeout = Duration(seconds: 120);
 
@@ -48,6 +57,7 @@ class WaveformAiService {
     ReferenceGenerationProvider? generateReferenceWaveform,
     WaveformFaultAnalysisProvider? analyzeWaveformFaults,
     WaveformFaultProfileProvider? manageFaultProfile,
+    WaveformReportProvider? createWaveformReport,
     SpecificationUploadProvider? requestSpecUpload,
     String? vxi11Host,
     ScpiCommandCallback? onCommandSent,
@@ -56,10 +66,13 @@ class WaveformAiService {
     SignalGeneratorApplyProvider? applySignalGenerator,
     SignalGeneratorActionProvider? controlSignalGenerator,
     SignalGeneratorIntentCheck? isSignalGeneratorIntentEnabled,
+    AudioAnalysisContextProvider? audioAnalysisContext,
+    AudioSweepProvider? audioSweep,
     int maxToolCalls = WaveformAgent.defaultMaxToolCalls,
   }) {
     if (_isDisposed) return;
     _agent = null;
+    _timeoutSuspendCount = 0;
 
     Agent.environment[apiKey] = apiToken;
     try {
@@ -76,6 +89,7 @@ class WaveformAiService {
         generateReferenceWaveform: generateReferenceWaveform,
         analyzeWaveformFaults: analyzeWaveformFaults,
         manageFaultProfile: manageFaultProfile,
+        createWaveformReport: createWaveformReport,
         requestSpecUpload: requestSpecUpload,
         vxi11Host: vxi11Host,
         onCommandSent: onCommandSent,
@@ -84,6 +98,10 @@ class WaveformAiService {
         applySignalGenerator: applySignalGenerator,
         controlSignalGenerator: controlSignalGenerator,
         isSignalGeneratorIntentEnabled: isSignalGeneratorIntentEnabled,
+        audioAnalysisContext: audioAnalysisContext,
+        audioSweep: audioSweep,
+        suspendResponseTimeout: suspendResponseTimeout,
+        resumeResponseTimeout: resumeResponseTimeout,
         maxToolCalls: maxToolCalls,
       );
       AppLogger(
@@ -100,7 +118,10 @@ class WaveformAiService {
 
   /// Sends a prompt and streams the final answer. A timeout is reported as a
   /// stream error so the chat can stop the response and show a message.
-  Stream<String> sendMessageStream({required String text}) async* {
+  Stream<String> sendMessageStream({
+    required String text,
+    CancellationToken? cancelToken,
+  }) async* {
     if (_isDisposed) throw StateError('Waveform AI service is disposed');
     final agent = _agent;
     if (agent == null) {
@@ -114,11 +135,18 @@ class WaveformAiService {
     );
     logger.log('Waveform AI request started (model=${agent.model})');
     try {
-      yield* _withResponseTimeout(agent.sendStream(text));
+      yield* _withResponseTimeout(
+        agent.sendStream(text, cancelToken: cancelToken),
+        cancelToken,
+      );
       logger.log('Waveform AI request completed');
     } on Object catch (error) {
       logger.error('Waveform AI request failed: $error');
       yield 'Error: AI request failed ($error)';
+    } finally {
+      // A cancelled request can leave a tool suspension behind. The next
+      // request must start with an armed response timeout.
+      _timeoutSuspendCount = 0;
     }
   }
 
@@ -133,7 +161,10 @@ class WaveformAiService {
   /// The timeout is suspended with [suspendResponseTimeout] while a tool
   /// waits for a file upload, because the user can take longer than the
   /// normal response window.
-  Stream<String> _withResponseTimeout(Stream<String> source) {
+  Stream<String> _withResponseTimeout(
+    Stream<String> source,
+    CancellationToken? cancelToken,
+  ) {
     final controller = StreamController<String>();
     StreamSubscription<String>? subscription;
     var closed = false;
@@ -141,6 +172,9 @@ class WaveformAiService {
     void closeController() {
       if (closed) return;
       closed = true;
+      // The request is over (normal completion, error or timeout). Stop any
+      // long-running sub-agent tool that may still be executing.
+      cancelToken?.cancel();
       if (identical(_activeTimeoutController, controller)) {
         _responseTimer?.cancel();
         _responseTimer = null;
@@ -154,12 +188,16 @@ class WaveformAiService {
 
     void armTimer() {
       _responseTimer?.cancel();
-      if (closed || _timeoutSuspended) {
+      if (closed || _timeoutSuspendCount > 0) {
         _responseTimer = null;
         return;
       }
       _responseTimer = Timer(responseTimeout, () {
-        if (closed || _timeoutSuspended) return;
+        if (closed || _timeoutSuspendCount > 0) return;
+        AppLogger(agentName: 'WaveformAiService', toolName: 'timeout').error(
+          'Waveform AI request timed out after '
+          '${responseTimeout.inSeconds} s',
+        );
         controller.addError(
           TimeoutException(
             'AI request timed out after ${responseTimeout.inSeconds} s',
@@ -192,6 +230,9 @@ class WaveformAiService {
     };
     controller.onCancel = () async {
       closed = true;
+      // The chat cancelled this request; stop the audio sub-agent and any
+      // running Bode sweep before the source subscription is torn down.
+      cancelToken?.cancel();
       if (identical(_activeTimeoutController, controller)) {
         _responseTimer?.cancel();
         _responseTimer = null;
@@ -203,24 +244,27 @@ class WaveformAiService {
     return controller.stream;
   }
 
-  /// Stops the response timeout while a tool waits for user input.
+  /// Stops the response timeout while a tool runs or waits for user input.
+  ///
+  /// Suspensions nest: each call must be paired with [resumeResponseTimeout].
   void suspendResponseTimeout() {
-    _timeoutSuspended = true;
+    _timeoutSuspendCount++;
     _responseTimer?.cancel();
     _responseTimer = null;
   }
 
-  /// Restarts the response timeout after the user supplied the input.
+  /// Restarts the response timeout after the tool or user input finished.
   void resumeResponseTimeout() {
-    if (!_timeoutSuspended) return;
-    _timeoutSuspended = false;
+    if (_timeoutSuspendCount == 0) return;
+    _timeoutSuspendCount--;
+    if (_timeoutSuspendCount > 0) return;
     _armResponseTimer?.call();
   }
 
   void dispose() {
     _isDisposed = true;
     _agent = null;
-    _timeoutSuspended = false;
+    _timeoutSuspendCount = 0;
     _responseTimer?.cancel();
     _responseTimer = null;
     _armResponseTimer = null;

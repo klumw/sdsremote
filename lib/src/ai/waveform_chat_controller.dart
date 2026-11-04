@@ -5,9 +5,11 @@ import 'package:flutter/foundation.dart';
 
 import '../devices/device_agent_context.dart';
 import 'ai_settings.dart';
+import 'cancellation.dart';
 import 'capture_command.dart';
 import 'input_history.dart';
 import 'specification_upload.dart';
+import 'tools/audio/audio_tools.dart';
 import 'tools/signal_generator_tool.dart';
 import 'tools/spectrum_summary_tool.dart';
 import 'tools/vxi11_tool.dart';
@@ -15,6 +17,7 @@ import 'tools/waveform_analysis_tools.dart';
 import 'tools/waveform_fault_profile_tool.dart';
 import 'tools/waveform_fault_tool.dart';
 import 'tools/waveform_history_tool.dart';
+import 'tools/waveform_report_tool.dart';
 import 'tools/waveform_summary_tool.dart';
 import 'waveform_ai_service.dart';
 
@@ -45,13 +48,27 @@ class WaveformChatController extends ChangeNotifier {
   String? _vxi11Host;
   DeviceAgentContext? _instrumentDeviceContext;
   WaveformAcquisitionCallback? _acquireWaveform;
+  WaveformReportProvider? _createWaveformReport;
   VoidCallback? _clearMeasurementHistory;
   SignalGeneratorStatusProvider? _readSignalGeneratorStatus;
   SignalGeneratorApplyProvider? _applySignalGenerator;
   SignalGeneratorActionProvider? _controlSignalGenerator;
+  AudioAnalysisContextProvider? _audioAnalysisContext;
+  AudioSweepProvider? _audioSweep;
 
   /// Whether the current user request contains the signal-generator keyword.
   bool _signalGeneratorIntent = false;
+
+  /// Whether the previous user message contained a signal-generator keyword.
+  ///
+  /// The Waveform assistant proposes generator changes and applies them only
+  /// after confirmation. The confirmation reply usually repeats no keyword, so
+  /// the intent of the immediately preceding message remains active for one
+  /// follow-up.
+  bool _previousSignalGeneratorKeyword = false;
+
+  /// Cancellation signal for the active AI request and its sub-agents.
+  CancellationToken? _activeCancelToken;
 
   bool _isOpen = false;
   bool _isChatting = false;
@@ -102,6 +119,7 @@ class WaveformChatController extends ChangeNotifier {
     ReferenceGenerationProvider? generateReferenceWaveform,
     WaveformFaultAnalysisProvider? analyzeWaveformFaults,
     WaveformFaultProfileProvider? manageFaultProfile,
+    WaveformReportProvider? createWaveformReport,
     WaveformAcquisitionCallback? acquireWaveform,
     VoidCallback? clearMeasurementHistory,
     String? vxi11Host,
@@ -110,13 +128,18 @@ class WaveformChatController extends ChangeNotifier {
     SignalGeneratorStatusProvider? readSignalGeneratorStatus,
     SignalGeneratorApplyProvider? applySignalGenerator,
     SignalGeneratorActionProvider? controlSignalGenerator,
+    AudioAnalysisContextProvider? audioAnalysisContext,
+    AudioSweepProvider? audioSweep,
   }) {
     if (_disposed) return;
     _acquireWaveform = acquireWaveform;
+    _createWaveformReport = createWaveformReport;
     _clearMeasurementHistory = clearMeasurementHistory;
     _readSignalGeneratorStatus = readSignalGeneratorStatus;
     _applySignalGenerator = applySignalGenerator;
     _controlSignalGenerator = controlSignalGenerator;
+    _audioAnalysisContext = audioAnalysisContext;
+    _audioSweep = audioSweep;
     _instrumentDeviceContext = instrumentDeviceContext;
     final configured = settings != null && settings.isConfigured;
     if (!configured) {
@@ -159,6 +182,7 @@ class WaveformChatController extends ChangeNotifier {
       generateReferenceWaveform: generateReferenceWaveform,
       analyzeWaveformFaults: analyzeWaveformFaults,
       manageFaultProfile: manageFaultProfile,
+      createWaveformReport: _createWaveformReport,
       requestSpecUpload: requestSpecificationUpload,
       acquireWaveform: _acquireWaveformForAi,
       vxi11Host: vxi11Host,
@@ -168,6 +192,8 @@ class WaveformChatController extends ChangeNotifier {
       applySignalGenerator: _applySignalGenerator,
       controlSignalGenerator: _controlSignalGenerator,
       isSignalGeneratorIntentEnabled: () => _signalGeneratorIntent,
+      audioAnalysisContext: _audioAnalysisContext,
+      audioSweep: _audioSweep,
     );
     _service = service;
     notifyListeners();
@@ -194,11 +220,6 @@ class WaveformChatController extends ChangeNotifier {
       return;
     }
 
-    // Signal generator control is only allowed when the user explicitly
-    // prefixes the request with the keyword "Signalgenerator". The flag is
-    // read by the signal-generator tools during this request.
-    _signalGeneratorIntent = hasSignalGeneratorKeyword(trimmed);
-
     // Short capture commands read a fresh waveform without a model round
     // trip, so "Aufnahme", "record", "update" and "snapshot" always work.
     if (isCaptureCommand(trimmed)) {
@@ -206,6 +227,20 @@ class WaveformChatController extends ChangeNotifier {
       return;
     }
 
+    // Signal generator control needs an explicit keyword. The Waveform
+    // assistant proposes a generator change first and applies it only after
+    // the user confirms; the confirmation usually repeats no keyword. Keep
+    // the intent of the immediately preceding message for one follow-up so
+    // "Ja, bitte" can still apply the proposed generator change.
+    final hasSignalGeneratorKeywordInMessage = hasSignalGeneratorKeyword(
+      trimmed,
+    );
+    _signalGeneratorIntent =
+        hasSignalGeneratorKeywordInMessage || _previousSignalGeneratorKeyword;
+    _previousSignalGeneratorKeyword = hasSignalGeneratorKeywordInMessage;
+
+    final cancelToken = CancellationToken();
+    _activeCancelToken = cancelToken;
     _recordInput(trimmed);
     final generation = _generation;
     final aiMessage = <String, String>{'role': 'ai', 'content': ''};
@@ -219,7 +254,7 @@ class WaveformChatController extends ChangeNotifier {
     var receivedChunk = false;
     var hadError = false;
     final subscription = service
-        .sendMessageStream(text: trimmed)
+        .sendMessageStream(text: trimmed, cancelToken: cancelToken)
         .listen(
           (chunk) {
             if (_disposed || generation != _generation || _cancelRequested) {
@@ -248,6 +283,7 @@ class WaveformChatController extends ChangeNotifier {
     await completer.future;
     if (_subscription == subscription) _subscription = null;
     if (_sendCompleter == completer) _sendCompleter = null;
+    if (identical(_activeCancelToken, cancelToken)) _activeCancelToken = null;
     if (_disposed || generation != _generation || _cancelRequested) return;
     if (_specUpload != null) _finishSpecificationUpload(null);
     if (!receivedChunk && !hadError) {
@@ -287,6 +323,10 @@ class WaveformChatController extends ChangeNotifier {
 
   Future<void> cancel() async {
     if (_disposed || !_isChatting) return;
+    _activeCancelToken?.cancel();
+    _activeCancelToken = null;
+    _signalGeneratorIntent = false;
+    _previousSignalGeneratorKeyword = false;
     _cancelRequested = true;
     _generation++;
     final subscription = _subscription;
@@ -311,6 +351,8 @@ class WaveformChatController extends ChangeNotifier {
   /// The next request starts a fresh session without the previous turns.
   void clearSession() {
     if (_disposed) return;
+    _signalGeneratorIntent = false;
+    _previousSignalGeneratorKeyword = false;
     if (_isChatting) {
       _isChatting = false;
       _generation++;
@@ -453,6 +495,10 @@ class WaveformChatController extends ChangeNotifier {
   }
 
   void _cancelActiveRequest() {
+    _activeCancelToken?.cancel();
+    _activeCancelToken = null;
+    _signalGeneratorIntent = false;
+    _previousSignalGeneratorKeyword = false;
     if (_specUpload != null) _finishSpecificationUpload(null);
     _cancelRequested = true;
     final subscription = _subscription;

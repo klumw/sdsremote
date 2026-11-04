@@ -16,6 +16,13 @@ class AiChatService {
   /// Whether the current user message contains the signal-generator keyword.
   bool _signalGeneratorIntent = false;
 
+  /// Whether the previous user message contained the generator keyword.
+  ///
+  /// Generator changes are proposed first and applied only after confirmation.
+  /// The confirmation reply usually repeats no keyword, so the intent of the
+  /// immediately preceding message remains active for one follow-up.
+  bool _previousSignalGeneratorKeyword = false;
+
   /// The underlying [FrontendAgent] instance, if created.
   FrontendAgent? get agent => _agent;
 
@@ -58,6 +65,8 @@ class AiChatService {
 
     // Discard the old agent; it will be garbage-collected.
     _agent = null;
+    _signalGeneratorIntent = false;
+    _previousSignalGeneratorKeyword = false;
 
     final logger = AppLogger(agentName: 'AiChatService', toolName: 'configure');
     logger.debug(
@@ -110,11 +119,15 @@ class AiChatService {
     if (_isDisposed) throw Exception('Service is disposed');
 
     // The signal-generator tools only act when the user included the
-    // keyword "Signalgenerator" in this message.
-    _signalGeneratorIntent = hasSignalGeneratorKeyword(
+    // keyword in this message or confirms a previously proposed generator
+    // change in the immediately following message.
+    final hasSignalGeneratorKeywordInMessage = hasSignalGeneratorKeyword(
       text,
       includeGenericGenerator: true,
     );
+    _signalGeneratorIntent =
+        hasSignalGeneratorKeywordInMessage || _previousSignalGeneratorKeyword;
+    _previousSignalGeneratorKeyword = hasSignalGeneratorKeywordInMessage;
 
     if (_agent == null) {
       AppLogger(
@@ -156,11 +169,15 @@ class AiChatService {
       toolName: 'deactivate',
     ).debug('Service deactivated');
     _agent = null;
+    _signalGeneratorIntent = false;
+    _previousSignalGeneratorKeyword = false;
   }
 
   /// Disposes the service and releases the agent.
   void dispose() {
     _isDisposed = true;
     _agent = null;
+    _signalGeneratorIntent = false;
+    _previousSignalGeneratorKeyword = false;
   }
 }

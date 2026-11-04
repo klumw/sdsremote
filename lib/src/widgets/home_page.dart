@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
+import 'dart:typed_data';
 
 import 'dart:ui'
     as ui
@@ -65,6 +66,7 @@ import '../ai/ai_settings.dart';
 import '../ai/control_panel_chat_controller.dart';
 import '../ai/input_history.dart';
 import '../ai/macro_chat_controller.dart';
+import '../ai/tools/audio/audio_analysis_context.dart';
 import '../ai/tools/signal_generator_tool.dart';
 import '../ai/waveform_chat_controller.dart';
 import '../core/logger.dart';
@@ -91,6 +93,7 @@ import '../bode/bode_csv_writer.dart';
 import '../bode/bode_models.dart';
 import '../bode/bode_plot_service.dart';
 import '../bode/bode_report.dart';
+import '../bode/vxi11_bode_scope.dart';
 import '../signal_generator/fy6900_driver.dart';
 import '../signal_generator/fy6900_serial_transport.dart';
 import '../signal_generator/jds6600_driver.dart';
@@ -4902,12 +4905,12 @@ class _OsciHomePageState extends State<OsciHomePage>
   ///
   /// Returns the user-entered prefix, or null if the user cancelled.
   /// Returns an empty string when the flag is disabled (meaning "use default").
-  Future<String?> _askForFilenamePrefixIfNeeded() async {
+  Future<String?> _askForFilenamePrefixIfNeeded({String? initialValue}) async {
     if (!_askForFilenamePrefix) return '';
     if (!mounted) return null;
     return showDialog<String>(
       context: context,
-      builder: (_) => const FilenamePrefixDialog(),
+      builder: (_) => FilenamePrefixDialog(initialValue: initialValue),
     );
   }
 
@@ -4945,56 +4948,12 @@ class _OsciHomePageState extends State<OsciHomePage>
     try {
       final prefix = await _askForFilenamePrefixIfNeeded();
       if (prefix == null) return; // user cancelled
-      final reportBaseName = prefix.isNotEmpty ? prefix : 'waveform_report';
       final csvBaseName = prefix.isNotEmpty ? prefix : 'waveform_data';
 
-      final chartKey = _effectiveWaveformViewMode == _WaveformViewMode.spectrum
-          ? _spectrumKey
-          : _waveformKey;
-      final boundary =
-          chartKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-      if (boundary == null) throw Exception('Waveform not rendered yet');
-
-      final uiImage = await boundary.toImage(pixelRatio: 2.0);
-      final byteData = await uiImage.toByteData(
-        format: ui.ImageByteFormat.rawRgba,
-      );
-      if (byteData == null) {
-        throw Exception('Failed to capture waveform image');
-      }
-      final image = img.Image.fromBytes(
-        width: uiImage.width,
-        height: uiImage.height,
-        bytes: byteData.buffer,
-        numChannels: 4,
-      );
-
-      SpectrumResult? spectrum;
-      try {
-        spectrum = await _spectrumForReport();
-      } catch (e) {
-        AppLogger().warning('Spectrum computation for the report failed: $e');
-      }
-
-      final pdfBytes = await WaveformReport.generatePdf(
-        chartImageBytes: img.encodePng(image),
-        params: _deviceParams!,
-        measurements: _acquiredMeasurements(),
-        comparison: _comparison,
-        maskResult: _maskSettings.enabled ? _maskResult : null,
-        spectrum: spectrum,
+      final report = await _writeWaveformReportPdf(
         reportName: prefix.isEmpty ? null : prefix,
-        deviceName: _deviceName ?? _ipAddress,
       );
-
-      final reportDir = await AppPaths.getOrCreateWaveformReportsDir();
-      final reportFile = await AppPaths.getUniqueFilePath(
-        reportDir,
-        reportBaseName,
-        'pdf',
-      );
-      await reportFile.writeAsBytes(pdfBytes);
-      final reportName = reportFile.uri.pathSegments.last;
+      final reportName = report.fileName;
 
       // Build waveform CSV using the extracted pure function.
       final csvContent = buildWaveformCsv(
@@ -5023,6 +4982,120 @@ class _OsciHomePageState extends State<OsciHomePage>
     } catch (e) {
       _showErrorSnackBar('Save failed: $e');
     }
+  }
+
+  /// Creates the waveform PDF report for the Waveform Agent.
+  ///
+  /// When "Ask for filename on save" is enabled, the filename dialog is shown
+  /// before the report is written. Returns `cancelled` when the user closes
+  /// the dialog without a name.
+  Future<Map<String, dynamic>> _createWaveformReportForAi({
+    String? reportName,
+    String? analysis,
+  }) async {
+    if (!_waveformAcquired || _deviceParams == null) {
+      return {'error': 'No waveform is displayed. Acquire a waveform first.'};
+    }
+
+    final prefix = await _askForFilenamePrefixIfNeeded(
+      initialValue: reportName,
+    );
+    if (prefix == null) {
+      return {
+        'cancelled': true,
+        'error':
+            'The user cancelled the report filename dialog. No report was '
+            'saved.',
+      };
+    }
+    final effectiveReportName = prefix.isNotEmpty ? prefix : reportName;
+
+    try {
+      final report = await _writeWaveformReportPdf(
+        reportName: effectiveReportName,
+        agentAnalysis: analysis,
+      );
+      return {'saved': true, 'fileName': report.fileName, 'path': report.path};
+    } catch (e) {
+      AppLogger().warning('Waveform report for AI failed: $e');
+      return {'error': 'Report generation failed: $e'};
+    }
+  }
+
+  /// Captures the current chart and writes the waveform PDF report.
+  ///
+  /// Reused by the manual save action and by the Waveform Agent's
+  /// `create_waveform_report` tool.
+  Future<({String fileName, String path})> _writeWaveformReportPdf({
+    String? reportName,
+    String? agentAnalysis,
+  }) async {
+    final params = _deviceParams;
+    if (params == null) {
+      throw Exception('No device parameters available');
+    }
+
+    final chartKey = _effectiveWaveformViewMode == _WaveformViewMode.spectrum
+        ? _spectrumKey
+        : _waveformKey;
+    final boundary =
+        chartKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+    if (boundary == null) throw Exception('Waveform not rendered yet');
+
+    final uiImage = await boundary.toImage(pixelRatio: 2.0);
+    final byteData = await uiImage.toByteData(
+      format: ui.ImageByteFormat.rawRgba,
+    );
+    if (byteData == null) {
+      throw Exception('Failed to capture waveform image');
+    }
+    final image = img.Image.fromBytes(
+      width: uiImage.width,
+      height: uiImage.height,
+      bytes: byteData.buffer,
+      numChannels: 4,
+    );
+
+    SpectrumResult? spectrum;
+    try {
+      spectrum = await _spectrumForReport();
+    } catch (e) {
+      AppLogger().warning('Spectrum computation for the report failed: $e');
+    }
+
+    final pdfBytes = await WaveformReport.generatePdf(
+      chartImageBytes: img.encodePng(image),
+      params: params,
+      measurements: _acquiredMeasurements(),
+      comparison: _comparison,
+      maskResult: _maskSettings.enabled ? _maskResult : null,
+      spectrum: spectrum,
+      agentAnalysis: agentAnalysis,
+      reportName: reportName,
+      deviceName: _deviceName ?? _ipAddress,
+    );
+
+    final reportDir = await AppPaths.getOrCreateWaveformReportsDir();
+    final reportFile = await AppPaths.getUniqueFilePath(
+      reportDir,
+      _reportBaseName(reportName),
+      'pdf',
+    );
+    await reportFile.writeAsBytes(pdfBytes);
+    return (fileName: reportFile.uri.pathSegments.last, path: reportFile.path);
+  }
+
+  /// Returns a safe file-name prefix for the waveform report.
+  static String _reportBaseName(String? reportName) {
+    final trimmed = reportName?.trim() ?? '';
+    if (trimmed.isEmpty) return 'waveform_report';
+    final safe = trimmed
+        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
+        .replaceAll(RegExp(r'\s+'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    if (safe.isEmpty) return 'waveform_report';
+    return safe.length > 80 ? safe.substring(0, 80) : safe;
   }
 
   /// Acquired waveform channels with their display points.
@@ -5466,12 +5539,15 @@ class _OsciHomePageState extends State<OsciHomePage>
       generateReferenceWaveform: _generateWaveformReferenceForAi,
       analyzeWaveformFaults: _analyzeWaveformFaultsForAi,
       manageFaultProfile: _manageFaultAnalysisProfileForAi,
+      createWaveformReport: _createWaveformReportForAi,
       clearMeasurementHistory: _clearMeasurementHistory,
       vxi11Host: _ipAddress,
       instrumentDeviceContext: _sdsDeviceContext,
       readSignalGeneratorStatus: _readSignalGeneratorStatusForAi,
       applySignalGenerator: _applySignalGeneratorForAi,
       controlSignalGenerator: _controlSignalGeneratorForAi,
+      audioAnalysisContext: _audioAnalysisContextForAi,
+      audioSweep: _audioSweepForAi,
     );
   }
 
@@ -6127,6 +6203,194 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// The analysis runs on the complete raw acquisition, not on the decimated
   /// display copy. A background isolate keeps the UI responsive for long
   /// records.
+  /// Builds the audio analysis snapshot for the AudioAgent.
+  ///
+  /// The snapshot contains every acquired channel as a uniformly sampled
+  /// voltage record. The known leading acquisition artifact is removed and
+  /// the full scale is derived from V/div, matching the spectrum analysis.
+  AudioAnalysisContext? _audioAnalysisContextForAi() {
+    final raw = _lastRawData;
+    if (!_waveformAcquired || raw == null) return null;
+    final channels = <String, AudioChannelData>{};
+    for (final id in const ['ch1', 'ch2', 'ch3', 'ch4']) {
+      final bytes = switch (id) {
+        'ch1' => raw.ch1Raw,
+        'ch2' => raw.ch2Raw,
+        'ch3' => raw.ch3Raw,
+        'ch4' => raw.ch4Raw,
+        _ => null,
+      };
+      final vdiv = _rawVdiv(raw, id);
+      final voffset = _rawVoffset(raw, id);
+      if (bytes == null || bytes.isEmpty || vdiv == null || voffset == null) {
+        continue;
+      }
+      final voltages = WaveformConverter.convertVoltages(bytes, vdiv, voffset);
+      const leadingSamplesToSkip = 8;
+      final start = voltages.length > leadingSamplesToSkip * 4
+          ? leadingSamplesToSkip
+          : 0;
+      final count = voltages.length - start;
+      if (count < 16) continue;
+      final samples = Float64List(count);
+      for (var i = 0; i < count; i++) {
+        samples[i] = voltages[start + i];
+      }
+      channels[id] = AudioChannelData(
+        label: id,
+        samples: samples,
+        sampleRateHz: raw.effectiveSampleRate,
+        fullScaleVolts: 128.0 * vdiv / 25.0,
+        verticalScaleVoltsPerDiv: vdiv,
+        verticalOffsetVolts: voffset,
+        leadingSamplesRemoved: start,
+      );
+    }
+    if (channels.isEmpty) return null;
+    return AudioAnalysisContext(
+      channels: channels,
+      deviceName: _deviceName ?? _ipAddress,
+      adcBits: 8,
+    );
+  }
+
+  /// Runs a Bode sweep for the AudioAgent's sweep-based tools.
+  ///
+  /// The sweep uses a dedicated service so the Bode panel keeps its own
+  /// state. The generator detector and panel are paused during the sweep,
+  /// and the service restores the scope state in its own cleanup path.
+  ///
+  /// Throws [AudioSweepException] with the concrete cause when the sweep
+  /// cannot run, so the audio tools can report the missing prerequisite
+  /// instead of a generic "not available" message.
+  Future<AudioSweepData?> _audioSweepForAi(AudioSweepRequest request) async {
+    final generator = _sigGenService;
+    if (generator == null) {
+      throw const AudioSweepException(
+        'The signal generator is not configured. Select a JDS6600 or FY6900 '
+        'in the settings before starting a Bode sweep.',
+        code: 'SWEEP_NO_GENERATOR',
+      );
+    }
+    if (!generator.isConnected) {
+      throw const AudioSweepException(
+        'The signal generator is not connected. Check its USB connection and '
+        'the selected serial port, then retry the sweep.',
+        code: 'SWEEP_GENERATOR_OFFLINE',
+      );
+    }
+    if (_bodeIsRunning) {
+      throw const AudioSweepException(
+        'Another Bode sweep is already running. Wait for it to finish, then '
+        'retry the sweep.',
+        code: 'SWEEP_BUSY',
+      );
+    }
+    final cancelToken = request.cancelToken;
+    if (cancelToken?.isCancelled == true) {
+      throw const AudioSweepException(
+        'The Bode sweep was cancelled.',
+        code: 'SWEEP_CANCELLED',
+      );
+    }
+    final requestedPoints = request.pointCount;
+    final points = requestedPoints.clamp(2, 50).toInt();
+    final service = BodePlotService(
+      signalGenerator: generator,
+      scope: Vxi11BodeScope(_getInstrument),
+    );
+    void stopSweep() {
+      unawaited(service.stop());
+    }
+
+    cancelToken?.addListener(stopSweep);
+    _bodeIsRunning = true;
+    _sigGenDetector?.setPaused(true);
+    generator.setPanelActive(false);
+    if (mounted) setState(() {});
+    try {
+      await service.start(
+        BodeConfig(
+          startFrequencyHz: request.startFrequencyHz,
+          stopFrequencyHz: request.stopFrequencyHz,
+          pointCount: points,
+          measurePhase: request.measurePhase,
+          amplitudeVpp: 1,
+          offsetV: 0,
+          waveform: Jds6600Waveform.sine,
+          settling: const Duration(milliseconds: 1000),
+          vinChannel: 1,
+          voutChannel: 2,
+          generatorChannel: 1,
+          turnOffOutputsAfterSweep: true,
+        ),
+      );
+      if (service.status == BodeStatus.error) {
+        throw AudioSweepException(
+          service.errorMessage ?? 'The Bode sweep failed.',
+          code: 'SWEEP_FAILED',
+          hint:
+              'The sweep needs a connected signal generator, the generator '
+              'signal on CH1 (Vin), the DUT output on CH2 (Vout), and both '
+              'channel traces enabled on the oscilloscope.',
+        );
+      }
+      if (service.status == BodeStatus.cancelled) {
+        throw const AudioSweepException(
+          'The Bode sweep was cancelled.',
+          code: 'SWEEP_CANCELLED',
+        );
+      }
+      if (service.status != BodeStatus.completed) {
+        throw AudioSweepException(
+          'The Bode sweep did not complete (status: ${service.status.name}).',
+          code: 'SWEEP_INCOMPLETE',
+        );
+      }
+      if (service.points.isEmpty) {
+        throw const AudioSweepException(
+          'The Bode sweep completed without any measurement points.',
+          code: 'SWEEP_EMPTY',
+        );
+      }
+      return AudioSweepData(
+        points: [
+          for (final point in service.points)
+            AudioSweepPoint(
+              frequencyHz: point.frequencyHz,
+              gainDb: point.gainDb,
+              phaseDeg: point.phaseDeg,
+              vinRms: point.vinRms,
+              voutRms: point.voutRms,
+              valid: point.valid,
+              note: point.note,
+            ),
+        ],
+        source: 'bode_sweep',
+        configSummary:
+            '${request.startFrequencyHz}…${request.stopFrequencyHz} Hz, '
+            '$points points'
+            '${points != requestedPoints ? ' (clamped from $requestedPoints)' : ''}, '
+            'phase=${request.measurePhase}',
+      );
+    } on AudioSweepException {
+      rethrow;
+    } on Object catch (error) {
+      AppLogger().warning('Audio sweep for AI failed: $error');
+      throw AudioSweepException(
+        'The Bode sweep failed: $error',
+        code: 'SWEEP_FAILED',
+      );
+    } finally {
+      cancelToken?.removeListener(stopSweep);
+      _bodeIsRunning = false;
+      _sigGenDetector?.setPaused(false);
+      generator.setPanelActive(_sigGenWindowOpen);
+      service.dispose();
+      if (mounted) setState(() {});
+    }
+  }
+
   Future<Map<String, dynamic>> _analyzeWaveformFaultsForAi({
     required List<String> tests,
     String? channel,

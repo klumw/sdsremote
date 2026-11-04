@@ -1,7 +1,7 @@
 /// AI tool exposing the standard logic-level reference table.
 ///
-/// The table is static and comes from the German Wikipedia article
-/// "Logikpegel". The tool never measures a signal and never invents values.
+/// The table is static and built into the application. The tool never measures
+/// a signal and never invents values.
 library;
 
 import 'package:dartantic_ai/dartantic_ai.dart';
@@ -16,8 +16,8 @@ Tool<Map<String, dynamic>> createLogicLevelReferenceTool({
   return Tool<Map<String, dynamic>>(
     name: 'read_logic_level_reference',
     description:
-        'Returns the standard logic-level reference table from Wikipedia '
-        '"Logikpegel" for TTL 5 V, CMOS 5 V, LVTTL 3.3 V, CMOS 2.5 V, '
+        'Returns the built-in standard logic-level reference table for TTL '
+        '5 V, CMOS 5 V, LVTTL 3.3 V, CMOS 2.5 V, '
         'CMOS 1.8 V, ECL, RS-232 and HTL 10…30 V. Each entry contains the '
         'input thresholds VIL max / VIH min and the output levels '
         'VOL max / VOH min (or ranges for RS-232 and supply-scaled formulas '
@@ -32,8 +32,8 @@ Tool<Map<String, dynamic>> createLogicLevelReferenceTool({
         'levels and the edge times as rise/fall limits for '
         'analyze_waveform_faults: convert absolute ns limits to seconds, and '
         'multiply a ns/V slope by the actual voltage swing. Never invent '
-        'logic levels or edge times. The source of the logic levels is quoted '
-        'in the result; the edge times are marked as user-provided values. '
+        'logic levels or edge times. The result names the reference source; '
+        'the edge times are marked as user-provided values. '
         'For ESP32-family signals pass `esp32Variant` (esp32, esp32_s2, '
         'esp32_s3 or esp32_c3_c6) and the actual `supplyVolts` (VDD); the '
         'result contains supply-scaled VIL/VIH/VOL/VOH, drive currents, '
@@ -88,11 +88,10 @@ Tool<Map<String, dynamic>> createLogicLevelReferenceTool({
 }
 
 Map<String, dynamic> _fullTable() => <String, dynamic>{
-  'source': logicLevelSourceUrl,
-  'sourceTitle': logicLevelSourceTitle,
+  'source': logicLevelSource,
   'unit': 'V',
   'note':
-      'Values from the Wikipedia table "gängige Logikpegel" (all values in '
+      'Values from the standard logic-level reference table (all values in '
       'volts). VIL/VIH are input thresholds; VOL/VOH are output levels. '
       'Levels between VIL and VIH are forbidden. HTL values are formulas '
       'until a supply voltage is provided.',
@@ -165,8 +164,7 @@ Map<String, dynamic> _selectedStandard(String id, double? supplyVolts) {
   final assumedSupply = isHtl && supplyVolts == null ? 24.0 : null;
   final effectiveSupply = isHtl ? supplyVolts ?? assumedSupply : null;
   return <String, dynamic>{
-    'source': logicLevelSourceUrl,
-    'sourceTitle': logicLevelSourceTitle,
+    'source': logicLevelSource,
     'unit': 'V',
     'standard': standard.toMap(supplyVolts: effectiveSupply),
     ..._edgeTimeSection(),

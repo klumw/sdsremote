@@ -73,6 +73,9 @@ class InstrumentAgent with MaxToolCallsHandler {
   /// Whether the signal-generator tools are part of this agent.
   final bool _hasSignalGeneratorTools;
 
+  /// Combines the user's keyword with an autonomous audio grant.
+  final _GeneratorAccessGate _generatorGate;
+
   DeviceAgentContext? _deviceContext;
 
   /// Maximum number of tool calls allowed per user input.
@@ -121,6 +124,7 @@ class InstrumentAgent with MaxToolCallsHandler {
   }) {
     final gate =
         commandGate ?? DeviceCommandGate(deviceContext, vxi11Host != null);
+    final generatorGate = _GeneratorAccessGate(isSignalGeneratorIntentEnabled);
     final hasSignalGeneratorTools =
         readSignalGeneratorStatus != null &&
         applySignalGenerator != null &&
@@ -174,19 +178,19 @@ class InstrumentAgent with MaxToolCallsHandler {
       if (readSignalGeneratorStatus != null)
         createReadSignalGeneratorStatusTool(
           readStatus: readSignalGeneratorStatus,
-          isEnabled: isSignalGeneratorIntentEnabled,
+          isEnabled: generatorGate.isEnabled,
           agentName: 'InstrumentAgent',
         ),
       if (applySignalGenerator != null)
         createSetSignalGeneratorTool(
           apply: applySignalGenerator,
-          isEnabled: isSignalGeneratorIntentEnabled,
+          isEnabled: generatorGate.isEnabled,
           agentName: 'InstrumentAgent',
         ),
       if (controlSignalGenerator != null)
         createSignalGeneratorActionTool(
           control: controlSignalGenerator,
-          isEnabled: isSignalGeneratorIntentEnabled,
+          isEnabled: generatorGate.isEnabled,
           agentName: 'InstrumentAgent',
         ),
       ...?tools,
@@ -199,6 +203,7 @@ class InstrumentAgent with MaxToolCallsHandler {
       systemPrompt: prompt,
       ownsSystemPrompt: systemPrompt == null,
       hasSignalGeneratorTools: hasSignalGeneratorTools,
+      generatorGate: generatorGate,
       maxToolCalls: maxToolCalls,
     );
   }
@@ -211,11 +216,13 @@ class InstrumentAgent with MaxToolCallsHandler {
     required String systemPrompt,
     required bool ownsSystemPrompt,
     required bool hasSignalGeneratorTools,
+    required _GeneratorAccessGate generatorGate,
     required this.maxToolCalls,
   }) : _deviceContext = deviceContext,
        _commandGate = commandGate,
        _ownsSystemPrompt = ownsSystemPrompt,
        _hasSignalGeneratorTools = hasSignalGeneratorTools,
+       _generatorGate = generatorGate,
        _tools = List.unmodifiable(agentTools),
        _agent = Agent(
          model,
@@ -248,6 +255,16 @@ class InstrumentAgent with MaxToolCallsHandler {
 
   /// The active device context, if one is bound.
   DeviceAgentContext? get deviceContext => _deviceContext;
+
+  /// Allows signal-generator changes for the duration of an autonomous audio
+  /// analysis.
+  ///
+  /// The Waveform Agent asks once whether the audio measurements may make the
+  /// scope and generator changes they need. The AudioAgent enables this grant
+  /// while it runs; afterwards the regular keyword gate applies again.
+  void setAutonomousGeneratorAccess(bool granted) {
+    _generatorGate.autonomous = granted;
+  }
 
   /// The display name of the agent.
   String get displayName => _agent.displayName;
@@ -322,4 +339,21 @@ class InstrumentAgent with MaxToolCallsHandler {
       _history.removeRange(1, _history.length);
     }
   }
+}
+
+/// Combines the user's signal-generator keyword with an autonomous grant.
+class _GeneratorAccessGate {
+  _GeneratorAccessGate(this._userIntent) {
+    isEnabled = _userIntent == null ? null : () => autonomous || _userIntent();
+  }
+
+  final SignalGeneratorIntentCheck? _userIntent;
+
+  /// Gate passed to the signal-generator tools.
+  ///
+  /// Null keeps the tools ungated, matching a host that provides no check.
+  late final SignalGeneratorIntentCheck? isEnabled;
+
+  /// Whether the AudioAgent received one-time autonomous permission.
+  bool autonomous = false;
 }

@@ -119,6 +119,9 @@ class BodePlotService extends ChangeNotifier {
   }
 
   Future<void> _run(BodeConfig config) async {
+    // A cancellation can arrive before the first point. Do not touch the
+    // generator or the scope in that case.
+    _throwIfStopped();
     final frequencies = buildFrequencyPoints(config);
     final generator = signalGenerator;
     final channel = config.generatorChannel;

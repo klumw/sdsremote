@@ -189,7 +189,7 @@ Two toggle switches control default export behavior across the application:
 * **Save CSV data** — When enabled, waveform acquisitions and data logger recordings automatically export a companion CSV file alongside the primary output (PDF report).  
   CSV files contain raw numerical data suitable for import into spreadsheet applications or analysis tools.  
   When disabled, only the primary output format is saved.
-* **Ask for filename on save** — When enabled, a dialog prompts for a custom filename prefix before each save operation.  
+* **Ask for filename on save** — When enabled, a dialog prompts for a custom filename prefix before each save operation, including PDF reports created by the Waveform AI assistant.
   When disabled, default prefixes are used (e.g. `screen_dump`, `waveform`, `data_logging_report`).  
   A numeric suffix is always appended to avoid overwriting existing files, regardless of this setting.
 
@@ -374,7 +374,7 @@ The device response (for queries) is returned verbatim.
 
 When a JDS6600 or FY6900 is configured and connected, the AI Chat can also control the separate signal generator. The request must contain a signal-generator keyword: **Signal Generator**, **Signal Source**, **Function Generator**, **Frequency Generator**, **Waveform Generator**, **Test Signal Generator**, **Signal Synthesizer**, **SignalGen**, **siggen** or **WaveGen**. In the AI Chat the bare word **Generator** is also accepted. For example: “Signal Generator frequency channel 1 10 kHz”. Without a keyword the AI Chat treats the request as an oscilloscope command or asks for clarification.
 
-With a keyword the AI Chat applies the requested settings immediately — the keyword is the confirmation — and supports channel 1/2, frequency, amplitude (Vpp), DC offset, waveform, duty cycle, phase and output on/off, reading the current settings and device limits, resetting both channels to safe defaults and stopping a running modulation or sweep. The Waveform assistant supports the same generator control with the same keyword rule ([8.12 AI Assistant](#812-ai-assistant)).
+With a keyword the AI Chat applies the requested settings immediately — the keyword is the confirmation — and supports channel 1/2, frequency, amplitude (Vpp), DC offset, waveform, duty cycle, phase and output on/off, reading the current settings and device limits, resetting both channels to safe defaults and stopping a running modulation or sweep. The Waveform assistant supports the same generator control, but requires the normal confirmation step before applying a change ([8.12 AI Assistant](#812-ai-assistant)).
 
 Waveform names are validated against the active device profile. A name that the selected generator does not support is rejected with a clear message instead of being guessed. The one documented exception is the FY6900 cross-model mapping: JDS6600-only names map to the closest FY6900 preset, and PULS on channel 2 becomes RECT. The assistant reports the requested and the actual name.
 
@@ -1494,17 +1494,27 @@ The assistant answers questions about the current acquisition from the available
 
 Example questions: “Which channel has the lowest THD?”, “What kind of waveform is this?”, “Compare this signal with a sine wave”, “Does this look like a PWM signal?”, “Which reference matches best?”, “How similar are CH1 and CH2?”, “Acquire a new waveform and compare it with the previous one”.
 
+#### Measurement Report
+
+When a waveform is displayed, the assistant can create the existing PDF measurement report. Before saving, it asks whether a PDF report should be created and waits for confirmation. The report contains the chart image, the automatic time-domain measurements, the spectrum analysis, the device parameters, the reference comparison and the mask result. The assistant may add a short plain-text **Agent Analysis** section with its findings; this section is always written in English. If the **Ask for filename on save** setting is enabled, the filename dialog opens and the user can enter the report file name; cancelling the dialog prevents the save. Otherwise the report is saved to `waveform/reports/` and the assistant reports the file name. Without a displayed waveform the assistant asks the user to acquire one first.
+
+#### Audio Measurements
+
+Audio-specific requests are delegated to an AudioAgent sub-agent. This covers level, RMS/peak, clipping, DC offset, THD, THD+N, SINAD, harmonics, intermodulation, distortion, SNR, noise floor, crest factor, hum, interference, spectral peaks, bandwidth, rise/fall time, phase, delay, transients, dropout, stability, crosstalk, dynamic range, gain, frequency response, phase response, group delay, sweeps and coherence.
+
+The assistant asks once whether the audio measurements may run autonomously, including the necessary oscilloscope/generator changes and Bode sweeps. After confirmation the AudioAgent runs all needed measurements, may change scope or generator settings, can acquire a fresh waveform and can start a Bode sweep. Without permission it performs read-only measurements and proposes the required change instead. The structured result is returned to the Waveform AI, which presents the summary and measurement values in the user's language. Cancelling the assistant request stops the audio analysis and a running Bode sweep immediately. Several sweep-based measurements within one request share a single Bode sweep.
+
 #### Acquisition
 
 The assistant can start a new acquisition immediately or after a requested delay of up to 600 seconds. A combined request such as “acquire in 10 seconds and then measure Vpp on CH2” is answered from the measurements returned with the capture. Pressing Stop cancels a pending delayed acquisition. The capture commands `record`, `update` and `snapshot` start an immediate acquisition without a model round trip ([4.2 AI Chat Interface](#42-ai-chat-interface)).
 
 #### Oscilloscope Control
 
-Read-only queries, such as the current volts/div or a live measurement, are executed immediately. Every setting change is first proposed with the exact channel, parameter and new value and is applied only after confirmation. After a confirmed change the assistant verifies the value with a read-back query and starts a fresh acquisition. A message that starts with **Scope** or **Oscilloscope** is an explicit oscilloscope command; the keyword counts as confirmation.
+Read-only queries, such as the current volts/div or a live measurement, are executed immediately. Every setting change is first proposed with the exact channel, parameter and new value and is applied only after confirmation. After a confirmed change the assistant verifies the value with a read-back query and starts a fresh acquisition. A message that starts with **Scope**, **Oscilloscope**, **Oszi** or **Oszilloskop** is routed as an oscilloscope command, but the keyword does not replace the confirmation step.
 
 #### Signal Generator Commands
 
-When a JDS6600 or FY6900 is configured and connected, the assistant can control the signal generator under the same keyword rule as the AI Chat, except that the bare word **Generator** is not accepted ([4.3 Signal Generator Control](#signal-generator-control)). Without a signal-generator keyword, a request such as “frequency on channel 1” refers to the oscilloscope.
+When a JDS6600 or FY6900 is configured and connected, the assistant can control the signal generator under the same routing rule as the AI Chat, except that the bare word **Generator** is not accepted ([4.3 Signal Generator Control](#signal-generator-control)). The generator keyword selects the generator but does not replace the confirmation step. Without a signal-generator keyword, a request such as “frequency on channel 1” refers to the oscilloscope.
 
 #### Fault Analysis
 

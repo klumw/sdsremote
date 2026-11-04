@@ -5,7 +5,13 @@ import 'package:flutter/material.dart';
 /// Only allows [a-zA-Z0-9_-], max 30 characters.
 /// Returns the entered prefix on confirm, or null on cancel.
 class FilenamePrefixDialog extends StatefulWidget {
-  const FilenamePrefixDialog({super.key});
+  const FilenamePrefixDialog({super.key, this.initialValue});
+
+  /// Optional value pre-filled into the text field.
+  ///
+  /// Characters outside `[a-zA-Z0-9_-]` are replaced with underscores and the
+  /// value is limited to 30 characters.
+  final String? initialValue;
 
   @override
   State<FilenamePrefixDialog> createState() => _FilenamePrefixDialogState();
@@ -20,7 +26,19 @@ class _FilenamePrefixDialogState extends State<FilenamePrefixDialog> {
   @override
   void initState() {
     super.initState();
-    _controller = TextEditingController();
+    _controller = TextEditingController(
+      text: _normalizeInitialValue(widget.initialValue),
+    );
+  }
+
+  static String _normalizeInitialValue(String? value) {
+    final trimmed = value?.trim() ?? '';
+    if (trimmed.isEmpty) return '';
+    final safe = trimmed
+        .replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_')
+        .replaceAll(RegExp(r'_+'), '_')
+        .replaceAll(RegExp(r'^_+|_+$'), '');
+    return safe.length > 30 ? safe.substring(0, 30) : safe;
   }
 
   @override
