@@ -522,7 +522,8 @@ Tool<Map<String, dynamic>> _analyzeFrequencySweep(
     description:
         'Runs one Bode/frequency sweep and returns the complete analysis: '
         'gain peak, −3 dB crossings, bandwidth, Q factor, unity crossover, '
-        'phase range, group-delay statistics and the measured points. Use it '
+        'phase range, group-delay statistics and a representative sample of '
+        'the measured points (at most 8 per series). Use it '
         'when the user asks for the overall frequency response, phase '
         'response and delay in one step.',
     properties: {
@@ -584,29 +585,29 @@ Tool<Map<String, dynamic>> _analyzeFrequencySweep(
           'minDelaySeconds': groupDelay.minDelaySeconds,
           'maxDelaySeconds': groupDelay.maxDelaySeconds,
         },
-        'gainPoints': [
+        'gainPoints': _samplePoints([
           for (final point in data.points)
             {
               'frequencyHz': point.frequencyHz,
               'gainDb': point.gainDb,
               'valid': point.valid,
             },
-        ],
-        'phasePoints': [
+        ]),
+        'phasePoints': _samplePoints([
           for (final point in phase.points)
             {
               'frequencyHz': point.frequencyHz,
               'phaseDeg': point.phaseDeg,
               'unwrappedPhaseDeg': point.unwrappedPhaseDeg,
             },
-        ],
-        'groupDelayPoints': [
+        ]),
+        'groupDelayPoints': _samplePoints([
           for (final point in groupDelay.points)
             {
               'frequencyHz': point.frequencyHz,
               'delaySeconds': point.delaySeconds,
             },
-        ],
+        ]),
         'notes': analysis.notes,
         'method': 'bode_sweep_full_analysis',
       };
@@ -724,4 +725,14 @@ String? _validateSweep(double start, double stop, int points) {
     return 'pointCount must be between 2 and 200.';
   }
   return null;
+}
+
+/// Returns at most [maxPoints] evenly spaced entries from [points].
+///
+/// The full sweep curve stays in the app; the AI result only needs a compact
+/// sample so the agent does not echo every point into its final submission.
+List<T> _samplePoints<T>(List<T> points, {int maxPoints = 8}) {
+  if (points.length <= maxPoints) return points;
+  final step = (points.length - 1) / (maxPoints - 1);
+  return [for (var i = 0; i < maxPoints; i++) points[(i * step).round()]];
 }

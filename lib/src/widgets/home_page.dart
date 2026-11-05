@@ -6499,6 +6499,10 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
     final requestedPoints = request.pointCount;
     final points = requestedPoints.clamp(2, 50).toInt();
+    // The sweep changes the generator's CH1 waveform, frequency, amplitude and
+    // offset. Snapshot them so the host can restore them without a separate
+    // agent tool round trip after the sweep.
+    final ch1Before = generator.ch1;
     final service = BodePlotService(
       signalGenerator: generator,
       scope: Vxi11BodeScope(_getInstrument),
@@ -6590,6 +6594,19 @@ class _OsciHomePageState extends State<OsciHomePage>
       _bodeIsRunning = false;
       _sigGenDetector?.setPaused(false);
       generator.setPanelActive(_sigGenWindowOpen);
+      // Restore the pre-sweep CH1 parameters here so the agent does not need
+      // an extra generator tool call after the sweep. Outputs stay off for
+      // safety (the sweep config above uses turnOffOutputsAfterSweep).
+      try {
+        await generator.setWaveform(1, ch1Before.waveform);
+        await generator.setAmplitude(1, ch1Before.amplitudeVpp);
+        await generator.setOffset(1, ch1Before.offsetV);
+        await generator.setFrequency(1, ch1Before.frequencyHz);
+      } on Object catch (error) {
+        AppLogger().warning(
+          'Generator restore after Bode sweep failed: $error',
+        );
+      }
       service.dispose();
       if (mounted) setState(() {});
     }

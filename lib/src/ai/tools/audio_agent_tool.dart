@@ -42,12 +42,16 @@ Tool<Map<String, dynamic>> createAudioAnalysisAgentTool({
         'oscilloscope/generator changes and sweeps. Pass `autonomous: true` '
         'only after that permission. The result contains `summary`, '
         '`measurements`, `warnings`, `limitations`, `toolsUsed`, '
-        '`requestedAction` and `needsInput`. Present the summary and '
-        'measurement values faithfully in the user\'s language; never invent '
-        'or recalculate them. If `requestedAction` or `needsInput` is '
-        'present, relay it to the user and call the tool again after the '
-        'answer. If the result contains `error`, relay it and do not invent a '
-        'measurement. Call it at most twice per user request.',
+        '`requestedAction` and `needsInput`. After a frequency sweep it also '
+        'contains `sweepPoints` with the complete measured list '
+        '(frequencyHz, gainDb, phaseDeg). Present every point from '
+        '`sweepPoints` unless the user chose a shortened view. Present the '
+        'summary and measurement values faithfully in the user\'s language; '
+        'never invent or recalculate them. If `requestedAction` or '
+        '`needsInput` is present, relay it to the user and call the tool '
+        'again after the answer. If the result contains `error`, relay it '
+        'and do not invent a measurement. Call it at most twice per user '
+        'request.',
     inputSchema: Schema.fromMap({
       'type': 'object',
       'properties': {

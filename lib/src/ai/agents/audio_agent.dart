@@ -41,6 +41,7 @@ class AudioAgent {
   final List<Map<String, dynamic>> _partialResults = <Map<String, dynamic>>[];
   AudioSweepData? _cachedSweep;
   String? _cachedSweepKey;
+  bool _sweepUsedInAnalysis = false;
   CancellationToken? _activeCancelToken;
   bool _analysisCancelled = false;
 
@@ -150,6 +151,7 @@ class AudioAgent {
 
     _lastSubmission = null;
     _partialResults.clear();
+    _sweepUsedInAnalysis = false;
     _activeCancelToken = cancelToken;
     final logger = AppLogger(agentName: 'AudioAgent', toolName: 'analyze');
     logger.log(
@@ -204,8 +206,30 @@ class AudioAgent {
       };
     } on Object catch (error) {
       logger.error('Audio analysis failed: $error');
+      final partial = _partialResults.length > 12
+          ? _partialResults.sublist(_partialResults.length - 12)
+          : List<Map<String, dynamic>>.of(_partialResults);
+      if (partial.isEmpty) {
+        return <String, dynamic>{
+          'error': 'The AudioAgent request failed ($error).',
+        };
+      }
+      // A malformed structured submission (for example an unescaped quote in
+      // a JSON string) must not discard measurements that already completed:
+      // returning the recorded tool results lets the Waveform Agent present
+      // the sweep without re-running it.
       return <String, dynamic>{
-        'error': 'The AudioAgent request failed ($error).',
+        'ok': false,
+        'error':
+            'The AudioAgent could not encode its structured result ($error).',
+        'partialResults': partial,
+        'limitations': const [
+          'The structured submission failed; the values below come from the '
+              'completed tool calls and were not re-measured.',
+        ],
+        'needsInput':
+            'Present the completed measurements from partialResults and ask '
+            'whether the remaining analysis should be continued.',
       };
     } finally {
       cancelToken?.removeListener(cancelAnalysis);
@@ -253,7 +277,24 @@ class AudioAgent {
     return <String, dynamic>{
       'ok': submission['error'] == null,
       ...submission,
-      if (response.isNotEmpty) 'response': response,
+      // The host attaches the complete sweep so the Waveform Agent can show
+      // every measured point, independent of how compact the model's
+      // submission is.
+      if (_sweepUsedInAnalysis &&
+          _cachedSweep != null &&
+          _cachedSweep!.configSummary != null)
+        'sweepConfig': _cachedSweep!.configSummary,
+      if (_sweepUsedInAnalysis && _cachedSweep != null)
+        'sweepPoints': [
+          for (final point in _cachedSweep!.points)
+            {
+              'frequencyHz': point.frequencyHz,
+              if (point.gainDb != null) 'gainDb': point.gainDb,
+              if (point.phaseDeg != null) 'phaseDeg': point.phaseDeg,
+              if (!point.valid) 'valid': false,
+              if (point.note != null) 'note': point.note,
+            },
+        ],
       'autonomous': autonomous,
       'availableChannels': context.availableChannels,
       if (requestedChannel != null && requestedChannel.isNotEmpty)
@@ -289,6 +330,7 @@ class AudioAgent {
       );
     }
     final points = request.pointCount.clamp(2, 50).toInt();
+    _sweepUsedInAnalysis = true;
     final effective = AudioSweepRequest(
       startFrequencyHz: request.startFrequencyHz,
       stopFrequencyHz: request.stopFrequencyHz,
@@ -375,7 +417,12 @@ class AudioAgent {
           'Submits the final structured audio analysis to the Waveform '
           'Agent. Call it exactly once after all measurements are complete. '
           'Include one measurement entry per reported metric with its unit, '
-          'channel and method. Do not dump raw tool output. If the request '
+          'channel and method; use at most 10 entries. For a sweep report '
+          'the aggregate gain/phase/bandwidth/Q metrics; the host attaches '
+          'the complete point list separately as sweepPoints, so never add '
+          'one entry per sweep point. Keep all '
+          'strings short and free of quotation marks so the JSON encoding '
+          'stays valid. Do not dump raw tool output. If the request '
           'cannot be completed, set `error` or `needsInput` and explain the '
           'limitation. The summary must be in the language of the audio '
           'request.',

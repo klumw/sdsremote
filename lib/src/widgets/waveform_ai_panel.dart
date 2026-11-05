@@ -6,6 +6,7 @@ import '../ai/waveform_chat_controller.dart';
 import '../app/app_theme.dart';
 import '../voice/voice_input_binding.dart';
 import '../voice/voice_input_service.dart';
+import 'chat_choice_prompt.dart';
 import 'osci_chat_window.dart';
 
 /// Sliding AI side panel of the Acquire Waveform view.
@@ -107,6 +108,13 @@ class _WaveformAiPanelState extends State<WaveformAiPanel> {
               // request_specification_upload.
               if (_chat.isSpecificationUploadVisible)
                 _buildSpecificationUpload(),
+              // Reusable radio-button question, shown while an AI tool waits
+              // for a structured answer (for example the permission prompt).
+              if (_chat.choicePrompt.isVisible)
+                ChatChoicePrompt(
+                  request: _chat.choicePrompt.request!,
+                  onSelect: _chat.choicePrompt.selectAndSubmit,
+                ),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(6, 2, 6, 6),

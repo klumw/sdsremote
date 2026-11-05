@@ -141,7 +141,6 @@ class BodePlotService extends ChangeNotifier {
       voutChannel: config.voutChannel,
       measurePhase: config.measurePhase,
     );
-    await _settle(effectiveSettling(config, first));
     _throwIfStopped();
 
     var autoSetCount = 0;

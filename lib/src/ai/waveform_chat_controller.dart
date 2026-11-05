@@ -7,6 +7,7 @@ import '../devices/device_agent_context.dart';
 import 'ai_settings.dart';
 import 'cancellation.dart';
 import 'capture_command.dart';
+import 'chat_choice.dart';
 import 'input_history.dart';
 import 'specification_upload.dart';
 import 'tools/audio/audio_tools.dart';
@@ -36,13 +37,21 @@ class WaveformChatController extends ChangeNotifier {
     SpecificationTextExtractor? textExtractor,
   }) : _serviceFactory = serviceFactory ?? WaveformAiService.new,
        _filePicker = filePicker ?? pickSpecificationFile,
-       _textExtractor = textExtractor ?? extractSpecificationText;
+       _textExtractor = textExtractor ?? extractSpecificationText {
+    _choicePrompt.addListener(notifyListeners);
+  }
 
   final WaveformAiService Function() _serviceFactory;
   final SpecificationFilePicker _filePicker;
   final SpecificationTextExtractor _textExtractor;
   final List<Map<String, String>> _messages = [];
   final InputHistory _inputHistory = InputHistory();
+
+  /// Reusable radio-button prompt and its session-wide answers.
+  final ChatChoicePromptController _choicePrompt = ChatChoicePromptController();
+
+  /// The pending radio-button prompt, if any.
+  ChatChoicePromptController get choicePrompt => _choicePrompt;
 
   WaveformAiService? _service;
   AiSettings? _settings;
@@ -77,6 +86,14 @@ class WaveformChatController extends ChangeNotifier {
   /// the local capture shortcut; otherwise the reply would be swallowed and
   /// the dialog would end without the new measurement.
   bool _hasAgentConversation = false;
+
+  /// Whether the user granted autonomous device access for the whole session
+  /// through the `waveform_permission` choice prompt.
+  ///
+  /// This keeps the signal-generator keyword gate open for later messages:
+  /// after the session grant the agent may address the generator without the
+  /// user repeating a keyword in every message.
+  bool _sessionDeviceAccess = false;
 
   /// Cancellation signal for the active AI request and its sub-agents.
   CancellationToken? _activeCancelToken;
@@ -197,6 +214,7 @@ class WaveformChatController extends ChangeNotifier {
       manageFaultProfile: manageFaultProfile,
       createWaveformReport: _createWaveformReport,
       requestSpecUpload: requestSpecificationUpload,
+      requestUserChoice: requestUserChoice,
       acquireWaveform: _acquireWaveformForAi,
       vxi11Host: vxi11Host,
       onCommandSent: onCommandSent,
@@ -253,8 +271,12 @@ class WaveformChatController extends ChangeNotifier {
     final hasSignalGeneratorKeywordInMessage = hasSignalGeneratorKeyword(
       trimmed,
     );
+    // A session-wide grant from the permission prompt keeps the generator
+    // gate open without a keyword in every message.
     _signalGeneratorIntent =
-        hasSignalGeneratorKeywordInMessage || _previousSignalGeneratorKeyword;
+        _sessionDeviceAccess ||
+        hasSignalGeneratorKeywordInMessage ||
+        _previousSignalGeneratorKeyword;
     _previousSignalGeneratorKeyword = hasSignalGeneratorKeywordInMessage;
 
     final cancelToken = CancellationToken();
@@ -375,6 +397,9 @@ class WaveformChatController extends ChangeNotifier {
     _signalGeneratorIntent = false;
     _previousSignalGeneratorKeyword = false;
     _hasAgentConversation = false;
+    _sessionDeviceAccess = false;
+    _choicePrompt.clearSession();
+    _choicePrompt.dismissPending();
     if (_isChatting) {
       _isChatting = false;
       _generation++;
@@ -418,6 +443,31 @@ class WaveformChatController extends ChangeNotifier {
       return {'error': 'The waveform acquisition failed ($error).'};
     } finally {
       if (waiting) _service?.resumeResponseTimeout();
+    }
+  }
+
+  /// Shows a radio-button choice prompt and waits for the user's answer.
+  ///
+  /// Called by the `request_user_choice` tool. The prompt is rendered by the
+  /// chat panel through [choicePrompt]. A selected option marked as a session
+  /// answer is remembered until [clearSession] is called.
+  Future<ChatChoiceResult> requestUserChoice(ChatChoiceRequest request) async {
+    _service?.suspendResponseTimeout();
+    try {
+      final result = await _choicePrompt.requestChoice(request);
+      final selectedOption = result.value == null
+          ? null
+          : request.optionFor(result.value!);
+      if (!result.cancelled &&
+          request.id == 'waveform_permission' &&
+          selectedOption?.rememberForSession == true) {
+        _sessionDeviceAccess = true;
+        // Open the generator gate immediately for the rest of this turn.
+        _signalGeneratorIntent = true;
+      }
+      return result;
+    } finally {
+      _service?.resumeResponseTimeout();
     }
   }
 
@@ -522,6 +572,7 @@ class WaveformChatController extends ChangeNotifier {
     _signalGeneratorIntent = false;
     _previousSignalGeneratorKeyword = false;
     if (_specUpload != null) _finishSpecificationUpload(null);
+    _choicePrompt.dismissPending();
     _cancelRequested = true;
     final subscription = _subscription;
     _subscription = null;
@@ -536,6 +587,8 @@ class WaveformChatController extends ChangeNotifier {
     _disposed = true;
     _generation++;
     _cancelActiveRequest();
+    _choicePrompt.removeListener(notifyListeners);
+    _choicePrompt.dispose();
     _service?.dispose();
     _service = null;
     super.dispose();

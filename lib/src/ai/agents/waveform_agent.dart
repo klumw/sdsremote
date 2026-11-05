@@ -6,6 +6,7 @@ import '../tools/acquire_waveform_tool.dart';
 import '../tools/audio/audio_tools.dart';
 import '../tools/audio_agent_tool.dart';
 import '../tools/calculator_tool.dart';
+import '../tools/chat_choice_tool.dart';
 import '../tools/date_time_tool.dart';
 import '../tools/digital_agent_tool.dart';
 import '../tools/digital_measurement_tools.dart';
@@ -72,6 +73,7 @@ class WaveformAgent {
     WaveformFaultProfileProvider? manageFaultProfile,
     WaveformReportProvider? createWaveformReport,
     SpecificationUploadProvider? requestSpecUpload,
+    ChatChoiceProvider? requestUserChoice,
     String? vxi11Host,
     ScpiCommandCallback? onCommandSent,
     DeviceAgentContext? instrumentDeviceContext,
@@ -185,6 +187,10 @@ class WaveformAgent {
         ),
         createSpecificationUploadTool(
           requestUpload: requestSpecUpload,
+          agentName: 'WaveformAgent',
+        ),
+        createChatChoiceTool(
+          requestChoice: requestUserChoice,
           agentName: 'WaveformAgent',
         ),
         createSpecificationAnalysisTool(
