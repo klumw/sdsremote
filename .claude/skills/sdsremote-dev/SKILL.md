@@ -69,6 +69,5 @@ After code changes, always ask if the test suite should run. If yes, run `flutte
   Option 1: "Update confluence and README"
   Option 2: "Update confluence only"
   Option 2: "No - do nothing"
-- Update assets/manuals/sds_manual.md with only when completely new features or major feature changes were introduced, don't put technical information of  underlying systems or technical details in, use only english no german words, don't put information of version changes in the manual.- - Only put information of new features or feature changes
-- Always update the project README after successfule feature updates
-- Only update the README if important information has changed.  
+- Update assets/manuals/sds_manual.md only when completely new features or major feature changes were introduced, don't put technical information of underlying systems or technical details in, use only english no german words, don't put information of version changes in the manual. Before updating the manual report the changes and ask if you should update the manual.
+- NEVER update the README.  
