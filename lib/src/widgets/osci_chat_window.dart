@@ -142,6 +142,13 @@ class ChatWindow extends StatefulWidget {
   /// chats leave it null and show no microphone button.
   final VoiceInputBinding? voiceInput;
 
+  /// Optional widget shown directly above the input line.
+  ///
+  /// The waveform assistant uses it for the animated radio-button prompt, so
+  /// the question appears at the bottom of the response panel while the input
+  /// field stays visible below it.
+  final Widget? inputBanner;
+
   const ChatWindow({
     super.key,
     required this.chatMessages,
@@ -160,6 +167,7 @@ class ChatWindow extends StatefulWidget {
     this.onHistorySelected,
     this.onLinkTap,
     this.voiceInput,
+    this.inputBanner,
   });
 
   @override
@@ -373,6 +381,9 @@ class _ChatWindowState extends State<ChatWindow> {
           ),
           if (_showHistory && widget.inputHistory.isNotEmpty)
             _buildInputHistory(),
+          // Optional banner directly above the input line (for example the
+          // radio-button prompt of the waveform assistant).
+          if (widget.inputBanner != null) widget.inputBanner!,
           // Input area
           Container(
             padding: const EdgeInsets.all(12),

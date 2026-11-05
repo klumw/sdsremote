@@ -108,13 +108,6 @@ class _WaveformAiPanelState extends State<WaveformAiPanel> {
               // request_specification_upload.
               if (_chat.isSpecificationUploadVisible)
                 _buildSpecificationUpload(),
-              // Reusable radio-button question, shown while an AI tool waits
-              // for a structured answer (for example the permission prompt).
-              if (_chat.choicePrompt.isVisible)
-                ChatChoicePrompt(
-                  request: _chat.choicePrompt.request!,
-                  onSelect: _chat.choicePrompt.selectAndSubmit,
-                ),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(6, 2, 6, 6),
@@ -130,6 +123,12 @@ class _WaveformAiPanelState extends State<WaveformAiPanel> {
                     inputHistory: _chat.inputHistory,
                     onHistorySelected: _chat.send,
                     hintText: 'Ask about the waveform or spectrum...',
+                    inputBanner: _chat.choicePrompt.isVisible
+                        ? ChatChoicePrompt(
+                            request: _chat.choicePrompt.request!,
+                            onSelect: _chat.choicePrompt.selectAndSubmit,
+                          )
+                        : null,
                     emptyStateText:
                         'Ask about the current acquisition\n\n'
                         'Which channel has the lowest THD?\n\n'
