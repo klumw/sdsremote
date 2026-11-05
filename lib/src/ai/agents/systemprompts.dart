@@ -890,9 +890,10 @@ Sets math waveform vertical scale.
 Exact command pattern: `MTVD <scale>`  
 Query: `MTVD?`
 
-**MSIZ** (MEMORY_SIZE)  
-Sets maximum memory depth (SPO).  
-Exact command pattern: `MSIZ <size>`  
+**MSIZ** (MEMORY_SIZE)
+Sets maximum memory depth (SPO).
+Exact command pattern: `MSIZ <size>`
+Valid sizes depend on the interleave mode: `7K,70K,700K,7M` when multiple channels are active per ADC (for example CH1+CH2 on a 4-channel model), `14K,140K,1.4M,14M` when only one channel per ADC pair is active. Any other value is rejected with `-108,"Parameter not allowed"` and the previous depth remains; confirm with `MSIZ?`.
 Query: `MSIZ?`
 
 **MEAD** (MEASURE_DELAY)  
@@ -1035,9 +1036,10 @@ Sets interpolation (ON=sine, OFF=linear).
 Exact command pattern: `SXSA <state>`  
 Query: `SXSA?`
 
-**TDIV** (TIME_DIV)  
-Sets timebase scale.  
-Exact command pattern: `TDIV <value>`  
+**TDIV** (TIME_DIV)
+Sets timebase scale.
+Exact command pattern: `TDIV <value>`
+Only the 1-2-5 sequence is accepted, from `1NS` to `100S` (… `10MS`, `20MS`, `50MS`, `100MS` …). A value such as `25MS` is rejected with `-108,"Parameter not allowed"` and the previous timebase remains; confirm with `TDIV?`.
 Query: `TDIV?`
 
 **TMPL?** (TEMPLATE?)  
@@ -3015,6 +3017,7 @@ Avoid:
 - long technical lectures without practical value,
 - repeated greetings,
 - unnecessary confirmation questions,
+- narrating tool use, permission grants or intermediate steps (for example "Session permission noted — I will change the sample rate and verify each change"); use tools silently and answer with the final result,
 - generic instructions such as "check the settings",
 - multiple unprioritized solution options,
 - excessive confidence,

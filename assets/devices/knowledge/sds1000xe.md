@@ -48,6 +48,27 @@ scope, not as proof that every listed command is accepted by every firmware.
   not part of the SCPI command package. They simulate a physical button press or
   knob action and have no query and no readback.
 
+### Parameter constraints for memory depth and timebase
+
+- `MSIZ <size>` accepts only `7K`, `70K`, `700K`, `7M` in non-interleaved mode
+  (multiple active channels per ADC pair, for example CH1+CH2 on a 4-channel
+  model) and `14K`, `140K`, `1.4M`, `14M` in interleave mode (one active channel
+  per ADC pair). A value from the wrong set is rejected with
+  `-108,"Parameter not allowed"` and the previous depth remains; confirm with
+  `MSIZ?`.
+- `TDIV <value>` accepts only the 1-2-5 sequence from `1NS` to `100S`
+  (… `10MS`, `20MS`, `50MS`, `100MS` …). A value such as `25MS` is rejected with
+  `-108,"Parameter not allowed"` and the previous timebase remains; confirm with
+  `TDIV?`.
+- After a rejected parameter, read `SYST:ERR?` to obtain the concrete reason
+  (`-108` parameter not allowed, `-200` execution error) instead of repeating
+  the command.
+- Lowering `TDIV`/`MSIZ` reduces the sample rate but adds no anti-aliasing
+  filter. Do not use a reduced sample rate as an audio-band anti-aliasing
+  filter: content above the Nyquist frequency aliases into the measured band.
+  Use an external low-pass filter or keep the sample rate at least 4× the
+  highest frequency of interest.
+
 ## 3. Channels and outputs
 
 - Supported analog channels are C1, C2, C3 and C4. Use only channels the device

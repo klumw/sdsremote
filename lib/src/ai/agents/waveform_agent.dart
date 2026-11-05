@@ -250,8 +250,10 @@ class WaveformAgent {
 
   String get model => _agent.model;
 
-  /// Streams the final answer, suppressing intermediate "thinking aloud" text
-  /// that precedes tool calls (same buffering policy as the calculator agent).
+  /// Streams only the final answer.
+  ///
+  /// Text that precedes a tool call is discarded, so status messages such as
+  /// "Session permission noted — I will ..." never reach the chat.
   Stream<String> sendStream(
     String prompt, {
     CancellationToken? cancelToken,
@@ -263,10 +265,11 @@ class WaveformAgent {
     // own cleanup path.
     _instrumentAgent?.setAutonomousGeneratorAccess(false);
     try {
+      // Buffer the text until the turn ends. Text that precedes a tool call is
+      // a "thinking aloud" preface such as "Session permission noted, I will
+      // change the sample rate ..."; it is discarded. Only the text after the
+      // last tool call — the actual answer — is emitted.
       final textBuffer = <String>[];
-      final allChunks = <String>[];
-      var hasSeenToolCall = false;
-      var hasFlushedAfterTools = false;
 
       await for (final chunk in _agent.sendStream(prompt, history: _history)) {
         final hasToolCalls = chunk.messages.any(
@@ -274,45 +277,17 @@ class WaveformAgent {
         );
         if (hasToolCalls) {
           textBuffer.clear();
-          hasSeenToolCall = true;
-          hasFlushedAfterTools = false;
         }
-        final hasToolResults = chunk.messages.any(
-          (message) => message.hasToolResults,
-        );
-        if (hasToolResults) hasFlushedAfterTools = false;
-
         if (chunk.output.isNotEmpty) {
-          if (!hasSeenToolCall || !hasFlushedAfterTools) {
-            textBuffer.add(chunk.output);
-          } else {
-            allChunks.add(chunk.output);
-          }
+          textBuffer.add(chunk.output);
         }
-
-        if (hasSeenToolCall &&
-            !hasFlushedAfterTools &&
-            chunk.output.isNotEmpty &&
-            !hasToolCalls &&
-            !hasToolResults) {
-          hasFlushedAfterTools = true;
-          for (final buffered in textBuffer) {
-            allChunks.add(buffered);
-          }
-          textBuffer.clear();
-        }
-      }
-
-      if (textBuffer.isNotEmpty) {
-        allChunks.addAll(textBuffer);
-        textBuffer.clear();
       }
 
       // The final answer is emitted once, after the tool-limit wording has
       // been removed. The model can see the orchestrator's rejected tool
       // results in its history and sometimes quotes the technical message; the
       // user must never receive it as the answer.
-      final output = _sanitizeToolLimitText(allChunks.join());
+      final output = _sanitizeToolLimitText(textBuffer.join());
       if (output.isNotEmpty) {
         yield output;
         _history.addAll([ChatMessage.user(prompt), ChatMessage.model(output)]);
