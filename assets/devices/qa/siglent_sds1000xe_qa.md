@@ -4312,9 +4312,7 @@ Always use the command short form, e.g. for a query ‚ C1:WFV,DAT2 ' instead of
 | ALST? | ALL_STATUS? | STATUS | Reads and clears the contents of all status registers. |
 | ARM | ARM_ACQUISITION | ACQUISITION | Changes acquisition state from ―stopped‖ to ―single‖. |
 | ATTN | ATTENUATION | ACQUISITION | Selects the vertical attenuation factor of the probe |
-| ACAL | AUTO_CALIBRATE | MISCELLANEOUS | Enables or disables automatic calibration. |
 | ASET | AUTO_SETUP | ACQUISITION | Adjusts vertical, time base and trigger parameters. |
-| AUTTS | AUTO_TYPESET | ACQUISITION | Selects the display type of automatic setup. |
 | AVGA | AVERAGE_ACQUIRE | ACQUISITION | Selects the average times of average acquisition. |
 | BWL | BANDWIDTH_LIMIT | ACQUISITION | Enables/disables the bandwidth-limiting lowpass filter. |
 | BUZZ | BUZZER | MISCELLANEOUS | Controls the built-in piezo electric buzzer. |
@@ -4329,38 +4327,23 @@ Always use the command short form, e.g. for a query ‚ C1:WFV,DAT2 ' instead of
 | CRVA? | CURSOR_VALUE? | CURSOR | Returns trace values measured by specified cursors. |
 | CSVS | CSV_SAVE | SAVE/RECALL | Saves specified waveform data of CSV format to USB device. |
 | CYMT | CYMOMETER | FUNCTION | Returns the current cymometer value which displaying on the screen. |
-| DATE | DATE | MISCELLANEOUS | Changes the date/time of the internal real-time clock. |
 | DDR? | DDR? | STATUS | Clears the Device Dependent Register (DDR). |
 | DEF | DEFINE? | FUNCTION | Specifies math expression for function evaluation. |
-| DELF | DELETE_FILE | MASS STORAGE | Deletes files from mass storage. |
-| DIR | DIRECTORY | MASS STORAGE | Creates and deletes file directories. |
 | DTJN | DOT_JOIN | DISPLAY | Controls the interpolation lines between data points. |
 | *ESE | *ESE | STATUS | Sets the Standard Event Status Enable register (ESE). |
 | *ESR? | *ESR? | STATUS | Reads, clears the Event Status Register (ESR). |
 | EXR? | EXR? | STATUS | Reads, clears the Execution error Register (EXR). |
-| FLNM | FILENAME | MASS STORAGE | Changes default filenames. |
 | FPAR | FRAME_PARAM | HISTORY | Get frame param. |
 | FRAM | FRAME_SET | HISTORY | History Frame No. set. |
-| FRTR | FORCE_TRIGGER | ACQUISITION | Forces the instrument to make one acquisition. |
 | FTIM | FRAME_TIME | HISTORY | Get frame Acq. Time. |
-| FVDISK | FORMAT_VDISK | MASS STORAGE | Reads the capability of the USB device. |
-| FILT | FILTER | FUNCTION | Enables or disables the filter of specified source. |
-| FILTS | FILT_SET | FUNCTION | Selects the type of filter, and sets the limit value of filter. |
 | FFTW | FFT_WINDOW | FUNCTION | Selects the window of FFT. |
-| FFTZ | FFT_ZOOM | FUNCTION | Selects the zoom in/out times of FFT trace. |
 | FFTS | FFT_SCALE | FUNCTION | Selects the vertical scale of FFT trace. |
 | FFTF | FFT_FULLSCREEN | FUNCTION | Enables or disables to display the FFT trace full screen. |
 | GRDS | GRID_DISPLAY | DISPLAY | Selects the type of grid |
-| GCSV | GET_CSV | WAVEFORMTRANS | Specifies waveform data of format to controller. |
-| HMAG | HOR_MAGNIFY | DISPLAY | Horizontally expands the selected expansion trace. |
-| HPOS | HOR_POSITION | DISPLAY | Horizontally positions intensified zone‘s center. |
-| HCSU | HARDCOPY_SETUP | HARD COPY | Configures the hard-copy driver. |
 | *IDN? | *IDN? | MISCELLANEOUS | For identification purposes. |
-| ILVD | INTERLEAVED | ACQUISITION | Reads, clears INternal state change Register (INR). |
 | INTS | INTENSITY | DISPLAY | Sets the grid or trace/text intensity level. |
 | INR? | INR? | STATUS | Reads, clears INternal state change Register (INR). |
 | INVS | INVERT_SET | DISPLAY | Invert the trace or the math waveform of specified source. |
-| LOCK | LOCK | MISCELLANEOUS | Lock keyboard |
 | MTVP | MATH_VERT_POS | ACQUISITION | Controls the vertical position of math waveform of specified source. |
 | MTVD | MATH_VERT_DIV | ACQUISITION | Controls the vertical sensitivity of math waveform of specified source. |
 | MEAD | MEASURE_DELY | ACQUISITION | Controls the vertical sensitivity of math waveform of specified source. |
@@ -4368,34 +4351,25 @@ Always use the command short form, e.g. for a query ‚ C1:WFV,DAT2 ' instead of
 | MSIZ | MEMORY_SIZE | FUNCTION | Returns the maximal memory size |
 | OFST | OFFSET | ACQUISITION | Allows output channel vertical offset adjustment. |
 | *OPC | *OPC | STATUS | Sets the OPC bit in the Event Status Register (ESR). |
-| *OPT? | *OPT? | MISCELLANEOUS | Identifies oscilloscope options. |
 | PACL | PARAMETER_CLR | CURSOR | Clears all current parameters in Custom, Pass/Fail. |
 | PACU | PARAMETER_CUSTO M | CURSOR | Controls parameters with customizable qualifiers. |
 | PAVA? | PARAMETER_VALU E? | CURSOR | Returns current parameter, mask test values. |
-| PDET | PEAK_DETECT | ACQUISITION | Switches the peak detector ON and OFF. |
-| PERS | PERSIST | DISPLAY | Enables or disables the persistence display mode. |
 | PESU | PERSIST_SETUP | DISPLAY | Selects display persistence duration. |
 | PNSU | PANEL_SETUP | SAVE/RECALL | Complements the *SAV/*RST commands. |
 | PFDS | PF_DISPLAY | FUNCTION | Enables or disables to display the test and the message options of pass/fail. |
 | PFST | PF_SET | FUNCTION | Sets the X mask and the Y mask. |
-| PFSL | PF_SAVELOAD | SAVE/RECALL | Saves or recalls the created mask setting. |
-| PFCT | PF_CONTROL | FUNCTION | Selects the ―operate‖, ―output‖ and the ―stop on output‖ which are the options of pass/fail. |
 | PFCM | PF_CREATEM | FUNCTION | Creates the mask of the pass/fail. |
 | PFDD | PF_DATEDIS | FUNCTION | Return the number of the pass/fail monitor which can be displayed on the screen. |
 | *RCL | *RCL | SAVE/RECALL | Recalls one of five nonvolatile panel setups. |
 | RCPN | RECALL_PANEL | SAVE/RECALL | Recalls a front-panel setup from mass storage. |
-| REC | RECALL | SAVE/RECALL | Recalls a waveform file from mass storage. |
 | *RST | *RST | SAVE/RECALL | The *RST command initiates a device reset. |
-| REFS | REF_SET | FUNCTION | Sets the reference waveform and its options. |
 | *SAV | *SAV | SAVE/RECALL | Stores current state in nonvolatile internal memory. |
 | SCDP | SCREEN_DUMP | HARD COPY | Causes a screen dump to controller. |
 | SCSV | SCREEN_SAVE | DISPLAY | Controls the automatic screen saver. |
 | *SRE | *SRE | STATUS | Sets the Service Request Enable register (SRE). |
 | *STB? | *STB? | STATUS | Reads the contents of IEEE 488. |
 | STOP | STOP | ACQUISITION | Immediately stops signal acquisition. |
-| STO | STORE | WAVEFORM TRANSFER | Stores a trace in internal memory or mass storage. |
 | STPN | STORE_PANEL | SAVE/RECALL | Stores front-panel setup to mass storage. |
-| STST | STORE_SETUP | WAVEFORM TRANSFER | Controls the way in which traces are stored. |
 | SAST | SAMPLE_STATUS | ACQUISITION | Return the acquisition status of the scope |
 | SARA | SAMPLE_RATE | ACQUISITION | Return the sample rate of the scope |
 | SANU | SAMPLE_NUM | ACQUISITION | Return the number of sampled points available from last acquisition and the trigger position |
@@ -4406,7 +4380,6 @@ Always use the command short form, e.g. for a query ‚ C1:WFV,DAT2 ' instead of
 | TMPL | TEMPLATE | WAVEFORM | Produces a complete |
 |  |  | TRANSFER | waveform template copy. |
 | TRA | TRACE | DISPLAY | Enables or disables the display of a trace. |
-| *TRG | *TRG | ACQUISITION | Executes an ARM command. |
 | TRCP | TRIG_COUPLING | ACQUISITION | Sets the coupling mode of the specified trigger source. |
 | TRDL | TRIG_DELAY | ACQUISITION | Sets the time at which the trigger is to occur. |
 | TRLV | TRIG_LEVEL | ACQUISITION | Adjusts the trigger level of the specified trigger source. |
@@ -4417,24 +4390,23 @@ Always use the command short form, e.g. for a query ‚ C1:WFV,DAT2 ' instead of
 | TRWI | TRIG_WINDOW | ACQUISITION | Return relative height of the trigger window |
 | TRPA | TRIG_PATTERN | ACQUISITION | Sets the condition of the pattern trigger |
 | UNIT | UNIT | ACQUISITION | Sets the unit of specified trace. |
-| VPOS | VERT_POSITION | DISPLAY | Adjusts the vertical position of the FFT trace. |
 | VDIV | VOLT_DIV | ACQUISITION | Sets the vertical sensitivity. |
-| VTCL | VERTICAL | ACQUISITION | Controls the vertical position of the slope trigger line. |
 | WF | WAVEFORM | WAVEFORMTRANS | Gets the waveform from the instrument. |
 
 ## SCPI Command Reference (introduction, command syntax, alphabetical command list) [2+4-channel]
+> **Live verification note (2026-11-05, SDS1104X-E, firmware 8.1.6.1.37R17):**
+> The following commands returned `-113 "Undefined header"` on the tested
+> instrument. They were removed from the SDS1000X-E command package and from
+> this reference: `ACAL`, `AUTTS`, `COUN`, `CRAU`, `DATE`, `DELF`, `DIR`,
+> `FLNM`, `FRTR`, `FVDISK`, `FFTZ`, `FILT`, `FILTS`, `GCSV`, `HMAG`, `HPOS`,
+> `HCSU`, `ILVD`, `LOCK`, `*OPT?`, `PDET`, `PERS`, `PFSL`, `PFCT`, `REC`,
+> `REFS`, `STO`, `STST`, `*TRG`, `VPOS`, `VTCL`, `WAIT`, `VERT` and `MEGS`.
+> Do not send these commands to an SDS1104X-E with this firmware.
+
 
 This section contains detailed descriptions of all SCPI remote control commands supported by SIGLENT SDS1000X-E series digital oscilloscopes.
 
 The commands are listed alphabetically by their short form. Each entry includes the command syntax, query syntax (where applicable), and a description of the command's function.
-
-## ACAL, AUTO_CALIBRATE, Auto Calibrate, Quick Calibration, Self-Calibration [2+4-channel]
-
-The AUTO_CALIBRATE command is used to enable or disable the quick calibration of the instrument. The quick calibration can be disabled by sending the command "ACAL OFF". The *CAL? query can be used to fully calibrate the oscilloscope. The AUTO_CALIBRATE? query returns whether quick-calibration is enabled.
-
-Command Syntax: `ACAL <state> <state>:={ON, OFF}`
-
-Query Syntax: `ACAL?`
 
 ## ACQ:CSW, ACQuire:CSWeep, Acquire, Clear Sweeps, Reset Acquisition [4-channel only]
 
@@ -4489,16 +4461,6 @@ Command Syntax: `<channel>:ATTN <attenuation> <channel>:= {C1,C2,C3,C4} <attenua
 Query Syntax: `<channel>:ATTN?`
 
 Response Format: `<channel>:ATTN <attenuation>`
-
-## AUTTS, AUTO_TYPESET, Auto Typeset, Display Type, SP, MP, RS, DRP, RC [2+4-channel]
-
-The AUTO_TYPESET command selects the specified type of automatically adjusting which is used to display.
-
-Command Syntax: `AUTTS <type> <type>:={SP,MP,RS,DRP,RC}`
-
-Query Syntax: `AUTTS?`
-
-Response Format: `AUTTS <type>`
 
 ## AVGA, AVERAGE_ACQUIRE, Average Acquire, Acquisition Average, Number of Averages [2+4-channel]
 
@@ -4606,14 +4568,6 @@ Query Syntax: `CONET?`
 
 Response Format: `CONET <ip_add0>,<ip_add1>,<ip_add2>,<ip_add3>`
 
-## COUNTER, COUNTER, Cymometer, Frequency Counter, Counter Display [4-channel only]
-
-The COUNTER command enables or disables the cymometer display on the screen of instrument. The response to the COUNTER? query indicates whether the cymometer is displayed on the screen of instrument.
-
-Command Syntax: `COUNTER <state> < state > : = {ON, OFF}`
-
-Query Syntax: `COUNTER?`
-
 ## CPL, COUPLING, Coupling, AC, DC, GND, Channel Input, A1M, A50, D1M, D50 [2+4-channel]
 
 The COUPLING command selects the coupling mode of the specified input channel. The COUPLING? query returns the coupling mode of the specified channel.
@@ -4623,12 +4577,6 @@ Command Syntax: `<channel>:CPL <coupling> <channel>:= {C1,C2,C3,C4} <coupling>:=
 Query Syntax: `<channel>:CPL?`
 
 Response Format: `<channel>:CPL <coupling>`
-
-## CRAU, CURSOR_AUTO, Cursor Auto, Auto Cursor Mode, Automatic Cursors [2+4-channel]
-
-The CURSOR_AUTO command sets the cursor mode to Auto.
-
-Command Syntax: `CRAU`
 
 ## CRMS, CURSOR_MEASURE, Cursor Measure, Parameter Measurement, HREL, VREL, AUTO [2+4-channel]
 
@@ -4694,14 +4642,6 @@ Query Syntax: `CYMT?`
 
 Response Format: `CYMT <freq> Model Format of <freq> SDS1000X-E/ Numerical value in E-notation with SI SDS2000X-E/ unit, such as 1.00E+03Hz. SDS1000X-U Others Numerical value with measurement unit and physical unit, such as 1.00001 kHz.`
 
-## DATE, DATE, Date, Time, Real-Time Clock, RTC [4-channel only]
-
-The DATE command changes the date/time of the oscilloscope's internal real-time clock. The command is only used in the CFL series instrument.
-
-Command Syntax: `DATE <day>, <month>, <year>, <hour>, <minute>, <second> <day> : = 1 to 31 <month> : = {JAN, FEB, MAR, APR, MAY, JUN, JUL, AUG, SEP,OCT, NOV, DEC} <year> : = 1990 to 2089 <hour> : = 0 to 23 <minute> : = 0 to 59 <second> : = 0 to 59`
-
-Query Syntax: `DATE?`
-
 ## DCPA, Decode, Decode Common Parameters, Bus, List Format [2+4-channel]
 
 The DCPA command is used to set the common parameters of serial decode bus.
@@ -4733,20 +4673,6 @@ Command Syntax: `DEF EQN,’<equation>’`
 Query Syntax: `DEF?`
 
 Response Format: `DEF EQN,’<equation>’`
-
-## DELF, DELETE_FILE, Delete File, Mass Storage, USB, File Management [2+4-channel]
-
-The DELETE_FILE command deletes files from the currently selected directory on mass storage.
-
-Command Syntax: `DELF DISK, <device>, FILE, ‗<filename>‘ <device>：={UDSK} <filename>：= a file of specified directory and the specified file should up to eight characters.`
-
-## DIR, DIRECTORY, Directory, Create, Delete, Mass Storage, USB [2+4-channel]
-
-The DIRECTORY command is used to manage the creation and deletion of file directories on mass storage devices. It also allows selection of the current working directory and listing of files in the directory. The query response consists of a double-quoted string containing a DOS-like listing of the directory.
-
-Command Syntax: `DIR DISK, <device>, ACTION, <action>, ‗<directory>‘`
-
-Query Syntax: `DIR? DISK, <device> [, ‗<directory>‘] <device>：={UDSK} <action>：={CREATE, DELETE} <directory>：= A legal DOS path or filename. (This can include the ‗/‘ character to define the directory.) root`
 
 ## DI:SW, DI:SWITCH, Digital, Digital Switch, Digital On Off [4-channel only]
 
@@ -4866,42 +4792,6 @@ Query Syntax: `FFTW?`
 
 Response Format: `FFTW <window>`
 
-## FFTZ, FFT_ZOOM, FFT Zoom, Zoom Factor, Frequency Domain [2+4-channel]
-
-The FFT_ZOOM command selects the specified zoom of FFT. The FFT_ZOOM? query returns the current zoom in/out of FFT.
-
-Command Syntax: `FFTZ <zoom> <zoom>:={1,2,5,10}`
-
-Query Syntax: `FFTZ?`
-
-Response Format: `FFTZ <zoom>`
-
-## FILT, FILTER, Filter, Digital Filter, Low-Pass, High-Pass, Band-Pass, Band-Reject [2+4-channel]
-
-The FILTER command enables or disables filter of the specified trace. The response to the FILTER? query indicates whether the filter of specified trace is enabled.
-
-Command Syntax: `<channel>:FILT <state> <channel> : = {C1,C2,C3,C4} <state> : = {ON,OFF}`
-
-Query Syntax: `<channel>:FILT?`
-
-## FILTS, FILT_SET, Filter Set, Filter Type, Filter Limit, LP, HP, BP, BR [2+4-channel]
-
-The FILT_SET command selects the specified type of filter, and sets the limit value of filter. The FILT_SET? query returns current parameter of the filter.
-
-Command Syntax: `<channel>:FILTS TYPE,<type>,<limit>,<limit_value> <channel>:={C1,C2,C3,C4} <type>:={LP,HP,BP,BR}`
-
-Query Syntax: `<channel>:FILTS?`
-
-Response Format: `<channel>:FILTS TYPE,<type>,<limit>,<limit_value>`
-
-## FLNM, FILENAME, Filename, Default Name, Mass Storage, File Naming [2+4-channel]
-
-The FILENAME command is used to change the default filename given to any traces, setups and hard copies when they are being stored to a mass storage device.
-
-Command Syntax: `FLNM TYPE, <type>, FILE, ‗<filename>‘ <type>:={ C1,C2,C3, C4, SETUP,TA, TB, TC, TD, HCOPY} <filename> : = an alphanumeric string of up to 8 characters forming a legal DOS filename. Note: The file‘s extension can be specified automatically by the oscilloscope. Digital Oscilloscopes Series`
-
-Query Syntax: `FLNM? TYPE, <type> <type> :={ ALL, C1, C2, C3, C4, SETUP, TA, TB, TC, TD, HCOPY}`
-
 ## FORM:DATA, FORMat:DATA, Comm Header, Data Format, Significant Digits, Response Format [2+4-channel]
 
 The FORMat:DATA command controls the number of significant digits of the returned value. Only the value returned by MEASURE Commands are affected by this command.
@@ -4928,12 +4818,6 @@ Query Syntax: `FRAM?`
 
 Response Format: `FRAM <frame_num>`
 
-## FRTR, FORCE_TRIGGER, Force Trigger, Single Acquisition, Manual Trigger [2+4-channel]
-
-Causes the instrument to make one acquisition.
-
-Command Syntax: `FRTR`
-
 ## FTIM, FRAME_TIME, Frame Time, History, Acquisition Time [2+4-channel]
 
 The FRAME_TIME query returns the acquire timestamp of the current frame.
@@ -4941,18 +4825,6 @@ The FRAME_TIME query returns the acquire timestamp of the current frame.
 Query Syntax: `FTIM?`
 
 Response Format: `Format 1: FTIM hour: minute: second. micro-second Format 2: \xFF\x0F\x03\x01&\xD5\x02\x00`
-
-## FVDISK, FORMAT_VDISK, Format USB Disk, USB Capability, Mass Storage [2+4-channel]
-
-The FORMAT_VDISK? query reads the capability of the USB memory device.
-
-Query Syntax: `FVDISK?`
-
-## GCSV, GET_CSV, Get CSV, Waveform Data, CSV Format, Data Transfer [2+4-channel]
-
-The response to the GET_CSV? Query indicates current waveform of CSV format. The GET_CSV? query has options to set. They are the same as the options of CSVS.
-
-Query Syntax: `Format1: GET_CSV? SAVE,<state> The option SAVE sets the CSV save state. <state>：= {OFF,ON} Format2: GET_CSV? DD,<DD>,SAVE,<state> The option DD is the data depth of the CSV format waveform. The option SAVE sets the CSV save state. <DD>：={MAX，DIS} Digital Oscilloscopes Series MAX sets the CSV waveform depth to maximum. DIS sets the CSV waveform depth equal to the displayed on the screen. <state>：= {OFF,ON} Note: This command varies with models, so there are two formats. If you oscilloscope can set the data depth of CSV file which will be saved, you should use Format 2, otherwise you should use Format 1.`
 
 ## GRDS, GRID_DISPLAY, Grid Display, FULL, HALF, OFF, Graticule [2+4-channel]
 
@@ -4963,34 +4835,6 @@ Command Syntax: `GRDS <type> < type >:={FULL,HALF,OFF}`
 Query Syntax: `GRDS?`
 
 Response Format: `GRDS <type>`
-
-## HCSU, HARDCOPY_SETUP, Hardcopy Setup, Print, Screenshot, Save, Page Size [2+4-channel]
-
-The HARDCOPY_SETUP command configures the instrument's hard-copy driver.
-
-Command Syntax: `HCSU PSIZE, <page_size>, ISIZE, <image_size>, FORMAT, <format>, BCKG, <bckg>, PRTKEY, <printkey> <page_size> :={ DEFAULT} <printkey>:={SAVE,PRINT} <format> : = {PORTRAIT, LANDSCAPE} <bckg> : = {BLACK, WHITE} <image_size>:={DEFAULT,A4,LETTER}.`
-
-Query Syntax: `HCSU?`
-
-## HMAG, HOR_MAGNIFY, Horizontal Magnify, Zoom, Expansion, Magnification [2+4-channel]
-
-The HMAG command sets the zoomed (delayed) window horizontal scale (seconds/div). The main sweep scale determines the range for this command. The maximum value is the TDIV value. The HMAG? query returns the current zoomed window scale setting.
-
-Command Syntax: `Format 1: HMAG <value> <value>:={1NS,2NS,5NS,10NS,20NS,50NS,100NS,200NS,500NS,1US,2US,5US,10US,20US,50US,100US,200US,500US,1MS,2MS,5MS,10MS,20MS} The range of value is related to the current time base. It is from 1NS to the current time base. Format 2: HMAG <factor> <factor>:= 1 to 2,000,000. The range of <factor> is related to the current time base and the range of the time base.`
-
-Query Syntax: `HMAG?`
-
-Response Format: `HMAG <value> <value>:= Numerical value in E-notation with SI unit. HMAG <factor>`
-
-## HPOS, HOR_POSITION, Horizontal Position, Delay, Timebase, Position [2+4-channel]
-
-The HPOS command sets the horizontal position in the zoomed (delayed) view of the main sweep. The main sweep range and the main sweep horizontal position determine the range for this command. The value for this command must keep the zoomed view window within the main sweep range. The HPOS? query the current horizontal window position setting in the zoomed view.
-
-Command Syntax: `Format 1: HPOS <position> <position>:= time value with unit.`
-
-Query Syntax: `HPOS?`
-
-Response Format: `HPOS <position> <position>:= Numerical value in E-notation with SI unit. HPOS <factor_div>`
 
 ## HSLST, HISTORY_LIST, History, History List, Frame Timestamp [2+4-channel]
 
@@ -5018,14 +4862,6 @@ The *IDN? query is used for identification purposes. The response consists of fo
 
 Query Syntax: `*IDN?`
 
-## ILVD, INTERLEAVED, Interleaved, RIS, Random Interleaved Sampling [2+4-channel]
-
-The INTERLEAVED command enables or disables random interleaved sampling (RIS) for timebase settings where both single shot and RIS mode are available. The response to the INTERLEAVED? Query indicates whether the oscilloscope is in RIS mode.
-
-Command Syntax: `ILVD <mode> <mode> : = {ON, OFF}`
-
-Query Syntax: `ILVD?`
-
 ## INR?, INR?, Internal State Change Register, INR, Status [2+4-channel]
 
 The INR? query reads and clears the contents of the INternal state change Register (INR). The INR register (table below) records the completion of various internal operations and state transitions. Note : 3. This command only supports 0 bit and 13 bit.
@@ -5051,14 +4887,6 @@ Command Syntax: `<trace>:INVS <state> <trace>:={C1,C2,C3,C4,MATH} <state>:= {ON,
 Query Syntax: `<trace>:INVS?`
 
 Response Format: `<trace>:INVS <state>`
-
-## LOCK, LOCK, Lock, Keyboard Lock, Panel Lock, Front Panel [2+4-channel]
-
-The LOCK command enables or disables the panel keyboard of the instrument. When any command or query is executed in either local or remote state, the functions of the panel keys except "FORCE" are not available. When the panel keyboard of the instrument is locked, press the "FORCE" key to enable the manual keyboard functions. The LOCK? query returns the status of the panel keyboard of the instrument.
-
-Command Syntax: `LOCK <state> <state>:= {ON,OFF}`
-
-Query Syntax: `LOCK?`
 
 ## MEACL, MEASURE_CLEAR, Measure, Measure Clear, Clear Measurements [2+4-channel]
 
@@ -5087,12 +4915,6 @@ Command Syntax: `MEGA <value> <value>:= value with unit.`
 The MEGB command specifies the position of the measurement gate B.
 
 Command Syntax: `MEGB <value> <value>:= value with unit.`
-
-## MEGS, MEASURE_GATE_SWITCH, Measure, Measure Gate Switch, Gate Measurement [2+4-channel]
-
-The MEGS command controls the switch of the gate measurement. When the gate is turned on, only the waveform within the threshold will be measured. The MEGS? query return the switch of the gate.
-
-Command Syntax: `MEGS <state> <state>:={OFF, ON}`
 
 ## MENU, MENU, Menu Display, ON, OFF, Screen Menu [2+4-channel]
 
@@ -5166,12 +4988,6 @@ Query Syntax: `*OPC?`
 
 Response Format: `*OPC 1 COMMON (*) *RST Command`
 
-## *OPT?, *OPT?, Options, Installed Options, Identification [2+4-channel]
-
-The *OPT? query identifies the installed oscilloscope options. The response consists of a series of response fields listing all the installed options.
-
-Query Syntax: `*OPT?`
-
 ## OUTP, OUTPut, Waveform Generator, Load [4-channel only]
 
 This command enables or disables the output port(s) at the front panel. The query returns “ON” or “OFF” and “LOAD”, “PLRT”, “RATIO” parameters.
@@ -5210,22 +5026,6 @@ The PARAMETER_VALUE query measures and returns the specified measurement value p
 
 Response Format: `PAVA STAT<x> <source> <parameter>:cur,<value1>,mean,<value2>,min,<value3>,max,<value4>,std-dev,<value5>,count,<value6>`
 
-## PDET, PEAK_DETECT, Peak Detect, Acquisition Mode, Peak Detection [2+4-channel]
-
-The PEAK_DETECT command switches ON or OFF the peak detector built into the acquisition system. The PEAK_DETECT? query returns the current status of the peak detector.
-
-Command Syntax: `PDET <state> <state> : = {ON, OFF}`
-
-Query Syntax: `PDET?`
-
-## PERS, PERSIST, Persist, Persistence, Display Mode [2+4-channel]
-
-The PERSIST command enables or disables the persistence display mode.
-
-Command Syntax: `PERS <mode> <mode> : = {ON, OFF}`
-
-Query Syntax: `PERS?`
-
 ## PESU, PERSIST_SETUP, Persist Setup, Persistence Duration [2+4-channel]
 
 The PERSIST_SETUP command selects the persistence duration of the display, in seconds, in persistence mode. The PERSIST_SETUP? query returns the current status of the persistence.
@@ -5251,16 +5051,6 @@ Response Format: `PFBF <state>`
 The PF_CREATEM command creates a Pass/Fail test rule around the current selected channel, using the horizontal adjustment parameters and the vertical adjustment parameters defined by the PFST commands.
 
 Command Syntax: `PFCM`
-
-## PFCT, PF_CONTROL, Pass/Fail Control, Operate, Output, Stop on Output [2+4-channel]
-
-The PF_CONTROL command controls the Pass/Fail controlling options “operate”, “output” and the “stop on output”. See instrument’s Operator Manual for these options. The PF_CONTROL? query returns the controlling options of the pass/fail.
-
-Command Syntax: `PFCT TRACE,<trace>,CONTROL,<control>,OUTPUT,<output >,OUTPUTSTOP,<state> <trace>:={C1,C2,C3,C4} <control>:={START,STOP} <output>:={FAIL,PASS} <state>:={ON,OFF}`
-
-Query Syntax: `PFCT?`
-
-Response Format: `PFCT TRACE,<trace>,CONTROL,<control>,OUTPUT,<output >,OUTPUTSTOP,<state>`
 
 ## PFDD, PF_DATEDIS, Pass/Fail Data Display, Fail Count, Pass Count, Total [2+4-channel]
 
@@ -5320,10 +5110,6 @@ Query Syntax: `PFSC?`
 
 Response Format: `PFSC <trace>`
 
-## PFSL, PF_SAVELOAD, Pass/Fail Save Load, Mask, Recall, Save Mask [2+4-channel]
-
-The PF_SAVELOAD command saves or recalls the created pass/fail mask. On SDS1000X-E, use MTES:MASK:SAVE and MTES:MASK:LOAD for mask storage.
-
 ## PFST, PF_SET, Pass/Fail Set, X Mask, Y Mask, Mask Configuration [2+4-channel]
 
 The PF_SET command sets the tolerance in the X/Y direction around the selected waveform defined by PFSC for the Pass/Fail feature. The value of the tolerance will be added and subtracted to horizontal/Vertical values of the waveform to determine the boundaries of the mask. The PF_SET? query returns the current setting of the ΔX tolerance and ΔY tolerance for Pass/Fail.
@@ -5355,12 +5141,6 @@ Command Syntax: `*RCL <num> <num>:= 0 to 20.`
 The RECALL_PANEL command recalls a front-panel setup from the specified-DOS path directory in an external memory device. See the command “*RCL” for recalling from internal.
 
 Command Syntax: `RCPN DISK,<device>,FILE,‘<filename>’ <device>:= {UDSK} <filename>:= A waveform file under a legal DOS path. Models Description SDS1000X-E/ The filename string is up to eight SDS2000X-E/ characters, with the extension “.xml”. SDS1000X-U Others The filename string is up to eight characters, with the extension “.set”.`
-
-## RECALL, RECALL, Recall Waveform, Mass Storage, USB, Waveform File [2+4-channel]
-
-The RECALL command recalls a waveform file from the current directory on mass storage into any or all of the internal memories M1 to M10(or M20 in the CFL series).
-
-Command Syntax: `<memory>: REC DISK, <device>, FILE, ‗<filename>‘ <memory> : = {M1~M10}(or M1~M20 in the CFL series) <device> : = {UDSK} <filename>：= A waveform file under a legal DOS path . A filename-string of up to eight characters, with the extension “ .DAV ” . (This can include the ‘/’ character to define the root directory.)`
 
 ## REFCL, REF_CLOSE, Reference, Reference Close, Clear REF [2+4-channel]
 
@@ -5397,14 +5177,6 @@ Command Syntax: `REFPO <offset> <offset>:= vertical offset value with unit.`
 Query Syntax: `REFPO?`
 
 Response Format: `REFPO <offset> <offset>:= Numerical value in E-notation with SI unit.`
-
-## REFS, REF_SET, Reference Set, REF Waveform, Display, RA, RB, RC, RD [2+4-channel]
-
-The REF_SET command sets the reference waveform and its options. The response to the REF_ SET? query indicates whether the specified reference waveform is turned on.
-
-Command Syntax: `REF _ SET TRACE,<trace>REF,<ref>,state, <state>,SAVE,DO <trace> : = {C1,C2,C3,C4,MATH} <ref> : = {RA,RB,RC,RD} The Rx(x is A,B,C,D) is that which one can be stored or displayed <state> := {ON,OFF} The state enables or disables to display the specified reference waveform. If the command syntax include ‗SAVE,DO‘, the specified trace will be saved to the specified reference waveform.`
-
-Query Syntax: `REF _ SET? REF,<ref>`
 
 ## REFSA, REF_SAVE, Reference, Reference Save, Store REF [2+4-channel]
 
@@ -5516,12 +5288,6 @@ The *STB? query reads the contents of the IEEE 488.1 defined status register (ST
 
 Query Syntax: `*STB?`
 
-## STO, STORE, Store, Trace, Internal Memory, Mass Storage, Waveform Save [2+4-channel]
-
-The STORE command stores the contents of the specified trace into the current directory in a USB memory device.
-
-Command Syntax: `STO <trace> <trace>: = {TA, TB, TC, TD, C1, C2, C3, C4,ALL_DISPLAYED} <dest>: = { UDSK} Note: 1. If the STORE command is sent without any argument, and the current trace isn‘t enabled, the current trace will be enabled and stored in the Store Setup. This setup can be modified using the STORE_SETUP command. 2. The <dest> parameter is vary with oscilloscope‘s models. If your oscilloscope is non-SPO models , this parameter‘s options are {M1~M10(or M20 in the CFL series)}, UDSK}. If your oscilloscope is SPO model, this parameter‘s option is {UDSK}.`
-
 ## STOP, STOP, Stop, Acquisition Stop, Signal Acquisition, HALT [2+4-channel]
 
 The STOP command stops the acquisition. This is the same as pressing the Stop key on the front panel.
@@ -5533,14 +5299,6 @@ Command Syntax: `STOP`
 The STORE_PANEL command stores the complete front-panel setup of the instrument into a file on the specified-DOS path directory in a USB memory device. See the command “*SAV” for internal storage.
 
 Command Syntax: `STPN DISK,<device>,FILE,‘<filename>’ <device>:= {UDSK} <filename>:= A waveform file under a legal DOS path. Models Description SDS1000X-E/ The filename string is up to eight SDS2000X-E/ characters, with the extension SDS1000X-U “.xml”. Others The filename string is up to eight characters, with the extension “.set”.`
-
-## STST, STORE_SETUP, Store Setup, Trace Storage, Configuration [2+4-channel]
-
-The STORE_SETUP command controls the way in which traces will be stored. A single trace or all displayed traces may be enabled for storage.
-
-Command Syntax: `STST [<trace>, <dest>] <trace>:= {C1,C2,C3,C4,ALL_DISPLAYED } <dest>: ={UDSK} Note: The <dest> parameter is vary with oscilloscope‘s models. If your oscilloscope is not an SPO model, it‘s options are {M1~M10(or M20 in the CFL series)}, UDSK}. If your oscilloscope is an SPO model, its option is {UDSK}.`
-
-Query Syntax: `STST?`
 
 ## SXSA, SINXX_SAMPLE, Sinx/x Sample, Interpolation, Sine, Linear [2+4-channel]
 
@@ -5697,12 +5455,6 @@ Command Syntax: `TRDL <delay> <delay>:= time value with unit.`
 Query Syntax: `TRDL?`
 
 Response Format: `TRDL <value> Model Format of <skew> SDS1000X-E/ Numerical value in E-notation with SI SDS2000X-E/ unit, such as 1.00E-04 s. SDS1000X-U Others Numerical value with measurement unit and physical unit, such as 3.58 ns.`
-
-## *TRG, *TRG, Trigger, ARM, Acquisition, Manual Trigger [2+4-channel]
-
-The *TRG command triggers the oscilloscope. It is equivalent to pressing the Single button: the oscilloscope arms the trigger circuitry and makes one acquisition.
-
-Command Syntax: `*TRG`
 
 ## TRIIC:ADDR, Serial Trigger, Trigger I2C, SCL SDA [2+4-channel]
 
@@ -6200,10 +5952,6 @@ Query Syntax: `<channel>:VDIV?`
 
 Response Format: `<channel>:VDIV <v_gain> <v_gain>:= Numerical value in E-notation with SI unit.`
 
-## VERT, VERTICAL, Vertical, Slope Trigger Line, Position [2+4-channel]
-
-The VERTICAL command controls the vertical position of the slope trigger line. It is related to the TRSE command; in TRSE syntax the option is `VERT,<vertical>` with `<vertical>:={UP,DOWN,BOTH}`.
-
 ## VOLTPRT, Waveform Generator, Over Voltage Protection, OVP [4-channel only]
 
 This commend sets or gets the state of over-voltage protection.
@@ -6213,22 +5961,6 @@ Command Syntax: `VOLTPRT <state> <state>:= {ON, OFF}`
 Query Syntax: `VOLTPRT?`
 
 Response Format: `VOLTPRT <state>`
-
-## VPOS, VERT_POSITION, Vertical Position, FFT, Display Offset [2+4-channel]
-
-The VERT_POSITION command adjusts the vertical position of the specified FFT trace on the screen. It does not affect the original offset value obtained at acquisition time. The VERT_POSITION? query returns the current vertical position of the specified FFT trace.
-
-Command Syntax: `<trace>:VPOS <offset> <trace>:={TA,TB,TC,TD} <offset>:= -20*DIV to 20*DIV.`
-
-Query Syntax: `<trace>:VPOS?`
-
-Response Format: `<trace>:VPOS <offset>`
-
-## WAIT, WAIT, Wait, Synchronization, Acquisition Complete [2+4-channel]
-
-The WAIT command prevents the instrument from analyzing new commands until the oscilloscope has completed the current acquisition.
-
-Command Syntax: `WAIT`
 
 ## WF?, WAVEFORM?, Waveform Transfer, Data, Acquisition, DESC, DAT2, ALL [2+4-channel]
 

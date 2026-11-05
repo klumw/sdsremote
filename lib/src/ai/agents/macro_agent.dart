@@ -54,7 +54,7 @@ class MacroAgent {
   /// more turns would only grow the token budget without giving the model
   /// access to older tool results. The current macro is always available
   /// through `read_macro` instead.
-  static const int _maxHistoryMessages = 10;
+  static const int _maxHistoryMessages = 20;
 
   /// The underlying dartantic_ai Agent instance.
   final Agent _agent;

@@ -14,6 +14,8 @@ import 'src/app/window_state.dart';
 import 'src/calculator/calculator_controller.dart';
 import 'src/calculator/calculator_window_protocol.dart';
 import 'src/core/logger.dart';
+import 'src/ic/flutter_ic_data_asset_source.dart';
+import 'src/ic/ic_reference_repository.dart';
 import 'src/signal_generator/siggen_window_client.dart';
 import 'src/signal_generator/siggen_window_protocol.dart';
 import 'src/widgets/calculator_window.dart';
@@ -77,6 +79,18 @@ void main(List<String> args) async {
   if (CalculatorWindowArguments.isCalculatorWindow(windowArguments)) {
     await _runCalculatorWindow(windowArguments);
     return;
+  }
+
+  // The digital agent reads the MCU reference tables synchronously. Load them
+  // once before the agents are created; a failure is logged and the tool
+  // reports the missing data instead of inventing values.
+  try {
+    await IcReferenceRepository.instance.load(const FlutterIcDataAssetSource());
+  } catch (error) {
+    await AppLogger(
+      agentName: 'IcReference',
+      toolName: 'load',
+    ).log('Could not load IC reference data: $error');
   }
 
   // Restore the size and position saved when the application last closed.

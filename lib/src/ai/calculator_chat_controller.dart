@@ -242,10 +242,21 @@ class CalculatorChatController extends ChangeNotifier {
     await subscription?.cancel();
   }
 
-  void clearChat() {
-    if (_isChatting) return;
+  /// Clears the transcript, the structured results and the agent conversation
+  /// history.
+  ///
+  /// The next request starts a fresh session without the previous turns.
+  void clearSession() {
+    if (_disposed) return;
+    if (_isChatting) {
+      _isChatting = false;
+      _generation++;
+      _cancelActiveRequest();
+    }
     _messages.clear();
     _results.clear();
+    _currentAiIndex = null;
+    _service?.clearSession();
     notifyListeners();
   }
 

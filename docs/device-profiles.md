@@ -167,8 +167,7 @@ Two documented migration rules keep older packages loadable:
    with `?` uses that same pattern as the query form. No query form is invented
    for a setter.
 
-These rules cover the two SDS commands (`PNSU`, `VERT`) that use
-`unspecified`.
+These rules cover the SDS command (`PNSU`) that uses `unspecified`.
 
 ### 4.4 Parameter definitions
 

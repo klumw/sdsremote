@@ -307,6 +307,21 @@ class MacroChatController extends ChangeNotifier {
     await subscription?.cancel();
   }
 
+  /// Clears the transcript and the agent conversation history.
+  ///
+  /// The next request starts a fresh session without the previous turns.
+  void clearSession() {
+    if (_disposed) return;
+    if (_isChatting) {
+      _isChatting = false;
+      _generation++;
+      _cancelActiveRequest();
+    }
+    _messages.clear();
+    _service?.clearSession();
+    notifyListeners();
+  }
+
   @override
   void dispose() {
     _disposed = true;

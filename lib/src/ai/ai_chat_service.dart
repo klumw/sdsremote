@@ -160,6 +160,12 @@ class AiChatService {
     _agent?.updateInstrumentModel(instrumentModel);
   }
 
+  /// Clears the agent conversation history so the next request starts a fresh
+  /// session without the previous turns.
+  void clearSession() {
+    _agent?.clearHistory();
+  }
+
   /// Deactivates the service by clearing the agent without permanently
   /// disposing the service. The service can be re-activated later with
   /// [configure].

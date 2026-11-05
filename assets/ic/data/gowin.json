@@ -1,0 +1,747 @@
+{
+  "schema_version": "1.0",
+  "kind": "gowin_fpga",
+  "vendor": "Gowin Semiconductor",
+  "source": {
+    "label": "Gowin Semiconductor GW1N/GW2A/GW5A datasheets (gowinsemi.com)"
+  },
+  "items": [
+    {
+      "id": "gw1n",
+      "label": "GW1N",
+      "series": "Gowin LittleBee GW1N",
+      "vccioRangeVolts": [
+        1.14,
+        3.6
+      ],
+      "absoluteMaxInputVolts": 3.75,
+      "ioStandards": [
+        {
+          "name": "LVCMOS33 / LVTTL33",
+          "vccioNominalVolts": 3.3,
+          "vccioRangeVolts": [
+            3.135,
+            3.6
+          ],
+          "input": {
+            "vilMax": {
+              "volts": 0.8
+            },
+            "vihMin": {
+              "volts": 2.0
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0,
+              24.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          }
+        },
+        {
+          "name": "LVCMOS25",
+          "vccioNominalVolts": 2.5,
+          "vccioRangeVolts": [
+            2.375,
+            2.625
+          ],
+          "input": {
+            "vilMax": {
+              "volts": 0.7
+            },
+            "vihMin": {
+              "volts": 1.7
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          }
+        },
+        {
+          "name": "LVCMOS18",
+          "vccioNominalVolts": 1.8,
+          "vccioRangeVolts": [
+            1.71,
+            1.89
+          ],
+          "input": {
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          }
+        },
+        {
+          "name": "LVCMOS15",
+          "vccioNominalVolts": 1.5,
+          "vccioRangeVolts": [
+            1.425,
+            1.575
+          ],
+          "input": {
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          }
+        },
+        {
+          "name": "LVCMOS12",
+          "vccioNominalVolts": 1.2,
+          "vccioRangeVolts": [
+            1.14,
+            1.26
+          ],
+          "input": {
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              2.0,
+              6.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          }
+        }
+      ],
+      "notes": "VCCIO 1.14–3.6 V; absolute maximum I/O voltage 3.75 V. The LVCMOS33/LVTTL33 VCCIO maximum is 3.6 V. SSTL/HSTL, PCI33 and differential standards are listed in the datasheet but not in this compact table. The total DC current per bank is limited to n × 8 mA.",
+      "source": "Gowin DS100-3.1E (GW1N series FPGA products data sheet)"
+    },
+    {
+      "id": "gw2a",
+      "label": "GW2A",
+      "series": "Gowin Arora GW2A",
+      "vccioRangeVolts": [
+        1.14,
+        3.465
+      ],
+      "absoluteMaxInputVolts": 3.75,
+      "ioStandards": [
+        {
+          "name": "LVCMOS33 / LVTTL33",
+          "vccioNominalVolts": 3.3,
+          "vccioRangeVolts": [
+            3.135,
+            3.465
+          ],
+          "input": {
+            "vilMax": {
+              "volts": 0.8
+            },
+            "vihMin": {
+              "volts": 2.0
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0,
+              24.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          }
+        },
+        {
+          "name": "LVCMOS25",
+          "vccioNominalVolts": 2.5,
+          "vccioRangeVolts": [
+            2.375,
+            2.625
+          ],
+          "input": {
+            "vilMax": {
+              "volts": 0.7
+            },
+            "vihMin": {
+              "volts": 1.7
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          }
+        },
+        {
+          "name": "LVCMOS18",
+          "vccioNominalVolts": 1.8,
+          "vccioRangeVolts": [
+            1.71,
+            1.89
+          ],
+          "input": {
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          }
+        },
+        {
+          "name": "LVCMOS15",
+          "vccioNominalVolts": 1.5,
+          "vccioRangeVolts": [
+            1.425,
+            1.575
+          ],
+          "input": {
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          }
+        },
+        {
+          "name": "LVCMOS12",
+          "vccioNominalVolts": 1.2,
+          "vccioRangeVolts": [
+            1.14,
+            1.26
+          ],
+          "input": {
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              2.0,
+              4.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          }
+        }
+      ],
+      "notes": "VCCIO 1.14–3.465 V; absolute maximum I/O voltage 3.75 V. SSTL/HSTL, PCI33 and differential standards are listed in the datasheet but not in this compact table. The total DC current per bank is limited to n × 8 mA.",
+      "source": "Gowin DS102-2.2E (GW2A series FPGA products data sheet)"
+    },
+    {
+      "id": "gw5a_138",
+      "label": "GW5A-138",
+      "series": "Gowin Arora V GW5A-138",
+      "vccioRangeVolts": [
+        1.14,
+        3.465
+      ],
+      "absoluteMaxInputVolts": 3.75,
+      "ioStandards": [
+        {
+          "name": "LVCMOS33 / LVTTL33",
+          "vccioNominalVolts": 3.3,
+          "vccioRangeVolts": [
+            3.135,
+            3.465
+          ],
+          "input": {
+            "vilMax": {
+              "volts": 0.8
+            },
+            "vihMin": {
+              "volts": 2.0
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0,
+              24.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.4
+          }
+        },
+        {
+          "name": "LVCMOS25",
+          "vccioNominalVolts": 2.5,
+          "vccioRangeVolts": [
+            2.375,
+            2.625
+          ],
+          "input": {
+            "vilMax": {
+              "volts": 0.7
+            },
+            "vihMin": {
+              "volts": 1.7
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0,
+              24.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.4
+          }
+        },
+        {
+          "name": "LVCMOS18",
+          "vccioNominalVolts": 1.8,
+          "vccioRangeVolts": [
+            1.71,
+            1.89
+          ],
+          "input": {
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0,
+              24.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.4
+          }
+        },
+        {
+          "name": "LVCMOS15",
+          "vccioNominalVolts": 1.5,
+          "vccioRangeVolts": [
+            1.425,
+            1.575
+          ],
+          "input": {
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.4
+          }
+        },
+        {
+          "name": "LVCMOS12",
+          "vccioNominalVolts": 1.2,
+          "vccioRangeVolts": [
+            1.14,
+            1.26
+          ],
+          "input": {
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.4
+          }
+        }
+      ],
+      "notes": "VCCIO 1.14–3.465 V; absolute maximum I/O voltage 3.75 V. The 25K/60K variants have lower drive strengths and a 3.45 V VIH max on LVCMOS33; see the separate gw5a_25_60 entry. SSTL/HSTL, PCI33 and differential standards are listed in the datasheet but not in this compact table.",
+      "source": "Gowin DS1103-1.0.3E, Table 3-21 (GW5A-138)"
+    },
+    {
+      "id": "gw5a_25_60",
+      "label": "GW5A-25/60",
+      "series": "Gowin Arora V GW5A-25/GW5A-60",
+      "vccioRangeVolts": [
+        1.14,
+        3.465
+      ],
+      "absoluteMaxInputVolts": 3.75,
+      "ioStandards": [
+        {
+          "name": "LVCMOS33 / LVTTL33",
+          "vccioNominalVolts": 3.3,
+          "vccioRangeVolts": [
+            3.135,
+            3.465
+          ],
+          "input": {
+            "vilMax": {
+              "volts": 0.8
+            },
+            "vihMin": {
+              "volts": 2.0
+            },
+            "vihMax": {
+              "volts": 3.45
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              2.0,
+              4.0,
+              6.0,
+              8.0,
+              12.0,
+              16.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          }
+        },
+        {
+          "name": "LVCMOS25",
+          "vccioNominalVolts": 2.5,
+          "vccioRangeVolts": [
+            2.375,
+            2.625
+          ],
+          "input": {
+            "vilMax": {
+              "volts": 0.7
+            },
+            "vihMin": {
+              "volts": 1.7
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              2.0,
+              4.0,
+              6.0,
+              8.0,
+              12.0,
+              16.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          }
+        },
+        {
+          "name": "LVCMOS18",
+          "vccioNominalVolts": 1.8,
+          "vccioRangeVolts": [
+            1.71,
+            1.89
+          ],
+          "input": {
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              2.0,
+              4.0,
+              6.0,
+              8.0,
+              12.0,
+              16.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          }
+        },
+        {
+          "name": "LVCMOS15",
+          "vccioNominalVolts": 1.5,
+          "vccioRangeVolts": [
+            1.425,
+            1.575
+          ],
+          "input": {
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              2.0,
+              4.0,
+              6.0,
+              8.0,
+              12.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          }
+        },
+        {
+          "name": "LVCMOS12",
+          "vccioNominalVolts": 1.2,
+          "vccioRangeVolts": [
+            1.14,
+            1.26
+          ],
+          "input": {
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              2.0,
+              4.0,
+              6.0,
+              8.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          }
+        }
+      ],
+      "notes": "VCCIO 1.14–3.465 V; absolute maximum I/O voltage 3.75 V. LVCMOS33 VIH max is 3.45 V; other standards use VCCIO+0.3 V. SSTL/HSTL, PCI33 and differential standards are listed in the datasheet but not in this compact table.",
+      "source": "Gowin DS1103-1.0.3E, Table 3-22 (GW5A-25/60)"
+    }
+  ]
+}

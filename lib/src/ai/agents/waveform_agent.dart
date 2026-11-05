@@ -8,6 +8,7 @@ import '../tools/audio_agent_tool.dart';
 import '../tools/calculator_tool.dart';
 import '../tools/date_time_tool.dart';
 import '../tools/digital_agent_tool.dart';
+import '../tools/digital_measurement_tools.dart';
 import '../tools/math_tool.dart';
 import '../tools/scpi_agent_tool.dart';
 import '../tools/signal_generator_tool.dart';
@@ -38,7 +39,7 @@ import 'systemprompts.dart';
 class WaveformAgent {
   static const int defaultMaxToolCalls = 16;
   static const int defaultInstrumentToolCalls = 8;
-  static const int _maxHistoryMessages = 12;
+  static const int _maxHistoryMessages = 20;
 
   late final Agent _agent;
   List<ChatMessage> _history;
@@ -80,6 +81,7 @@ class WaveformAgent {
     SignalGeneratorIntentCheck? isSignalGeneratorIntentEnabled,
     AudioAnalysisContextProvider? audioAnalysisContext,
     AudioSweepProvider? audioSweep,
+    DigitalMeasurementProvider? digitalMeasurement,
     void Function()? suspendResponseTimeout,
     void Function()? resumeResponseTimeout,
     int instrumentToolCalls = defaultInstrumentToolCalls,
@@ -116,6 +118,7 @@ class WaveformAgent {
       manageFaultProfile: manageFaultProfile,
       acquireWaveform: acquireWaveform,
       instrumentAgent: instrumentAgent,
+      digitalMeasurement: digitalMeasurement,
     );
     _agent = Agent(
       model,
@@ -134,6 +137,20 @@ class WaveformAgent {
           acquire: acquireWaveform,
           agentName: 'WaveformAgent',
         ),
+        if (readSignalGeneratorStatus != null)
+          createReadSignalGeneratorStatusTool(
+            readStatus: readSignalGeneratorStatus,
+            agentName: 'WaveformAgent',
+            description:
+                'Return the status of the separate JDS6600/FY6900 signal '
+                'generator: the configured device, whether it is detected and '
+                'connected, the serial port, model, cached per-channel '
+                'settings, the output states and the device limits. Call it '
+                'before proposing an automatic frequency/Bode sweep. This '
+                'read-only pre-check does not need a signal-generator '
+                'keyword; generator changes still require the keyword and '
+                'user confirmation.',
+          ),
         createWaveformHistoryTool(
           readHistory: readWaveformHistory,
           agentName: 'WaveformAgent',

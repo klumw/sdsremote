@@ -10,6 +10,7 @@ import 'capture_command.dart';
 import 'input_history.dart';
 import 'specification_upload.dart';
 import 'tools/audio/audio_tools.dart';
+import 'tools/digital_measurement_tools.dart';
 import 'tools/signal_generator_tool.dart';
 import 'tools/spectrum_summary_tool.dart';
 import 'tools/vxi11_tool.dart';
@@ -55,6 +56,7 @@ class WaveformChatController extends ChangeNotifier {
   SignalGeneratorActionProvider? _controlSignalGenerator;
   AudioAnalysisContextProvider? _audioAnalysisContext;
   AudioSweepProvider? _audioSweep;
+  DigitalMeasurementProvider? _digitalMeasurement;
 
   /// Whether the current user request contains the signal-generator keyword.
   bool _signalGeneratorIntent = false;
@@ -66,6 +68,15 @@ class WaveformChatController extends ChangeNotifier {
   /// the intent of the immediately preceding message remains active for one
   /// follow-up.
   bool _previousSignalGeneratorKeyword = false;
+
+  /// Whether the agent has handled at least one request in the current
+  /// session.
+  ///
+  /// During an ongoing dialog every user message must reach the model, even a
+  /// short confirmation such as "bitte aufnehmen". Only a fresh session uses
+  /// the local capture shortcut; otherwise the reply would be swallowed and
+  /// the dialog would end without the new measurement.
+  bool _hasAgentConversation = false;
 
   /// Cancellation signal for the active AI request and its sub-agents.
   CancellationToken? _activeCancelToken;
@@ -130,6 +141,7 @@ class WaveformChatController extends ChangeNotifier {
     SignalGeneratorActionProvider? controlSignalGenerator,
     AudioAnalysisContextProvider? audioAnalysisContext,
     AudioSweepProvider? audioSweep,
+    DigitalMeasurementProvider? digitalMeasurement,
   }) {
     if (_disposed) return;
     _acquireWaveform = acquireWaveform;
@@ -140,6 +152,7 @@ class WaveformChatController extends ChangeNotifier {
     _controlSignalGenerator = controlSignalGenerator;
     _audioAnalysisContext = audioAnalysisContext;
     _audioSweep = audioSweep;
+    _digitalMeasurement = digitalMeasurement;
     _instrumentDeviceContext = instrumentDeviceContext;
     final configured = settings != null && settings.isConfigured;
     if (!configured) {
@@ -194,6 +207,7 @@ class WaveformChatController extends ChangeNotifier {
       isSignalGeneratorIntentEnabled: () => _signalGeneratorIntent,
       audioAnalysisContext: _audioAnalysisContext,
       audioSweep: _audioSweep,
+      digitalMeasurement: _digitalMeasurement,
     );
     _service = service;
     notifyListeners();
@@ -221,8 +235,12 @@ class WaveformChatController extends ChangeNotifier {
     }
 
     // Short capture commands read a fresh waveform without a model round
-    // trip, so "Aufnahme", "record", "update" and "snapshot" always work.
-    if (isCaptureCommand(trimmed)) {
+    // trip, so "Aufnahme", "record", "update" and "snapshot" always work in a
+    // fresh session. During an ongoing dialog the same words can be the
+    // user's answer to the agent's proposed next step ("bitte aufnehmen").
+    // Intercepting that reply locally would end the dialog and leave the
+    // agent without the new measurement, so route it to the model instead.
+    if (!_hasAgentConversation && isCaptureCommand(trimmed)) {
       await _runCaptureCommand(trimmed);
       return;
     }
@@ -242,6 +260,9 @@ class WaveformChatController extends ChangeNotifier {
     final cancelToken = CancellationToken();
     _activeCancelToken = cancelToken;
     _recordInput(trimmed);
+    // From here on the session is a dialog: later user replies, including
+    // short capture confirmations, belong to the model's context.
+    _hasAgentConversation = true;
     final generation = _generation;
     final aiMessage = <String, String>{'role': 'ai', 'content': ''};
     _messages.add({'role': 'user', 'content': trimmed});
@@ -353,6 +374,7 @@ class WaveformChatController extends ChangeNotifier {
     if (_disposed) return;
     _signalGeneratorIntent = false;
     _previousSignalGeneratorKeyword = false;
+    _hasAgentConversation = false;
     if (_isChatting) {
       _isChatting = false;
       _generation++;

@@ -48,6 +48,7 @@ flutter:
     - assets/icons/
     - assets/ref/
     - assets/formulas/
+    - assets/ic/data/
     - assets/devices/commands/
     - assets/devices/knowledge/
     - assets/devices/qa/

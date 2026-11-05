@@ -1,0 +1,87 @@
+{
+  "schema_version": "1.0",
+  "kind": "edge_times",
+  "source": {
+    "label": "User-provided reference values"
+  },
+  "items": [
+    {
+      "id": "standard_cmos_4000",
+      "family": "Standard CMOS (4000 series)",
+      "exampleSeries": "CD4000B, TC40xxB",
+      "points": [
+        {
+          "supplyVolts": 5.0,
+          "maxEdgeTimeNs": 5000.0
+        },
+        {
+          "supplyVolts": 10.0,
+          "maxEdgeTimeNs": 1000.0
+        },
+        {
+          "supplyVolts": 15.0,
+          "maxEdgeTimeNs": 500.0
+        }
+      ],
+      "notes": "Absolute maximum edge time at the given supply voltage (5 µs at 5 V, 1 µs at 10 V, 500 ns at 15 V)."
+    },
+    {
+      "id": "high_speed_cmos_74hc",
+      "family": "High-Speed CMOS",
+      "exampleSeries": "74HC / 74HCT",
+      "points": [
+        {
+          "supplyVolts": 2.0,
+          "maxEdgeTimeNs": 1000.0
+        },
+        {
+          "supplyVolts": 4.5,
+          "maxEdgeTimeNs": 500.0
+        },
+        {
+          "supplyVolts": 6.0,
+          "maxEdgeTimeNs": 400.0
+        }
+      ],
+      "notes": "Absolute maximum edge time at the given supply voltage (1 µs at 2.0 V, 500 ns at 4.5 V, 400 ns at 6.0 V)."
+    },
+    {
+      "id": "advanced_cmos_74ac",
+      "family": "Advanced CMOS",
+      "exampleSeries": "74AC / 74ACT",
+      "supplyRangeVolts": [
+        3.0,
+        5.5
+      ],
+      "maxEdgeTimeNsPerVoltMin": 20.0,
+      "maxEdgeTimeNsPerVoltMax": 20.0,
+      "exampleSupplyVolts": 5.0,
+      "exampleMaxEdgeTimeNs": 100.0,
+      "notes": "20 ns/V; for example the maximum is 100 ns at 5 V. Multiply the slope by the actual voltage swing."
+    },
+    {
+      "id": "very_high_speed_cmos_74vhc",
+      "family": "Very High-Speed CMOS",
+      "exampleSeries": "74VHC / 74VHCT",
+      "supplyRangeVolts": [
+        3.3,
+        5.0
+      ],
+      "maxEdgeTimeNsPerVoltMin": 20.0,
+      "maxEdgeTimeNsPerVoltMax": 100.0,
+      "notes": "20 to 100 ns/V, depending on the family. Multiply the selected slope by the actual voltage swing."
+    },
+    {
+      "id": "low_voltage_cmos_74lvc",
+      "family": "Low-Voltage CMOS",
+      "exampleSeries": "74LVC / 74AUC",
+      "supplyRangeVolts": [
+        1.8,
+        3.3
+      ],
+      "maxEdgeTimeNsPerVoltMin": 5.0,
+      "maxEdgeTimeNsPerVoltMax": 10.0,
+      "notes": "5 to 10 ns/V. Multiply the selected slope by the actual voltage swing."
+    }
+  ]
+}

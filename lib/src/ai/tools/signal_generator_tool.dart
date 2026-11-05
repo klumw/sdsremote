@@ -147,17 +147,19 @@ Tool<Map<String, dynamic>> createReadSignalGeneratorStatusTool({
   SignalGeneratorStatusProvider? readStatus,
   SignalGeneratorIntentCheck? isEnabled,
   String agentName = 'unknown',
+  String? description,
 }) {
   return Tool<Map<String, dynamic>>(
     name: 'read_signal_generator_status',
     description:
+        description ??
         'Return the status of the separate JDS6600/FY6900 signal generator: '
-        'the configured device, whether it is detected and connected, the '
-        'serial port, model, cached per-channel settings (waveform, frequency, '
-        'amplitude, offset, duty cycle, phase), the output states and the '
-        'device limits. Only use this tool when the user\'s request contains '
-        'a signal-generator keyword such as Signalgenerator, Generator (AI Chat only), Signalgeber,'
-        'Funktionsgenerator, Signalquelle, Function Generator or WaveGen.',
+            'the configured device, whether it is detected and connected, the '
+            'serial port, model, cached per-channel settings (waveform, frequency, '
+            'amplitude, offset, duty cycle, phase), the output states and the '
+            'device limits. Only use this tool when the user\'s request contains '
+            'a signal-generator keyword such as Signalgenerator, Generator (AI Chat only), Signalgeber,'
+            'Funktionsgenerator, Signalquelle, Function Generator or WaveGen.',
     inputSchema: Schema.fromMap({
       'type': 'object',
       'properties': <String, dynamic>{},

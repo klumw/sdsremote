@@ -145,6 +145,7 @@ The **AI Agent** button next to the **SDS-Remote Help** title opens the Help AI 
 * The assistant answers questions from this manual and links directly to the matching sections.
 * For problems with the application, it reads the recent application log and explains the relevant entries.
 * It has the same microphone button as the other AI assistants ([2.1 Top Bar](#21-top-bar)).
+* The trash button in the assistant header clears the transcript and the AI session, so the next question starts without the previous turns.
 
 ---
 
@@ -308,7 +309,7 @@ For the exact model name string required by your provider, consult your provider
 #### Opening and Closing
 
 Click the **AI Chat** button in the top toolbar to open or close the chat interface. The chat replaces the main content area ([Control Panel](#9-control-panel), Waveform, etc.) while open.  
-Your conversation history is preserved while the panel remains open; closing and reopening the chat clears the history.
+Your conversation history is preserved while the panel remains open; closing and reopening the chat clears the history. The trash button in the chat header clears the transcript and the AI session, so the next question starts without the previous turns.
 
 The [Help panel](#23-help-panel), the [Control Panel](#910-ai-assistant), [Acquire Waveform](#812-ai-assistant), [Macro Editor](#77-ai-assistant) and [Engineering Calculator](#118-ai-assistant) have their own AI assistants that work directly in those views without replacing them.
 
@@ -1122,7 +1123,7 @@ The assistant works directly on the macro that is open in the editor:
 * It can inspect the connected oscilloscope, the configured signal generator, the variables and `print()` output of the current run, and the application log to explain errors.
 * It can list available profile files, add `loadProfile(...)` statements, and perform calculations and unit conversions for constant values.
 
-The chat stays open, including its complete history, when the editor is closed and reopened later in the same session. An answer that is still streaming when the editor closes continues to update and is visible on reopen. Press the AI Chat button again to close the chat panel.
+The chat stays open, including its complete history, when the editor is closed and reopened later in the same session. An answer that is still streaming when the editor closes continues to update and is visible on reopen. Press the AI Chat button again to close the chat panel. The trash button in the chat header clears the transcript and the AI session, so the next question starts without the previous turns.
 
 ---
 
@@ -1530,9 +1531,9 @@ For recurring fault sessions the assistant stores the reference values, toleranc
 
 #### Digital Signal Measurements and Logic Levels
 
-Digital-specific measurements are delegated to a DigitalAgent sub-agent. It covers logic levels and thresholds, logic families, edge/rise/fall times, duty and timing, clock jitter, overshoot, ringing, glitches, protocol signal integrity and digital fault analysis. The assistant asks once whether the measurements may run autonomously, including the necessary scope/generator changes; after confirmation the DigitalAgent returns structured measurements that the Waveform AI presents.
+Digital-specific measurements are delegated to a DigitalAgent sub-agent. It covers logic levels and thresholds, logic families, edge/rise/fall times, duty and timing, clock jitter, overshoot, ringing, glitches, protocol signal integrity and digital fault analysis. Dedicated deterministic tools return rise/fall time, high/low pulse width, edge statistics, period and cycle-to-cycle jitter, clock stability and drift, setup/hold, skew, glitches and overshoot/undershoot. The assistant asks once whether the measurements may run autonomously, including the necessary scope/generator changes; after confirmation the DigitalAgent returns structured measurements that the Waveform AI presents.
 
-For digital-signal fault analysis the assistant provides built-in logic-level references for TTL, CMOS, LVTTL, ECL, RS-232 and HTL, maximum edge times for common logic families, and ESP32-family values. It asks for the standard, logic family or ESP32 variant and the supply voltage, then uses the resulting thresholds as expected levels for the fault tests. Digital signals are not checked for clipping because flat tops and bottoms are valid levels.
+For digital-signal fault analysis the assistant provides built-in logic-level references for TTL, TTL-compatible CMOS, CMOS 5 V/2.5 V/1.8 V/1.2 V/0.8 V, Schmitt-trigger variants, LVTTL, ECL, RS-232 and HTL, with typical switching thresholds where available, maximum edge times for common logic families, ESP32-family values, STM32-family values for the F0, F1, F2, F3, F4, F7, G0, G4, H5, H7, L0, L1, L4, L5, U5, WB and WL series, Raspberry Pi RP2040/RP2350 values, Gowin GW1N/GW2A/GW5A values, AMD/Xilinx 7 Series/UltraScale+ values and Lattice iCE40/MachXO2/MachXO3/ECP5 values. It asks for the standard, logic family, ESP32 variant, STM32 series, Raspberry Pi MCU, Gowin FPGA family, AMD/Xilinx FPGA bank type or Lattice FPGA family and the supply voltage, then uses the resulting thresholds as expected levels for the fault tests. Digital signals are not checked for clipping because flat tops and bottoms are valid levels.
 
 ---
 
@@ -1665,7 +1666,7 @@ The image format is PNG.
 
 ### 9.10 AI Assistant
 
-The Control Panel has its own AI assistant. The **AI Agent** button at the bottom-left of the control sidebar — at the same height as the automatic screenshot toggle — opens a chat overlay that covers the control sidebar. The close button in the overlay header collapses it again; the conversation is kept while the Control Panel remains open.
+The Control Panel has its own AI assistant. The **AI Agent** button at the bottom-left of the control sidebar — at the same height as the automatic screenshot toggle — opens a chat overlay that covers the control sidebar. The close button in the overlay header collapses it again; the conversation is kept while the Control Panel remains open. The trash button in the overlay header clears the transcript and the AI session, so the next question starts without the previous turns.
 
 Describe the desired setup in plain language, for example:
 
@@ -2127,6 +2128,8 @@ The assistant can:
 * check units and dimensions with the deterministic calculator engine;
 * distinguish linear gain from logarithmic gain and state level references;
 * read the current expression, program, variables and display settings read-only.
+
+The trash button in the panel header clears the transcript and the AI session, so the next question starts without the previous turns.
 
 **Example prompts**
 

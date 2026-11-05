@@ -112,6 +112,12 @@ class ControlPanelAiService {
     }
   }
 
+  /// Clears the agent conversation history so the next request starts a fresh
+  /// session without the previous turns.
+  void clearSession() {
+    _agent?.clearHistory();
+  }
+
   /// Disposes the service and releases the agent.
   void dispose() {
     _isDisposed = true;

@@ -9,6 +9,14 @@ import 'dart:math' as math;
 
 const String logicLevelSource = 'Standard logic-level reference table';
 
+/// Source label for values taken from the TI Logic Guide SDYU001AC.
+const String tiLogicGuideSource =
+    'TI Logic Guide SDYU001AC (Rev. AC, November 2025)';
+
+/// Source label for the typical switching thresholds (Vt, Vt+, Vt-).
+const String logicSwitchingThresholdSource =
+    'TI Logic Guide SDYU001AC, Figures 2-2 and 2-3';
+
 /// One logic family from the reference table.
 class LogicLevelStandard {
   const LogicLevelStandard({
@@ -21,6 +29,10 @@ class LogicLevelStandard {
     this.vihMinVolts,
     this.volMaxVolts,
     this.vohMinVolts,
+    this.vtTypicalVolts,
+    this.vtPlusMaxVolts,
+    this.vtMinusMinVolts,
+    this.schmittTrigger = false,
     this.vilRangeVolts,
     this.vihRangeVolts,
     this.volRangeVolts,
@@ -32,6 +44,7 @@ class LogicLevelStandard {
     this.volNotStated = false,
     this.vohNotStated = false,
     this.notes = '',
+    this.source = logicLevelSource,
   });
 
   final String id;
@@ -48,6 +61,18 @@ class LogicLevelStandard {
   final double? vihMinVolts;
   final double? volMaxVolts;
   final double? vohMinVolts;
+
+  /// Typical switching threshold Vt.
+  final double? vtTypicalVolts;
+
+  /// Maximum positive-going threshold of a Schmitt-trigger input.
+  final double? vtPlusMaxVolts;
+
+  /// Minimum negative-going threshold of a Schmitt-trigger input.
+  final double? vtMinusMinVolts;
+
+  /// Whether the input has Schmitt-trigger hysteresis.
+  final bool schmittTrigger;
 
   /// Ranges used by RS-232 instead of fixed limits.
   final List<double>? vilRangeVolts;
@@ -67,19 +92,8 @@ class LogicLevelStandard {
   final bool vohNotStated;
   final String notes;
 
-  /// Parses an [id] or label (case-insensitive).
-  static LogicLevelStandard? parse(String? value) {
-    final normalized = value?.trim().toLowerCase();
-    if (normalized == null || normalized.isEmpty) return null;
-    for (final standard in logicLevelStandards) {
-      if (standard.id == normalized ||
-          standard.label.toLowerCase() == normalized ||
-          standard.family.toLowerCase() == normalized) {
-        return standard;
-      }
-    }
-    return null;
-  }
+  /// Source label for this row.
+  final String source;
 
   /// JSON-safe representation.
   ///
@@ -113,11 +127,19 @@ class LogicLevelStandard {
         'vihMinFormula': '$vihMinFactorOfSupply × UB',
       if (vohTypicalFactorOfSupply != null)
         'vohTypicalFormula': '≈ $vohTypicalFactorOfSupply × UB',
+      if (vtTypicalVolts != null ||
+          vtPlusMaxVolts != null ||
+          vtMinusMinVolts != null)
+        'vtSource': logicSwitchingThresholdSource,
       'input': <String, dynamic>{
         'vilMaxVolts': ?vilMax,
         'vihMinVolts': ?vihMin,
         'vilRangeVolts': ?vilRangeVolts,
         'vihRangeVolts': ?vihRangeVolts,
+        'vtTypicalVolts': ?vtTypicalVolts,
+        'vtPlusMaxVolts': ?vtPlusMaxVolts,
+        'vtMinusMinVolts': ?vtMinusMinVolts,
+        if (schmittTrigger) 'schmittTrigger': true,
       },
       'output': <String, dynamic>{
         'volMaxVolts': ?volMaxVolts,
@@ -132,102 +154,10 @@ class LogicLevelStandard {
           ? 'negative (low=1, high=0)'
           : 'positive (low=0, high=1)',
       'notes': notes,
-      'source': logicLevelSource,
+      'source': source,
     };
   }
 }
-
-/// The table rows in the standard order.
-const List<LogicLevelStandard> logicLevelStandards = [
-  LogicLevelStandard(
-    id: 'ttl_5v',
-    label: 'TTL 5 V',
-    family: 'TTL',
-    supplyVolts: 5.0,
-    vilMaxVolts: 0.8,
-    vihMinVolts: 2.0,
-    volMaxVolts: 0.4,
-    vohMinVolts: 2.4,
-  ),
-  LogicLevelStandard(
-    id: 'cmos_5v',
-    label: 'CMOS 5 V',
-    family: 'CMOS',
-    supplyVolts: 5.0,
-    vilMaxVolts: 1.5,
-    vihMinVolts: 3.5,
-    volMaxVolts: 0.5,
-    vohMinVolts: 4.44,
-  ),
-  LogicLevelStandard(
-    id: 'lvttl_3v3',
-    label: 'LVTTL 3.3 V',
-    family: 'LVTTL',
-    supplyVolts: 3.3,
-    vilMaxVolts: 0.8,
-    vihMinVolts: 2.0,
-    volMaxVolts: 0.4,
-    vohMinVolts: 2.4,
-  ),
-  LogicLevelStandard(
-    id: 'cmos_2v5',
-    label: 'CMOS 2.5 V',
-    family: 'CMOS',
-    supplyVolts: 2.5,
-    vilMaxVolts: 0.7,
-    vihMinVolts: 1.7,
-    volMaxVolts: 0.2,
-    vohMinVolts: 2.3,
-  ),
-  LogicLevelStandard(
-    id: 'cmos_1v8',
-    label: 'CMOS 1.8 V',
-    family: 'CMOS',
-    supplyVolts: 1.8,
-    vilMaxVolts: 0.7,
-    vihMinVolts: 1.17,
-    volMaxVolts: 0.45,
-    vohMinVolts: 1.2,
-  ),
-  LogicLevelStandard(
-    id: 'ecl',
-    label: 'ECL',
-    family: 'ECL',
-    vilMaxVolts: -1.4,
-    vihMinVolts: -1.2,
-    volNotStated: true,
-    vohNotStated: true,
-    notes:
-        'Output levels (VOL/VOH) are not stated in the source table. Use the '
-        'device datasheet for output levels.',
-  ),
-  LogicLevelStandard(
-    id: 'rs232',
-    label: 'RS-232',
-    family: 'RS-232',
-    vilRangeVolts: [-15.0, -3.0],
-    vihRangeVolts: [3.0, 15.0],
-    volRangeVolts: [-15.0, -5.0],
-    vohRangeVolts: [5.0, 15.0],
-    negativeLogic: true,
-    notes:
-        'Values are ranges from the source table. Negative logic: low=1, '
-        'high=0.',
-  ),
-  LogicLevelStandard(
-    id: 'htl_10_30v',
-    label: 'HTL 10…30 V',
-    family: 'HTL',
-    supplyRangeVolts: [10.0, 30.0],
-    vilMaxFactorOfSupply: 0.2,
-    vihMinFactorOfSupply: 0.6,
-    vohTypicalFactorOfSupply: 1.0,
-    volNotStated: true,
-    notes:
-        'Supply-dependent: VIL ≤ 0.2 × UB, VIH ≥ 0.6 × UB, VOH ≈ UB. Output '
-        'low is not stated in the source table.',
-  ),
-];
 
 /// Source label for the edge-time values. These values were supplied by the
 /// user and are not part of the logic-level reference table.
@@ -296,71 +226,6 @@ class LogicEdgeTimeReference {
   };
 }
 
-/// Edge-time reference values supplied by the user.
-const List<LogicEdgeTimeReference> logicEdgeTimeReferences = [
-  LogicEdgeTimeReference(
-    id: 'standard_cmos_4000',
-    family: 'Standard CMOS (4000 series)',
-    exampleSeries: 'CD4000B, TC40xxB',
-    points: [
-      LogicEdgeTimePoint(supplyVolts: 5.0, maxEdgeTimeNs: 5000.0),
-      LogicEdgeTimePoint(supplyVolts: 10.0, maxEdgeTimeNs: 1000.0),
-      LogicEdgeTimePoint(supplyVolts: 15.0, maxEdgeTimeNs: 500.0),
-    ],
-    notes:
-        'Absolute maximum edge time at the given supply voltage (5 µs at '
-        '5 V, 1 µs at 10 V, 500 ns at 15 V).',
-  ),
-  LogicEdgeTimeReference(
-    id: 'high_speed_cmos_74hc',
-    family: 'High-Speed CMOS',
-    exampleSeries: '74HC / 74HCT',
-    points: [
-      LogicEdgeTimePoint(supplyVolts: 2.0, maxEdgeTimeNs: 1000.0),
-      LogicEdgeTimePoint(supplyVolts: 4.5, maxEdgeTimeNs: 500.0),
-      LogicEdgeTimePoint(supplyVolts: 6.0, maxEdgeTimeNs: 400.0),
-    ],
-    notes:
-        'Absolute maximum edge time at the given supply voltage (1 µs at '
-        '2.0 V, 500 ns at 4.5 V, 400 ns at 6.0 V).',
-  ),
-  LogicEdgeTimeReference(
-    id: 'advanced_cmos_74ac',
-    family: 'Advanced CMOS',
-    exampleSeries: '74AC / 74ACT',
-    supplyRangeVolts: [3.0, 5.5],
-    maxEdgeTimeNsPerVoltMin: 20.0,
-    maxEdgeTimeNsPerVoltMax: 20.0,
-    exampleSupplyVolts: 5.0,
-    exampleMaxEdgeTimeNs: 100.0,
-    notes:
-        '20 ns/V; for example the maximum is 100 ns at 5 V. Multiply the '
-        'slope by the actual voltage swing.',
-  ),
-  LogicEdgeTimeReference(
-    id: 'very_high_speed_cmos_74vhc',
-    family: 'Very High-Speed CMOS',
-    exampleSeries: '74VHC / 74VHCT',
-    supplyRangeVolts: [3.3, 5.0],
-    maxEdgeTimeNsPerVoltMin: 20.0,
-    maxEdgeTimeNsPerVoltMax: 100.0,
-    notes:
-        '20 to 100 ns/V, depending on the family. Multiply the selected '
-        'slope by the actual voltage swing.',
-  ),
-  LogicEdgeTimeReference(
-    id: 'low_voltage_cmos_74lvc',
-    family: 'Low-Voltage CMOS',
-    exampleSeries: '74LVC / 74AUC',
-    supplyRangeVolts: [1.8, 3.3],
-    maxEdgeTimeNsPerVoltMin: 5.0,
-    maxEdgeTimeNsPerVoltMax: 10.0,
-    notes:
-        '5 to 10 ns/V. Multiply the selected slope by the actual voltage '
-        'swing.',
-  ),
-];
-
 /// Source label for the ESP32 values. These values were supplied by the user
 /// and are not part of the logic-level reference table.
 const String esp32LogicSource = 'User-provided reference values';
@@ -370,6 +235,7 @@ class Esp32LogicReference {
   const Esp32LogicReference({
     required this.id,
     required this.label,
+    this.aliases = const [],
     required this.supplyRangeVolts,
     required this.vilMinVolts,
     required this.vilFactorOfSupply,
@@ -394,10 +260,12 @@ class Esp32LogicReference {
     required this.absoluteMaxInputMinVolts,
     required this.absoluteMaxInputAboveSupplyVolts,
     this.notes = '',
+    this.source = esp32LogicSource,
   });
 
   final String id;
   final String label;
+  final List<String> aliases;
   final List<double> supplyRangeVolts;
   final double vilMinVolts;
   final double vilFactorOfSupply;
@@ -423,17 +291,8 @@ class Esp32LogicReference {
   final double absoluteMaxInputAboveSupplyVolts;
   final String notes;
 
-  static Esp32LogicReference? parse(String? value) {
-    final normalized = value?.trim().toLowerCase();
-    if (normalized == null || normalized.isEmpty) return null;
-    for (final reference in esp32LogicReferences) {
-      if (reference.id == normalized ||
-          reference.label.toLowerCase() == normalized) {
-        return reference;
-      }
-    }
-    return null;
-  }
+  /// Source label for this variant.
+  final String source;
 
   /// JSON-safe representation. With [supplyVolts], the absolute thresholds
   /// are computed from the formulas; without it, only the formulas and
@@ -501,129 +360,709 @@ class Esp32LogicReference {
           'maxVolts': supply + absoluteMaxInputAboveSupplyVolts,
       },
       'notes': notes,
-      'source': esp32LogicSource,
+      'source': source,
     };
   }
 }
 
-/// ESP32-family values supplied by the user.
-const List<Esp32LogicReference> esp32LogicReferences = [
-  Esp32LogicReference(
-    id: 'esp32',
-    label: 'ESP32',
-    supplyRangeVolts: [2.3, 3.6],
-    vilMinVolts: 0.0,
-    vilFactorOfSupply: 0.25,
-    vilAbsoluteMaxVolts: 0.825,
-    vihFactorOfSupply: 0.75,
-    vihAbsoluteMinVolts: 2.475,
-    vihMaxAboveSupplyVolts: 0.3,
-    volFactorOfSupply: 0.1,
-    volAbsoluteMaxVolts: 0.33,
-    volTestCurrentMilliamps: 5,
-    vohFactorOfSupply: 0.8,
-    vohAbsoluteMinVolts: 2.64,
-    vohTestCurrentMilliamps: 5,
-    maxOutputCurrentMilliamps: 40,
-    recommendedContinuousCurrentMilliamps: 20,
-    riseTimeNsMin: 2.5,
-    riseTimeNsMax: 6.0,
-    fallTimeNsMin: 2.5,
-    fallTimeNsMax: 6.0,
-    pullUpKiloOhms: 45,
-    pullDownKiloOhms: 45,
-    absoluteMaxInputMinVolts: -0.3,
-    absoluteMaxInputAboveSupplyVolts: 0.3,
-    notes: 'VIL lower bound is 0 V for the ESP32.',
-  ),
-  Esp32LogicReference(
-    id: 'esp32_s2',
-    label: 'ESP32-S2',
-    supplyRangeVolts: [3.0, 3.6],
-    vilMinVolts: -0.3,
-    vilFactorOfSupply: 0.25,
-    vilAbsoluteMaxVolts: 0.825,
-    vihFactorOfSupply: 0.75,
-    vihAbsoluteMinVolts: 2.475,
-    vihMaxAboveSupplyVolts: 0.3,
-    volFactorOfSupply: 0.1,
-    volAbsoluteMaxVolts: 0.33,
-    volTestCurrentMilliamps: 5,
-    vohFactorOfSupply: 0.8,
-    vohAbsoluteMinVolts: 2.64,
-    vohTestCurrentMilliamps: 5,
-    maxOutputCurrentMilliamps: 28,
-    recommendedContinuousCurrentMilliamps: 20,
-    riseTimeNsMin: 2.0,
-    riseTimeNsMax: 5.5,
-    fallTimeNsMin: 2.0,
-    fallTimeNsMax: 5.5,
-    pullUpKiloOhms: 45,
-    pullDownKiloOhms: 45,
-    absoluteMaxInputMinVolts: -0.3,
-    absoluteMaxInputAboveSupplyVolts: 0.3,
-    notes:
-        'VIL lower bound is -0.3 V. Maximum output current is 28 mA for the '
-        'S2.',
-  ),
-  Esp32LogicReference(
-    id: 'esp32_s3',
-    label: 'ESP32-S3',
-    supplyRangeVolts: [3.0, 3.6],
-    vilMinVolts: -0.3,
-    vilFactorOfSupply: 0.25,
-    vilAbsoluteMaxVolts: 0.825,
-    vihFactorOfSupply: 0.75,
-    vihAbsoluteMinVolts: 2.475,
-    vihMaxAboveSupplyVolts: 0.3,
-    volFactorOfSupply: 0.1,
-    volAbsoluteMaxVolts: 0.33,
-    volTestCurrentMilliamps: 5,
-    vohFactorOfSupply: 0.8,
-    vohAbsoluteMinVolts: 2.64,
-    vohTestCurrentMilliamps: 5,
-    maxOutputCurrentMilliamps: 40,
-    recommendedContinuousCurrentMilliamps: 20,
-    riseTimeNsMin: 2.0,
-    riseTimeNsMax: 5.5,
-    fallTimeNsMin: 2.0,
-    fallTimeNsMax: 5.5,
-    pullUpKiloOhms: 45,
-    pullDownKiloOhms: 45,
-    absoluteMaxInputMinVolts: -0.3,
-    absoluteMaxInputAboveSupplyVolts: 0.3,
-    notes:
-        'VIL lower bound is -0.3 V. Maximum output current is 40 mA for the '
-        'S3.',
-  ),
-  Esp32LogicReference(
-    id: 'esp32_c3_c6',
-    label: 'ESP32-C3 / ESP32-C6',
-    supplyRangeVolts: [3.0, 3.6],
-    vilMinVolts: -0.3,
-    vilFactorOfSupply: 0.25,
-    vilAbsoluteMaxVolts: 0.825,
-    vihFactorOfSupply: 0.75,
-    vihAbsoluteMinVolts: 2.475,
-    vihMaxAboveSupplyVolts: 0.3,
-    volFactorOfSupply: 0.1,
-    volAbsoluteMaxVolts: 0.33,
-    volTestCurrentMilliamps: 5,
-    vohFactorOfSupply: 0.8,
-    vohAbsoluteMinVolts: 2.64,
-    vohTestCurrentMilliamps: 5,
-    maxOutputCurrentMilliamps: 28,
-    recommendedContinuousCurrentMilliamps: 20,
-    riseTimeNsMin: 2.0,
-    riseTimeNsMax: 5.0,
-    fallTimeNsMin: 2.0,
-    fallTimeNsMax: 5.0,
-    pullUpKiloOhms: 45,
-    pullDownKiloOhms: 45,
-    absoluteMaxInputMinVolts: -0.3,
-    absoluteMaxInputAboveSupplyVolts: 0.3,
-    notes:
-        'VIL lower bound is -0.3 V. Maximum output current is 28 mA for the '
-        'C3/C6.',
-  ),
-];
+/// Source label for the STM32 family values.
+const String stm32LogicSource = 'STMicroelectronics STM32 datasheets (st.com)';
+
+/// Logic, drive and pull reference for one STM32 series.
+///
+/// The input thresholds are supply-scaled CMOS levels. The output levels use
+/// the datasheet's nominal CMOS-port specification; the relaxed limits are
+/// included as separate values. Values apply to the general-purpose I/Os;
+/// special I/O types are named in [notes].
+class Stm32LogicReference {
+  const Stm32LogicReference({
+    required this.id,
+    required this.label,
+    required this.series,
+    required this.supplyRangeVolts,
+    required this.vilFactorOfSupply,
+    required this.vihFactorOfSupply,
+    required this.pullUpKiloOhmsMin,
+    required this.pullUpKiloOhmsTyp,
+    required this.pullUpKiloOhmsMax,
+    required this.pullDownKiloOhmsMin,
+    required this.pullDownKiloOhmsTyp,
+    required this.pullDownKiloOhmsMax,
+    required this.source,
+    this.volMaxVolts = 0.4,
+    this.vohDropFromSupplyVolts = 0.4,
+    this.relaxedVolMaxVolts = 1.3,
+    this.relaxedVohDropFromSupplyVolts = 1.3,
+    this.nominalOutputCurrentMilliamps = 8,
+    this.relaxedOutputCurrentMilliamps = 20,
+    this.fiveVoltTolerantPins = true,
+    this.absoluteMaxInputMinVolts = -0.3,
+    this.absoluteMaxInputAboveSupplyVolts = 0.3,
+    this.fiveVoltTolerantMaxVolts = 5.5,
+    this.notes = '',
+  });
+
+  final String id;
+  final String label;
+  final String series;
+  final List<double> supplyRangeVolts;
+
+  /// VIL max = factor × VDD.
+  final double vilFactorOfSupply;
+
+  /// VIH min = factor × VDD.
+  final double vihFactorOfSupply;
+
+  final double volMaxVolts;
+
+  /// VOH min = VDD − this value at the nominal test current.
+  final double vohDropFromSupplyVolts;
+
+  final double relaxedVolMaxVolts;
+
+  /// VOH min = VDD − this value at the relaxed test current.
+  final double relaxedVohDropFromSupplyVolts;
+
+  final double nominalOutputCurrentMilliamps;
+  final double relaxedOutputCurrentMilliamps;
+
+  final double pullUpKiloOhmsMin;
+  final double pullUpKiloOhmsTyp;
+  final double pullUpKiloOhmsMax;
+  final double pullDownKiloOhmsMin;
+  final double pullDownKiloOhmsTyp;
+  final double pullDownKiloOhmsMax;
+
+  final bool fiveVoltTolerantPins;
+  final double absoluteMaxInputMinVolts;
+  final double absoluteMaxInputAboveSupplyVolts;
+  final double fiveVoltTolerantMaxVolts;
+  final String notes;
+  final String source;
+
+  /// JSON-safe representation. With [supplyVolts], the absolute thresholds
+  /// are computed from the formulas; without it, only the formulas and
+  /// absolute limits are returned.
+  Map<String, dynamic> toMap({double? supplyVolts}) {
+    final supply = supplyVolts;
+    final vilMax = supply == null ? null : vilFactorOfSupply * supply;
+    final vihMin = supply == null ? null : vihFactorOfSupply * supply;
+    final vohMin = supply == null ? null : supply - vohDropFromSupplyVolts;
+    final relaxedVohMin = supply == null
+        ? null
+        : supply - relaxedVohDropFromSupplyVolts;
+    return <String, dynamic>{
+      'id': id,
+      'label': label,
+      'series': series,
+      'supplyRangeVolts': supplyRangeVolts,
+      'supplyVolts': ?supply,
+      'input': <String, dynamic>{
+        'vilMaxVolts': ?vilMax,
+        'vilMaxFormula': '$vilFactorOfSupply × VDD',
+        'vihMinVolts': ?vihMin,
+        'vihMinFormula': '$vihFactorOfSupply × VDD',
+      },
+      'output': <String, dynamic>{
+        'volMaxVolts': volMaxVolts,
+        'vohMinVolts': ?vohMin,
+        'vohDropFromSupplyVolts': vohDropFromSupplyVolts,
+        'testCurrentMilliamps': nominalOutputCurrentMilliamps,
+        'relaxedVolMaxVolts': relaxedVolMaxVolts,
+        'relaxedVohMinVolts': ?relaxedVohMin,
+        'relaxedVohDropFromSupplyVolts': relaxedVohDropFromSupplyVolts,
+        'relaxedTestCurrentMilliamps': relaxedOutputCurrentMilliamps,
+      },
+      'drive': <String, dynamic>{
+        'nominalOutputCurrentMilliamps': nominalOutputCurrentMilliamps,
+        'relaxedOutputCurrentMilliamps': relaxedOutputCurrentMilliamps,
+      },
+      'pullResistorsKiloOhms': <String, dynamic>{
+        'pullUpMin': pullUpKiloOhmsMin,
+        'pullUpTyp': pullUpKiloOhmsTyp,
+        'pullUpMax': pullUpKiloOhmsMax,
+        'pullDownMin': pullDownKiloOhmsMin,
+        'pullDownTyp': pullDownKiloOhmsTyp,
+        'pullDownMax': pullDownKiloOhmsMax,
+      },
+      'absoluteMaxInput': <String, dynamic>{
+        'minVolts': absoluteMaxInputMinVolts,
+        'maxAboveSupplyVolts': absoluteMaxInputAboveSupplyVolts,
+        if (supply != null)
+          'maxVolts': supply + absoluteMaxInputAboveSupplyVolts,
+        'fiveVoltTolerantPins': fiveVoltTolerantPins,
+        if (fiveVoltTolerantPins)
+          'fiveVoltTolerantMaxVolts': fiveVoltTolerantMaxVolts,
+      },
+      'notes': notes,
+      'source': source,
+    };
+  }
+}
+
+/// Source label for the Raspberry Pi MCU values.
+const String raspberryPiLogicSource =
+    'Raspberry Pi RP2040/RP2350 datasheets (raspberrypi.com)';
+
+/// One supply-specific I/O point of a Raspberry Pi MCU.
+class RaspberryPiLogicPoint {
+  const RaspberryPiLogicPoint({
+    required this.supplyVolts,
+    required this.vilMinVolts,
+    required this.vilMaxVolts,
+    required this.vihMinVolts,
+    required this.vihMaxVolts,
+    required this.volMaxVolts,
+    required this.vohMinVolts,
+    required this.vhysVolts,
+    this.pullUpKiloOhmsMin,
+    this.pullUpKiloOhmsMax,
+    this.pullDownKiloOhmsMin,
+    this.pullDownKiloOhmsMax,
+    this.fiveVoltTolerantMaxVolts,
+  });
+
+  final double supplyVolts;
+  final double vilMinVolts;
+  final double vilMaxVolts;
+  final double vihMinVolts;
+  final double vihMaxVolts;
+  final double volMaxVolts;
+  final double vohMinVolts;
+  final double vhysVolts;
+  final double? pullUpKiloOhmsMin;
+  final double? pullUpKiloOhmsMax;
+  final double? pullDownKiloOhmsMin;
+  final double? pullDownKiloOhmsMax;
+  final double? fiveVoltTolerantMaxVolts;
+
+  Map<String, dynamic> toMap() => <String, dynamic>{
+    'supplyVolts': supplyVolts,
+    'vilMinVolts': vilMinVolts,
+    'vilMaxVolts': vilMaxVolts,
+    'vihMinVolts': vihMinVolts,
+    'vihMaxVolts': vihMaxVolts,
+    'volMaxVolts': volMaxVolts,
+    'vohMinVolts': vohMinVolts,
+    'vhysVolts': vhysVolts,
+    'pullUpKiloOhmsMin': ?pullUpKiloOhmsMin,
+    'pullUpKiloOhmsMax': ?pullUpKiloOhmsMax,
+    'pullDownKiloOhmsMin': ?pullDownKiloOhmsMin,
+    'pullDownKiloOhmsMax': ?pullDownKiloOhmsMax,
+    'fiveVoltTolerantMaxVolts': ?fiveVoltTolerantMaxVolts,
+  };
+}
+
+/// Logic, drive and pull reference for one Raspberry Pi MCU.
+///
+/// The input and output levels are specified at discrete IOVDD points. An
+/// intermediate supply uses the next lower specified point.
+class RaspberryPiLogicReference {
+  const RaspberryPiLogicReference({
+    required this.id,
+    required this.label,
+    required this.series,
+    required this.supplyRangeVolts,
+    required this.points,
+    required this.driveStrengthsMilliamps,
+    required this.totalOutputCurrentMilliamps,
+    required this.fiveVoltTolerantPins,
+    required this.absoluteMaxInputMinVolts,
+    required this.absoluteMaxInputAboveSupplyVolts,
+    required this.source,
+    this.qspiTotalOutputCurrentMilliamps,
+    this.notes = '',
+  });
+
+  final String id;
+  final String label;
+  final String series;
+  final List<double> supplyRangeVolts;
+  final List<RaspberryPiLogicPoint> points;
+  final List<double> driveStrengthsMilliamps;
+  final double totalOutputCurrentMilliamps;
+  final double? qspiTotalOutputCurrentMilliamps;
+  final bool fiveVoltTolerantPins;
+  final double absoluteMaxInputMinVolts;
+  final double absoluteMaxInputAboveSupplyVolts;
+  final String notes;
+  final String source;
+
+  /// The highest specified point at or below [supply].
+  RaspberryPiLogicPoint? pointForSupply(double supply) {
+    RaspberryPiLogicPoint? selected;
+    for (final point in points) {
+      if (point.supplyVolts <= supply &&
+          (selected == null || point.supplyVolts > selected.supplyVolts)) {
+        selected = point;
+      }
+    }
+    return selected;
+  }
+
+  Map<String, dynamic> toMap({double? supplyVolts}) {
+    final point = supplyVolts == null ? null : pointForSupply(supplyVolts);
+    final vilMin = point?.vilMinVolts;
+    final vilMax = point?.vilMaxVolts;
+    final vihMin = point?.vihMinVolts;
+    final vihMax = point?.vihMaxVolts;
+    final volMax = point?.volMaxVolts;
+    final vohMin = point?.vohMinVolts;
+    final vhys = point?.vhysVolts;
+    final pullUpMin = point?.pullUpKiloOhmsMin;
+    final pullUpMax = point?.pullUpKiloOhmsMax;
+    final pullDownMin = point?.pullDownKiloOhmsMin;
+    final pullDownMax = point?.pullDownKiloOhmsMax;
+    final ftMax = point?.fiveVoltTolerantMaxVolts;
+    return <String, dynamic>{
+      'id': id,
+      'label': label,
+      'series': series,
+      'supplyRangeVolts': supplyRangeVolts,
+      'supplyVolts': ?supplyVolts,
+      if (point != null) 'selectedPointSupplyVolts': point.supplyVolts,
+      'points': [for (final entry in points) entry.toMap()],
+      'input': <String, dynamic>{
+        'vilMinVolts': ?vilMin,
+        'vilMaxVolts': ?vilMax,
+        'vihMinVolts': ?vihMin,
+        'vihMaxVolts': ?vihMax,
+        'vhysVolts': ?vhys,
+      },
+      'output': <String, dynamic>{
+        'volMaxVolts': ?volMax,
+        'vohMinVolts': ?vohMin,
+        'driveStrengthsMilliamps': driveStrengthsMilliamps,
+      },
+      'drive': <String, dynamic>{
+        'totalOutputCurrentMilliamps': totalOutputCurrentMilliamps,
+        'qspiTotalOutputCurrentMilliamps': ?qspiTotalOutputCurrentMilliamps,
+      },
+      'pullResistorsKiloOhms': <String, dynamic>{
+        'pullUpMin': ?pullUpMin,
+        'pullUpMax': ?pullUpMax,
+        'pullDownMin': ?pullDownMin,
+        'pullDownMax': ?pullDownMax,
+      },
+      'absoluteMaxInput': <String, dynamic>{
+        'minVolts': absoluteMaxInputMinVolts,
+        'maxAboveSupplyVolts': absoluteMaxInputAboveSupplyVolts,
+        if (supplyVolts != null)
+          'maxVolts': supplyVolts + absoluteMaxInputAboveSupplyVolts,
+        'fiveVoltTolerantPins': fiveVoltTolerantPins,
+        'fiveVoltTolerantMaxVolts': ?ftMax,
+      },
+      'notes': notes,
+      'source': source,
+    };
+  }
+}
+
+/// Source label for the Gowin FPGA values.
+const String gowinFpgaLogicSource =
+    'Gowin Semiconductor GW1N/GW2A/GW5A datasheets (gowinsemi.com)';
+
+/// One single-ended I/O standard of a Gowin FPGA family.
+class GowinIoStandard {
+  const GowinIoStandard({
+    required this.name,
+    required this.vccioNominalVolts,
+    required this.vccioRangeVolts,
+    required this.volMaxVolts,
+    required this.vohDropFromSupplyVolts,
+    required this.driveStrengthsMilliamps,
+    this.vilMaxVolts,
+    this.vihMinVolts,
+    this.vilMaxFactorOfSupply,
+    this.vihMinFactorOfSupply,
+    this.vihMaxVolts,
+    this.vihMaxAboveSupplyVolts,
+    this.lowDriveCurrentMilliamps = 0.1,
+    this.lowDriveVolMaxVolts = 0.2,
+    this.lowDriveVohDropFromSupplyVolts = 0.2,
+  });
+
+  final String name;
+  final double vccioNominalVolts;
+  final List<double> vccioRangeVolts;
+
+  /// Fixed VIL max; when null, [vilMaxFactorOfSupply] is used.
+  final double? vilMaxVolts;
+
+  /// Fixed VIH min; when null, [vihMinFactorOfSupply] is used.
+  final double? vihMinVolts;
+
+  final double? vilMaxFactorOfSupply;
+  final double? vihMinFactorOfSupply;
+
+  /// Fixed VIH max; when null, [vihMaxAboveSupplyVolts] is used.
+  final double? vihMaxVolts;
+  final double? vihMaxAboveSupplyVolts;
+
+  final double volMaxVolts;
+  final double vohDropFromSupplyVolts;
+  final List<double> driveStrengthsMilliamps;
+
+  final double lowDriveCurrentMilliamps;
+  final double lowDriveVolMaxVolts;
+  final double lowDriveVohDropFromSupplyVolts;
+
+  Map<String, dynamic> toMap({double? supplyVolts}) {
+    final supply = supplyVolts ?? vccioNominalVolts;
+    final vilMax =
+        vilMaxVolts ??
+        (vilMaxFactorOfSupply == null ? null : vilMaxFactorOfSupply! * supply);
+    final vihMin =
+        vihMinVolts ??
+        (vihMinFactorOfSupply == null ? null : vihMinFactorOfSupply! * supply);
+    final vihMax =
+        vihMaxVolts ??
+        (vihMaxAboveSupplyVolts == null
+            ? null
+            : supply + vihMaxAboveSupplyVolts!);
+    return <String, dynamic>{
+      'name': name,
+      'vccioNominalVolts': vccioNominalVolts,
+      'vccioRangeVolts': vccioRangeVolts,
+      'vilMaxVolts': ?vilMax,
+      'vihMinVolts': ?vihMin,
+      'vihMaxVolts': ?vihMax,
+      'volMaxVolts': volMaxVolts,
+      'vohMinVolts': supply - vohDropFromSupplyVolts,
+      'driveStrengthsMilliamps': driveStrengthsMilliamps,
+      'lowDriveCurrentMilliamps': lowDriveCurrentMilliamps,
+      'lowDriveVolMaxVolts': lowDriveVolMaxVolts,
+      'lowDriveVohMinVolts': supply - lowDriveVohDropFromSupplyVolts,
+    };
+  }
+}
+
+/// Logic and I/O reference for one Gowin FPGA family.
+class GowinFpgaReference {
+  const GowinFpgaReference({
+    required this.id,
+    required this.label,
+    required this.series,
+    required this.vccioRangeVolts,
+    required this.absoluteMaxInputVolts,
+    required this.standards,
+    required this.source,
+    this.notes = '',
+  });
+
+  final String id;
+  final String label;
+  final String series;
+  final List<double> vccioRangeVolts;
+  final double absoluteMaxInputVolts;
+  final List<GowinIoStandard> standards;
+  final String notes;
+  final String source;
+
+  /// Maps the standards. With [supplyVolts], only standards whose VCCIO range
+  /// contains the supply are returned and their thresholds use that supply.
+  Map<String, dynamic> toMap({double? supplyVolts}) {
+    final selected = supplyVolts == null
+        ? standards
+        : standards
+              .where(
+                (standard) =>
+                    supplyVolts >= standard.vccioRangeVolts.first &&
+                    supplyVolts <= standard.vccioRangeVolts.last,
+              )
+              .toList();
+    return <String, dynamic>{
+      'id': id,
+      'label': label,
+      'series': series,
+      'vccioRangeVolts': vccioRangeVolts,
+      'absoluteMaxInputVolts': absoluteMaxInputVolts,
+      'supplyVolts': ?supplyVolts,
+      'standards': [
+        for (final standard in selected)
+          standard.toMap(supplyVolts: supplyVolts),
+      ],
+      'notes': notes,
+      'source': source,
+    };
+  }
+}
+
+/// Source label for the AMD/Xilinx FPGA values.
+const String xilinxLogicSource =
+    'AMD/Xilinx 7 Series and UltraScale+ datasheets (docs.amd.com)';
+
+/// One single-ended I/O standard of an AMD/Xilinx FPGA bank.
+class XilinxIoStandard {
+  const XilinxIoStandard({
+    required this.name,
+    required this.vccioNominalVolts,
+    required this.vccioRangeVolts,
+    required this.driveStrengthsMilliamps,
+    this.vilMinVolts = -0.3,
+    this.vilMaxVolts,
+    this.vilMaxFactorOfSupply,
+    this.vihMinVolts,
+    this.vihMinFactorOfSupply,
+    this.vihMaxVolts,
+    this.vihMaxAboveSupplyVolts,
+    this.volMaxVolts,
+    this.volFactorOfSupply,
+    this.vohMinVolts,
+    this.vohDropFromSupplyVolts,
+    this.vohFactorOfSupply,
+  });
+
+  final String name;
+  final double vccioNominalVolts;
+  final List<double> vccioRangeVolts;
+  final List<double> driveStrengthsMilliamps;
+
+  final double vilMinVolts;
+  final double? vilMaxVolts;
+  final double? vilMaxFactorOfSupply;
+
+  final double? vihMinVolts;
+  final double? vihMinFactorOfSupply;
+
+  final double? vihMaxVolts;
+  final double? vihMaxAboveSupplyVolts;
+
+  final double? volMaxVolts;
+  final double? volFactorOfSupply;
+
+  final double? vohMinVolts;
+  final double? vohDropFromSupplyVolts;
+  final double? vohFactorOfSupply;
+
+  Map<String, dynamic> toMap({double? supplyVolts}) {
+    final supply = supplyVolts ?? vccioNominalVolts;
+    final vilMax =
+        vilMaxVolts ??
+        (vilMaxFactorOfSupply == null ? null : vilMaxFactorOfSupply! * supply);
+    final vihMin =
+        vihMinVolts ??
+        (vihMinFactorOfSupply == null ? null : vihMinFactorOfSupply! * supply);
+    final vihMax =
+        vihMaxVolts ??
+        (vihMaxAboveSupplyVolts == null
+            ? null
+            : supply + vihMaxAboveSupplyVolts!);
+    final volMax =
+        volMaxVolts ??
+        (volFactorOfSupply == null ? null : volFactorOfSupply! * supply);
+    final vohMin =
+        vohMinVolts ??
+        (vohDropFromSupplyVolts != null
+            ? supply - vohDropFromSupplyVolts!
+            : (vohFactorOfSupply == null ? null : vohFactorOfSupply! * supply));
+    return <String, dynamic>{
+      'name': name,
+      'vccioNominalVolts': vccioNominalVolts,
+      'vccioRangeVolts': vccioRangeVolts,
+      'vilMinVolts': vilMinVolts,
+      'vilMaxVolts': ?vilMax,
+      'vihMinVolts': ?vihMin,
+      'vihMaxVolts': ?vihMax,
+      'volMaxVolts': ?volMax,
+      'vohMinVolts': ?vohMin,
+      'driveStrengthsMilliamps': driveStrengthsMilliamps,
+    };
+  }
+}
+
+/// Logic and I/O reference for one AMD/Xilinx FPGA bank type.
+class XilinxFpgaReference {
+  const XilinxFpgaReference({
+    required this.id,
+    required this.label,
+    required this.series,
+    required this.bankType,
+    required this.vccioRangeVolts,
+    required this.absoluteMaxInputMinVolts,
+    required this.absoluteMaxInputAboveSupplyVolts,
+    required this.standards,
+    required this.source,
+    this.notes = '',
+  });
+
+  final String id;
+  final String label;
+  final String series;
+  final String bankType;
+  final List<double> vccioRangeVolts;
+  final double absoluteMaxInputMinVolts;
+  final double absoluteMaxInputAboveSupplyVolts;
+  final List<XilinxIoStandard> standards;
+  final String notes;
+  final String source;
+
+  /// Maps the standards. With [supplyVolts], only standards whose VCCIO range
+  /// contains the supply are returned and their thresholds use that supply.
+  Map<String, dynamic> toMap({double? supplyVolts}) {
+    final selected = supplyVolts == null
+        ? standards
+        : standards
+              .where(
+                (standard) =>
+                    supplyVolts >= standard.vccioRangeVolts.first &&
+                    supplyVolts <= standard.vccioRangeVolts.last,
+              )
+              .toList();
+    return <String, dynamic>{
+      'id': id,
+      'label': label,
+      'series': series,
+      'bankType': bankType,
+      'vccioRangeVolts': vccioRangeVolts,
+      'absoluteMaxInput': <String, dynamic>{
+        'minVolts': absoluteMaxInputMinVolts,
+        'maxAboveSupplyVolts': absoluteMaxInputAboveSupplyVolts,
+        if (supplyVolts != null)
+          'maxVolts': supplyVolts + absoluteMaxInputAboveSupplyVolts,
+      },
+      'supplyVolts': ?supplyVolts,
+      'standards': [
+        for (final standard in selected)
+          standard.toMap(supplyVolts: supplyVolts),
+      ],
+      'notes': notes,
+      'source': source,
+    };
+  }
+}
+
+/// Source label for the Lattice FPGA values.
+const String latticeLogicSource =
+    'Lattice Semiconductor iCE40/MachXO2/MachXO3/ECP5 datasheets '
+    '(latticesemi.com)';
+
+/// One single-ended I/O standard of a Lattice FPGA family.
+class LatticeIoStandard {
+  const LatticeIoStandard({
+    required this.name,
+    required this.vccioNominalVolts,
+    required this.vccioRangeVolts,
+    required this.volMaxVolts,
+    required this.vohDropFromSupplyVolts,
+    required this.driveStrengthsMilliamps,
+    this.vilMinVolts = -0.3,
+    this.vilMaxVolts,
+    this.vilMaxFactorOfSupply,
+    this.vihMinVolts,
+    this.vihMinFactorOfSupply,
+    this.vihMaxVolts,
+    this.vihMaxAboveSupplyVolts,
+    this.lowDriveCurrentMilliamps,
+    this.lowDriveVolMaxVolts = 0.2,
+    this.lowDriveVohDropFromSupplyVolts = 0.2,
+    this.notes = '',
+  });
+
+  final String name;
+  final double vccioNominalVolts;
+  final List<double> vccioRangeVolts;
+
+  final double vilMinVolts;
+  final double? vilMaxVolts;
+  final double? vilMaxFactorOfSupply;
+
+  final double? vihMinVolts;
+  final double? vihMinFactorOfSupply;
+
+  final double? vihMaxVolts;
+  final double? vihMaxAboveSupplyVolts;
+
+  final double volMaxVolts;
+  final double vohDropFromSupplyVolts;
+  final List<double> driveStrengthsMilliamps;
+
+  final double? lowDriveCurrentMilliamps;
+  final double lowDriveVolMaxVolts;
+  final double lowDriveVohDropFromSupplyVolts;
+  final String notes;
+
+  Map<String, dynamic> toMap({double? supplyVolts}) {
+    final supply = supplyVolts ?? vccioNominalVolts;
+    final vilMax =
+        vilMaxVolts ??
+        (vilMaxFactorOfSupply == null ? null : vilMaxFactorOfSupply! * supply);
+    final vihMin =
+        vihMinVolts ??
+        (vihMinFactorOfSupply == null ? null : vihMinFactorOfSupply! * supply);
+    final vihMax =
+        vihMaxVolts ??
+        (vihMaxAboveSupplyVolts == null
+            ? null
+            : supply + vihMaxAboveSupplyVolts!);
+    return <String, dynamic>{
+      'name': name,
+      'vccioNominalVolts': vccioNominalVolts,
+      'vccioRangeVolts': vccioRangeVolts,
+      'vilMinVolts': vilMinVolts,
+      'vilMaxVolts': ?vilMax,
+      'vihMinVolts': ?vihMin,
+      'vihMaxVolts': ?vihMax,
+      'volMaxVolts': volMaxVolts,
+      'vohMinVolts': supply - vohDropFromSupplyVolts,
+      'driveStrengthsMilliamps': driveStrengthsMilliamps,
+      if (lowDriveCurrentMilliamps != null) ...<String, dynamic>{
+        'lowDriveCurrentMilliamps': lowDriveCurrentMilliamps,
+        'lowDriveVolMaxVolts': lowDriveVolMaxVolts,
+        'lowDriveVohMinVolts': supply - lowDriveVohDropFromSupplyVolts,
+      },
+      'notes': notes,
+    };
+  }
+}
+
+/// Logic and I/O reference for one Lattice FPGA family.
+class LatticeFpgaReference {
+  const LatticeFpgaReference({
+    required this.id,
+    required this.label,
+    required this.series,
+    required this.vccioRangeVolts,
+    required this.absoluteMaxInputVolts,
+    required this.standards,
+    required this.source,
+    this.notes = '',
+  });
+
+  final String id;
+  final String label;
+  final String series;
+  final List<double> vccioRangeVolts;
+  final double absoluteMaxInputVolts;
+  final List<LatticeIoStandard> standards;
+  final String notes;
+  final String source;
+
+  /// Maps the standards. With [supplyVolts], only standards whose VCCIO range
+  /// contains the supply are returned and their thresholds use that supply.
+  Map<String, dynamic> toMap({double? supplyVolts}) {
+    final selected = supplyVolts == null
+        ? standards
+        : standards
+              .where(
+                (standard) =>
+                    supplyVolts >= standard.vccioRangeVolts.first &&
+                    supplyVolts <= standard.vccioRangeVolts.last,
+              )
+              .toList();
+    return <String, dynamic>{
+      'id': id,
+      'label': label,
+      'series': series,
+      'vccioRangeVolts': vccioRangeVolts,
+      'absoluteMaxInputVolts': absoluteMaxInputVolts,
+      'supplyVolts': ?supplyVolts,
+      'standards': [
+        for (final standard in selected)
+          standard.toMap(supplyVolts: supplyVolts),
+      ],
+      'notes': notes,
+      'source': source,
+    };
+  }
+}

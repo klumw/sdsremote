@@ -46,6 +46,9 @@ class FrontendAgent {
   /// search sub-agent.
   static const int defaultSearchToolCalls = 8;
 
+  /// Maximum number of conversation messages kept after the system prompt.
+  static const int _maxHistoryMessages = 20;
+
   /// The underlying dartantic_ai Agent instance for the frontend.
   late final Agent _frontendAgent;
 
@@ -385,10 +388,13 @@ class FrontendAgent {
         ChatMessage.user(prompt),
         ChatMessage.model(fullOutput),
       ]);
-      // Keep history at max 4 entries: system prompt (index 0) + 3 most recent.
-      // This prevents unbounded token growth while retaining recent context.
-      if (_history.length > 4) {
-        _history = [_history[0], ..._history.sublist(_history.length - 3)];
+      // Keep the system prompt plus the last 20 messages. This prevents
+      // unbounded token growth while retaining recent context.
+      if (_history.length > _maxHistoryMessages + 1) {
+        _history = [
+          _history[0],
+          ..._history.sublist(_history.length - _maxHistoryMessages),
+        ];
       }
     }
   }

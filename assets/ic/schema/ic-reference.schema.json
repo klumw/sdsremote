@@ -1,0 +1,1370 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sdsremote.local/schemas/ic-reference.schema.json",
+  "title": "SDS-Remote IC reference data",
+  "description": "Schema for the IC reference index and family documents under assets/ic/data. The schema is used by editors and CI; the application does not read it at runtime.",
+  "oneOf": [
+    {
+      "$ref": "#/$defs/indexDocument"
+    },
+    {
+      "$ref": "#/$defs/familyDocument"
+    }
+  ],
+  "$defs": {
+    "schemaVersion": {
+      "type": "string",
+      "pattern": "^1\\.[0-9]+$"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "label"
+      ],
+      "properties": {
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "retrieved": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date"
+        }
+      },
+      "additionalProperties": false
+    },
+    "indexDocument": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "files"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/schemaVersion"
+        },
+        "files": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^assets/ic/data/[^/]+\\.json$"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "familyDocument": {
+      "type": "object",
+      "required": [
+        "schema_version",
+        "kind",
+        "source",
+        "items"
+      ],
+      "properties": {
+        "schema_version": {
+          "$ref": "#/$defs/schemaVersion"
+        },
+        "kind": {
+          "enum": [
+            "standard_logic",
+            "edge_times",
+            "esp32",
+            "stm32",
+            "raspberry_pi",
+            "gowin_fpga",
+            "xilinx_fpga",
+            "lattice_fpga"
+          ]
+        },
+        "vendor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "items": {
+          "type": "array",
+          "minItems": 1
+        }
+      },
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "esp32"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "items": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/$defs/esp32Item"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "stm32"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "items": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/$defs/stm32Item"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "raspberry_pi"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "items": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/$defs/raspberryPiItem"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "standard_logic"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "items": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/$defs/standardLogicItem"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "edge_times"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "items": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/$defs/edgeTimeItem"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "gowin_fpga"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "items": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/$defs/gowinFpgaItem"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "xilinx_fpga"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "items": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/$defs/xilinxFpgaItem"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "lattice_fpga"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "items": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/$defs/latticeFpgaItem"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "levelSpec": {
+      "type": "object",
+      "description": "A fixed value, a supply-scaled formula, a voltage range or a not-stated marker.",
+      "properties": {
+        "volts": {
+          "type": "number"
+        },
+        "rangeVolts": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {
+            "type": "number"
+          }
+        },
+        "factorOfSupply": {
+          "type": "number"
+        },
+        "capVolts": {
+          "type": "number"
+        },
+        "floorVolts": {
+          "type": "number"
+        },
+        "dropFromSupplyVolts": {
+          "type": "number"
+        },
+        "aboveSupplyVolts": {
+          "type": "number"
+        },
+        "typicalFactorOfSupply": {
+          "type": "number"
+        },
+        "testCurrentMilliamps": {
+          "type": "number"
+        },
+        "notStated": {
+          "type": "boolean"
+        }
+      },
+      "minProperties": 1,
+      "additionalProperties": false
+    },
+    "supplyRangeVolts": {
+      "type": "array",
+      "description": "Minimum and maximum supply voltage in volts.",
+      "minItems": 2,
+      "maxItems": 2,
+      "items": {
+        "type": "number"
+      }
+    },
+    "minMax": {
+      "type": "object",
+      "required": [
+        "min",
+        "max"
+      ],
+      "properties": {
+        "min": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "edges": {
+      "type": "object",
+      "required": [
+        "riseTimeNs",
+        "fallTimeNs"
+      ],
+      "properties": {
+        "riseTimeNs": {
+          "$ref": "#/$defs/minMax"
+        },
+        "fallTimeNs": {
+          "$ref": "#/$defs/minMax"
+        }
+      },
+      "additionalProperties": false
+    },
+    "minTypMax": {
+      "type": "object",
+      "required": [
+        "min",
+        "typ",
+        "max"
+      ],
+      "properties": {
+        "min": {
+          "type": "number"
+        },
+        "typ": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "absoluteMaxInput": {
+      "type": "object",
+      "required": [
+        "minVolts",
+        "maxAboveSupplyVolts"
+      ],
+      "properties": {
+        "minVolts": {
+          "type": "number"
+        },
+        "maxAboveSupplyVolts": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "esp32Item": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "supplyRangeVolts",
+        "input",
+        "output",
+        "drive",
+        "edges",
+        "pullResistorsKiloOhms",
+        "absoluteMaxInput"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "supplyRangeVolts": {
+          "$ref": "#/$defs/supplyRangeVolts"
+        },
+        "input": {
+          "type": "object",
+          "required": [
+            "vilMin",
+            "vilMax",
+            "vihMin",
+            "vihMax"
+          ],
+          "properties": {
+            "vilMin": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "vilMax": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "vihMin": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "vihMax": {
+              "$ref": "#/$defs/levelSpec"
+            }
+          },
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "required": [
+            "volMax",
+            "vohMin"
+          ],
+          "properties": {
+            "volMax": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "vohMin": {
+              "$ref": "#/$defs/levelSpec"
+            }
+          },
+          "additionalProperties": false
+        },
+        "drive": {
+          "type": "object",
+          "required": [
+            "maxOutputCurrentMilliamps",
+            "recommendedContinuousCurrentMilliamps"
+          ],
+          "properties": {
+            "maxOutputCurrentMilliamps": {
+              "type": "number"
+            },
+            "recommendedContinuousCurrentMilliamps": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "edges": {
+          "$ref": "#/$defs/edges"
+        },
+        "pullResistorsKiloOhms": {
+          "type": "object",
+          "required": [
+            "pullUp",
+            "pullDown"
+          ],
+          "properties": {
+            "pullUp": {
+              "type": "number"
+            },
+            "pullDown": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "absoluteMaxInput": {
+          "$ref": "#/$defs/absoluteMaxInput"
+        },
+        "notes": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "stm32Item": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "series",
+        "supplyRangeVolts",
+        "input",
+        "output",
+        "drive",
+        "pullResistorsKiloOhms",
+        "absoluteMaxInput"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "series": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supplyRangeVolts": {
+          "$ref": "#/$defs/supplyRangeVolts"
+        },
+        "input": {
+          "type": "object",
+          "required": [
+            "vilMax",
+            "vihMin"
+          ],
+          "properties": {
+            "vilMax": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "vihMin": {
+              "$ref": "#/$defs/levelSpec"
+            }
+          },
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "required": [
+            "volMax",
+            "vohMin",
+            "relaxed"
+          ],
+          "properties": {
+            "volMax": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "vohMin": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "relaxed": {
+              "type": "object",
+              "required": [
+                "volMaxVolts",
+                "vohDropFromSupplyVolts",
+                "testCurrentMilliamps"
+              ],
+              "properties": {
+                "volMaxVolts": {
+                  "type": "number"
+                },
+                "vohDropFromSupplyVolts": {
+                  "type": "number"
+                },
+                "testCurrentMilliamps": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "drive": {
+          "type": "object",
+          "required": [
+            "nominalOutputCurrentMilliamps",
+            "relaxedOutputCurrentMilliamps"
+          ],
+          "properties": {
+            "nominalOutputCurrentMilliamps": {
+              "type": "number"
+            },
+            "relaxedOutputCurrentMilliamps": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "pullResistorsKiloOhms": {
+          "type": "object",
+          "required": [
+            "pullUp",
+            "pullDown"
+          ],
+          "properties": {
+            "pullUp": {
+              "$ref": "#/$defs/minTypMax"
+            },
+            "pullDown": {
+              "$ref": "#/$defs/minTypMax"
+            }
+          },
+          "additionalProperties": false
+        },
+        "absoluteMaxInput": {
+          "type": "object",
+          "required": [
+            "minVolts",
+            "maxAboveSupplyVolts",
+            "fiveVoltTolerantPins",
+            "fiveVoltTolerantMaxVolts"
+          ],
+          "properties": {
+            "minVolts": {
+              "type": "number"
+            },
+            "maxAboveSupplyVolts": {
+              "type": "number"
+            },
+            "fiveVoltTolerantPins": {
+              "type": "boolean"
+            },
+            "fiveVoltTolerantMaxVolts": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "notes": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "raspberryPiItem": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "series",
+        "supplyRangeVolts",
+        "points",
+        "driveStrengthsMilliamps",
+        "totalOutputCurrentMilliamps",
+        "absoluteMaxInput"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "series": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supplyRangeVolts": {
+          "$ref": "#/$defs/supplyRangeVolts"
+        },
+        "points": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/raspberryPiPoint"
+          }
+        },
+        "driveStrengthsMilliamps": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "number"
+          }
+        },
+        "totalOutputCurrentMilliamps": {
+          "type": "number"
+        },
+        "qspiTotalOutputCurrentMilliamps": {
+          "type": "number"
+        },
+        "absoluteMaxInput": {
+          "type": "object",
+          "required": [
+            "minVolts",
+            "maxAboveSupplyVolts",
+            "fiveVoltTolerantPins"
+          ],
+          "properties": {
+            "minVolts": {
+              "type": "number"
+            },
+            "maxAboveSupplyVolts": {
+              "type": "number"
+            },
+            "fiveVoltTolerantPins": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "notes": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "raspberryPiPoint": {
+      "type": "object",
+      "required": [
+        "supplyVolts",
+        "input",
+        "output",
+        "pullResistorsKiloOhms"
+      ],
+      "properties": {
+        "supplyVolts": {
+          "type": "number"
+        },
+        "input": {
+          "type": "object",
+          "required": [
+            "vilMinVolts",
+            "vilMaxVolts",
+            "vihMinVolts",
+            "vihMaxVolts",
+            "vhysVolts"
+          ],
+          "properties": {
+            "vilMinVolts": {
+              "type": "number"
+            },
+            "vilMaxVolts": {
+              "type": "number"
+            },
+            "vihMinVolts": {
+              "type": "number"
+            },
+            "vihMaxVolts": {
+              "type": "number"
+            },
+            "vhysVolts": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "required": [
+            "volMaxVolts",
+            "vohMinVolts"
+          ],
+          "properties": {
+            "volMaxVolts": {
+              "type": "number"
+            },
+            "vohMinVolts": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "pullResistorsKiloOhms": {
+          "type": "object",
+          "required": [
+            "pullUpMin",
+            "pullUpMax",
+            "pullDownMin",
+            "pullDownMax"
+          ],
+          "properties": {
+            "pullUpMin": {
+              "type": "number"
+            },
+            "pullUpMax": {
+              "type": "number"
+            },
+            "pullDownMin": {
+              "type": "number"
+            },
+            "pullDownMax": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "fiveVoltTolerantMaxVolts": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "standardLogicItem": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "family",
+        "input",
+        "output",
+        "logic"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supplyVolts": {
+          "type": "number"
+        },
+        "supplyRangeVolts": {
+          "$ref": "#/$defs/supplyRangeVolts"
+        },
+        "input": {
+          "type": "object",
+          "properties": {
+            "vilMax": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "vihMin": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "vtTypical": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "vtPlusMax": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "vtMinusMin": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "schmittTrigger": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "properties": {
+            "volMax": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "vohMin": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "vohTypical": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "volNotStated": {
+              "type": "boolean"
+            },
+            "vohNotStated": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "logic": {
+          "enum": [
+            "positive",
+            "negative"
+          ]
+        },
+        "notes": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "edgeTimePoint": {
+      "type": "object",
+      "required": [
+        "supplyVolts",
+        "maxEdgeTimeNs"
+      ],
+      "properties": {
+        "supplyVolts": {
+          "type": "number"
+        },
+        "maxEdgeTimeNs": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "edgeTimeItem": {
+      "type": "object",
+      "required": [
+        "id",
+        "family",
+        "exampleSeries"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "family": {
+          "type": "string",
+          "minLength": 1
+        },
+        "exampleSeries": {
+          "type": "string",
+          "minLength": 1
+        },
+        "points": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/edgeTimePoint"
+          }
+        },
+        "supplyRangeVolts": {
+          "$ref": "#/$defs/supplyRangeVolts"
+        },
+        "maxEdgeTimeNsPerVoltMin": {
+          "type": "number"
+        },
+        "maxEdgeTimeNsPerVoltMax": {
+          "type": "number"
+        },
+        "exampleSupplyVolts": {
+          "type": "number"
+        },
+        "exampleMaxEdgeTimeNs": {
+          "type": "number"
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "gowinIoStandard": {
+      "type": "object",
+      "required": [
+        "name",
+        "vccioNominalVolts",
+        "vccioRangeVolts",
+        "input",
+        "output",
+        "lowDrive"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vccioNominalVolts": {
+          "type": "number"
+        },
+        "vccioRangeVolts": {
+          "$ref": "#/$defs/supplyRangeVolts"
+        },
+        "input": {
+          "type": "object",
+          "properties": {
+            "vilMax": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "vihMin": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "vihMax": {
+              "$ref": "#/$defs/levelSpec"
+            }
+          },
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "required": [
+            "volMaxVolts",
+            "vohDropFromSupplyVolts",
+            "driveStrengthsMilliamps"
+          ],
+          "properties": {
+            "volMaxVolts": {
+              "type": "number"
+            },
+            "vohDropFromSupplyVolts": {
+              "type": "number"
+            },
+            "driveStrengthsMilliamps": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "lowDrive": {
+          "type": "object",
+          "required": [
+            "currentMilliamps",
+            "volMaxVolts",
+            "vohDropFromSupplyVolts"
+          ],
+          "properties": {
+            "currentMilliamps": {
+              "type": "number"
+            },
+            "volMaxVolts": {
+              "type": "number"
+            },
+            "vohDropFromSupplyVolts": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "gowinFpgaItem": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "series",
+        "vccioRangeVolts",
+        "absoluteMaxInputVolts",
+        "ioStandards"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "series": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vccioRangeVolts": {
+          "$ref": "#/$defs/supplyRangeVolts"
+        },
+        "absoluteMaxInputVolts": {
+          "type": "number"
+        },
+        "ioStandards": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/gowinIoStandard"
+          }
+        },
+        "notes": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "xilinxIoStandard": {
+      "type": "object",
+      "required": [
+        "name",
+        "vccioNominalVolts",
+        "vccioRangeVolts",
+        "input",
+        "output"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vccioNominalVolts": {
+          "type": "number"
+        },
+        "vccioRangeVolts": {
+          "$ref": "#/$defs/supplyRangeVolts"
+        },
+        "input": {
+          "type": "object",
+          "properties": {
+            "vilMinVolts": {
+              "type": "number"
+            },
+            "vilMax": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "vihMin": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "vihMax": {
+              "$ref": "#/$defs/levelSpec"
+            }
+          },
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "required": [
+            "driveStrengthsMilliamps"
+          ],
+          "properties": {
+            "driveStrengthsMilliamps": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "number"
+              }
+            },
+            "volMax": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "vohMin": {
+              "$ref": "#/$defs/levelSpec"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "xilinxFpgaItem": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "series",
+        "bankType",
+        "vccioRangeVolts",
+        "absoluteMaxInput",
+        "ioStandards"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "series": {
+          "type": "string",
+          "minLength": 1
+        },
+        "bankType": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vccioRangeVolts": {
+          "$ref": "#/$defs/supplyRangeVolts"
+        },
+        "absoluteMaxInput": {
+          "$ref": "#/$defs/absoluteMaxInput"
+        },
+        "ioStandards": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/xilinxIoStandard"
+          }
+        },
+        "notes": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    },
+    "latticeIoStandard": {
+      "type": "object",
+      "required": [
+        "name",
+        "vccioNominalVolts",
+        "vccioRangeVolts",
+        "input",
+        "output"
+      ],
+      "properties": {
+        "name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vccioNominalVolts": {
+          "type": "number"
+        },
+        "vccioRangeVolts": {
+          "$ref": "#/$defs/supplyRangeVolts"
+        },
+        "input": {
+          "type": "object",
+          "properties": {
+            "vilMinVolts": {
+              "type": "number"
+            },
+            "vilMax": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "vihMin": {
+              "$ref": "#/$defs/levelSpec"
+            },
+            "vihMax": {
+              "$ref": "#/$defs/levelSpec"
+            }
+          },
+          "additionalProperties": false
+        },
+        "output": {
+          "type": "object",
+          "required": [
+            "volMaxVolts",
+            "vohDropFromSupplyVolts",
+            "driveStrengthsMilliamps"
+          ],
+          "properties": {
+            "volMaxVolts": {
+              "type": "number"
+            },
+            "vohDropFromSupplyVolts": {
+              "type": "number"
+            },
+            "driveStrengthsMilliamps": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "number"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "lowDrive": {
+          "type": "object",
+          "properties": {
+            "currentMilliamps": {
+              "type": "number"
+            },
+            "volMaxVolts": {
+              "type": "number"
+            },
+            "vohDropFromSupplyVolts": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "notes": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
+    "latticeFpgaItem": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "series",
+        "vccioRangeVolts",
+        "absoluteMaxInputVolts",
+        "ioStandards"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "series": {
+          "type": "string",
+          "minLength": 1
+        },
+        "vccioRangeVolts": {
+          "$ref": "#/$defs/supplyRangeVolts"
+        },
+        "absoluteMaxInputVolts": {
+          "type": "number"
+        },
+        "ioStandards": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/latticeIoStandard"
+          }
+        },
+        "notes": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

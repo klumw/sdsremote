@@ -1,0 +1,576 @@
+{
+  "schema_version": "1.0",
+  "kind": "xilinx_fpga",
+  "vendor": "AMD/Xilinx",
+  "source": {
+    "label": "AMD/Xilinx 7 Series and UltraScale+ datasheets (docs.amd.com)"
+  },
+  "items": [
+    {
+      "id": "xilinx_7series_hr",
+      "label": "7 Series HR",
+      "series": "AMD/Xilinx 7 Series (HR banks)",
+      "bankType": "HR",
+      "vccioRangeVolts": [
+        1.14,
+        3.465
+      ],
+      "absoluteMaxInput": {
+        "minVolts": -0.55,
+        "maxAboveSupplyVolts": 0.55
+      },
+      "ioStandards": [
+        {
+          "name": "LVCMOS33",
+          "vccioNominalVolts": 3.3,
+          "vccioRangeVolts": [
+            3.135,
+            3.465
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "volts": 0.8
+            },
+            "vihMin": {
+              "volts": 2.0
+            },
+            "vihMax": {
+              "volts": 3.45
+            }
+          },
+          "output": {
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0
+            ],
+            "volMax": {
+              "volts": 0.4
+            },
+            "vohMin": {
+              "dropFromSupplyVolts": 0.4
+            }
+          }
+        },
+        {
+          "name": "LVTTL",
+          "vccioNominalVolts": 3.3,
+          "vccioRangeVolts": [
+            3.135,
+            3.465
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "volts": 0.8
+            },
+            "vihMin": {
+              "volts": 2.0
+            },
+            "vihMax": {
+              "volts": 3.45
+            }
+          },
+          "output": {
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0,
+              24.0
+            ],
+            "volMax": {
+              "volts": 0.4
+            },
+            "vohMin": {
+              "volts": 2.4
+            }
+          }
+        },
+        {
+          "name": "LVCMOS25",
+          "vccioNominalVolts": 2.5,
+          "vccioRangeVolts": [
+            2.375,
+            2.625
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "volts": 0.7
+            },
+            "vihMin": {
+              "volts": 1.7
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0
+            ],
+            "volMax": {
+              "volts": 0.4
+            },
+            "vohMin": {
+              "dropFromSupplyVolts": 0.4
+            }
+          }
+        },
+        {
+          "name": "LVCMOS18",
+          "vccioNominalVolts": 1.8,
+          "vccioRangeVolts": [
+            1.71,
+            1.89
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0,
+              24.0
+            ],
+            "volMax": {
+              "volts": 0.45
+            },
+            "vohMin": {
+              "dropFromSupplyVolts": 0.45
+            }
+          }
+        },
+        {
+          "name": "LVCMOS15",
+          "vccioNominalVolts": 1.5,
+          "vccioRangeVolts": [
+            1.425,
+            1.575
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0
+            ],
+            "volMax": {
+              "factorOfSupply": 0.25
+            },
+            "vohMin": {
+              "factorOfSupply": 0.75
+            }
+          }
+        },
+        {
+          "name": "LVCMOS12",
+          "vccioNominalVolts": 1.2,
+          "vccioRangeVolts": [
+            1.14,
+            1.26
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0
+            ],
+            "volMax": {
+              "volts": 0.4
+            },
+            "vohMin": {
+              "dropFromSupplyVolts": 0.4
+            }
+          }
+        }
+      ],
+      "notes": "HR banks support 1.14–3.465 V. 3.3 V and 2.5 V standards are HR-only. HP banks in Kintex-7/Virtex-7 support LVCMOS18/15/12 at VCCO 1.0–1.8 V; see UG471 for their drive strengths. Absolute maximum VCCO is 3.6 V; absolute maximum input is VCCO+0.55 V. SSTL/HSTL, PCI33 and differential standards are not in this compact table.",
+      "source": "AMD/Xilinx DS181 v1.27.1, Table 8 (Artix-7; DS182/DS183/DS189 use the same SelectIO levels)"
+    },
+    {
+      "id": "xilinx_ultrascale_plus_hd",
+      "label": "UltraScale+ HD",
+      "series": "AMD/Xilinx UltraScale+ (HD banks)",
+      "bankType": "HD",
+      "vccioRangeVolts": [
+        1.14,
+        3.4
+      ],
+      "absoluteMaxInput": {
+        "minVolts": -0.55,
+        "maxAboveSupplyVolts": 0.55
+      },
+      "ioStandards": [
+        {
+          "name": "LVCMOS33",
+          "vccioNominalVolts": 3.3,
+          "vccioRangeVolts": [
+            3.135,
+            3.4
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "volts": 0.8
+            },
+            "vihMin": {
+              "volts": 2.0
+            },
+            "vihMax": {
+              "volts": 3.4
+            }
+          },
+          "output": {
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0
+            ],
+            "volMax": {
+              "volts": 0.4
+            },
+            "vohMin": {
+              "dropFromSupplyVolts": 0.4
+            }
+          }
+        },
+        {
+          "name": "LVTTL",
+          "vccioNominalVolts": 3.3,
+          "vccioRangeVolts": [
+            3.135,
+            3.4
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "volts": 0.8
+            },
+            "vihMin": {
+              "volts": 2.0
+            },
+            "vihMax": {
+              "volts": 3.4
+            }
+          },
+          "output": {
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0
+            ],
+            "volMax": {
+              "volts": 0.4
+            },
+            "vohMin": {
+              "volts": 2.4
+            }
+          }
+        },
+        {
+          "name": "LVCMOS25",
+          "vccioNominalVolts": 2.5,
+          "vccioRangeVolts": [
+            2.375,
+            2.625
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "volts": 0.7
+            },
+            "vihMin": {
+              "volts": 1.7
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0
+            ],
+            "volMax": {
+              "volts": 0.4
+            },
+            "vohMin": {
+              "dropFromSupplyVolts": 0.4
+            }
+          }
+        },
+        {
+          "name": "LVCMOS18",
+          "vccioNominalVolts": 1.8,
+          "vccioRangeVolts": [
+            1.71,
+            1.89
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0
+            ],
+            "volMax": {
+              "volts": 0.45
+            },
+            "vohMin": {
+              "dropFromSupplyVolts": 0.45
+            }
+          }
+        },
+        {
+          "name": "LVCMOS15",
+          "vccioNominalVolts": 1.5,
+          "vccioRangeVolts": [
+            1.425,
+            1.575
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0
+            ],
+            "volMax": {
+              "volts": 0.45
+            },
+            "vohMin": {
+              "dropFromSupplyVolts": 0.45
+            }
+          }
+        },
+        {
+          "name": "LVCMOS12",
+          "vccioNominalVolts": 1.2,
+          "vccioRangeVolts": [
+            1.14,
+            1.26
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0
+            ],
+            "volMax": {
+              "volts": 0.4
+            },
+            "vohMin": {
+              "dropFromSupplyVolts": 0.4
+            }
+          }
+        }
+      ],
+      "notes": "HD banks support 1.14–3.40 V and LVCMOS33/25/18/15/12 and LVTTL. Absolute maximum VCCO is 3.40 V; absolute maximum input is VCCO+0.55 V. Zynq UltraScale+ PS I/O (VCCO_PSIO) is separate and not included. SSTL/HSTL, PCI33 and differential standards are not in this compact table.",
+      "source": "AMD/Xilinx DS925 v1.16, Table 14 (Zynq UltraScale+ MPSoC; DS922/DS923/DS926 use the same SelectIO levels)"
+    },
+    {
+      "id": "xilinx_ultrascale_plus_hp",
+      "label": "UltraScale+ HP",
+      "series": "AMD/Xilinx UltraScale+ (HP banks)",
+      "bankType": "HP",
+      "vccioRangeVolts": [
+        0.95,
+        1.9
+      ],
+      "absoluteMaxInput": {
+        "minVolts": -0.55,
+        "maxAboveSupplyVolts": 0.55
+      },
+      "ioStandards": [
+        {
+          "name": "LVCMOS18",
+          "vccioNominalVolts": 1.8,
+          "vccioRangeVolts": [
+            1.71,
+            1.89
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "driveStrengthsMilliamps": [
+              2.0,
+              4.0,
+              6.0,
+              8.0,
+              12.0
+            ],
+            "volMax": {
+              "volts": 0.45
+            },
+            "vohMin": {
+              "dropFromSupplyVolts": 0.45
+            }
+          }
+        },
+        {
+          "name": "LVCMOS15",
+          "vccioNominalVolts": 1.5,
+          "vccioRangeVolts": [
+            1.425,
+            1.575
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "driveStrengthsMilliamps": [
+              2.0,
+              4.0,
+              6.0,
+              8.0,
+              12.0
+            ],
+            "volMax": {
+              "volts": 0.45
+            },
+            "vohMin": {
+              "dropFromSupplyVolts": 0.45
+            }
+          }
+        },
+        {
+          "name": "LVCMOS12",
+          "vccioNominalVolts": 1.2,
+          "vccioRangeVolts": [
+            1.14,
+            1.26
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.3
+            }
+          },
+          "output": {
+            "driveStrengthsMilliamps": [
+              2.0,
+              4.0,
+              6.0,
+              8.0
+            ],
+            "volMax": {
+              "volts": 0.4
+            },
+            "vohMin": {
+              "dropFromSupplyVolts": 0.4
+            }
+          }
+        }
+      ],
+      "notes": "HP banks support 0.95–1.90 V and LVCMOS18/15/12. Absolute maximum VCCO is 2.00 V; absolute maximum input is VCCO+0.55 V. SSTL/HSTL, POD and differential standards are not in this compact table.",
+      "source": "AMD/Xilinx DS925 v1.16, Table 15 (Zynq UltraScale+ MPSoC; DS922/DS923/DS926 use the same SelectIO levels)"
+    }
+  ]
+}

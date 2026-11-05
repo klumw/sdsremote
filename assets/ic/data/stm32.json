@@ -1,0 +1,962 @@
+{
+  "schema_version": "1.0",
+  "kind": "stm32",
+  "vendor": "STMicroelectronics",
+  "source": {
+    "label": "STMicroelectronics STM32 datasheets (st.com)"
+  },
+  "items": [
+    {
+      "id": "stm32f0",
+      "label": "STM32F0",
+      "series": "STM32F0",
+      "supplyRangeVolts": [
+        2.4,
+        3.6
+      ],
+      "input": {
+        "vilMax": {
+          "factorOfSupply": 0.3
+        },
+        "vihMin": {
+          "factorOfSupply": 0.7
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "vohMin": {
+          "dropFromSupplyVolts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "relaxed": {
+          "volMaxVolts": 1.3,
+          "vohDropFromSupplyVolts": 1.3,
+          "testCurrentMilliamps": 20.0
+        }
+      },
+      "drive": {
+        "nominalOutputCurrentMilliamps": 8.0,
+        "relaxedOutputCurrentMilliamps": 20.0
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": {
+          "min": 25.0,
+          "typ": 40.0,
+          "max": 55.0
+        },
+        "pullDown": {
+          "min": 25.0,
+          "typ": 40.0,
+          "max": 55.0
+        }
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3,
+        "fiveVoltTolerantPins": true,
+        "fiveVoltTolerantMaxVolts": 5.5
+      },
+      "notes": "TC and TTa I/Os use VIL max = 0.3 × VDD + 0.07 V and VIH min = 0.445 × VDD + 0.398 V; FT/FTf I/Os are 5 V tolerant.",
+      "source": "STMicroelectronics DS9773 Rev 5 (STM32F030x4/x6/x8/xC)"
+    },
+    {
+      "id": "stm32f1",
+      "label": "STM32F1",
+      "series": "STM32F1",
+      "supplyRangeVolts": [
+        2.0,
+        3.6
+      ],
+      "input": {
+        "vilMax": {
+          "factorOfSupply": 0.35
+        },
+        "vihMin": {
+          "factorOfSupply": 0.65
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "vohMin": {
+          "dropFromSupplyVolts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "relaxed": {
+          "volMaxVolts": 1.3,
+          "vohDropFromSupplyVolts": 1.3,
+          "testCurrentMilliamps": 20.0
+        }
+      },
+      "drive": {
+        "nominalOutputCurrentMilliamps": 8.0,
+        "relaxedOutputCurrentMilliamps": 20.0
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": {
+          "min": 30.0,
+          "typ": 40.0,
+          "max": 50.0
+        },
+        "pullDown": {
+          "min": 30.0,
+          "typ": 40.0,
+          "max": 50.0
+        }
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3,
+        "fiveVoltTolerantPins": true,
+        "fiveVoltTolerantMaxVolts": 5.5
+      },
+      "notes": "Limits are the tested values for all I/Os except BOOT0. The datasheet also gives design formulas: standard I/O VIL = 0.28 × (VDD − 2 V) + 0.8 V and VIH = 0.41 × (VDD − 2 V) + 1.3 V; FT I/O VIL = 0.32 × (VDD − 2 V) + 0.75 V and VIH = 0.42 × (VDD − 2 V) + 1.0 V.",
+      "source": "STMicroelectronics DS5319 Rev 19 (STM32F103x8/xB)"
+    },
+    {
+      "id": "stm32f2",
+      "label": "STM32F2",
+      "series": "STM32F2",
+      "supplyRangeVolts": [
+        1.8,
+        3.6
+      ],
+      "input": {
+        "vilMax": {
+          "factorOfSupply": 0.3
+        },
+        "vihMin": {
+          "factorOfSupply": 0.7
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "vohMin": {
+          "dropFromSupplyVolts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "relaxed": {
+          "volMaxVolts": 1.3,
+          "vohDropFromSupplyVolts": 1.3,
+          "testCurrentMilliamps": 20.0
+        }
+      },
+      "drive": {
+        "nominalOutputCurrentMilliamps": 8.0,
+        "relaxedOutputCurrentMilliamps": 20.0
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": {
+          "min": 30.0,
+          "typ": 40.0,
+          "max": 50.0
+        },
+        "pullDown": {
+          "min": 30.0,
+          "typ": 40.0,
+          "max": 50.0
+        }
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3,
+        "fiveVoltTolerantPins": true,
+        "fiveVoltTolerantMaxVolts": 5.5
+      },
+      "notes": "FT pins are 5 V tolerant (5.5 V for VDD ≥ 2 V, 5.2 V for 1.7 V ≤ VDD < 2 V).",
+      "source": "STMicroelectronics DS6329 Rev 18 (STM32F205xx/207xx)"
+    },
+    {
+      "id": "stm32f3",
+      "label": "STM32F3",
+      "series": "STM32F3",
+      "supplyRangeVolts": [
+        2.0,
+        3.6
+      ],
+      "input": {
+        "vilMax": {
+          "factorOfSupply": 0.3
+        },
+        "vihMin": {
+          "factorOfSupply": 0.7
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "vohMin": {
+          "dropFromSupplyVolts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "relaxed": {
+          "volMaxVolts": 1.3,
+          "vohDropFromSupplyVolts": 1.3,
+          "testCurrentMilliamps": 20.0
+        }
+      },
+      "drive": {
+        "nominalOutputCurrentMilliamps": 8.0,
+        "relaxedOutputCurrentMilliamps": 20.0
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": {
+          "min": 25.0,
+          "typ": 40.0,
+          "max": 55.0
+        },
+        "pullDown": {
+          "min": 25.0,
+          "typ": 40.0,
+          "max": 55.0
+        }
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3,
+        "fiveVoltTolerantPins": true,
+        "fiveVoltTolerantMaxVolts": 5.5
+      },
+      "notes": "TC and TTa I/Os use VIL max = 0.3 × VDD + 0.07 V and VIH min = 0.445 × VDD + 0.398 V; FT/FTf I/Os are 5 V tolerant.",
+      "source": "STMicroelectronics DocID026415 Rev 5 (STM32F303xD/xE)"
+    },
+    {
+      "id": "stm32f4",
+      "label": "STM32F4",
+      "series": "STM32F4",
+      "supplyRangeVolts": [
+        1.8,
+        3.6
+      ],
+      "input": {
+        "vilMax": {
+          "factorOfSupply": 0.3
+        },
+        "vihMin": {
+          "factorOfSupply": 0.7
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "vohMin": {
+          "dropFromSupplyVolts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "relaxed": {
+          "volMaxVolts": 1.3,
+          "vohDropFromSupplyVolts": 1.3,
+          "testCurrentMilliamps": 20.0
+        }
+      },
+      "drive": {
+        "nominalOutputCurrentMilliamps": 8.0,
+        "relaxedOutputCurrentMilliamps": 20.0
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": {
+          "min": 30.0,
+          "typ": 40.0,
+          "max": 50.0
+        },
+        "pullDown": {
+          "min": 30.0,
+          "typ": 40.0,
+          "max": 50.0
+        }
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3,
+        "fiveVoltTolerantPins": true,
+        "fiveVoltTolerantMaxVolts": 5.5
+      },
+      "notes": "FT, TTa and NRST I/Os; design limits VIL = 0.3 × VDD − 0.04 V and VIH = 0.45 × VDD + 0.3 V.",
+      "source": "STMicroelectronics DS8626 Rev 9 (STM32F405xx/407xx)"
+    },
+    {
+      "id": "stm32f7",
+      "label": "STM32F7",
+      "series": "STM32F7",
+      "supplyRangeVolts": [
+        1.7,
+        3.6
+      ],
+      "input": {
+        "vilMax": {
+          "factorOfSupply": 0.3
+        },
+        "vihMin": {
+          "factorOfSupply": 0.7
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "vohMin": {
+          "dropFromSupplyVolts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "relaxed": {
+          "volMaxVolts": 1.3,
+          "vohDropFromSupplyVolts": 1.3,
+          "testCurrentMilliamps": 20.0
+        }
+      },
+      "drive": {
+        "nominalOutputCurrentMilliamps": 8.0,
+        "relaxedOutputCurrentMilliamps": 20.0
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": {
+          "min": 30.0,
+          "typ": 40.0,
+          "max": 50.0
+        },
+        "pullDown": {
+          "min": 30.0,
+          "typ": 40.0,
+          "max": 50.0
+        }
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3,
+        "fiveVoltTolerantPins": true,
+        "fiveVoltTolerantMaxVolts": 5.5
+      },
+      "notes": "FT, TTa and NRST I/Os; design limits VIL = 0.35 × VDD − 0.04 V and VIH = 0.45 × VDD + 0.3 V.",
+      "source": "STMicroelectronics DS11532 Rev 8 (STM32F765xx/767xx)"
+    },
+    {
+      "id": "stm32g0",
+      "label": "STM32G0",
+      "series": "STM32G0",
+      "supplyRangeVolts": [
+        1.7,
+        3.6
+      ],
+      "input": {
+        "vilMax": {
+          "factorOfSupply": 0.3
+        },
+        "vihMin": {
+          "factorOfSupply": 0.7
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4,
+          "testCurrentMilliamps": 6.0
+        },
+        "vohMin": {
+          "dropFromSupplyVolts": 0.4,
+          "testCurrentMilliamps": 6.0
+        },
+        "relaxed": {
+          "volMaxVolts": 1.3,
+          "vohDropFromSupplyVolts": 1.3,
+          "testCurrentMilliamps": 15.0
+        }
+      },
+      "drive": {
+        "nominalOutputCurrentMilliamps": 6.0,
+        "relaxedOutputCurrentMilliamps": 15.0
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": {
+          "min": 25.0,
+          "typ": 40.0,
+          "max": 55.0
+        },
+        "pullDown": {
+          "min": 25.0,
+          "typ": 40.0,
+          "max": 55.0
+        }
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3,
+        "fiveVoltTolerantPins": true,
+        "fiveVoltTolerantMaxVolts": 5.5
+      },
+      "notes": "GPIOs are specified at 6 mA (15 mA relaxed); FT/FTf I/Os are 5 V tolerant.",
+      "source": "STMicroelectronics DS12232 Rev 4 (STM32G071x8/xB)"
+    },
+    {
+      "id": "stm32g4",
+      "label": "STM32G4",
+      "series": "STM32G4",
+      "supplyRangeVolts": [
+        1.71,
+        3.6
+      ],
+      "input": {
+        "vilMax": {
+          "factorOfSupply": 0.3
+        },
+        "vihMin": {
+          "factorOfSupply": 0.7
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "vohMin": {
+          "dropFromSupplyVolts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "relaxed": {
+          "volMaxVolts": 1.3,
+          "vohDropFromSupplyVolts": 1.3,
+          "testCurrentMilliamps": 20.0
+        }
+      },
+      "drive": {
+        "nominalOutputCurrentMilliamps": 8.0,
+        "relaxedOutputCurrentMilliamps": 20.0
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": {
+          "min": 25.0,
+          "typ": 40.0,
+          "max": 55.0
+        },
+        "pullDown": {
+          "min": 25.0,
+          "typ": 40.0,
+          "max": 55.0
+        }
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3,
+        "fiveVoltTolerantPins": true,
+        "fiveVoltTolerantMaxVolts": 5.5
+      },
+      "notes": "FT_c I/Os use separate limits; 5 V tolerant pins are available.",
+      "source": "STMicroelectronics DS12589 Rev 6 (STM32G431x6/x8/xB)"
+    },
+    {
+      "id": "stm32h5",
+      "label": "STM32H5",
+      "series": "STM32H5",
+      "supplyRangeVolts": [
+        1.71,
+        3.6
+      ],
+      "input": {
+        "vilMax": {
+          "factorOfSupply": 0.3
+        },
+        "vihMin": {
+          "factorOfSupply": 0.7
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "vohMin": {
+          "dropFromSupplyVolts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "relaxed": {
+          "volMaxVolts": 1.3,
+          "vohDropFromSupplyVolts": 1.3,
+          "testCurrentMilliamps": 20.0
+        }
+      },
+      "drive": {
+        "nominalOutputCurrentMilliamps": 8.0,
+        "relaxedOutputCurrentMilliamps": 20.0
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": {
+          "min": 30.0,
+          "typ": 40.0,
+          "max": 50.0
+        },
+        "pullDown": {
+          "min": 30.0,
+          "typ": 40.0,
+          "max": 50.0
+        }
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3,
+        "fiveVoltTolerantPins": true,
+        "fiveVoltTolerantMaxVolts": 5.5
+      },
+      "notes": "Design limits for the pads are VIL = 0.14 × VDD − 0.1 V and VIH = 0.52 × VDD + 0.18 V; this table keeps the generic CMOS 0.3/0.7 limits.",
+      "source": "STMicroelectronics DS14258 Rev 1 (STM32H562xx/563xx)"
+    },
+    {
+      "id": "stm32h7",
+      "label": "STM32H7",
+      "series": "STM32H7",
+      "supplyRangeVolts": [
+        1.62,
+        3.6
+      ],
+      "input": {
+        "vilMax": {
+          "factorOfSupply": 0.3
+        },
+        "vihMin": {
+          "factorOfSupply": 0.7
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "vohMin": {
+          "dropFromSupplyVolts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "relaxed": {
+          "volMaxVolts": 1.3,
+          "vohDropFromSupplyVolts": 1.3,
+          "testCurrentMilliamps": 20.0
+        }
+      },
+      "drive": {
+        "nominalOutputCurrentMilliamps": 8.0,
+        "relaxedOutputCurrentMilliamps": 20.0
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": {
+          "min": 30.0,
+          "typ": 40.0,
+          "max": 50.0
+        },
+        "pullDown": {
+          "min": 30.0,
+          "typ": 40.0,
+          "max": 50.0
+        }
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3,
+        "fiveVoltTolerantPins": true,
+        "fiveVoltTolerantMaxVolts": 5.5
+      },
+      "notes": "Design limits VIL = 0.4 × VDD − 0.1 V and VIH = 0.47 × VDD + 0.25 V; hysteresis is 250 mV typical.",
+      "source": "STMicroelectronics DS12110 Rev 10 (STM32H742xx/H743xx)"
+    },
+    {
+      "id": "stm32l0",
+      "label": "STM32L0",
+      "series": "STM32L0",
+      "supplyRangeVolts": [
+        1.65,
+        3.6
+      ],
+      "input": {
+        "vilMax": {
+          "factorOfSupply": 0.3
+        },
+        "vihMin": {
+          "factorOfSupply": 0.7
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "vohMin": {
+          "dropFromSupplyVolts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "relaxed": {
+          "volMaxVolts": 1.3,
+          "vohDropFromSupplyVolts": 1.3,
+          "testCurrentMilliamps": 15.0
+        }
+      },
+      "drive": {
+        "nominalOutputCurrentMilliamps": 8.0,
+        "relaxedOutputCurrentMilliamps": 15.0
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": {
+          "min": 25.0,
+          "typ": 45.0,
+          "max": 65.0
+        },
+        "pullDown": {
+          "min": 25.0,
+          "typ": 45.0,
+          "max": 65.0
+        }
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3,
+        "fiveVoltTolerantPins": true,
+        "fiveVoltTolerantMaxVolts": 5.5
+      },
+      "notes": "BOR enabled requires VDD ≥ 1.8 V. FT/FTf pins are 5 V tolerant (5.5 V at VDD ≥ 2 V, 5.2 V below).",
+      "source": "STMicroelectronics DS10685 Rev 7 (STM32L073x8/xB/xZ)"
+    },
+    {
+      "id": "stm32l1",
+      "label": "STM32L1",
+      "series": "STM32L1",
+      "supplyRangeVolts": [
+        1.65,
+        3.6
+      ],
+      "input": {
+        "vilMax": {
+          "factorOfSupply": 0.3
+        },
+        "vihMin": {
+          "factorOfSupply": 0.7
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "vohMin": {
+          "dropFromSupplyVolts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "relaxed": {
+          "volMaxVolts": 1.3,
+          "vohDropFromSupplyVolts": 1.3,
+          "testCurrentMilliamps": 20.0
+        }
+      },
+      "drive": {
+        "nominalOutputCurrentMilliamps": 8.0,
+        "relaxedOutputCurrentMilliamps": 20.0
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": {
+          "min": 25.0,
+          "typ": 45.0,
+          "max": 65.0
+        },
+        "pullDown": {
+          "min": 25.0,
+          "typ": 45.0,
+          "max": 65.0
+        }
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3,
+        "fiveVoltTolerantPins": true,
+        "fiveVoltTolerantMaxVolts": 5.5
+      },
+      "notes": "TC I/O VIH = 0.45 × VDD + 0.38 V; FT I/O VIH = 0.39 × VDD + 0.59 V. FT pins accept 5.5 V at VDD ≥ 2 V and 5.25 V below.",
+      "source": "STMicroelectronics DS10002 Rev 10 (STM32L151xx/152xx)"
+    },
+    {
+      "id": "stm32l4",
+      "label": "STM32L4",
+      "series": "STM32L4",
+      "supplyRangeVolts": [
+        1.71,
+        3.6
+      ],
+      "input": {
+        "vilMax": {
+          "factorOfSupply": 0.3
+        },
+        "vihMin": {
+          "factorOfSupply": 0.7
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "vohMin": {
+          "dropFromSupplyVolts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "relaxed": {
+          "volMaxVolts": 1.3,
+          "vohDropFromSupplyVolts": 1.3,
+          "testCurrentMilliamps": 20.0
+        }
+      },
+      "drive": {
+        "nominalOutputCurrentMilliamps": 8.0,
+        "relaxedOutputCurrentMilliamps": 20.0
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": {
+          "min": 25.0,
+          "typ": 40.0,
+          "max": 55.0
+        },
+        "pullDown": {
+          "min": 25.0,
+          "typ": 40.0,
+          "max": 55.0
+        }
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3,
+        "fiveVoltTolerantPins": true,
+        "fiveVoltTolerantMaxVolts": 5.5
+      },
+      "notes": "For 1.08 V < VDDIOx < 1.62 V the datasheet gives VIL = 0.43 × VDDIOx − 0.1 V and VIH = 0.61 × VDDIOx + 0.05 V.",
+      "source": "STMicroelectronics DS10198 Rev 11 (STM32L476xx)"
+    },
+    {
+      "id": "stm32l5",
+      "label": "STM32L5",
+      "series": "STM32L5",
+      "supplyRangeVolts": [
+        1.71,
+        3.6
+      ],
+      "input": {
+        "vilMax": {
+          "factorOfSupply": 0.3
+        },
+        "vihMin": {
+          "factorOfSupply": 0.7
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "vohMin": {
+          "dropFromSupplyVolts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "relaxed": {
+          "volMaxVolts": 1.3,
+          "vohDropFromSupplyVolts": 1.3,
+          "testCurrentMilliamps": 20.0
+        }
+      },
+      "drive": {
+        "nominalOutputCurrentMilliamps": 8.0,
+        "relaxedOutputCurrentMilliamps": 20.0
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": {
+          "min": 25.0,
+          "typ": 40.0,
+          "max": 55.0
+        },
+        "pullDown": {
+          "min": 25.0,
+          "typ": 40.0,
+          "max": 55.0
+        }
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3,
+        "fiveVoltTolerantPins": true,
+        "fiveVoltTolerantMaxVolts": 5.5
+      },
+      "notes": "FT_c I/Os use separate limits; 5 V tolerant pins are available.",
+      "source": "STMicroelectronics DS12736 Rev 4 (STM32L562xx)"
+    },
+    {
+      "id": "stm32u5",
+      "label": "STM32U5",
+      "series": "STM32U5",
+      "supplyRangeVolts": [
+        1.71,
+        3.6
+      ],
+      "input": {
+        "vilMax": {
+          "factorOfSupply": 0.3
+        },
+        "vihMin": {
+          "factorOfSupply": 0.7
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "vohMin": {
+          "dropFromSupplyVolts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "relaxed": {
+          "volMaxVolts": 1.3,
+          "vohDropFromSupplyVolts": 1.3,
+          "testCurrentMilliamps": 20.0
+        }
+      },
+      "drive": {
+        "nominalOutputCurrentMilliamps": 8.0,
+        "relaxedOutputCurrentMilliamps": 20.0
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": {
+          "min": 30.0,
+          "typ": 40.0,
+          "max": 50.0
+        },
+        "pullDown": {
+          "min": 30.0,
+          "typ": 40.0,
+          "max": 50.0
+        }
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3,
+        "fiveVoltTolerantPins": true,
+        "fiveVoltTolerantMaxVolts": 5.5
+      },
+      "notes": "VDDIOx can operate down to 1.08 V; the 0.3/0.7 limits apply over the full I/O supply range.",
+      "source": "STMicroelectronics DS13737 Rev 4 (STM32U575xx)"
+    },
+    {
+      "id": "stm32wb",
+      "label": "STM32WB",
+      "series": "STM32WB",
+      "supplyRangeVolts": [
+        1.71,
+        3.6
+      ],
+      "input": {
+        "vilMax": {
+          "factorOfSupply": 0.3
+        },
+        "vihMin": {
+          "factorOfSupply": 0.7
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "vohMin": {
+          "dropFromSupplyVolts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "relaxed": {
+          "volMaxVolts": 1.3,
+          "vohDropFromSupplyVolts": 1.3,
+          "testCurrentMilliamps": 20.0
+        }
+      },
+      "drive": {
+        "nominalOutputCurrentMilliamps": 8.0,
+        "relaxedOutputCurrentMilliamps": 20.0
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": {
+          "min": 25.0,
+          "typ": 40.0,
+          "max": 55.0
+        },
+        "pullDown": {
+          "min": 25.0,
+          "typ": 40.0,
+          "max": 55.0
+        }
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3,
+        "fiveVoltTolerantPins": true,
+        "fiveVoltTolerantMaxVolts": 5.5
+      },
+      "notes": "FT pins are 5 V tolerant.",
+      "source": "STMicroelectronics DS11929 Rev 17 (STM32WB55xx)"
+    },
+    {
+      "id": "stm32wl",
+      "label": "STM32WL",
+      "series": "STM32WL",
+      "supplyRangeVolts": [
+        1.8,
+        3.6
+      ],
+      "input": {
+        "vilMax": {
+          "factorOfSupply": 0.3
+        },
+        "vihMin": {
+          "factorOfSupply": 0.7
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "vohMin": {
+          "dropFromSupplyVolts": 0.4,
+          "testCurrentMilliamps": 8.0
+        },
+        "relaxed": {
+          "volMaxVolts": 1.3,
+          "vohDropFromSupplyVolts": 1.3,
+          "testCurrentMilliamps": 20.0
+        }
+      },
+      "drive": {
+        "nominalOutputCurrentMilliamps": 8.0,
+        "relaxedOutputCurrentMilliamps": 20.0
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": {
+          "min": 25.0,
+          "typ": 40.0,
+          "max": 55.0
+        },
+        "pullDown": {
+          "min": 25.0,
+          "typ": 40.0,
+          "max": 55.0
+        }
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3,
+        "fiveVoltTolerantPins": true,
+        "fiveVoltTolerantMaxVolts": 5.5
+      },
+      "notes": "FT pins are 5 V tolerant.",
+      "source": "STMicroelectronics DS13293 Rev 5 (STM32WL55xx)"
+    }
+  ]
+}

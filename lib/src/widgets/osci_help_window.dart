@@ -843,6 +843,20 @@ class _HelpWindowState extends State<HelpWindow>
                   color: Colors.cyanAccent,
                 ),
                 const Spacer(),
+                ListenableBuilder(
+                  listenable: _helpChatController,
+                  builder: (context, _) => IconButton(
+                    tooltip: 'Clear session',
+                    onPressed:
+                        _helpChatController.messages.isEmpty ||
+                            _helpChatController.isChatting
+                        ? null
+                        : _helpChatController.clearSession,
+                    icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                    color: Colors.white70,
+                    visualDensity: VisualDensity.compact,
+                  ),
+                ),
                 IconButton(
                   icon: const Icon(
                     Icons.close,

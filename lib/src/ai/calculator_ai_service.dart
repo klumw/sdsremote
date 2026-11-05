@@ -124,6 +124,12 @@ class CalculatorAiService {
     }
   }
 
+  /// Clears the agent conversation history so the next request starts a fresh
+  /// session without the previous turns.
+  void clearSession() {
+    _agent?.clearHistory();
+  }
+
   void dispose() {
     _isDisposed = true;
     _agent = null;

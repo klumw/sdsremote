@@ -76,4 +76,8 @@ class ControlPanelAgent {
 
   /// Sends a [prompt] and streams the response chunks.
   Stream<String> sendStream(String prompt) => _agent.sendStream(prompt);
+
+  /// Clears the conversation history so the next request starts a fresh
+  /// session without the previous turns.
+  void clearHistory() => _agent.clearHistory();
 }

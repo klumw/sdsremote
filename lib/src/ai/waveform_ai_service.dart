@@ -8,6 +8,7 @@ import 'agents/waveform_agent.dart';
 import 'cancellation.dart';
 import 'tools/acquire_waveform_tool.dart';
 import 'tools/audio/audio_tools.dart';
+import 'tools/digital_measurement_tools.dart';
 import 'tools/specification_upload_tool.dart';
 import 'tools/signal_generator_tool.dart';
 import 'tools/spectrum_summary_tool.dart';
@@ -68,6 +69,7 @@ class WaveformAiService {
     SignalGeneratorIntentCheck? isSignalGeneratorIntentEnabled,
     AudioAnalysisContextProvider? audioAnalysisContext,
     AudioSweepProvider? audioSweep,
+    DigitalMeasurementProvider? digitalMeasurement,
     int maxToolCalls = WaveformAgent.defaultMaxToolCalls,
   }) {
     if (_isDisposed) return;
@@ -100,6 +102,7 @@ class WaveformAiService {
         isSignalGeneratorIntentEnabled: isSignalGeneratorIntentEnabled,
         audioAnalysisContext: audioAnalysisContext,
         audioSweep: audioSweep,
+        digitalMeasurement: digitalMeasurement,
         suspendResponseTimeout: suspendResponseTimeout,
         resumeResponseTimeout: resumeResponseTimeout,
         maxToolCalls: maxToolCalls,

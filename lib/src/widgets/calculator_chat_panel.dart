@@ -182,6 +182,15 @@ class _CalculatorChatPanelState extends State<CalculatorChatPanel> {
             onPressed: widget.onReloadSettings,
           ),
           IconButton(
+            tooltip: 'Clear session',
+            visualDensity: VisualDensity.compact,
+            icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+            color: Colors.white70,
+            onPressed: _chat.messages.isEmpty || _chat.isChatting
+                ? null
+                : _chat.clearSession,
+          ),
+          IconButton(
             tooltip: 'Close calculator assistant',
             visualDensity: VisualDensity.compact,
             icon: const Icon(Icons.close, size: 18, color: Colors.white70),

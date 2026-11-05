@@ -1,0 +1,256 @@
+{
+  "schema_version": "1.0",
+  "kind": "esp32",
+  "vendor": "Espressif",
+  "source": {
+    "label": "User-provided reference values"
+  },
+  "items": [
+    {
+      "id": "esp32",
+      "label": "ESP32",
+      "supplyRangeVolts": [
+        2.3,
+        3.6
+      ],
+      "input": {
+        "vilMin": {
+          "volts": 0.0
+        },
+        "vilMax": {
+          "factorOfSupply": 0.25,
+          "capVolts": 0.825
+        },
+        "vihMin": {
+          "factorOfSupply": 0.75,
+          "floorVolts": 2.475
+        },
+        "vihMax": {
+          "aboveSupplyVolts": 0.3
+        }
+      },
+      "output": {
+        "volMax": {
+          "factorOfSupply": 0.1,
+          "capVolts": 0.33,
+          "testCurrentMilliamps": 5.0
+        },
+        "vohMin": {
+          "factorOfSupply": 0.8,
+          "floorVolts": 2.64,
+          "testCurrentMilliamps": 5.0
+        }
+      },
+      "drive": {
+        "maxOutputCurrentMilliamps": 40.0,
+        "recommendedContinuousCurrentMilliamps": 20.0
+      },
+      "edges": {
+        "riseTimeNs": {
+          "min": 2.5,
+          "max": 6.0
+        },
+        "fallTimeNs": {
+          "min": 2.5,
+          "max": 6.0
+        }
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": 45.0,
+        "pullDown": 45.0
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3
+      },
+      "notes": "VIL lower bound is 0 V for the ESP32."
+    },
+    {
+      "id": "esp32_s2",
+      "label": "ESP32-S2",
+      "aliases": [
+        "esp32s2"
+      ],
+      "supplyRangeVolts": [
+        3.0,
+        3.6
+      ],
+      "input": {
+        "vilMin": {
+          "volts": -0.3
+        },
+        "vilMax": {
+          "factorOfSupply": 0.25,
+          "capVolts": 0.825
+        },
+        "vihMin": {
+          "factorOfSupply": 0.75,
+          "floorVolts": 2.475
+        },
+        "vihMax": {
+          "aboveSupplyVolts": 0.3
+        }
+      },
+      "output": {
+        "volMax": {
+          "factorOfSupply": 0.1,
+          "capVolts": 0.33,
+          "testCurrentMilliamps": 5.0
+        },
+        "vohMin": {
+          "factorOfSupply": 0.8,
+          "floorVolts": 2.64,
+          "testCurrentMilliamps": 5.0
+        }
+      },
+      "drive": {
+        "maxOutputCurrentMilliamps": 28.0,
+        "recommendedContinuousCurrentMilliamps": 20.0
+      },
+      "edges": {
+        "riseTimeNs": {
+          "min": 2.0,
+          "max": 5.5
+        },
+        "fallTimeNs": {
+          "min": 2.0,
+          "max": 5.5
+        }
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": 45.0,
+        "pullDown": 45.0
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3
+      },
+      "notes": "VIL lower bound is -0.3 V. Maximum output current is 28 mA for the S2."
+    },
+    {
+      "id": "esp32_s3",
+      "label": "ESP32-S3",
+      "aliases": [
+        "esp32s3"
+      ],
+      "supplyRangeVolts": [
+        3.0,
+        3.6
+      ],
+      "input": {
+        "vilMin": {
+          "volts": -0.3
+        },
+        "vilMax": {
+          "factorOfSupply": 0.25,
+          "capVolts": 0.825
+        },
+        "vihMin": {
+          "factorOfSupply": 0.75,
+          "floorVolts": 2.475
+        },
+        "vihMax": {
+          "aboveSupplyVolts": 0.3
+        }
+      },
+      "output": {
+        "volMax": {
+          "factorOfSupply": 0.1,
+          "capVolts": 0.33,
+          "testCurrentMilliamps": 5.0
+        },
+        "vohMin": {
+          "factorOfSupply": 0.8,
+          "floorVolts": 2.64,
+          "testCurrentMilliamps": 5.0
+        }
+      },
+      "drive": {
+        "maxOutputCurrentMilliamps": 40.0,
+        "recommendedContinuousCurrentMilliamps": 20.0
+      },
+      "edges": {
+        "riseTimeNs": {
+          "min": 2.0,
+          "max": 5.5
+        },
+        "fallTimeNs": {
+          "min": 2.0,
+          "max": 5.5
+        }
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": 45.0,
+        "pullDown": 45.0
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3
+      },
+      "notes": "VIL lower bound is -0.3 V. Maximum output current is 40 mA for the S3."
+    },
+    {
+      "id": "esp32_c3_c6",
+      "label": "ESP32-C3 / ESP32-C6",
+      "aliases": [
+        "esp32c3",
+        "esp32c6"
+      ],
+      "supplyRangeVolts": [
+        3.0,
+        3.6
+      ],
+      "input": {
+        "vilMin": {
+          "volts": -0.3
+        },
+        "vilMax": {
+          "factorOfSupply": 0.25,
+          "capVolts": 0.825
+        },
+        "vihMin": {
+          "factorOfSupply": 0.75,
+          "floorVolts": 2.475
+        },
+        "vihMax": {
+          "aboveSupplyVolts": 0.3
+        }
+      },
+      "output": {
+        "volMax": {
+          "factorOfSupply": 0.1,
+          "capVolts": 0.33,
+          "testCurrentMilliamps": 5.0
+        },
+        "vohMin": {
+          "factorOfSupply": 0.8,
+          "floorVolts": 2.64,
+          "testCurrentMilliamps": 5.0
+        }
+      },
+      "drive": {
+        "maxOutputCurrentMilliamps": 28.0,
+        "recommendedContinuousCurrentMilliamps": 20.0
+      },
+      "edges": {
+        "riseTimeNs": {
+          "min": 2.0,
+          "max": 5.0
+        },
+        "fallTimeNs": {
+          "min": 2.0,
+          "max": 5.0
+        }
+      },
+      "pullResistorsKiloOhms": {
+        "pullUp": 45.0,
+        "pullDown": 45.0
+      },
+      "absoluteMaxInput": {
+        "minVolts": -0.3,
+        "maxAboveSupplyVolts": 0.3
+      },
+      "notes": "VIL lower bound is -0.3 V. Maximum output current is 28 mA for the C3/C6."
+    }
+  ]
+}

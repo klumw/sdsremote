@@ -1,0 +1,184 @@
+{
+  "schema_version": "1.0",
+  "kind": "raspberry_pi",
+  "vendor": "Raspberry Pi",
+  "source": {
+    "label": "Raspberry Pi RP2040/RP2350 datasheets (raspberrypi.com)"
+  },
+  "items": [
+    {
+      "id": "rp2040",
+      "label": "RP2040",
+      "series": "Raspberry Pi RP2040",
+      "supplyRangeVolts": [
+        1.8,
+        3.3
+      ],
+      "points": [
+        {
+          "supplyVolts": 1.8,
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMaxVolts": 0.63,
+            "vihMinVolts": 1.17,
+            "vihMaxVolts": 2.1,
+            "vhysVolts": 0.18
+          },
+          "output": {
+            "volMaxVolts": 0.3,
+            "vohMinVolts": 1.24
+          },
+          "pullResistorsKiloOhms": {
+            "pullUpMin": 50.0,
+            "pullUpMax": 80.0,
+            "pullDownMin": 50.0,
+            "pullDownMax": 80.0
+          }
+        },
+        {
+          "supplyVolts": 2.5,
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMaxVolts": 0.7,
+            "vihMinVolts": 1.7,
+            "vihMaxVolts": 2.8,
+            "vhysVolts": 0.2
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohMinVolts": 1.78
+          },
+          "pullResistorsKiloOhms": {
+            "pullUpMin": 50.0,
+            "pullUpMax": 80.0,
+            "pullDownMin": 50.0,
+            "pullDownMax": 80.0
+          }
+        },
+        {
+          "supplyVolts": 3.3,
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMaxVolts": 0.8,
+            "vihMinVolts": 2.0,
+            "vihMaxVolts": 3.6,
+            "vhysVolts": 0.2
+          },
+          "output": {
+            "volMaxVolts": 0.5,
+            "vohMinVolts": 2.62
+          },
+          "pullResistorsKiloOhms": {
+            "pullUpMin": 50.0,
+            "pullUpMax": 80.0,
+            "pullDownMin": 50.0,
+            "pullDownMax": 80.0
+          }
+        }
+      ],
+      "driveStrengthsMilliamps": [
+        2.0,
+        4.0,
+        8.0,
+        12.0
+      ],
+      "totalOutputCurrentMilliamps": 50.0,
+      "absoluteMaxInput": {
+        "minVolts": -0.5,
+        "maxAboveSupplyVolts": 0.5,
+        "fiveVoltTolerantPins": false
+      },
+      "notes": "FT pins are fault tolerant, not 5 V tolerant. IOVDD nominal 1.8–3.3 V; absolute maximum IOVDD is 3.63 V. Thresholds are specified at 1.8 V, 2.5 V and 3.3 V; an intermediate supply uses the next lower specified point.",
+      "source": "Raspberry Pi RP2040 Datasheet, Section 5.5.3.4 (Table 625), February 2025"
+    },
+    {
+      "id": "rp2350",
+      "label": "RP2350",
+      "series": "Raspberry Pi RP2350",
+      "supplyRangeVolts": [
+        1.8,
+        3.3
+      ],
+      "points": [
+        {
+          "supplyVolts": 1.8,
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMaxVolts": 0.63,
+            "vihMinVolts": 1.17,
+            "vihMaxVolts": 2.1,
+            "vhysVolts": 0.18
+          },
+          "output": {
+            "volMaxVolts": 0.3,
+            "vohMinVolts": 1.24
+          },
+          "pullResistorsKiloOhms": {
+            "pullUpMin": 32.0,
+            "pullUpMax": 106.0,
+            "pullDownMin": 35.0,
+            "pullDownMax": 189.0
+          },
+          "fiveVoltTolerantMaxVolts": 3.63
+        },
+        {
+          "supplyVolts": 2.5,
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMaxVolts": 0.7,
+            "vihMinVolts": 1.7,
+            "vihMaxVolts": 2.8,
+            "vhysVolts": 0.2
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohMinVolts": 1.78
+          },
+          "pullResistorsKiloOhms": {
+            "pullUpMin": 42.0,
+            "pullUpMax": 123.0,
+            "pullDownMin": 49.0,
+            "pullDownMax": 180.0
+          },
+          "fiveVoltTolerantMaxVolts": 4.2
+        },
+        {
+          "supplyVolts": 3.3,
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMaxVolts": 0.8,
+            "vihMinVolts": 2.0,
+            "vihMaxVolts": 3.6,
+            "vhysVolts": 0.2
+          },
+          "output": {
+            "volMaxVolts": 0.5,
+            "vohMinVolts": 2.62
+          },
+          "pullResistorsKiloOhms": {
+            "pullUpMin": 32.0,
+            "pullUpMax": 86.0,
+            "pullDownMin": 36.0,
+            "pullDownMax": 113.0
+          },
+          "fiveVoltTolerantMaxVolts": 5.5
+        }
+      ],
+      "driveStrengthsMilliamps": [
+        2.0,
+        4.0,
+        8.0,
+        12.0
+      ],
+      "totalOutputCurrentMilliamps": 100.0,
+      "qspiTotalOutputCurrentMilliamps": 20.0,
+      "absoluteMaxInput": {
+        "minVolts": -0.5,
+        "maxAboveSupplyVolts": 0.5,
+        "fiveVoltTolerantPins": true
+      },
+      "notes": "FT pins are 5 V tolerant (3.63 V at IOVDD=1.8 V, 4.2 V at 2.5 V, 5.5 V at 3.3 V); standard pins are limited to IOVDD+0.5 V. IOVDD nominal 1.8–3.3 V; absolute maximum IOVDD is 3.63 V. Thresholds are specified at 1.8 V, 2.5 V and 3.3 V; an intermediate supply uses the next lower specified point.",
+      "source": "Raspberry Pi RP2350 Datasheet, Section 14.9.4 (Table 1683), October 2026"
+    }
+  ]
+}

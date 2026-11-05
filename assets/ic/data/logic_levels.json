@@ -1,0 +1,379 @@
+{
+  "schema_version": "1.0",
+  "kind": "standard_logic",
+  "source": {
+    "label": "Standard logic-level reference table"
+  },
+  "items": [
+    {
+      "id": "ttl_5v",
+      "label": "TTL 5 V",
+      "family": "TTL",
+      "supplyVolts": 5.0,
+      "input": {
+        "vilMax": {
+          "volts": 0.8
+        },
+        "vihMin": {
+          "volts": 2.0
+        },
+        "vtTypical": {
+          "volts": 1.5
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4
+        },
+        "vohMin": {
+          "volts": 2.4
+        }
+      },
+      "logic": "positive",
+      "notes": "",
+      "source": "Standard logic-level reference table"
+    },
+    {
+      "id": "ttl_compatible_cmos_5v",
+      "label": "TTL-compatible CMOS 5 V",
+      "family": "CMOS (TTL-compatible)",
+      "supplyVolts": 5.0,
+      "input": {
+        "vilMax": {
+          "volts": 0.8
+        },
+        "vihMin": {
+          "volts": 2.0
+        },
+        "vtTypical": {
+          "volts": 1.5
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4
+        },
+        "vohMin": {
+          "volts": 4.4
+        }
+      },
+      "logic": "positive",
+      "notes": "TTL-compatible input thresholds with CMOS output levels (TI Logic Guide Figure 2-2).",
+      "source": "TI Logic Guide SDYU001AC (Rev. AC, November 2025)"
+    },
+    {
+      "id": "ttl_compatible_cmos_5v_schmitt",
+      "label": "TTL-compatible CMOS 5 V, Schmitt trigger",
+      "family": "CMOS (TTL-compatible, Schmitt trigger)",
+      "supplyVolts": 5.0,
+      "input": {
+        "vilMax": {
+          "volts": 0.8
+        },
+        "vihMin": {
+          "volts": 2.0
+        },
+        "vtPlusMax": {
+          "volts": 2.0
+        },
+        "vtMinusMin": {
+          "volts": 0.8
+        },
+        "schmittTrigger": true
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4
+        },
+        "vohMin": {
+          "volts": 4.4
+        }
+      },
+      "logic": "positive",
+      "notes": "Schmitt-trigger inputs. VIL max equals Vt-(min) and VIH min equals Vt+(max) (TI Logic Guide Figure 2-2).",
+      "source": "TI Logic Guide SDYU001AC (Rev. AC, November 2025)"
+    },
+    {
+      "id": "cmos_5v",
+      "label": "CMOS 5 V",
+      "family": "CMOS",
+      "supplyVolts": 5.0,
+      "input": {
+        "vilMax": {
+          "volts": 1.5
+        },
+        "vihMin": {
+          "volts": 3.5
+        },
+        "vtTypical": {
+          "volts": 2.5
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.5
+        },
+        "vohMin": {
+          "volts": 4.44
+        }
+      },
+      "logic": "positive",
+      "notes": "",
+      "source": "Standard logic-level reference table"
+    },
+    {
+      "id": "cmos_5v_schmitt",
+      "label": "CMOS 5 V, Schmitt trigger",
+      "family": "CMOS (Schmitt trigger)",
+      "supplyVolts": 5.0,
+      "input": {
+        "vilMax": {
+          "volts": 1.5
+        },
+        "vihMin": {
+          "volts": 3.5
+        },
+        "vtPlusMax": {
+          "volts": 3.5
+        },
+        "vtMinusMin": {
+          "volts": 1.5
+        },
+        "schmittTrigger": true
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.5
+        },
+        "vohMin": {
+          "volts": 4.5
+        }
+      },
+      "logic": "positive",
+      "notes": "Schmitt-trigger inputs. VIL max equals Vt-(min) and VIH min equals Vt+(max) (TI Logic Guide Figure 2-2).",
+      "source": "TI Logic Guide SDYU001AC (Rev. AC, November 2025)"
+    },
+    {
+      "id": "lvttl_3v3",
+      "label": "LVTTL 3.3 V",
+      "family": "LVTTL",
+      "supplyVolts": 3.3,
+      "input": {
+        "vilMax": {
+          "volts": 0.8
+        },
+        "vihMin": {
+          "volts": 2.0
+        },
+        "vtTypical": {
+          "volts": 1.5
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.4
+        },
+        "vohMin": {
+          "volts": 2.4
+        }
+      },
+      "logic": "positive",
+      "notes": "",
+      "source": "Standard logic-level reference table"
+    },
+    {
+      "id": "cmos_2v5",
+      "label": "CMOS 2.5 V",
+      "family": "CMOS",
+      "supplyVolts": 2.5,
+      "input": {
+        "vilMax": {
+          "volts": 0.7
+        },
+        "vihMin": {
+          "volts": 1.7
+        },
+        "vtTypical": {
+          "volts": 1.2
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.2
+        },
+        "vohMin": {
+          "volts": 2.3
+        }
+      },
+      "logic": "positive",
+      "notes": "",
+      "source": "Standard logic-level reference table"
+    },
+    {
+      "id": "cmos_1v8",
+      "label": "CMOS 1.8 V",
+      "family": "CMOS",
+      "supplyVolts": 1.8,
+      "input": {
+        "vilMax": {
+          "volts": 0.7
+        },
+        "vihMin": {
+          "volts": 1.17
+        },
+        "vtTypical": {
+          "volts": 0.9
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.45
+        },
+        "vohMin": {
+          "volts": 1.2
+        }
+      },
+      "logic": "positive",
+      "notes": "",
+      "source": "Standard logic-level reference table"
+    },
+    {
+      "id": "cmos_1v2",
+      "label": "CMOS 1.2 V",
+      "family": "CMOS",
+      "supplyVolts": 1.2,
+      "input": {
+        "vilMax": {
+          "volts": 0.42
+        },
+        "vihMin": {
+          "volts": 0.78
+        },
+        "vtTypical": {
+          "volts": 0.6
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.3
+        },
+        "vohMin": {
+          "volts": 0.9
+        }
+      },
+      "logic": "positive",
+      "notes": "",
+      "source": "TI Logic Guide SDYU001AC (Rev. AC, November 2025)"
+    },
+    {
+      "id": "cmos_0v8",
+      "label": "CMOS 0.8 V",
+      "family": "CMOS",
+      "supplyVolts": 0.8,
+      "input": {
+        "vilMax": {
+          "volts": 0.24
+        },
+        "vihMin": {
+          "volts": 0.56
+        },
+        "vtTypical": {
+          "volts": 0.4
+        }
+      },
+      "output": {
+        "volMax": {
+          "volts": 0.1
+        },
+        "vohMin": {
+          "volts": 0.7
+        }
+      },
+      "logic": "positive",
+      "notes": "",
+      "source": "TI Logic Guide SDYU001AC (Rev. AC, November 2025)"
+    },
+    {
+      "id": "ecl",
+      "label": "ECL",
+      "family": "ECL",
+      "input": {
+        "vilMax": {
+          "volts": -1.4
+        },
+        "vihMin": {
+          "volts": -1.2
+        }
+      },
+      "output": {
+        "volNotStated": true,
+        "vohNotStated": true
+      },
+      "logic": "positive",
+      "notes": "Output levels (VOL/VOH) are not stated in the source table. Use the device datasheet for output levels.",
+      "source": "Standard logic-level reference table"
+    },
+    {
+      "id": "rs232",
+      "label": "RS-232",
+      "family": "RS-232",
+      "input": {
+        "vilMax": {
+          "rangeVolts": [
+            -15.0,
+            -3.0
+          ]
+        },
+        "vihMin": {
+          "rangeVolts": [
+            3.0,
+            15.0
+          ]
+        }
+      },
+      "output": {
+        "volMax": {
+          "rangeVolts": [
+            -15.0,
+            -5.0
+          ]
+        },
+        "vohMin": {
+          "rangeVolts": [
+            5.0,
+            15.0
+          ]
+        }
+      },
+      "logic": "negative",
+      "notes": "Values are ranges from the source table. Negative logic: low=1, high=0.",
+      "source": "Standard logic-level reference table"
+    },
+    {
+      "id": "htl_10_30v",
+      "label": "HTL 10…30 V",
+      "family": "HTL",
+      "supplyRangeVolts": [
+        10.0,
+        30.0
+      ],
+      "input": {
+        "vilMax": {
+          "factorOfSupply": 0.2
+        },
+        "vihMin": {
+          "factorOfSupply": 0.6
+        }
+      },
+      "output": {
+        "vohTypical": {
+          "factorOfSupply": 1.0
+        },
+        "volNotStated": true
+      },
+      "logic": "positive",
+      "notes": "Supply-dependent: VIL ≤ 0.2 × UB, VIH ≥ 0.6 × UB, VOH ≈ UB. Output low is not stated in the source table.",
+      "source": "Standard logic-level reference table"
+    }
+  ]
+}

@@ -1,8 +1,8 @@
 <!--
 device_profile: sds1000xe
-knowledge_version: 1.0
+knowledge_version: 1.1
 source: instrumentAgentSystemPrompt and sds1000xeScpiReference in systemprompts.dart, frontPanelCommandsReference, assets/manuals/sds_manual.md technical details, assets/devices/qa/siglent_sds1000xe_qa.md, app_config.dart
-validation_status: derived_from_repository_sources_not_independently_verified
+validation_status: command_support_live_checked_on_sds1104x-e_fw_8.1.6.1.37r17
 -->
 
 # Device Knowledge: Siglent SDS1000X-E
@@ -265,13 +265,34 @@ two-channel instrument.
 
 - Model and firmware applicability of the command package may vary; the package
   provenance note says the list was transcribed and not independently verified.
-- Some commands are documented as non-SPO in their descriptions.
+- Some commands are documented as non-SPO in their descriptions. The live
+  check below removed the commands that returned `-113 "Undefined header"`
+  from the command package.
 - `$$SY_FP` commands have no query and no readback.
 - The command package contains pattern-only commands whose values cannot be
   range-validated. The registry accepts them only with a warning and validates
   the header and channel.
 - Arbitrary command chaining is not documented for this profile; send one
   command per request.
+
+### 10.1 Commands removed after live verification
+
+A live SCPI check on 2026-11-05 against an SDS1104X-E with firmware
+`8.1.6.1.37R17` returned `-113 "Undefined header"` for the following
+commands. They were removed from the command package, the static agent
+reference and the QA command reference. Do not send them to this firmware:
+
+```text
+ACAL, AUTTS, COUN, CRAU, DATE, DELF, DIR, FLNM, FRTR, FVDISK, FFTZ, FILT,
+FILTS, GCSV, HMAG, HPOS, HCSU, ILVD, LOCK, *OPT?, PDET, PERS, PFSL, PFCT,
+REC, REFS, STO, STST, *TRG, VPOS, VTCL, WAIT, VERT, MEGS
+```
+
+Other commands returned different errors and remain in the package until their
+documented parameter syntax is verified: `STPN` (blocks the instrument without
+USB storage), `PFDS`, `CSVS`, `FORM:DATA`, `OUTP`, `SANU`, `CRST`, `PACU`,
+`INTS`, `PFST`, `TRPA`, `WFSU`, `ARWV`, `BSWV`, `B1:DC*`, `DCPA`, `FTIM?` and
+`TRSPI:DATA`.
 
 ## 11. References
 
@@ -293,4 +314,5 @@ two-channel instrument.
 | Measurement procedures | `instrumentAgentSystemPrompt` | Inherited system-prompt rule |
 | Front-panel command table | `frontPanelCommandsReference` | Inherited system-prompt rule |
 | Error/log workflow | `instrumentAgentSystemPrompt` | Inherited system-prompt rule |
-| Firmware details | none | Unknown; not assumed |
+| Command support on the tested firmware | Live SCPI check 2026-11-05 (SDS1104X-E, firmware 8.1.6.1.37R17) | 34 commands removed with `-113 "Undefined header"`; other errors documented in section 10.1 |
+| Firmware details | Live check on 8.1.6.1.37R17 | Other firmware versions are not assumed |

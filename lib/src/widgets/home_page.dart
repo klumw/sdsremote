@@ -52,6 +52,7 @@ import '../waveform/ripple_noise.dart';
 import '../waveform/clock_detection.dart';
 import '../waveform/analysis/waveform_analysis_models.dart';
 import '../waveform/analysis/waveform_analysis_service.dart';
+import '../waveform/analysis/digital_measurements.dart';
 import '../waveform/analysis/waveform_fault_analyzer.dart';
 import '../waveform/analysis/waveform_fault_models.dart';
 import '../waveform/analysis/waveform_fault_profile_store.dart';
@@ -67,6 +68,7 @@ import '../ai/control_panel_chat_controller.dart';
 import '../ai/input_history.dart';
 import '../ai/macro_chat_controller.dart';
 import '../ai/tools/audio/audio_analysis_context.dart';
+import '../ai/tools/digital_measurement_tools.dart';
 import '../ai/tools/signal_generator_tool.dart';
 import '../ai/waveform_chat_controller.dart';
 import '../core/logger.dart';
@@ -1930,15 +1932,62 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   Widget _buildChatWindow() {
-    return ChatWindow(
-      chatMessages: _chatMessages,
-      isChatting: _isChatting,
-      isInitialized: _aiChatService.isInitialized,
-      onSendMessage: _onChatSendMessage,
-      onCancel: _cancelChat,
-      voiceInput: _aiChatVoice,
-      inputHistory: _chatInputHistory.entries,
-      onHistorySelected: _onChatSendMessage,
+    return Column(
+      children: [
+        _buildChatHeader(),
+        Expanded(
+          child: ChatWindow(
+            chatMessages: _chatMessages,
+            isChatting: _isChatting,
+            isInitialized: _aiChatService.isInitialized,
+            onSendMessage: _onChatSendMessage,
+            onCancel: _cancelChat,
+            voiceInput: _aiChatVoice,
+            inputHistory: _chatInputHistory.entries,
+            onHistorySelected: _onChatSendMessage,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Header of the main AI chat, with the session-clear button.
+  Widget _buildChatHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(16, 10, 8, 10),
+      decoration: const BoxDecoration(
+        color: Color(0xFF172A45),
+        border: Border(bottom: BorderSide(color: AppColors.border)),
+      ),
+      child: Row(
+        children: [
+          const Icon(
+            Icons.auto_awesome,
+            size: 18,
+            color: Colors.lightBlueAccent,
+          ),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'AI Chat',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Clear session',
+            onPressed: _chatMessages.isEmpty || _isChatting
+                ? null
+                : _clearChatSession,
+            icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+            color: Colors.white70,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
     );
   }
 
@@ -2032,6 +2081,19 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
 
     await subscription?.cancel();
+  }
+
+  /// Clears the main chat transcript and the agent conversation history.
+  ///
+  /// The next request starts a fresh session without the previous turns.
+  void _clearChatSession() {
+    if (_isChatting) {
+      unawaited(_cancelChat());
+    }
+    setState(() {
+      _chatMessages.clear();
+    });
+    _aiChatService.clearSession();
   }
 
   Widget _buildProfilesWindow() {
@@ -2595,12 +2657,20 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   void _onMacroEditorPlay() {
+    final session = _macroDebugSession;
+    if (session != null && session.paused) {
+      // Play from a breakpoint continues the run. Restarting here would hit
+      // the same breakpoint again immediately (especially when it sits on the
+      // first executable statement), which looks like Play did nothing.
+      _onMacroEditorContinue();
+      return;
+    }
     unawaited(_runMacroDebugFromEditor());
   }
 
   /// Starts a fresh debug run from the beginning and lets it execute until
-  /// the first breakpoint (or the end). Continue resumes a paused session;
-  /// Play always restarts.
+  /// the first breakpoint (or the end). Continue and Play on a paused session
+  /// resume it; Stop followed by Play restarts from the beginning.
   Future<void> _runMacroDebugFromEditor() async {
     if (_macroDebugStepPending || _isMacroPlaying) return;
     _macroDebugStepPending = true;
@@ -5548,6 +5618,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       controlSignalGenerator: _controlSignalGeneratorForAi,
       audioAnalysisContext: _audioAnalysisContextForAi,
       audioSweep: _audioSweepForAi,
+      digitalMeasurement: _digitalMeasurementForAi,
     );
   }
 
@@ -6140,6 +6211,139 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
     final features = await _waveformAnalysisService.featuresAsync(trace);
     return <String, dynamic>{'channel': trace.channel, ...features.toMap()};
+  }
+
+  /// Raw acquisition trace of one channel for the digital measurements.
+  ///
+  /// The digital timing tools need the un-decimated acquisition, not the
+  /// display copy. The known leading acquisition artifact is removed.
+  WaveformTrace? _digitalTraceForChannel(String? channel) {
+    final raw = _lastRawData;
+    if (raw == null) return null;
+    final requested = channel?.trim().toLowerCase();
+    final candidates = requested == null || requested.isEmpty
+        ? const ['ch1', 'ch2', 'ch3', 'ch4']
+        : [requested];
+    for (final id in candidates) {
+      final bytes = switch (id) {
+        'ch1' => raw.ch1Raw,
+        'ch2' => raw.ch2Raw,
+        'ch3' => raw.ch3Raw,
+        'ch4' => raw.ch4Raw,
+        _ => null,
+      };
+      final vdiv = _rawVdiv(raw, id);
+      final voffset = _rawVoffset(raw, id);
+      if (bytes == null || bytes.isEmpty || vdiv == null || voffset == null) {
+        continue;
+      }
+      final volts = WaveformConverter.convertVoltages(bytes, vdiv, voffset);
+      const leadingSamplesToSkip = 8;
+      final start = volts.length > leadingSamplesToSkip
+          ? leadingSamplesToSkip
+          : 0;
+      final count = volts.length - start;
+      if (count < 16) continue;
+      final times = WaveformConverter.computeTimeAxis(
+        volts.length,
+        raw.trdl,
+        raw.timebase,
+        raw.sampleRate,
+        triggerPosition: raw.triggerPosition,
+        sparsing: raw.sparsing,
+      );
+      final values = Float64List(count);
+      final adjustedTimes = Float64List(count);
+      for (var i = 0; i < count; i++) {
+        values[i] = volts[start + i];
+        adjustedTimes[i] = times[start + i];
+      }
+      return WaveformTrace(times: adjustedTimes, volts: values, channel: id);
+    }
+    return null;
+  }
+
+  /// Runs one dedicated digital measurement for the DigitalAgent.
+  Future<Map<String, dynamic>> _digitalMeasurementForAi(
+    DigitalMeasurementRequest request,
+  ) async {
+    if (!_waveformAcquired || _lastRawData == null) {
+      return <String, dynamic>{
+        'error': 'No waveform is displayed. Acquire a waveform first.',
+      };
+    }
+    final trace = _digitalTraceForChannel(request.channel);
+    if (trace == null) {
+      return <String, dynamic>{
+        'error':
+            'No acquired waveform data is available for '
+            '${request.channel ?? 'the first channel'}. Acquire the channel '
+            'first.',
+      };
+    }
+    switch (request.type) {
+      case DigitalMeasurementType.riseFallTime:
+        final features = await _waveformAnalysisService.featuresAsync(trace);
+        return digitalRiseFallTime(features, channel: trace.channel);
+      case DigitalMeasurementType.pulseWidth:
+        return digitalPulseWidth(trace, channel: trace.channel);
+      case DigitalMeasurementType.edgeStatistics:
+        return digitalEdgeStatistics(
+          trace,
+          channel: trace.channel,
+          edge: request.edge,
+        );
+      case DigitalMeasurementType.jitter:
+        return digitalJitter(trace, channel: trace.channel);
+      case DigitalMeasurementType.clockStability:
+        return digitalClockStability(
+          trace,
+          channel: trace.channel,
+          nominalFrequencyHz: request.nominalFrequencyHz,
+        );
+      case DigitalMeasurementType.setupHold:
+        final dataTrace = _digitalTraceForChannel(request.channelB);
+        if (dataTrace == null) {
+          return <String, dynamic>{
+            'error':
+                'No acquired waveform data is available for the data channel '
+                '${request.channelB ?? ''}.',
+          };
+        }
+        return digitalSetupHold(
+          trace,
+          dataTrace,
+          clockEdge: request.clockEdge,
+          clockThresholdVolts: request.thresholdVolts,
+          dataThresholdVolts: request.thresholdVolts,
+        );
+      case DigitalMeasurementType.skew:
+        final traceB = _digitalTraceForChannel(request.channelB);
+        if (traceB == null) {
+          return <String, dynamic>{
+            'error':
+                'No acquired waveform data is available for channel B '
+                '${request.channelB ?? ''}.',
+          };
+        }
+        return digitalSkew(
+          trace,
+          traceB,
+          edge: request.edge,
+          thresholdA: request.thresholdVolts,
+          thresholdB: request.thresholdVolts,
+        );
+      case DigitalMeasurementType.glitches:
+        return digitalGlitches(
+          trace,
+          channel: trace.channel,
+          maxPulseWidthSeconds: request.maxPulseWidthSeconds,
+          thresholdVolts: request.thresholdVolts,
+        );
+      case DigitalMeasurementType.overshootUndershoot:
+        final features = await _waveformAnalysisService.featuresAsync(trace);
+        return digitalOvershootUndershoot(features, channel: trace.channel);
+    }
   }
 
   /// `compare_waveforms` provider for the Waveform AI.

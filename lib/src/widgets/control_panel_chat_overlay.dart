@@ -224,6 +224,17 @@ class _ControlPanelChatOverlayState extends State<ControlPanelChatOverlay>
                 ),
                 const Spacer(),
                 IconButton(
+                  tooltip: 'Clear session',
+                  onPressed:
+                      widget.controller.messages.isEmpty ||
+                          widget.controller.isChatting
+                      ? null
+                      : widget.controller.clearSession,
+                  icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                  color: Colors.white70,
+                  visualDensity: VisualDensity.compact,
+                ),
+                IconButton(
                   icon: const Icon(
                     Icons.close,
                     color: Colors.white70,

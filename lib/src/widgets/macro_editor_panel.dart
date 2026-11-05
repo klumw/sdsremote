@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import '../ai/ai_settings.dart';
 import '../ai/macro_chat_controller.dart';
+import '../app/app_theme.dart';
 import '../macro/macro_debug.dart';
 import '../macro/macro_lint_controller.dart';
 import '../macro/macro_linter.dart';
@@ -241,7 +242,16 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   // with _editorTextStyle and the TextField content padding.
   static const double _editorLineHeight = 19.5;
   static const double _editorContentTop = 18.0;
-  static const double _gutterTopPadding = 12.0;
+
+  /// Must match [_editorContentTop]: the gutter and the text field start at
+  /// the same y, so the number baseline aligns with the editor text baseline
+  /// only when both use the same top offset.
+  static const double _gutterTopPadding = _editorContentTop;
+
+  /// Width of the Material scrollbar's interactive area on desktop: an 8 px
+  /// thumb plus a 2 px cross-axis margin on each side. The cursor overlay
+  /// above the text field uses it to cover exactly the scrollbar track.
+  static const double _editorScrollbarWidth = 12.0;
 
   /// Minimum and maximum number of monospace characters the editor column is
   /// sized for.
@@ -281,6 +291,28 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   /// uses internally.  The gutter painter uses these for pixel-perfect
   /// alignment instead of guessing with a simple formula.
   List<LineMetrics>? _lineMetrics;
+
+  /// Text width available to the editor, measured by the [LayoutBuilder]
+  /// around the text field. Null until the first layout.
+  ///
+  /// The editor soft-wraps long lines. Line metrics must therefore be
+  /// measured at this width, not at infinity, otherwise the gutter counts
+  /// logical lines while the text occupies more visual lines and every
+  /// number after the first wrapped line drifts.
+  double? _editorTextWidth;
+
+  /// For each logical source line (0-based), the index of the first
+  /// [LineMetrics] entry it occupies after soft wrapping.
+  List<int>? _lineStartMetricIndices;
+
+  /// Top offset of each logical source line relative to the paragraph top.
+  ///
+  /// Used by the debug line highlight and auto-scroll, which must follow the
+  /// visual position of a line even when it is wrapped.
+  List<double>? _lineTopOffsets;
+
+  /// Height of the whole paragraph at the current editor width.
+  double? _paragraphHeight;
 
   /// The distance from the top of a single-line gutter [TextPainter] to
   /// its alphabetic baseline, measured once and cached.
@@ -324,9 +356,9 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
       textDirection: TextDirection.ltr,
     );
     sample.layout();
-    _gutterBaselineOffset = sample.computeDistanceToActualBaseline(
-      TextBaseline.alphabetic,
-    );
+    _gutterBaselineOffset =
+        sample.computeDistanceToActualBaseline(TextBaseline.alphabetic) +
+        6.0; //fixed offset to match the TextField's internal padding and baseline
 
     // Defer the initial lint pass to after the first frame so that the
     // onContentChanged callback (which may call setState on a parent widget)
@@ -622,17 +654,87 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   /// Measures exact line positions by running the editor text through
   /// a [TextPainter] configured identically to [RenderEditable].
   ///
-  /// The [TextField] (via [RenderEditable]) does not set an explicit
-  /// [TextHeightBehavior], which means both [applyHeightToFirstAscent]
-  /// and [applyHeightToLastDescent] default to `false`.  We must
-  /// replicate that here so the measured baselines match the editor.
+  /// The width must match the editor's actual text width. Long lines are
+  /// soft-wrapped; measuring at infinite width would draw every gutter number
+  /// after the first wrapped line next to the wrong source line.
   void _updateLineMetrics() {
+    final text = _controller.text;
+    final maxWidth = _editorTextWidth ?? double.infinity;
     final tp = TextPainter(
-      text: TextSpan(text: _controller.text, style: _editorTextStyle),
+      text: TextSpan(text: text, style: _editorTextStyle),
       textDirection: TextDirection.ltr,
     );
-    tp.layout(maxWidth: double.infinity);
-    _lineMetrics = tp.computeLineMetrics();
+    tp.layout(maxWidth: maxWidth);
+    final metrics = tp.computeLineMetrics();
+    _lineMetrics = metrics;
+    _paragraphHeight = tp.height;
+    _updateLineStarts(text, tp, metrics);
+  }
+
+  /// Maps every logical source line to its first visual line and top offset.
+  void _updateLineStarts(
+    String text,
+    TextPainter painter,
+    List<LineMetrics> metrics,
+  ) {
+    final lines = text.split('\n');
+    if (metrics.isEmpty) {
+      _lineStartMetricIndices = List<int>.filled(lines.length, 0);
+      _lineTopOffsets = List<double>.filled(lines.length, 0);
+      return;
+    }
+
+    // Without soft wrapping the visual line index equals the source line
+    // index and the fixed line-height formula is exact. This keeps the
+    // common case cheap and avoids per-line caret measurements.
+    if (metrics.length == lines.length) {
+      _lineStartMetricIndices = List<int>.generate(lines.length, (i) => i);
+      _lineTopOffsets = null;
+      return;
+    }
+
+    final starts = <int>[];
+    final tops = <double>[];
+    var offset = 0;
+    for (final line in lines) {
+      final caret = painter.getOffsetForCaret(
+        TextPosition(offset: offset),
+        Rect.zero,
+      );
+      starts.add(_metricIndexForY(metrics, caret.dy));
+      tops.add(caret.dy);
+      offset += line.length + 1;
+    }
+    _lineStartMetricIndices = starts;
+    _lineTopOffsets = tops;
+  }
+
+  /// Returns the visual line index whose top is at or above [y].
+  ///
+  /// Metrics are ordered; searching backwards ensures a caret exactly at a
+  /// line boundary selects that line, not the previous one. A forward search
+  /// with an inclusive bottom tolerance is off by one at every soft wrap: the
+  /// previous line's bottom equals the next line's top, so the tolerance makes
+  /// the previous line match first.
+  int _metricIndexForY(List<LineMetrics> metrics, double y) {
+    for (var i = metrics.length - 1; i >= 0; i--) {
+      final top = metrics[i].baseline - metrics[i].ascent;
+      if (y >= top - 0.5) return i;
+    }
+    return 0;
+  }
+
+  /// Records the editor's text width and re-measures the line metrics when
+  /// a resize changes it. Called from [build] once the editor column width
+  /// is known.
+  void _updateEditorTextWidth(double width) {
+    if (_editorTextWidth == width) return;
+    _editorTextWidth = width;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _updateLineMetrics();
+      setState(() {});
+    });
   }
 
   /// Width of one character in the editor's monospace font.
@@ -1179,21 +1281,21 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
 
   /// Maps a local y in the gutter to a 1-based source line.
   ///
-  /// Uses the same line metrics and baseline offset as [_GutterPainter] so a
-  /// click maps to exactly the line whose number is drawn at that position.
+  /// Uses the text row bounds, not the baseline-aligned number position. The
+  /// number's text box can start a few pixels above its source line, so using
+  /// it for hit testing would toggle the previous line's breakpoint when the
+  /// user clicks near the top of a row.
   int? _lineAtGutterOffset(double localY) {
-    final metrics = _lineMetrics;
-    if (metrics == null || metrics.isEmpty) return null;
+    if (_lineCount <= 0) return null;
 
-    for (var i = 0; i < metrics.length; i++) {
-      final top =
-          _gutterTopPadding +
-          metrics[i].baseline -
-          _scrollOffset -
-          _gutterBaselineOffset;
-      if (localY >= top && localY < top + metrics[i].height) {
-        return i + 1;
-      }
+    // Use the text row bounds, not the baseline-aligned number position: the
+    // number's text box can start a few pixels above its source line, which
+    // would make a click near the top of a row toggle the breakpoint on the
+    // previous line.
+    for (var line = 1; line <= _lineCount; line++) {
+      final top = _lineTopInDocument(line) - _scrollOffset;
+      final bottom = top + _lineHeightInDocument(line);
+      if (localY >= top && localY < bottom) return line;
     }
     return null;
   }
@@ -1320,8 +1422,8 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || !_editorScrollController.hasClients) return;
       final position = _editorScrollController.position;
-      final lineTop = _editorContentTop + (line - 1) * _editorLineHeight;
-      final lineBottom = lineTop + _editorLineHeight;
+      final lineTop = _lineTopInDocument(line);
+      final lineBottom = lineTop + _lineHeightInDocument(line);
       final viewTop = position.pixels;
       final viewBottom = viewTop + position.viewportDimension;
       if (lineTop < viewTop || lineBottom > viewBottom) {
@@ -1334,9 +1436,46 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
     });
   }
 
+  /// Actual visual line height from the measured metrics.
+  ///
+  /// [_editorLineHeight] is only the fallback before the first measurement.
+  /// Flutter rounds `fontSize * height` (13 * 1.5 = 19.5) to 20 logical
+  /// pixels, so positioning every line with the constant would drift by
+  /// 0.5 px per line and eventually by whole lines.
+  double get _measuredLineHeight {
+    final metrics = _lineMetrics;
+    if (metrics != null && metrics.isNotEmpty) return metrics.first.height;
+    return _editorLineHeight;
+  }
+
+  /// Top offset of [line] relative to the start of the editor text.
+  double _lineTopInDocument(int line) {
+    final tops = _lineTopOffsets;
+    if (tops == null || line < 1 || line > tops.length) {
+      return _editorContentTop + (line - 1) * _measuredLineHeight;
+    }
+    return _editorContentTop + tops[line - 1];
+  }
+
+  /// Height of [line] relative to the start of the editor text.
+  ///
+  /// A wrapped source line spans multiple visual lines, so its height is the
+  /// distance to the next source line rather than one fixed line height.
+  double _lineHeightInDocument(int line) {
+    final tops = _lineTopOffsets;
+    if (tops == null || line < 1 || line > tops.length) {
+      return _measuredLineHeight;
+    }
+    final top = tops[line - 1];
+    final bottom = line < tops.length
+        ? tops[line]
+        : (_paragraphHeight ?? top + _measuredLineHeight);
+    final height = bottom - top;
+    return height > 0 ? height : _measuredLineHeight;
+  }
+
   /// Top offset of [line] inside the editor's scroll view.
-  double _debugLineTop(int line) =>
-      _editorContentTop + (line - 1) * _editorLineHeight - _scrollOffset;
+  double _debugLineTop(int line) => _lineTopInDocument(line) - _scrollOffset;
 
   /// Left sidebar shown while the debugger has variables or print output
   /// exists. It is split into variables on top and print output below; the
@@ -1631,6 +1770,13 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                 ),
               ),
             ),
+            const SizedBox(width: 8),
+            _buildDebugButton(
+              label: 'Close',
+              icon: Icons.close,
+              color: Colors.cyan[800]!,
+              onPressed: widget.onClose,
+            ),
           ],
         ),
       ),
@@ -1700,20 +1846,70 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
   Future<void> _onMacroChatSend(String text) => _chat.send(text);
 
   Widget _buildMacroChatWindow() {
-    return ChatWindow(
-      chatMessages: _chat.messages,
-      isChatting: _chat.isChatting,
-      isInitialized: _chat.isInitialized,
-      onSendMessage: _onMacroChatSend,
-      onCancel: _chat.cancel,
-      voiceInput: _voice,
-      inputHistory: _chat.inputHistory,
-      onHistorySelected: _onMacroChatSend,
-      hintText: 'Ask the macro assistant...',
-      emptyStateText:
-          'Ask me to create or change the macro.\n'
-          'I can read and edit the macro in this editor.',
+    return Column(
+      children: [
+        _buildMacroChatHeader(),
+        Expanded(
+          child: ChatWindow(
+            chatMessages: _chat.messages,
+            isChatting: _chat.isChatting,
+            isInitialized: _chat.isInitialized,
+            onSendMessage: _onMacroChatSend,
+            onCancel: _chat.cancel,
+            voiceInput: _voice,
+            inputHistory: _chat.inputHistory,
+            onHistorySelected: _onMacroChatSend,
+            hintText: 'Ask the macro assistant...',
+            emptyStateText:
+                'Ask me to create or change the macro.\n'
+                'I can read and edit the macro in this editor.',
+          ),
+        ),
+      ],
     );
+  }
+
+  /// Header of the macro AI chat, with the session-clear button.
+  Widget _buildMacroChatHeader() {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 6, 4, 6),
+      decoration: const BoxDecoration(
+        color: Color(0xFF172A45),
+        border: Border(bottom: BorderSide(color: AppColors.border)),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.auto_awesome, size: 16, color: Colors.cyanAccent),
+          const SizedBox(width: 8),
+          const Expanded(
+            child: Text(
+              'Macro AI',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          IconButton(
+            tooltip: 'Clear session',
+            onPressed: _chat.messages.isEmpty || _chat.isChatting
+                ? null
+                : _chat.clearSession,
+            icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+            color: Colors.white70,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Returns the loaded macro's file prefix, i.e. its file name without the
+  /// `.m` extension.
+  static String _macroFilePrefix(String fileName) {
+    final dot = fileName.lastIndexOf('.');
+    return dot > 0 ? fileName.substring(0, dot) : fileName;
   }
 
   @override
@@ -1807,6 +2003,16 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
         final editorWidth = (rowWidth - sidebarWidth - chatWidth)
             .clamp(0.0, rowWidth)
             .toDouble();
+        // Text field width inside the editor box: subtract the 16 px margin
+        // on both sides, the 1 px border on both sides, the gutter, the
+        // divider, the text field's horizontal content padding (8 + 12) and
+        // the [RenderEditable] caret margin (1 px gap + 2 px cursor width).
+        // The caret margin is part of the editor's text layout width, so
+        // omitting it makes a line that just fits in the editor wrap in our
+        // measurement instead of in the text field (or vice versa).
+        final textFieldWidth = editorWidth - 32 - 2 - gutterWidth - 1;
+        final editorTextWidth = textFieldWidth > 23 ? textFieldWidth - 23 : 1.0;
+        _updateEditorTextWidth(editorTextWidth);
         final panelWidth = showSidePanels ? double.infinity : editorWidth + 2;
 
         return Container(
@@ -1859,7 +2065,8 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                                 ),
                                 if (widget.loadedFileName != null)
                                   Text(
-                                    '${widget.loadedFileName}${widget.isModified ? " *" : ""}',
+                                    'Macro-File: ${_macroFilePrefix(widget.loadedFileName!)}'
+                                    '${widget.isModified ? " *" : ""}',
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: const TextStyle(
@@ -1987,10 +2194,13 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                                             CrossAxisAlignment.start,
                                         children: [
                                           // ── Line number gutter ──────────────
-                                          // Rendered via CustomPaint that uses the SAME
-                                          // scroll offset and line-height formula as
-                                          // the TextField, guaranteeing pixel-perfect
-                                          // alignment at any depth.
+                                          // Rendered via CustomPaint with the same
+                                          // scroll offset, text width and line
+                                          // metrics as the TextField. Long lines
+                                          // are soft-wrapped; the painter draws a
+                                          // number only at each source line's first
+                                          // visual line so the numbering stays
+                                          // correct for the whole document.
                                           GestureDetector(
                                             key: const ValueKey(
                                               'macro-editor-gutter',
@@ -2011,6 +2221,8 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                                                     lineCount: _lineCount,
                                                     errorLines: _errorLines,
                                                     lineMetrics: _lineMetrics,
+                                                    lineStartMetricIndices:
+                                                        _lineStartMetricIndices,
                                                     gutterBaselineOffset:
                                                         _gutterBaselineOffset,
                                                     topPadding:
@@ -2057,7 +2269,11 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                                                         widget
                                                             .debugCurrentLine!,
                                                       ),
-                                                      height: _editorLineHeight,
+                                                      height:
+                                                          _lineHeightInDocument(
+                                                            widget
+                                                                .debugCurrentLine!,
+                                                          ),
                                                       child: IgnorePointer(
                                                         child: Container(
                                                           color: Colors
@@ -2103,50 +2319,36 @@ class _MacroEditorPanelState extends State<MacroEditorPanel> {
                                                           ),
                                                     ),
                                                   ),
+                                                  // The text field's Material scrollbar
+                                                  // paints over the right edge of the
+                                                  // editable area, inside the content
+                                                  // padding. The text field keeps the text
+                                                  // cursor over it, so this non-opaque
+                                                  // region restores the default cursor.
+                                                  // `opaque: false` keeps the text field
+                                                  // below in the hit-test path, so dragging
+                                                  // the thumb and wheel scrolling still
+                                                  // reach the scrollable.
+                                                  Positioned(
+                                                    top: _editorContentTop,
+                                                    right: 12,
+                                                    bottom: 12,
+                                                    width:
+                                                        _editorScrollbarWidth,
+                                                    child: MouseRegion(
+                                                      key: const ValueKey(
+                                                        'macro-editor-scrollbar-cursor',
+                                                      ),
+                                                      opaque: false,
+                                                      cursor: SystemMouseCursors
+                                                          .basic,
+                                                    ),
+                                                  ),
                                                 ],
                                               ),
                                             ),
                                           ),
                                         ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-
-                                // Close button at bottom
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    0,
-                                    16,
-                                    16,
-                                  ),
-                                  child: Container(
-                                    padding: const EdgeInsets.all(16),
-                                    decoration: BoxDecoration(
-                                      color: const Color(0xFF0A192F),
-                                      borderRadius: BorderRadius.circular(12),
-                                      border: Border.all(
-                                        color: Colors.cyanAccent,
-                                        width: 1.0,
-                                      ),
-                                    ),
-                                    child: ElevatedButton.icon(
-                                      onPressed: widget.onClose,
-                                      icon: const Icon(Icons.close, size: 18),
-                                      label: const Text("Close"),
-                                      style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.cyan[800],
-                                        foregroundColor: Colors.white,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 12,
-                                          horizontal: 30,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            8,
-                                          ),
-                                        ),
                                       ),
                                     ),
                                   ),
@@ -2314,20 +2516,24 @@ enum _BreakpointMenuAction {
 
 /// Paints line numbers in the editor gutter.
 ///
-/// Uses [TextPainter] with the same [TextStyle] as the editor so that line
-/// metrics (ascent, descent, line-height) match exactly.  Line positions are
-/// computed from the editor's scroll offset using the identical formula that
-/// the [TextField]'s [RenderEditable] uses internally:
-///
-///   y = topPadding + lineIndex * lineHeight - scrollOffset
+/// Uses [TextPainter] with the same [TextStyle] and text width as the editor
+/// so that line metrics (ascent, descent, line-height) match exactly. Each
+/// logical source line is drawn at the first visual line it occupies;
+/// [lineStartMetricIndices] accounts for soft-wrapped long lines so the
+/// numbers keep matching the source after a wrap.
 ///
 /// Because both the editor and this painter share the same scroll controller,
-/// layout constants, and text styles, alignment is guaranteed at any scroll
-/// position regardless of document length.
+/// text width and text style, alignment is guaranteed at any scroll position
+/// regardless of document length.
 class _GutterPainter extends CustomPainter {
   final int lineCount;
   final Set<int> errorLines;
   final List<LineMetrics>? lineMetrics;
+
+  /// For each logical source line (0-based), the index of the first visual
+  /// line it occupies after soft wrapping. Null or shorter than [lineCount]
+  /// falls back to a one-to-one mapping.
+  final List<int>? lineStartMetricIndices;
   final double gutterBaselineOffset;
   final double topPadding;
   final double scrollOffset;
@@ -2343,6 +2549,7 @@ class _GutterPainter extends CustomPainter {
     required this.lineCount,
     required this.errorLines,
     required this.lineMetrics,
+    required this.lineStartMetricIndices,
     required this.gutterBaselineOffset,
     required this.topPadding,
     required this.scrollOffset,
@@ -2362,18 +2569,10 @@ class _GutterPainter extends CustomPainter {
     // An empty document has one logical line but no measured line metrics.
     if (metrics == null || metrics.isEmpty) return;
 
-    // Cull: determine which lines intersect the visible viewport.
-    const double approxLineHeight = 19.5;
-    final double visibleTop = scrollOffset - topPadding;
-    final double visibleBottom = visibleTop + size.height;
-    final int firstVisible = (visibleTop / approxLineHeight).floor().clamp(
-      0,
-      lineCount - 1,
-    );
-    final int lastVisible = (visibleBottom / approxLineHeight).ceil().clamp(
-      0,
-      lineCount - 1,
-    );
+    final starts = lineStartMetricIndices;
+    final mappedStarts = starts != null && starts.length == lineCount
+        ? starts
+        : null;
     final int lastMetric = metrics.length - 1;
 
     final double textAreaWidth = gutterWidth - rightPadding;
@@ -2385,8 +2584,11 @@ class _GutterPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.5;
 
-    for (int i = firstVisible; i <= lastVisible; i++) {
-      final int metricIdx = i.clamp(0, lastMetric);
+    for (int i = 0; i < lineCount; i++) {
+      final int metricIdx = (mappedStarts != null ? mappedStarts[i] : i).clamp(
+        0,
+        lastMetric,
+      );
 
       // Align the gutter text's alphabetic baseline with the editor's
       // text baseline.  [LineMetrics.baseline] is the baseline position
@@ -2397,20 +2599,37 @@ class _GutterPainter extends CustomPainter {
           scrollOffset -
           gutterBaselineOffset;
 
+      // The next logical line starts below all visual lines of this one, so
+      // a wrapped source line gets one number at its first visual line.
+      final double nextY;
+      if (mappedStarts != null && i + 1 < mappedStarts.length) {
+        final int nextIdx = mappedStarts[i + 1].clamp(0, lastMetric);
+        nextY =
+            topPadding +
+            metrics[nextIdx].baseline -
+            scrollOffset -
+            gutterBaselineOffset;
+      } else {
+        nextY = y + metrics[metricIdx].height;
+      }
+      final double logicalHeight = nextY > y
+          ? nextY - y
+          : metrics[metricIdx].height;
+
       // Quick cull: skip lines clearly outside the viewport.
-      if (y + gutterBaselineOffset < 0 || y > size.height) continue;
+      if (nextY < 0 || y > size.height) continue;
 
       // [y] is the top of the number's text box (the baseline alignment
       // above makes the number's baseline match the editor text).
-      final double lineHeight = metrics[metricIdx].height;
+      final double numberHeight = metrics[metricIdx].height;
       if (currentLine == i + 1) {
         canvas.drawRect(
-          Rect.fromLTWH(0, y, gutterWidth, lineHeight),
+          Rect.fromLTWH(0, y, gutterWidth, logicalHeight),
           currentLinePaint,
         );
       }
       if (breakpoints.contains(i + 1)) {
-        final center = Offset(6, y + lineHeight / 2);
+        final center = Offset(6, y + numberHeight / 2);
         canvas.drawCircle(
           center,
           4,
@@ -2441,6 +2660,7 @@ class _GutterPainter extends CustomPainter {
         lineCount != oldDelegate.lineCount ||
         errorLines != oldDelegate.errorLines ||
         lineMetrics != oldDelegate.lineMetrics ||
+        lineStartMetricIndices != oldDelegate.lineStartMetricIndices ||
         gutterWidth != oldDelegate.gutterWidth ||
         breakpoints != oldDelegate.breakpoints ||
         inactiveBreakpoints != oldDelegate.inactiveBreakpoints ||

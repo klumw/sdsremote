@@ -1,0 +1,814 @@
+{
+  "schema_version": "1.0",
+  "kind": "lattice_fpga",
+  "vendor": "Lattice Semiconductor",
+  "source": {
+    "label": "Lattice Semiconductor iCE40/MachXO2/MachXO3/ECP5 datasheets (latticesemi.com)"
+  },
+  "items": [
+    {
+      "id": "ice40_lphx",
+      "label": "iCE40 LP/HX",
+      "series": "Lattice iCE40 LP/HX",
+      "vccioRangeVolts": [
+        1.71,
+        3.46
+      ],
+      "absoluteMaxInputVolts": 3.6,
+      "ioStandards": [
+        {
+          "name": "LVCMOS 3.3",
+          "vccioNominalVolts": 3.3,
+          "vccioRangeVolts": [
+            3.14,
+            3.46
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "volts": 0.8
+            },
+            "vihMin": {
+              "volts": 2.0
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.2
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              8.0,
+              16.0,
+              24.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          },
+          "notes": "16 mA and 24 mA are high-drive LED output options."
+        },
+        {
+          "name": "LVCMOS 2.5",
+          "vccioNominalVolts": 2.5,
+          "vccioRangeVolts": [
+            2.37,
+            2.62
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "volts": 0.7
+            },
+            "vihMin": {
+              "volts": 1.7
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.2
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              6.0,
+              12.0,
+              18.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          },
+          "notes": ""
+        },
+        {
+          "name": "LVCMOS 1.8",
+          "vccioNominalVolts": 1.8,
+          "vccioRangeVolts": [
+            1.71,
+            1.89
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.2
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          },
+          "notes": ""
+        }
+      ],
+      "notes": "VCCIO 1.71–3.46 V; absolute maximum I/O voltage 3.60 V. LVCMOS 3.3, 2.5 and 1.8 are supported; 16/24 mA are high-drive LED output options. Some products clamp VIN above VCCIO with a diode.",
+      "source": "Lattice FPGA-DS-02029-4.3 (iCE40 LP/HX Family Data Sheet)"
+    },
+    {
+      "id": "ice40_ultraplus",
+      "label": "iCE40 UltraPlus",
+      "series": "Lattice iCE40 UltraPlus",
+      "vccioRangeVolts": [
+        1.71,
+        3.46
+      ],
+      "absoluteMaxInputVolts": 3.6,
+      "ioStandards": [
+        {
+          "name": "LVCMOS 3.3",
+          "vccioNominalVolts": 3.3,
+          "vccioRangeVolts": [
+            3.14,
+            3.46
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "volts": 0.8
+            },
+            "vihMin": {
+              "volts": 2.0
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.2
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              8.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          },
+          "notes": ""
+        },
+        {
+          "name": "LVCMOS 2.5",
+          "vccioNominalVolts": 2.5,
+          "vccioRangeVolts": [
+            2.37,
+            2.62
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "volts": 0.7
+            },
+            "vihMin": {
+              "volts": 1.7
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.2
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              6.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          },
+          "notes": ""
+        },
+        {
+          "name": "LVCMOS 1.8",
+          "vccioNominalVolts": 1.8,
+          "vccioRangeVolts": [
+            1.71,
+            1.89
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "aboveSupplyVolts": 0.2
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          },
+          "notes": ""
+        }
+      ],
+      "notes": "VCCIO 1.71–3.46 V; absolute maximum I/O voltage 3.60 V. LVCMOS 3.3, 2.5 and 1.8 are supported; UltraPlus specifies a single drive strength per standard (8/6/4 mA).",
+      "source": "Lattice FPGA-DS-02008-2.4 (iCE40 UltraPlus Family Data Sheet)"
+    },
+    {
+      "id": "machxo2",
+      "label": "MachXO2",
+      "series": "Lattice MachXO2",
+      "vccioRangeVolts": [
+        1.14,
+        3.6
+      ],
+      "absoluteMaxInputVolts": 3.75,
+      "ioStandards": [
+        {
+          "name": "LVCMOS 3.3 / LVTTL",
+          "vccioNominalVolts": 3.3,
+          "vccioRangeVolts": [
+            3.135,
+            3.6
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "volts": 0.85
+            },
+            "vihMin": {
+              "volts": 2.0
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0,
+              24.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          },
+          "notes": ""
+        },
+        {
+          "name": "LVCMOS 2.5",
+          "vccioNominalVolts": 2.5,
+          "vccioRangeVolts": [
+            2.375,
+            2.625
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "volts": 0.75
+            },
+            "vihMin": {
+              "volts": 1.7
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          },
+          "notes": ""
+        },
+        {
+          "name": "LVCMOS 1.8",
+          "vccioNominalVolts": 1.8,
+          "vccioRangeVolts": [
+            1.71,
+            1.89
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          },
+          "notes": ""
+        },
+        {
+          "name": "LVCMOS 1.5",
+          "vccioNominalVolts": 1.5,
+          "vccioRangeVolts": [
+            1.425,
+            1.575
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          },
+          "notes": ""
+        },
+        {
+          "name": "LVCMOS 1.2",
+          "vccioNominalVolts": 1.2,
+          "vccioRangeVolts": [
+            1.14,
+            1.26
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          },
+          "notes": "IOL is 4/8 mA and IOH is −2/−6 mA."
+        }
+      ],
+      "notes": "VCCIO 1.14–3.6 V; absolute maximum I/O voltage 3.75 V. Mixed-voltage ratioed inputs are supported; VIL limits for LVCMOS33/25/18 at VCCIO = 1.5 V are in Table 3.15. The total DC current between supply pins is limited to n × 8 mA.",
+      "source": "Lattice FPGA-DS-02056-4.7 (MachXO2 Family Data Sheet)"
+    },
+    {
+      "id": "machxo3",
+      "label": "MachXO3",
+      "series": "Lattice MachXO3L/LF",
+      "vccioRangeVolts": [
+        1.14,
+        3.465
+      ],
+      "absoluteMaxInputVolts": 3.75,
+      "ioStandards": [
+        {
+          "name": "LVCMOS 3.3 / LVTTL",
+          "vccioNominalVolts": 3.3,
+          "vccioRangeVolts": [
+            3.135,
+            3.465
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "volts": 0.8
+            },
+            "vihMin": {
+              "volts": 2.0
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          },
+          "notes": ""
+        },
+        {
+          "name": "LVCMOS 2.5",
+          "vccioNominalVolts": 2.5,
+          "vccioRangeVolts": [
+            2.375,
+            2.625
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "volts": 0.7
+            },
+            "vihMin": {
+              "volts": 1.7
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          },
+          "notes": ""
+        },
+        {
+          "name": "LVCMOS 1.8",
+          "vccioNominalVolts": 1.8,
+          "vccioRangeVolts": [
+            1.71,
+            1.89
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          },
+          "notes": ""
+        },
+        {
+          "name": "LVCMOS 1.5",
+          "vccioNominalVolts": 1.5,
+          "vccioRangeVolts": [
+            1.425,
+            1.575
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          },
+          "notes": ""
+        },
+        {
+          "name": "LVCMOS 1.2",
+          "vccioNominalVolts": 1.2,
+          "vccioRangeVolts": [
+            1.14,
+            1.26
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "volts": 3.6
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0
+            ]
+          },
+          "lowDrive": {
+            "currentMilliamps": 0.1,
+            "volMaxVolts": 0.2,
+            "vohDropFromSupplyVolts": 0.2
+          },
+          "notes": "IOL is 4/8 mA and IOH is −2/−6 mA."
+        }
+      ],
+      "notes": "VCCIO 1.14–3.465 V; absolute maximum I/O voltage 3.75 V. Mixed-voltage ratioed inputs are supported. The total DC current between supply pins is limited to n × 8 mA.",
+      "source": "Lattice FPGA-DS-02032-3.5 (MachXO3 Family Data Sheet)"
+    },
+    {
+      "id": "ecp5",
+      "label": "ECP5",
+      "series": "Lattice ECP5/ECP5-5G",
+      "vccioRangeVolts": [
+        1.14,
+        3.465
+      ],
+      "absoluteMaxInputVolts": 3.63,
+      "ioStandards": [
+        {
+          "name": "LVCMOS33",
+          "vccioNominalVolts": 3.3,
+          "vccioRangeVolts": [
+            3.135,
+            3.465
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "volts": 0.8
+            },
+            "vihMin": {
+              "volts": 2.0
+            },
+            "vihMax": {
+              "volts": 3.465
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0
+            ]
+          },
+          "notes": ""
+        },
+        {
+          "name": "LVTTL33",
+          "vccioNominalVolts": 3.3,
+          "vccioRangeVolts": [
+            3.135,
+            3.465
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "volts": 0.8
+            },
+            "vihMin": {
+              "volts": 2.0
+            },
+            "vihMax": {
+              "volts": 3.465
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0,
+              16.0
+            ]
+          },
+          "notes": ""
+        },
+        {
+          "name": "LVCMOS25",
+          "vccioNominalVolts": 2.5,
+          "vccioRangeVolts": [
+            2.375,
+            2.625
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "volts": 0.7
+            },
+            "vihMin": {
+              "volts": 1.7
+            },
+            "vihMax": {
+              "volts": 3.465
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0
+            ]
+          },
+          "notes": ""
+        },
+        {
+          "name": "LVCMOS18",
+          "vccioNominalVolts": 1.8,
+          "vccioRangeVolts": [
+            1.71,
+            1.89
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "volts": 3.465
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0,
+              12.0
+            ]
+          },
+          "notes": ""
+        },
+        {
+          "name": "LVCMOS15",
+          "vccioNominalVolts": 1.5,
+          "vccioRangeVolts": [
+            1.425,
+            1.575
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "volts": 3.465
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0
+            ]
+          },
+          "notes": ""
+        },
+        {
+          "name": "LVCMOS12",
+          "vccioNominalVolts": 1.2,
+          "vccioRangeVolts": [
+            1.14,
+            1.26
+          ],
+          "input": {
+            "vilMinVolts": -0.3,
+            "vilMax": {
+              "factorOfSupply": 0.35
+            },
+            "vihMin": {
+              "factorOfSupply": 0.65
+            },
+            "vihMax": {
+              "volts": 3.465
+            }
+          },
+          "output": {
+            "volMaxVolts": 0.4,
+            "vohDropFromSupplyVolts": 0.4,
+            "driveStrengthsMilliamps": [
+              4.0,
+              8.0
+            ]
+          },
+          "notes": ""
+        }
+      ],
+      "notes": "VCCIO 1.14–3.465 V; absolute maximum I/O voltage 3.63 V. ECP5 also supports fixed-threshold LVTTL/LVCMOS33/25/12 inputs independent of VCCIO; see the datasheet. SSTL/HSTL and differential standards are not in this compact table.",
+      "source": "Lattice FPGA-DS-02012-3.4 (ECP5 and ECP5-5G Family Data Sheet)"
+    }
+  ]
+}

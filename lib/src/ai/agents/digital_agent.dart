@@ -6,6 +6,7 @@ import '../../core/logger.dart';
 import '../cancellation.dart';
 import '../tools/acquire_waveform_tool.dart';
 import '../tools/calculator_tool.dart';
+import '../tools/digital_measurement_tools.dart';
 import '../tools/logic_level_reference_tool.dart';
 import '../tools/math_tool.dart';
 import '../tools/scpi_agent_tool.dart';
@@ -38,6 +39,7 @@ class DigitalAgent {
   final bool _faultAnalysisAvailable;
   final bool _instrumentAvailable;
   final bool _acquireAvailable;
+  final bool _digitalMeasurementsAvailable;
   late final List<Tool> _tools;
   late final Agent _agent;
   Map<String, dynamic>? _lastSubmission;
@@ -58,12 +60,14 @@ class DigitalAgent {
     WaveformFaultProfileProvider? manageFaultProfile,
     WaveformAcquisitionProvider? acquireWaveform,
     InstrumentAgent? instrumentAgent,
+    DigitalMeasurementProvider? digitalMeasurement,
     int maxToolCalls = defaultMaxToolCalls,
   }) : _readWaveformSummary = readWaveformSummary,
        _instrumentAgent = instrumentAgent,
        _faultAnalysisAvailable = analyzeWaveformFaults != null,
        _instrumentAvailable = instrumentAgent != null,
-       _acquireAvailable = acquireWaveform != null {
+       _acquireAvailable = acquireWaveform != null,
+       _digitalMeasurementsAvailable = digitalMeasurement != null {
     final digitalTools = <Tool<Map<String, dynamic>>>[
       createWaveformSummaryTool(
         readSummary: readWaveformSummary,
@@ -92,6 +96,10 @@ class DigitalAgent {
       ),
       createMathTool(agentName: 'DigitalAgent'),
       createCalculatorTool(agentName: 'DigitalAgent'),
+      ...createDigitalMeasurementTools(
+        provider: digitalMeasurement,
+        agentName: 'DigitalAgent',
+      ),
     ];
     _tools = [
       for (final tool in digitalTools) _recordingTool(tool),
@@ -317,6 +325,10 @@ class DigitalAgent {
     }
     buffer
       ..writeln('Logic-level reference available: true')
+      ..writeln(
+        'Dedicated digital measurements available: '
+        '$_digitalMeasurementsAvailable',
+      )
       ..writeln('Fault analysis available: $_faultAnalysisAvailable')
       ..writeln('Instrument agent available: $_instrumentAvailable')
       ..writeln('Acquire waveform available: $_acquireAvailable');

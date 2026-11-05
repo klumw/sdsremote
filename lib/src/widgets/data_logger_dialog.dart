@@ -618,6 +618,11 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                   }),
                 ),
               ],
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
               // Gain (dB) is a cross-channel measurement: the RMS voltage on
               // CH2 (signal) divided by the RMS voltage on CH1 (reference).
               // It therefore has no per-channel toggle of its own.
@@ -629,6 +634,38 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                   _gainDbEnabled = v;
                   _emitConfig();
                 }),
+              ),
+              const Spacer(),
+              // Expected number of samples for the selected duration and
+              // interval, right-aligned on the same row as the Gain toggle.
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 8,
+                ),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF172A45).withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _axisColor),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Total data points:',
+                      style: TextStyle(color: Colors.white70, fontSize: 13),
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      '~$totalPoints',
+                      style: const TextStyle(
+                        color: Colors.cyanAccent,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),
@@ -739,34 +776,6 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 16),
-
-          // ---- Total Points Info ----
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: const Color(0xFF172A45).withValues(alpha: 0.5),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: _axisColor),
-            ),
-            child: Row(
-              children: [
-                const Text(
-                  'Total data points:',
-                  style: TextStyle(color: Colors.white70, fontSize: 13),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  '~$totalPoints',
-                  style: const TextStyle(
-                    color: Colors.cyanAccent,
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
           ),
           const SizedBox(height: 16),
 

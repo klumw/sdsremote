@@ -1,0 +1,13 @@
+{
+  "schema_version": "1.0",
+  "files": [
+    "assets/ic/data/logic_levels.json",
+    "assets/ic/data/logic_edge_times.json",
+    "assets/ic/data/esp32.json",
+    "assets/ic/data/stm32.json",
+    "assets/ic/data/raspberry_pi.json",
+    "assets/ic/data/gowin.json",
+    "assets/ic/data/xilinx.json",
+    "assets/ic/data/lattice.json"
+  ]
+}

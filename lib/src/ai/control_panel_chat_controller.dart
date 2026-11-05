@@ -49,6 +49,15 @@ class ControlPanelChatController extends ChangeNotifier {
   WaveformSummaryProvider? _readWaveformSummary;
   ScreenDumpRefreshCallback? _refreshScreenDump;
 
+  /// Whether the agent has handled at least one request in the current
+  /// session.
+  ///
+  /// During an ongoing dialog every user message must reach the model, even a
+  /// short confirmation such as "bitte aufnehmen". Only a fresh session uses
+  /// the local screen-dump shortcut; otherwise the reply would be swallowed
+  /// and the dialog would end without the new screen content.
+  bool _hasAgentConversation = false;
+
   bool _isOpen = false;
   bool _isChatting = false;
   bool _disposed = false;
@@ -215,11 +224,19 @@ class ControlPanelChatController extends ChangeNotifier {
     _inputHistory.record(trimmed);
 
     // Short capture commands fetch a new screen dump without a model round
-    // trip, so "Aufnahme", "record", "update" and "snapshot" always work.
-    if (isCaptureCommand(trimmed)) {
+    // trip, so "Aufnahme", "record", "update" and "snapshot" always work in a
+    // fresh session. During an ongoing dialog the same words can be the
+    // user's answer to the agent's proposed next step. Intercepting that
+    // reply locally would end the dialog and leave the agent without the new
+    // screen content, so route it to the model instead.
+    if (!_hasAgentConversation && isCaptureCommand(trimmed)) {
       await _runScreenDumpCommand(trimmed);
       return;
     }
+
+    // From here on the session is a dialog: later user replies, including
+    // short capture confirmations, belong to the model's context.
+    _hasAgentConversation = true;
 
     final generation = _generation;
     final aiMessage = <String, String>{'role': 'ai', 'content': ''};
@@ -334,6 +351,22 @@ class ControlPanelChatController extends ChangeNotifier {
     notifyListeners();
 
     await subscription?.cancel();
+  }
+
+  /// Clears the transcript and the agent conversation history.
+  ///
+  /// The next request starts a fresh session without the previous turns.
+  void clearSession() {
+    if (_disposed) return;
+    _hasAgentConversation = false;
+    if (_isChatting) {
+      _isChatting = false;
+      _generation++;
+      _cancelActiveRequest();
+    }
+    _messages.clear();
+    _service?.clearSession();
+    notifyListeners();
   }
 
   @override
