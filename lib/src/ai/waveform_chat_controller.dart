@@ -7,7 +7,9 @@ import '../devices/device_agent_context.dart';
 import 'ai_settings.dart';
 import 'cancellation.dart';
 import 'capture_command.dart';
+import 'chat_checklist.dart';
 import 'chat_choice.dart';
+import 'component_name_prompt.dart';
 import 'input_history.dart';
 import 'specification_upload.dart';
 import 'tools/audio/audio_tools.dart';
@@ -39,6 +41,8 @@ class WaveformChatController extends ChangeNotifier {
        _filePicker = filePicker ?? pickSpecificationFile,
        _textExtractor = textExtractor ?? extractSpecificationText {
     _choicePrompt.addListener(notifyListeners);
+    _checklistPrompt.addListener(notifyListeners);
+    _componentNamePrompt.addListener(notifyListeners);
   }
 
   final WaveformAiService Function() _serviceFactory;
@@ -52,6 +56,20 @@ class WaveformChatController extends ChangeNotifier {
 
   /// The pending radio-button prompt, if any.
   ChatChoicePromptController get choicePrompt => _choicePrompt;
+
+  /// The pending component-name prompt, if any.
+  final ComponentNamePromptController _componentNamePrompt =
+      ComponentNamePromptController();
+
+  /// The pending component-name prompt, if any.
+  ComponentNamePromptController get componentNamePrompt => _componentNamePrompt;
+
+  /// The pending checkbox prompt, if any.
+  final ChatChecklistPromptController _checklistPrompt =
+      ChatChecklistPromptController();
+
+  /// The pending checkbox prompt, if any.
+  ChatChecklistPromptController get checklistPrompt => _checklistPrompt;
 
   WaveformAiService? _service;
   AiSettings? _settings;
@@ -215,6 +233,8 @@ class WaveformChatController extends ChangeNotifier {
       createWaveformReport: _createWaveformReport,
       requestSpecUpload: requestSpecificationUpload,
       requestUserChoice: requestUserChoice,
+      requestChecklist: requestChecklist,
+      requestComponentName: requestComponentName,
       acquireWaveform: _acquireWaveformForAi,
       vxi11Host: vxi11Host,
       onCommandSent: onCommandSent,
@@ -400,6 +420,8 @@ class WaveformChatController extends ChangeNotifier {
     _sessionDeviceAccess = false;
     _choicePrompt.clearSession();
     _choicePrompt.dismissPending();
+    _checklistPrompt.clearSession();
+    _componentNamePrompt.clearSession();
     if (_isChatting) {
       _isChatting = false;
       _generation++;
@@ -466,6 +488,37 @@ class WaveformChatController extends ChangeNotifier {
         _signalGeneratorIntent = true;
       }
       return result;
+    } finally {
+      _service?.resumeResponseTimeout();
+    }
+  }
+
+  /// Shows the checkbox prompt and waits for the user's confirmation.
+  ///
+  /// Called by the `request_user_checklist` tool for multi-item data
+  /// collection. The chat panel renders the prompt through [checklistPrompt].
+  Future<ChatChecklistResult> requestChecklist(
+    ChatChecklistRequest request,
+  ) async {
+    _service?.suspendResponseTimeout();
+    try {
+      return await _checklistPrompt.requestChecklist(request);
+    } finally {
+      _service?.resumeResponseTimeout();
+    }
+  }
+
+  /// Shows the component-name prompt and waits for the user's answer.
+  ///
+  /// Called by the `analyze_specification` tool before the SpecAnalyst saves
+  /// the extracted component reference. The chat panel renders the prompt
+  /// through [componentNamePrompt].
+  Future<ComponentNameResult> requestComponentName(
+    ComponentNameRequest request,
+  ) async {
+    _service?.suspendResponseTimeout();
+    try {
+      return await _componentNamePrompt.requestName(request);
     } finally {
       _service?.resumeResponseTimeout();
     }
@@ -573,6 +626,8 @@ class WaveformChatController extends ChangeNotifier {
     _previousSignalGeneratorKeyword = false;
     if (_specUpload != null) _finishSpecificationUpload(null);
     _choicePrompt.dismissPending();
+    _checklistPrompt.dismissPending();
+    _componentNamePrompt.dismissPending();
     _cancelRequested = true;
     final subscription = _subscription;
     _subscription = null;
@@ -589,6 +644,10 @@ class WaveformChatController extends ChangeNotifier {
     _cancelActiveRequest();
     _choicePrompt.removeListener(notifyListeners);
     _choicePrompt.dispose();
+    _checklistPrompt.removeListener(notifyListeners);
+    _checklistPrompt.dispose();
+    _componentNamePrompt.removeListener(notifyListeners);
+    _componentNamePrompt.dispose();
     _service?.dispose();
     _service = null;
     super.dispose();

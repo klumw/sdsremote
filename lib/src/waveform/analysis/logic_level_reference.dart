@@ -1066,3 +1066,105 @@ class LatticeFpgaReference {
     };
   }
 }
+
+/// Source label for component references extracted by the SpecAnalyst.
+const String componentReferenceSource = 'User-provided IC reference data';
+
+/// One electrical parameter of a component or component family.
+///
+/// The values are stored in the canonical unit of the parameter, not in the
+/// unit printed in the source document. A row without a numeric value keeps
+/// the extracted caveat in [note].
+class ComponentParameter {
+  const ComponentParameter({
+    required this.reference,
+    required this.parameter,
+    this.symbol,
+    this.description,
+    this.min,
+    this.typ,
+    this.max,
+    this.unit,
+    this.conditions,
+    this.source,
+    this.note,
+  });
+
+  /// Rail, pin or signal the values apply to.
+  final String reference;
+
+  /// Canonical parameter id from the specification catalog.
+  final String parameter;
+
+  /// Symbol printed in the source document.
+  final String? symbol;
+
+  /// Short English description when the symbol is ambiguous.
+  final String? description;
+
+  final double? min;
+  final double? typ;
+  final double? max;
+
+  /// Canonical unit of [min], [typ] and [max].
+  final String? unit;
+
+  /// Electrical test conditions that belong to this row.
+  final String? conditions;
+
+  /// Page, table or section reference from the source document.
+  final String? source;
+
+  /// Caveat, formula or "not stated" marker.
+  final String? note;
+
+  bool get hasValue => min != null || typ != null || max != null;
+
+  Map<String, dynamic> toMap() => <String, dynamic>{
+    'reference': reference,
+    'parameter': parameter,
+    if (symbol != null) 'symbol': symbol,
+    if (description != null) 'description': description,
+    if (min != null) 'min': min,
+    if (typ != null) 'typ': typ,
+    if (max != null) 'max': max,
+    if (unit != null) 'unit': unit,
+    if (conditions != null) 'conditions': conditions,
+    if (source != null) 'source': source,
+    if (note != null) 'note': note,
+  };
+}
+
+/// One user-provided component or component-family reference.
+class ComponentReference {
+  const ComponentReference({
+    required this.id,
+    required this.label,
+    this.aliases = const [],
+    this.vendor,
+    this.partNumber,
+    this.notes = '',
+    this.source = componentReferenceSource,
+    required this.parameters,
+  });
+
+  final String id;
+  final String label;
+  final List<String> aliases;
+  final String? vendor;
+  final String? partNumber;
+  final String notes;
+  final String source;
+  final List<ComponentParameter> parameters;
+
+  Map<String, dynamic> toMap() => <String, dynamic>{
+    'id': id,
+    'label': label,
+    if (aliases.isNotEmpty) 'aliases': aliases,
+    if (vendor != null) 'vendor': vendor,
+    if (partNumber != null) 'partNumber': partNumber,
+    'parameters': [for (final parameter in parameters) parameter.toMap()],
+    if (notes.isNotEmpty) 'notes': notes,
+    if (source.isNotEmpty) 'source': source,
+  };
+}

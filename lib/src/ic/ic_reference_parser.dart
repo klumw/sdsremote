@@ -734,6 +734,131 @@ LatticeFpgaReference parseLatticeItem(
   );
 }
 
+/// Canonical units accepted in component parameter rows.
+const Set<String> _componentUnits = {
+  'V',
+  'A',
+  's',
+  'Hz',
+  'F',
+  'Ω',
+  '%',
+  'dB',
+  'dBc',
+  'V/s',
+};
+
+/// Parses one user-provided component or component-family item.
+ComponentReference parseComponentItem(
+  Map<String, dynamic> json, {
+  required String fallbackSource,
+  required String path,
+}) {
+  final id = _requiredString(json, 'id', path: path);
+  if (!RegExp(r'^[a-z][a-z0-9_]*$').hasMatch(id)) {
+    throw IcReferenceParseException(
+      'Field "id" must match ^[a-z][a-z0-9_]*\$.',
+      path: path,
+      itemId: id,
+    );
+  }
+  final parametersValue = json['parameters'];
+  if (parametersValue is! List || parametersValue.isEmpty) {
+    throw IcReferenceParseException(
+      'Field "parameters" must be a non-empty array.',
+      path: path,
+      itemId: id,
+    );
+  }
+  final parameters = <ComponentParameter>[];
+  for (var index = 0; index < parametersValue.length; index++) {
+    final value = parametersValue[index];
+    if (value is! Map<String, dynamic>) {
+      throw IcReferenceParseException(
+        'parameters[$index] must be an object.',
+        path: path,
+        itemId: id,
+      );
+    }
+    parameters.add(_parseComponentParameter(value, path: path, itemId: id));
+  }
+  return ComponentReference(
+    id: id,
+    label: _requiredString(json, 'label', path: path, itemId: id),
+    aliases: _optionalStringList(json, 'aliases', path: path, itemId: id),
+    vendor: _optionalString(json, 'vendor'),
+    partNumber: _optionalString(json, 'partNumber'),
+    notes: _optionalString(json, 'notes') ?? '',
+    source: _optionalString(json, 'source') ?? fallbackSource,
+    parameters: parameters,
+  );
+}
+
+ComponentParameter _parseComponentParameter(
+  Map<String, dynamic> json, {
+  required String path,
+  required String itemId,
+}) {
+  final reference = _requiredString(
+    json,
+    'reference',
+    path: path,
+    itemId: itemId,
+  );
+  final parameter = _requiredString(
+    json,
+    'parameter',
+    path: path,
+    itemId: itemId,
+  );
+  if (!RegExp(r'^[a-z][a-z0-9_]*$').hasMatch(parameter)) {
+    throw IcReferenceParseException(
+      'Field "parameter" must match ^[a-z][a-z0-9_]*\$.',
+      path: path,
+      itemId: itemId,
+    );
+  }
+  final min = _optionalDouble(json, 'min');
+  final typ = _optionalDouble(json, 'typ');
+  final max = _optionalDouble(json, 'max');
+  final unit = _optionalString(json, 'unit');
+  final note = _optionalString(json, 'note');
+  if (min == null && typ == null && max == null && note == null) {
+    throw IcReferenceParseException(
+      'Parameter "$reference/$parameter" requires a value or a note.',
+      path: path,
+      itemId: itemId,
+    );
+  }
+  if ((min != null || typ != null || max != null) && unit == null) {
+    throw IcReferenceParseException(
+      'Parameter "$reference/$parameter" requires a unit for its values.',
+      path: path,
+      itemId: itemId,
+    );
+  }
+  if (unit != null && !_componentUnits.contains(unit)) {
+    throw IcReferenceParseException(
+      'Parameter "$reference/$parameter" uses unsupported unit "$unit".',
+      path: path,
+      itemId: itemId,
+    );
+  }
+  return ComponentParameter(
+    reference: reference,
+    parameter: parameter,
+    symbol: _optionalString(json, 'symbol'),
+    description: _optionalString(json, 'description'),
+    min: min,
+    typ: typ,
+    max: max,
+    unit: unit,
+    conditions: _optionalString(json, 'conditions'),
+    source: _optionalString(json, 'source'),
+    note: note,
+  );
+}
+
 List<T> _parseIoStandards<T>(
   Map<String, dynamic> json, {
   required String path,

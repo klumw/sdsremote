@@ -8,6 +8,7 @@ import 'package:logging/logging.dart';
 import 'package:dartantic_ai/dartantic_ai.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'src/app/app_paths.dart';
 import 'src/app/app_theme.dart';
 import 'src/app/feature_flags.dart';
 import 'src/app/window_state.dart';
@@ -85,7 +86,13 @@ void main(List<String> args) async {
   // once before the agents are created; a failure is logged and the tool
   // reports the missing data instead of inventing values.
   try {
-    await IcReferenceRepository.instance.load(const FlutterIcDataAssetSource());
+    await IcReferenceRepository.instance.load(
+      const FlutterIcDataAssetSource(),
+      userDataDirectory: AppPaths.icDataDirectory,
+    );
+    for (final warning in IcReferenceRepository.instance.warnings) {
+      await AppLogger(agentName: 'IcReference', toolName: 'load').log(warning);
+    }
   } catch (error) {
     await AppLogger(
       agentName: 'IcReference',

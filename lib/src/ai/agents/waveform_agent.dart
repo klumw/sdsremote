@@ -2,11 +2,13 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../../devices/device_agent_context.dart';
 import '../cancellation.dart';
+import '../component_name_prompt.dart';
 import '../tools/acquire_waveform_tool.dart';
 import '../tools/audio/audio_tools.dart';
 import '../tools/audio_agent_tool.dart';
 import '../tools/calculator_tool.dart';
 import '../tools/chat_choice_tool.dart';
+import '../tools/checklist_tool.dart';
 import '../tools/date_time_tool.dart';
 import '../tools/digital_agent_tool.dart';
 import '../tools/digital_measurement_tools.dart';
@@ -74,6 +76,8 @@ class WaveformAgent {
     WaveformReportProvider? createWaveformReport,
     SpecificationUploadProvider? requestSpecUpload,
     ChatChoiceProvider? requestUserChoice,
+    ChecklistProvider? requestChecklist,
+    ComponentNameProvider? requestComponentName,
     String? vxi11Host,
     ScpiCommandCallback? onCommandSent,
     DeviceAgentContext? instrumentDeviceContext,
@@ -193,8 +197,13 @@ class WaveformAgent {
           requestChoice: requestUserChoice,
           agentName: 'WaveformAgent',
         ),
+        createChecklistTool(
+          requestChecklist: requestChecklist,
+          agentName: 'WaveformAgent',
+        ),
         createSpecificationAnalysisTool(
           analyze: SpecAnalystAgent(model: model).analyze,
+          requestComponentName: requestComponentName,
           agentName: 'WaveformAgent',
         ),
         createGenerateReferenceWaveformTool(

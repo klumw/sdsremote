@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://sdsremote.local/schemas/ic-reference.schema.json",
   "title": "SDS-Remote IC reference data",
-  "description": "Schema for the IC reference index and family documents under assets/ic/data. The schema is used by editors and CI; the application does not read it at runtime.",
+  "description": "Schema for the IC reference index and family documents under assets/ic/data and for user-provided component documents under the application data directory's ic/data folder. The schema is used by editors and CI; the application validates documents with its runtime parser.",
   "oneOf": [
     {
       "$ref": "#/$defs/indexDocument"
@@ -89,7 +89,8 @@
             "raspberry_pi",
             "gowin_fpga",
             "xilinx_fpga",
-            "lattice_fpga"
+            "lattice_fpga",
+            "component"
           ]
         },
         "vendor": {
@@ -288,6 +289,29 @@
                 "minItems": 1,
                 "items": {
                   "$ref": "#/$defs/latticeFpgaItem"
+                }
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": {
+                "const": "component"
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "then": {
+            "properties": {
+              "items": {
+                "type": "array",
+                "minItems": 1,
+                "items": {
+                  "$ref": "#/$defs/componentItem"
                 }
               }
             }
@@ -1365,6 +1389,160 @@
         }
       },
       "additionalProperties": false
+    },
+    "componentItem": {
+      "type": "object",
+      "required": [
+        "id",
+        "label",
+        "parameters"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "aliases": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "uniqueItems": true
+        },
+        "vendor": {
+          "type": "string",
+          "minLength": 1
+        },
+        "partNumber": {
+          "type": "string",
+          "minLength": 1
+        },
+        "notes": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parameters": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/componentParameter"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "componentParameter": {
+      "type": "object",
+      "required": [
+        "reference",
+        "parameter"
+      ],
+      "properties": {
+        "reference": {
+          "type": "string",
+          "minLength": 1
+        },
+        "parameter": {
+          "$ref": "#/$defs/id"
+        },
+        "symbol": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "min": {
+          "type": "number"
+        },
+        "typ": {
+          "type": "number"
+        },
+        "max": {
+          "type": "number"
+        },
+        "unit": {
+          "enum": [
+            "V",
+            "A",
+            "s",
+            "Hz",
+            "F",
+            "Ω",
+            "%",
+            "dB",
+            "dBc",
+            "V/s"
+          ]
+        },
+        "conditions": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "note": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "min"
+          ]
+        },
+        {
+          "required": [
+            "typ"
+          ]
+        },
+        {
+          "required": [
+            "max"
+          ]
+        },
+        {
+          "required": [
+            "note"
+          ]
+        }
+      ],
+      "allOf": [
+        {
+          "if": {
+            "anyOf": [
+              {
+                "required": [
+                  "min"
+                ]
+              },
+              {
+                "required": [
+                  "typ"
+                ]
+              },
+              {
+                "required": [
+                  "max"
+                ]
+              }
+            ]
+          },
+          "then": {
+            "required": [
+              "unit"
+            ]
+          }
+        }
+      ]
     }
   }
 }

@@ -6,7 +6,9 @@ import '../ai/waveform_chat_controller.dart';
 import '../app/app_theme.dart';
 import '../voice/voice_input_binding.dart';
 import '../voice/voice_input_service.dart';
+import 'chat_checklist_prompt.dart';
 import 'chat_choice_prompt.dart';
+import 'component_name_prompt.dart';
 import 'osci_chat_window.dart';
 
 /// Sliding AI side panel of the Acquire Waveform view.
@@ -104,10 +106,6 @@ class _WaveformAiPanelState extends State<WaveformAiPanel> {
             children: [
               _buildHeader(),
               if (!_chat.isAvailable) _buildConfigurationBanner(),
-              // The upload control is hidden until the Waveform Agent calls
-              // request_specification_upload.
-              if (_chat.isSpecificationUploadVisible)
-                _buildSpecificationUpload(),
               Expanded(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(6, 2, 6, 6),
@@ -123,12 +121,7 @@ class _WaveformAiPanelState extends State<WaveformAiPanel> {
                     inputHistory: _chat.inputHistory,
                     onHistorySelected: _chat.send,
                     hintText: 'Ask about the waveform or spectrum...',
-                    inputBanner: _chat.choicePrompt.isVisible
-                        ? ChatChoicePrompt(
-                            request: _chat.choicePrompt.request!,
-                            onSelect: _chat.choicePrompt.selectAndSubmit,
-                          )
-                        : null,
+                    inputBanner: _buildInputBanner(),
                     emptyStateText:
                         'Ask about the current acquisition\n\n'
                         'Which channel has the lowest THD?\n\n'
@@ -195,12 +188,37 @@ class _WaveformAiPanelState extends State<WaveformAiPanel> {
     );
   }
 
+  /// Returns the prompt shown directly above the chat input line.
+  ///
+  /// The radio-button choice, the specification upload and the component-name
+  /// prompt share the same slot so they appear in the same place as the
+  /// radio-button dialog. Only one prompt is active at a time in the tool
+  /// flow; the order below is the priority if that ever changes.
+  Widget? _buildInputBanner() {
+    if (_chat.choicePrompt.isVisible) {
+      return ChatChoicePrompt(
+        request: _chat.choicePrompt.request!,
+        onSelect: _chat.choicePrompt.selectAndSubmit,
+      );
+    }
+    if (_chat.checklistPrompt.isVisible) {
+      return ChatChecklistPrompt(controller: _chat.checklistPrompt);
+    }
+    if (_chat.componentNamePrompt.isVisible) {
+      return ComponentNamePrompt(controller: _chat.componentNamePrompt);
+    }
+    if (_chat.isSpecificationUploadVisible) {
+      return _buildSpecificationUpload();
+    }
+    return null;
+  }
+
   Widget _buildSpecificationUpload() {
     final busy = _chat.isSpecificationUploadBusy;
     final error = _chat.specificationUploadError;
     return Container(
       width: double.infinity,
-      margin: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      margin: const EdgeInsets.fromLTRB(8, 8, 8, 8),
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
         color: const Color(0xFF10263D),

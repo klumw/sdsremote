@@ -23,6 +23,7 @@ class IcReferenceCatalog {
     required List<GowinFpgaReference> gowinFpgas,
     required List<XilinxFpgaReference> xilinxFpgas,
     required List<LatticeFpgaReference> latticeFpgas,
+    List<ComponentReference> components = const [],
     required this.logicSource,
     required this.edgeTimeSource,
     required this.esp32Source,
@@ -31,6 +32,7 @@ class IcReferenceCatalog {
     required this.gowinSource,
     required this.xilinxSource,
     required this.latticeSource,
+    this.componentSource = componentReferenceSource,
   }) : standards = List.unmodifiable(standards),
        edgeTimes = List.unmodifiable(edgeTimes),
        esp32Variants = List.unmodifiable(esp32Variants),
@@ -39,6 +41,7 @@ class IcReferenceCatalog {
        gowinFpgas = List.unmodifiable(gowinFpgas),
        xilinxFpgas = List.unmodifiable(xilinxFpgas),
        latticeFpgas = List.unmodifiable(latticeFpgas),
+       components = List.unmodifiable(components),
        _standardLookup = _buildLookup(
          standards,
          (item) => [item.id, item.label],
@@ -66,6 +69,10 @@ class IcReferenceCatalog {
        _latticeLookup = _buildLookup(
          latticeFpgas,
          (item) => [item.id, item.label, item.series],
+       ),
+       _componentLookup = _buildLookup(
+         components,
+         (item) => [item.id, item.label, ...item.aliases],
        );
 
   final List<LogicLevelStandard> standards;
@@ -77,6 +84,9 @@ class IcReferenceCatalog {
   final List<XilinxFpgaReference> xilinxFpgas;
   final List<LatticeFpgaReference> latticeFpgas;
 
+  /// User-provided component and family references.
+  final List<ComponentReference> components;
+
   /// Section source labels from the family documents.
   final String logicSource;
   final String edgeTimeSource;
@@ -87,6 +97,9 @@ class IcReferenceCatalog {
   final String xilinxSource;
   final String latticeSource;
 
+  /// Source label for the user-provided component references.
+  final String componentSource;
+
   final Map<String, LogicLevelStandard> _standardLookup;
   final Map<String, Esp32LogicReference> _esp32Lookup;
   final Map<String, Stm32LogicReference> _stm32Lookup;
@@ -94,6 +107,7 @@ class IcReferenceCatalog {
   final Map<String, GowinFpgaReference> _gowinLookup;
   final Map<String, XilinxFpgaReference> _xilinxLookup;
   final Map<String, LatticeFpgaReference> _latticeLookup;
+  final Map<String, ComponentReference> _componentLookup;
 
   /// Loads the index and all referenced family documents.
   static Future<IcReferenceCatalog> load(IcDataAssetSource source) async {
@@ -177,6 +191,75 @@ class IcReferenceCatalog {
   LatticeFpgaReference? findLatticeFpga(String? value) =>
       _findReference(_latticeLookup, value);
 
+  /// Finds a user-provided component by id, label or alias.
+  ComponentReference? findComponent(String? value) =>
+      _findReference(_componentLookup, value);
+
+  /// Returns a copy with [additional] user components appended.
+  ///
+  /// Components whose id, label or alias is already defined are skipped and
+  /// reported through [warnings] when the list is provided.
+  IcReferenceCatalog withComponents(
+    List<ComponentReference> additional, {
+    List<String>? warnings,
+  }) {
+    if (additional.isEmpty) return this;
+    final knownKeys = <String>{};
+    for (final component in components) {
+      knownKeys.addAll(_componentKeys(component));
+    }
+    final added = <ComponentReference>[];
+    for (final component in additional) {
+      final keys = _componentKeys(component);
+      String? conflict;
+      for (final key in keys) {
+        if (knownKeys.contains(key)) {
+          conflict = key;
+          break;
+        }
+      }
+      if (conflict != null) {
+        warnings?.add(
+          'Component "${component.label}" was skipped because the key '
+          '"$conflict" is already defined.',
+        );
+        continue;
+      }
+      knownKeys.addAll(keys);
+      added.add(component);
+    }
+    if (added.isEmpty) return this;
+    return IcReferenceCatalog(
+      standards: standards,
+      edgeTimes: edgeTimes,
+      esp32Variants: esp32Variants,
+      stm32Series: stm32Series,
+      raspberryPiMcus: raspberryPiMcus,
+      gowinFpgas: gowinFpgas,
+      xilinxFpgas: xilinxFpgas,
+      latticeFpgas: latticeFpgas,
+      components: [...components, ...added],
+      logicSource: logicSource,
+      edgeTimeSource: edgeTimeSource,
+      esp32Source: esp32Source,
+      stm32Source: stm32Source,
+      raspberryPiSource: raspberryPiSource,
+      gowinSource: gowinSource,
+      xilinxSource: xilinxSource,
+      latticeSource: latticeSource,
+      componentSource: componentSource,
+    );
+  }
+
+  static Set<String> _componentKeys(ComponentReference component) {
+    final keys = <String>{};
+    for (final key in [component.id, component.label, ...component.aliases]) {
+      final normalized = key.trim().toLowerCase();
+      if (normalized.isNotEmpty) keys.add(normalized);
+    }
+    return keys;
+  }
+
   static IcReferenceCatalog _fromDocuments(List<IcDataDocument> documents) {
     final standards = <LogicLevelStandard>[];
     final edgeTimes = <LogicEdgeTimeReference>[];
@@ -186,6 +269,7 @@ class IcReferenceCatalog {
     final gowin = <GowinFpgaReference>[];
     final xilinx = <XilinxFpgaReference>[];
     final lattice = <LatticeFpgaReference>[];
+    final components = <ComponentReference>[];
     String? logicSource;
     String? edgeTimeSource;
     String? esp32Source;
@@ -194,6 +278,7 @@ class IcReferenceCatalog {
     String? gowinSource;
     String? xilinxSource;
     String? latticeSource;
+    String? componentSource;
 
     for (final document in documents) {
       if (document.kind == 'standard_logic') {
@@ -278,6 +363,17 @@ class IcReferenceCatalog {
             ),
           );
         }
+      } else if (document.kind == 'component') {
+        componentSource ??= document.source;
+        for (final item in document.items) {
+          components.add(
+            parseComponentItem(
+              item,
+              fallbackSource: document.source,
+              path: document.path,
+            ),
+          );
+        }
       } else {
         throw IcReferenceParseException(
           'Unsupported kind "${document.kind}".',
@@ -310,6 +406,7 @@ class IcReferenceCatalog {
       gowinFpgas: gowin,
       xilinxFpgas: xilinx,
       latticeFpgas: lattice,
+      components: components,
       logicSource: logicSource ?? logicLevelSource,
       edgeTimeSource: edgeTimeSource ?? logicEdgeTimeSource,
       esp32Source: esp32Source ?? esp32LogicSource,
@@ -318,6 +415,7 @@ class IcReferenceCatalog {
       gowinSource: gowinSource ?? gowinFpgaLogicSource,
       xilinxSource: xilinxSource ?? xilinxLogicSource,
       latticeSource: latticeSource ?? latticeLogicSource,
+      componentSource: componentSource ?? componentReferenceSource,
     );
   }
 

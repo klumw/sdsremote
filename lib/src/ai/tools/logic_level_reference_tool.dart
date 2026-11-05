@@ -85,7 +85,13 @@ Tool<Map<String, dynamic>> createLogicLevelReferenceTool({
         'its enum and optionally the bank VCCIO; the result contains the '
         'supported LVCMOS/LVTTL levels, drive strengths and absolute maximum '
         'input voltage. The values come from the official Lattice '
-        'iCE40/MachXO2/MachXO3/ECP5 datasheets on latticesemi.com.',
+        'iCE40/MachXO2/MachXO3/ECP5 datasheets on latticesemi.com. '
+        'The tool also returns user-provided component and component-family '
+        'references saved by the SpecAnalyst from specification documents. '
+        'They live in the application data directory and are additional to '
+        'the bundled tables; call the tool without a selector to list them, '
+        'then pass `component` with the id, label or alias. Their values use '
+        'canonical units and are user-provided, not verified calibration data.',
     inputSchema: Schema.fromMap({
       'type': 'object',
       'properties': {
@@ -149,6 +155,13 @@ Tool<Map<String, dynamic>> createLogicLevelReferenceTool({
               'supplyVolts for the bank VCCIO to filter and scale the '
               'standards.',
         },
+        'component': {
+          'type': 'string',
+          'description':
+              'User-provided component or component-family id, label or '
+              'alias saved by the SpecAnalyst. Omit all selectors to list '
+              'the available components in the full table.',
+        },
       },
     }),
     onCall: (args) async {
@@ -163,8 +176,11 @@ Tool<Map<String, dynamic>> createLogicLevelReferenceTool({
       final gowinFpga = _stringArg(args, 'gowinFpga');
       final xilinxFpga = _stringArg(args, 'xilinxFpga');
       final latticeFpga = _stringArg(args, 'latticeFpga');
+      final component = _stringArg(args, 'component');
       final supplyVolts = _numberArg(args, 'supplyVolts');
-      if (icCatalog == null) {
+      final currentCatalog =
+          catalog ?? IcReferenceRepository.instance.catalogOrNull;
+      if (currentCatalog == null) {
         return <String, dynamic>{
           'error':
               'IC reference data is not loaded. The reference tables are '
@@ -179,28 +195,32 @@ Tool<Map<String, dynamic>> createLogicLevelReferenceTool({
         gowinFpga,
         xilinxFpga,
         latticeFpga,
+        component,
       ].whereType<String>().toList();
       final result = selectors.length > 1
           ? <String, dynamic>{
               'error':
                   'Choose only one of standard, esp32Variant, stm32Series, '
-                  'raspberryPiMcu, gowinFpga, xilinxFpga or latticeFpga.',
+                  'raspberryPiMcu, gowinFpga, xilinxFpga, latticeFpga or '
+                  'component.',
             }
           : standard != null
-          ? _selectedStandard(icCatalog, standard, supplyVolts)
+          ? _selectedStandard(currentCatalog, standard, supplyVolts)
           : esp32Variant != null
-          ? _selectedEsp32(icCatalog, esp32Variant, supplyVolts)
+          ? _selectedEsp32(currentCatalog, esp32Variant, supplyVolts)
           : stm32Series != null
-          ? _selectedStm32(icCatalog, stm32Series, supplyVolts)
+          ? _selectedStm32(currentCatalog, stm32Series, supplyVolts)
           : raspberryPiMcu != null
-          ? _selectedRaspberryPi(icCatalog, raspberryPiMcu, supplyVolts)
+          ? _selectedRaspberryPi(currentCatalog, raspberryPiMcu, supplyVolts)
           : gowinFpga != null
-          ? _selectedGowin(icCatalog, gowinFpga, supplyVolts)
+          ? _selectedGowin(currentCatalog, gowinFpga, supplyVolts)
           : xilinxFpga != null
-          ? _selectedXilinx(icCatalog, xilinxFpga, supplyVolts)
+          ? _selectedXilinx(currentCatalog, xilinxFpga, supplyVolts)
           : latticeFpga != null
-          ? _selectedLattice(icCatalog, latticeFpga, supplyVolts)
-          : _fullTable(icCatalog);
+          ? _selectedLattice(currentCatalog, latticeFpga, supplyVolts)
+          : component != null
+          ? _selectedComponent(currentCatalog, component)
+          : _fullTable(currentCatalog);
       logger.logToolCall(input: args, output: result);
       return result;
     },
@@ -219,6 +239,8 @@ Map<String, dynamic> _fullTable(
       'Raspberry Pi RP2040/RP2350 datasheets, the Gowin GW1N/GW2A/GW5A '
       'datasheets, the AMD/Xilinx 7 Series/UltraScale+ datasheets and the '
       'Lattice iCE40/MachXO2/MachXO3/ECP5 datasheets (all values in volts). '
+      'The components section contains user-provided references saved by the '
+      'SpecAnalyst and is not verified calibration data. '
       'VIL/VIH are input thresholds; VOL/VOH are output levels. For '
       'Schmitt-trigger inputs, VIL max equals Vt-(min) and VIH min equals '
       'Vt+(max). Levels between VIL and VIH are forbidden. HTL values are '
@@ -231,6 +253,7 @@ Map<String, dynamic> _fullTable(
   ..._gowinSection(catalog),
   ..._xilinxSection(catalog),
   ..._latticeSection(catalog),
+  ..._componentSection(catalog),
 };
 
 Map<String, dynamic> _edgeTimeSection(
@@ -332,6 +355,53 @@ Map<String, dynamic> _latticeSection(
       reference.toMap(supplyVolts: supplyVolts),
   ],
 };
+
+Map<String, dynamic> _componentSection(
+  IcReferenceCatalog catalog,
+) => <String, dynamic>{
+  'componentSource': catalog.componentSource,
+  'componentNote':
+      'User-provided component and component-family references saved by '
+      'the SpecAnalyst from specification documents. Values use canonical '
+      'units. Verify them against the original datasheet before relying '
+      'on them.',
+  'components': [for (final component in catalog.components) component.toMap()],
+};
+
+Map<String, dynamic> _selectedComponent(IcReferenceCatalog catalog, String id) {
+  if (catalog.components.isEmpty) {
+    return <String, dynamic>{
+      'error':
+          'No user-provided component references are available. The '
+          'SpecAnalyst stores them after a specification analysis.',
+      'hint':
+          'The Waveform Agent can add a component from a PDF or TXT '
+          'datasheet with request_specification_upload and '
+          'analyze_specification, then repeat the digital check.',
+    };
+  }
+  final component = catalog.findComponent(id);
+  if (component == null) {
+    return <String, dynamic>{
+      'error':
+          'Unknown component "$id". Valid components: '
+          '${catalog.components.map((entry) => entry.id).join(', ')}.',
+      'hint':
+          'If the user has a PDF or TXT datasheet for this component, the '
+          'Waveform Agent can add it with request_specification_upload and '
+          'analyze_specification, then repeat the digital check.',
+    };
+  }
+  return <String, dynamic>{
+    'source': component.source,
+    'unit': 'canonical parameter units',
+    'component': component.toMap(),
+    if (component.parameters.any((parameter) => !parameter.hasValue))
+      'note':
+          'Some parameters carry a note instead of a numeric value because '
+          'the source specification did not provide a convertible value.',
+  };
+}
 
 Map<String, dynamic> _selectedLattice(
   IcReferenceCatalog catalog,

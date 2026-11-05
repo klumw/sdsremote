@@ -19,6 +19,7 @@ import 'dart:io';
 ///   bode/csv/           Bode plot CSV data files
 ///   automation/macros/  Macro (.m) files
 ///   automation/reports/ Macro PDF reports
+///   ic/data/            User-provided IC reference components
 class AppPaths {
   AppPaths._();
 
@@ -97,6 +98,14 @@ class AppPaths {
   static Directory get calculatorDirectory =>
       Directory('${defaultSaveDirectory.path}${_sep}calculator');
 
+  /// `  <app working dir>/ic/data  `
+  ///
+  /// Stores component and family reference documents that were extracted by
+  /// the SpecAnalyst. The directory is separate from the bundled
+  /// `assets/ic/data` documents and can be edited by the user.
+  static Directory get icDataDirectory =>
+      Directory('${defaultSaveDirectory.path}${_sep}ic${_sep}data');
+
   /// `  <app working dir>/calculator/workspace.json  `
   static File get calculatorWorkspaceFile => File(
     '${defaultSaveDirectory.path}${_sep}calculator${_sep}workspace.json',
@@ -168,6 +177,9 @@ class AppPaths {
 
   static Future<Directory> getOrCreateCalculatorDir() =>
       ensureDirectoryExists(calculatorDirectory);
+
+  static Future<Directory> getOrCreateIcDataDir() =>
+      ensureDirectoryExists(icDataDirectory);
 
   /// Returns a [File] with a unique filename in [directory].
   ///
