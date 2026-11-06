@@ -244,3 +244,26 @@ class SpectrumResult {
     return null;
   }
 }
+
+/// Why an acquired channel has no spectrum trace.
+enum SpectrumChannelIssue {
+  /// No raw samples (or no usable vertical scaling) were acquired.
+  noData,
+
+  /// The transferred record contains too few usable samples for an FFT.
+  tooFewSamples,
+
+  /// The signal shows too few complete periods for a stable FFT.
+  tooFewPeriods,
+}
+
+/// A channel that is part of the acquisition but has no spectrum view.
+///
+/// The spectrum view renders these notices at the bottom so the user learns
+/// why a channel is missing and how to make it visible.
+class SpectrumChannelNotice {
+  final String channel;
+  final SpectrumChannelIssue issue;
+
+  const SpectrumChannelNotice({required this.channel, required this.issue});
+}

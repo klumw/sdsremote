@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
-import 'dart:typed_data';
 
 import 'dart:ui'
     as ui
@@ -1328,6 +1327,7 @@ class _OsciHomePageState extends State<OsciHomePage>
                     showAllChannels: _spectrumShowAll,
                     logFrequency: _spectrumLogFrequency,
                     loading: _spectrumLoading,
+                    channelNotices: _spectrumChannelNotices(),
                     onChannelSelectionChanged: (channel) => setState(() {
                       _spectrumShowAll = channel == null;
                       if (channel != null) _spectrumChannel = channel;
@@ -4004,6 +4004,64 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
 
     return hasUsableSamples && !sawMeasurement;
+  }
+
+  /// Enabled channels that cannot produce a spectrum trace.
+  ///
+  /// The spectrum view renders these reasons at its bottom so the user knows
+  /// why a channel is missing and how to make its data visible.
+  List<SpectrumChannelNotice> _spectrumChannelNotices() {
+    final raw = _lastRawData;
+    if (raw == null) return const [];
+    final measurements = _acquiredMeasurements();
+    final notices = <SpectrumChannelNotice>[];
+
+    void checkChannel(
+      int number,
+      bool enabled,
+      Uint8List? bytes,
+      double? vdiv,
+    ) {
+      if (!enabled) return;
+      if (bytes == null || bytes.isEmpty || vdiv == null || vdiv <= 0) {
+        notices.add(
+          SpectrumChannelNotice(
+            channel: 'ch$number',
+            issue: SpectrumChannelIssue.noData,
+          ),
+        );
+        return;
+      }
+      final skip = bytes.length > _spectrumSettings.leadingSamplesToSkip * 4
+          ? _spectrumSettings.leadingSamplesToSkip
+          : 0;
+      if (bytes.length - skip < minSpectrumSamples) {
+        notices.add(
+          SpectrumChannelNotice(
+            channel: 'ch$number',
+            issue: SpectrumChannelIssue.tooFewSamples,
+          ),
+        );
+        return;
+      }
+      final measurement = measurements['ch$number'];
+      if (measurement != null && !hasEnoughFftPeriods(measurement)) {
+        notices.add(
+          SpectrumChannelNotice(
+            channel: 'ch$number',
+            issue: SpectrumChannelIssue.tooFewPeriods,
+          ),
+        );
+      }
+    }
+
+    checkChannel(1, _ch1Enabled, raw.ch1Raw, raw.vdivCh1);
+    checkChannel(2, _ch2Enabled, raw.ch2Raw, raw.vdivCh2);
+    if (_numChannels >= 4) {
+      checkChannel(3, _ch3Enabled, raw.ch3Raw, raw.vdivCh3);
+      checkChannel(4, _ch4Enabled, raw.ch4Raw, raw.vdivCh4);
+    }
+    return notices;
   }
 
   /// Computes (or returns the cached) spectrum of the last acquisition.

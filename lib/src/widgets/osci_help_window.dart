@@ -115,7 +115,7 @@ class HelpWindow extends StatefulWidget {
   const HelpWindow({super.key, this.aiSettings, this.voiceInput});
 
   /// AI provider/token/model settings for the help assistant; null (or an
-  /// unconfigured value) disables the sparkle button in the header.
+  /// unconfigured value) disables the ai button in the header.
   final AiSettings? aiSettings;
 
   /// Shared microphone service; null hides the assistant microphone.
@@ -775,7 +775,7 @@ class _HelpWindowState extends State<HelpWindow>
     }
   }
 
-  /// Sparkle button next to the title that opens and closes the AI help
+  /// AI button next to the title that opens and closes the AI help
   /// assistant. It is only active while valid AI settings are configured.
   ///
   /// The colors match the Macro Editor's assistant button: a cyan border and

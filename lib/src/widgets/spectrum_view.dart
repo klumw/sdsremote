@@ -7,6 +7,7 @@ import '../app/app_theme.dart';
 import '../spectrum/spectrum_models.dart';
 import '../spectrum/spectrum_viewport.dart';
 import '../spectrum/windows.dart';
+import '../waveform/clock_detection.dart' show fftTargetPeriodsOnScreen;
 import '../waveform/waveform_models.dart' show waveformChannelColor;
 import 'spectrum_painter.dart';
 
@@ -26,6 +27,7 @@ class SpectrumView extends StatefulWidget {
     required this.onChannelSelectionChanged,
     required this.onSettingsChanged,
     required this.onLogFrequencyChanged,
+    this.channelNotices = const [],
     this.plotKey,
   });
 
@@ -47,6 +49,10 @@ class SpectrumView extends StatefulWidget {
   final ValueChanged<String?> onChannelSelectionChanged;
   final ValueChanged<SpectrumSettings> onSettingsChanged;
   final ValueChanged<bool> onLogFrequencyChanged;
+
+  /// Channels that are part of the acquisition but have no spectrum trace,
+  /// with the reason. Rendered as left-aligned notices at the bottom.
+  final List<SpectrumChannelNotice> channelNotices;
 
   final GlobalKey? plotKey;
 
@@ -200,9 +206,62 @@ class _SpectrumViewState extends State<SpectrumView> {
             ],
           ),
         ],
+        if (widget.channelNotices.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          _buildChannelNotices(),
+        ],
       ],
     );
   }
+
+  /// Left-aligned explanations for acquired channels without a spectrum.
+  Widget _buildChannelNotices() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final notice in widget.channelNotices)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 2),
+            child: Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(
+                    text: '${notice.channel.toUpperCase()}: ',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  TextSpan(text: _noticeMessage(notice.issue)),
+                  TextSpan(
+                    text: ' ${_noticeHint(notice.issue)}',
+                    style: const TextStyle(color: Colors.white38),
+                  ),
+                ],
+              ),
+              textAlign: TextAlign.left,
+              style: const TextStyle(color: Colors.amberAccent, fontSize: 10),
+            ),
+          ),
+      ],
+    );
+  }
+
+  String _noticeMessage(SpectrumChannelIssue issue) => switch (issue) {
+    SpectrumChannelIssue.noData => 'no spectrum view available (no data).',
+    SpectrumChannelIssue.tooFewSamples =>
+      'no spectrum view available (record too short).',
+    SpectrumChannelIssue.tooFewPeriods =>
+      'no spectrum view available (too few signal periods).',
+  };
+
+  String _noticeHint(SpectrumChannelIssue issue) => switch (issue) {
+    SpectrumChannelIssue.noData =>
+      'Enable the channel and acquire a waveform to display it.',
+    SpectrumChannelIssue.tooFewSamples =>
+      'Increase the memory depth or timebase, then acquire again.',
+    SpectrumChannelIssue.tooFewPeriods =>
+      'Lower the timebase so at least $fftTargetPeriodsOnScreen periods are '
+          'visible, then acquire again.',
+  };
 
   Widget _buildControls(
     List<SpectrumTrace> traces,

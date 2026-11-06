@@ -1172,7 +1172,7 @@ class PhysicalControlPanel extends StatelessWidget {
             height: 30,
             padding: const EdgeInsets.symmetric(horizontal: 10),
             decoration: BoxDecoration(
-              // Same frame colors as the sparkle button in the help window:
+              // Same frame colors as the ai button in the help window:
               // translucent black background, cyan border while available.
               color: Colors.black.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(4),

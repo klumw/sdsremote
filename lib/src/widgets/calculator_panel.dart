@@ -1232,7 +1232,7 @@ KEYBOARD AND SHORTCUTS (main application)
                Settings → Calculator)
 
 AI ASSISTANT (optional)
-  The sparkle button next to this help button opens the Calculator AI
+  The AI button next to this help button opens the Calculator AI
   panel. Configure provider, token and model in SDS-Remote Settings.
   The assistant uses the deterministic engine and asks for missing
   values. It can read the current expression, program and variables
