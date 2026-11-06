@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import 'animated_sync_icon.dart';
 import 'osci_knob_widgets.dart';
 import '../ai/ai_settings.dart';
 import '../ai/control_panel_chat_controller.dart';
@@ -42,6 +43,12 @@ class PhysicalControlPanel extends StatelessWidget {
 
   /// Called when the automatic screen capture toggle is pressed.
   final ValueChanged<bool>? onAutoCaptureChanged;
+
+  /// Whether a timelapse run is active; the button then stops the run.
+  final bool timelapseRunning;
+
+  /// Starts or stops a timelapse run; null disables the button.
+  final VoidCallback? onTimelapsePressed;
 
   /// Whether the live screen (VNC) toggle is offered at all.
   ///
@@ -103,6 +110,8 @@ class PhysicalControlPanel extends StatelessWidget {
     this.onTriggerButtonPressed,
     this.autoCaptureEnabled = false,
     this.onAutoCaptureChanged,
+    this.timelapseRunning = false,
+    this.onTimelapsePressed,
     this.showLiveButton = false,
     this.liveEnabled = false,
     this.liveAvailable = true,
@@ -132,31 +141,33 @@ class PhysicalControlPanel extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Row(
-                  children: [
-                    Expanded(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          border: Border.all(
-                            color: const Color(0xFF475569),
-                            width: 2.0,
+                Flexible(
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: const Color(0xFF475569),
+                              width: 2.0,
+                            ),
                           ),
+                          child: liveEnabled && liveScreen != null
+                              ? RawImage(
+                                  image: liveScreen,
+                                  fit: BoxFit.contain,
+                                  filterQuality: FilterQuality.high,
+                                )
+                              : Image.memory(
+                                  screenDump,
+                                  fit: BoxFit.contain,
+                                  filterQuality: FilterQuality.high,
+                                  gaplessPlayback: true,
+                                ),
                         ),
-                        child: liveEnabled && liveScreen != null
-                            ? RawImage(
-                                image: liveScreen,
-                                fit: BoxFit.fitWidth,
-                                filterQuality: FilterQuality.high,
-                              )
-                            : Image.memory(
-                                screenDump,
-                                fit: BoxFit.fitWidth,
-                                filterQuality: FilterQuality.high,
-                                gaplessPlayback: true,
-                              ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 // Bottom Bar (Soft keys)
                 Container(
@@ -501,6 +512,8 @@ class PhysicalControlPanel extends StatelessWidget {
                                 _buildLiveToggle(),
                                 const SizedBox(width: 6),
                               ],
+                              _buildTimelapseButton(),
+                              const SizedBox(width: 6),
                               _buildAutoCaptureToggle(),
                             ],
                           ),
@@ -1184,6 +1197,64 @@ class PhysicalControlPanel extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [Icon(Icons.auto_awesome, size: 16, color: accent)],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Starts or stops a timelapse run.
+  ///
+  /// Uses the same compact pill style as the automatic screen capture toggle:
+  /// a clock icon plus an action label, tinted green while a run is active.
+  Widget _buildTimelapseButton() {
+    final bool running = timelapseRunning;
+    final bool disabled = onTimelapsePressed == null;
+    final Color accent = disabled
+        ? Colors.white24
+        : (running ? const Color(0xFF22C55E) : const Color(0xFF94A3B8));
+
+    return Tooltip(
+      message: running
+          ? 'Stop timelapse'
+          : (isOnline ? 'Timelapse' : 'Timelapse (device offline)'),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onTimelapsePressed,
+          borderRadius: BorderRadius.circular(4),
+          child: Ink(
+            height: 30,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFF334155),
+              borderRadius: BorderRadius.circular(4),
+              border: Border.all(color: accent, width: 0.5),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.4),
+                  offset: const Offset(1, 1),
+                  blurRadius: 2,
+                ),
+              ],
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                running
+                    ? AnimatedSyncIcon(size: 16, color: accent)
+                    : Icon(Icons.timelapse, size: 16, color: accent),
+                const SizedBox(width: 6),
+                Text(
+                  running ? 'stop' : 'tl',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: accent,
+                  ),
+                ),
+              ],
             ),
           ),
         ),

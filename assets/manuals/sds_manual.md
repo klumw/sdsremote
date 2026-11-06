@@ -154,10 +154,6 @@ All user data (screenshots, waveforms, profiles, macros, reports) is stored unde
 * **Save**  
   * Saves the output of the active view: a PDF screenshot report (Control Panel), a PDF report (Waveform, Data Logger, Bode Plot) and CSV data where applicable (see [3.5 Export Options](#35-export-options))
 
-* **Timelapse** (clock icon)
-  * Captures the oscilloscope screen at a fixed interval into a timestamped folder (see [8.11 Timelapse](#811-timelapse))
-  * While a run is active, the icon shows the rotating arrows indicator and pressing it stops the run
-
 * **Assistant microphone** (mic icon in the AI assistants)
   * The main AI Chat and the Control Panel, Waveform, Macro Recorder and Help AI Assistants each have a microphone button next to their input field.
   * The microphone is off when an assistant opens; the crossed-out icon shows the inactive state. Pressing the button switches it on and it listens continuously until it is switched off or the assistant closes.
@@ -1592,11 +1588,11 @@ Click the **Export** button in the top toolbar while a waveform is displayed to 
 
 ### 8.11 Timelapse
 
-The clock icon in the top toolbar opens **Timelapse**:
+The clock icon in the bottom bar of the Control Panel, next to the automatic screen capture toggle, opens **Timelapse**:
 
 * Set the interval as a positive whole number of seconds (1–86400), the number of frames (1–10000) and the file-name prefix. The dialog shows the resulting total duration.
 * **Start** stops auto capture and the live screen and captures the oscilloscope screen at the chosen interval. Frames are written as PNG files into a timestamped run folder under `timelapse/` in the application directory, for example `timelapse/2026-10-31_14-30-05/timelapse_0001.png`.
-* A snackbar reports the current frame and offers **Stop**; the toolbar icon also turns into the rotating arrows indicator that stops the run.
+* A snackbar reports the current frame and offers **Stop**; the clock icon also turns into the rotating arrows indicator that stops the run.
 * The clock icon is disabled while no oscilloscope is online; a running timelapse can still be stopped if the connection drops.
 * Auto capture and the live screen cannot be started while a timelapse runs.
 * The run ends after the planned frame count, on **Stop**, or when a capture fails. The final snackbar names the number of frames and the output folder.
@@ -1614,13 +1610,13 @@ The assistant answers questions about the current acquisition from the available
 * Waveform classification and comparison against reference signal types, comparison of two channels, and waveform features.
 * The last four acquisitions for comparison with an earlier capture.
 
-Example questions: “Which channel has the lowest THD?”, “What kind of waveform is this?”, “Compare this signal with a sine wave”, “Does this look like a PWM signal?”, “Which reference matches best?”, “How similar are CH1 and CH2?”, “Acquire a new waveform and compare it with the previous one”.
-
-For data collection with several independent choices, the assistant can show a checkbox list with a Confirm button; only the checked entries are used.
-
-#### Measurement Report
-
-When a waveform is displayed, the assistant can create the existing PDF measurement report. The assistant creates only the PDF report. The Save button writes both a PDF report and the CSV file (see [8.7 Saving Waveform Data](#87-saving-waveform-data)). Before saving, it asks whether a PDF report should be created and waits for confirmation. The report contains the chart image, the automatic time-domain measurements, the spectrum analysis, the device parameters, the reference comparison and the mask result. The assistant may add a short plain-text **Agent Analysis** section with its findings; this section is always written in English. If the **Ask for filename on save** setting is enabled, the filename dialog opens and the user can enter the report file name; canceling the dialog prevents the save. Otherwise the report is saved to `waveform/reports/` and the assistant reports the file name. Without a displayed waveform the assistant asks the user to acquire one first.
+Example questions:  
+* “Which channel has the lowest THD?”  
+* “What kind of waveform is this?”  
+* “Compare this signal with a sine wave”  
+* “Does this look like a PWM signal?”  
+* “How similar are CH1 and CH2?”  
+* “Acquire a new waveform and compare it with the previous one”
 
 #### Audio Measurements
 
@@ -1639,28 +1635,6 @@ Read-only queries, such as the current volts/div or a live measurement, are exec
 #### Signal Generator Commands
 
 When a JDS6600 or FY6900 is configured and connected, the assistant can control the signal generator under the same routing rule as the AI Chat, except that the bare word **Generator** is not accepted ([4.3 Signal Generator Control](#signal-generator-control)). The generator keyword selects the generator but does not replace the confirmation step. Without a signal-generator keyword, a request such as “frequency on channel 1” refers to the oscilloscope.
-
-#### Fault Analysis
-
-For an explicit fault-analysis request, the assistant runs a deterministic analyzer on every raw transferred sample of the current acquisition (before display decimation). It selects only the tests that match the symptom from these categories: amplitude, signal loss, transients, clipping, frequency error, noise, ringing, duty cycle, glitches, period jitter, DC offset, distortion, spurious frequency components, rise/fall time, amplitude stability, settling, phase/delay, crosstalk, intermittent faults and measurement artifacts. Without a specification it reports measurements and anomalies but does not claim a confirmed violation. Results are reported per test with status (pass, fail, warning, informational, inconclusive or not applicable), measured and expected values, deviations and event times. Phase/delay and crosstalk require a second acquired channel.
-
-#### Specification Upload
-
-For a fault-analysis request, the assistant can ask for a PDF or plain-text specification of the device under test. When the user confirms, an upload control appears in the chat. The text is extracted locally; the file is not sent to the AI provider. The specification supplies the reference values, tolerances and limits for the selected tests. If the document contains several rails, pins or signals, the assistant asks which one belongs to the measured channel. Image-only or password-protected PDFs are rejected; use a text-based file or a smaller excerpt instead.
-
-After a successful analysis the assistant asks for a component or family name in a dedicated input field. It saves the extracted electrical data as a JSON component reference under `ic/data/` in the application data directory. The file name is derived from the entered name; if a file with that name already exists, the assistant asks for explicit confirmation before replacing it. Canceling the name prompt keeps the analysis result but saves nothing. Saved components contain user-provided reference data and use canonical units.
-
-The same flow is used when a requested component is not yet in the stored IC references: the assistant asks whether a PDF or TXT datasheet is available, analyzes and stores it under the component name, and repeats the digital check.
-
-#### Long-Term Profile
-
-For recurring fault sessions the assistant stores the reference values, tolerances and limits per channel. At the start of a fault-analysis request it offers to reuse the stored values for the relevant channel; newly supplied values are merged, or replace the stored block when the user declines reuse. The profile contains no measured values, findings or waveform samples and can be cleared on request.
-
-#### Digital Signal Measurements and Logic Levels
-
-Digital-specific measurements are delegated to a DigitalAgent sub-agent. It covers logic levels and thresholds, logic families, edge/rise/fall times, duty and timing, clock jitter, overshoot, ringing, glitches, protocol signal integrity and digital fault analysis. Dedicated deterministic tools return rise/fall time, high/low pulse width, edge statistics, period and cycle-to-cycle jitter, clock stability and drift, setup/hold, skew, glitches and overshoot/undershoot. The assistant asks once whether the measurements may run autonomously, including the necessary scope/generator changes; after confirmation the DigitalAgent returns structured measurements that the Waveform AI presents.
-
-For digital-signal fault analysis the assistant provides built-in logic-level references for TTL, TTL-compatible CMOS, CMOS 5 V/2.5 V/1.8 V/1.2 V/0.8 V, Schmitt-trigger variants, LVTTL, ECL, RS-232 and HTL, with typical switching thresholds where available, maximum edge times for common logic families, ESP32-family values, STM32-family values for the F0, F1, F2, F3, F4, F7, G0, G4, H5, H7, L0, L1, L4, L5, U5, WB and WL series, Raspberry Pi RP2040/RP2350 values, Gowin GW1N/GW2A/GW5A values, AMD/Xilinx 7 Series/UltraScale+ values and Lattice iCE40/MachXO2/MachXO3/ECP5 values. It asks for the standard, logic family, ESP32 variant, STM32 series, Raspberry Pi MCU, Gowin FPGA family, AMD/Xilinx FPGA bank type or Lattice FPGA family and the supply voltage, then uses the resulting thresholds as expected levels for the fault tests. It can also read user-provided component references saved by the SpecAnalyst from specification documents; these values are user-provided and should be verified against the original datasheet. Digital signals are not checked for clipping because flat tops and bottoms are valid levels.
 
 ---
 
@@ -1690,6 +1664,8 @@ It streams the display from the oscilloscope and updates continuously.
 While Live is active, automatic screen capture is disabled and no screen dumps are fetched after SCPI commands.
 
 The live screen is not available over USB connections or on two-channel models.
+
+The **Timelapse** button (clock icon) sits in the bottom bar of the Control Sidebar, next to the automatic screen capture toggle, and starts or stops a timelapse run (see [8.11 Timelapse](#811-timelapse)).
 
 ### 9.2 Control Sidebar
 

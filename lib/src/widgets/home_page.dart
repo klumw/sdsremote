@@ -1569,6 +1569,12 @@ class _OsciHomePageState extends State<OsciHomePage>
       onTriggerButtonPressed: _handleButtonPress,
       autoCaptureEnabled: _autoCaptureEnabled,
       onAutoCaptureChanged: _setAutoCaptureEnabled,
+      timelapseRunning: _timelapseRunning,
+      onTimelapsePressed: _isMacroPlaying
+          ? null
+          : (_timelapseRunning
+                ? _stopTimelapse
+                : (_isOnline ? _showTimelapseDialog : null)),
       showLiveButton: _showLiveButton,
       liveEnabled: _vncLive,
       liveAvailable: _vncReachable,
@@ -1749,24 +1755,6 @@ class _OsciHomePageState extends State<OsciHomePage>
                 color: color,
               );
             },
-          ),
-          IconButton(
-            icon: _timelapseRunning
-                ? const AnimatedSyncIcon(size: 20, color: Colors.cyanAccent)
-                : const Icon(Icons.timelapse, size: 25),
-            // A running timelapse can always be stopped, even when the
-            // device has gone offline in the meantime.
-            color: (_isMacroPlaying || (!_isOnline && !_timelapseRunning))
-                ? Colors.white24
-                : Colors.white70,
-            tooltip: _timelapseRunning
-                ? 'Stop timelapse'
-                : (_isOnline ? 'Timelapse' : 'Timelapse (device offline)'),
-            onPressed: _isMacroPlaying
-                ? null
-                : (_timelapseRunning
-                      ? _stopTimelapse
-                      : (_isOnline ? _showTimelapseDialog : null)),
           ),
           const SizedBox(width: 8),
           OsciToolbarButton(

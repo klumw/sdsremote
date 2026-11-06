@@ -1007,7 +1007,14 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     if (groups.isEmpty) return const SizedBox.shrink();
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      child: Row(children: groups),
+      // Groups with probe labels are taller than groups without labels; top
+      // alignment keeps every chip row on the same line regardless.
+      // Groups with probe labels are taller than groups without labels; top
+      // alignment keeps every chip row on the same line regardless.
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: groups,
+      ),
     );
   }
 
