@@ -20,10 +20,15 @@ String markdownHeadingSlug(String headingText) {
   return headingText
       .trim()
       .toLowerCase()
+      // Emoji and other non-ASCII symbols are not part of the anchor.
+      .replaceAll(RegExp(r'[^\x00-\x7F]'), '')
       // Punctuation is dropped while `-` and `_` survive, mirroring the slugs
       // GitHub generates — which is what a cross-reference is copied from.
       .replaceAll(RegExp(r'''[!"#$%&'()*+,./:;<=>?@\[\\\]^`{|}~]'''), '')
-      .replaceAll(' ', '-');
+      .replaceAll(' ', '-')
+      // Removing a trailing symbol can leave a dash; hand-written links omit
+      // it, so trim the edges.
+      .replaceAll(RegExp(r'^-+|-+$'), '');
 }
 
 /// Returns the slug from [slugs] that the link fragment [fragment] points at,

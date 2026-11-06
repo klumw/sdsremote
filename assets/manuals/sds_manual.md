@@ -68,13 +68,13 @@ The oscilloscope is a mains-powered measuring instrument. Its inputs are not iso
 1. Connect the oscilloscope to the network or USB and select the connection in [Settings](#32-connection-mode).
 2. Wait until the status bar shows `ONLINE`.
 3. Set the probe attenuation on the oscilloscope to match the probe.
-4. Open the [Control Panel](#9-control-panel) for interactive operation or [Acquire Waveform](#8-acquire-waveform) for measurements.
+4. Open the [Control Panel](#9-control-panel) for interactive operation or [Acquire Waveform](#8-waveform-analysis) for measurements.
 
 **Workflow Recommendations**
 
 * Start by connecting to the oscilloscope using the **Settings** panel. Verify the status bar shows `ONLINE` before proceeding.
 * Use the **[Control Panel](#9-control-panel)** for interactive operation — it provides immediate visual feedback through the screen capture.
-* Use **[Acquire Waveform](#8-acquire-waveform)** when you need precise measurements,  
+* Use **[Acquire Waveform](#8-waveform-analysis)** when you need precise measurements,  
   cursor analysis, or [reference waveform](#86-reference-waveforms) comparison.
 * Use the **[Data Logger](#6-data-logger)** for long-term monitoring and trend analysis.
 * Use the **[Macro Recorder](#7-macro-recorder)** to automate repetitive tasks. Record a sequence once, then replay it as needed.
@@ -116,7 +116,7 @@ All user data (screenshots, waveforms, profiles, macros, reports) is stored unde
   * Provides a virtual control interface
   * Disabled when offline or during active operations
 
-* **[Waveform](#8-acquire-waveform)**  
+* **[Waveform](#8-waveform-analysis)**  
   * Captures waveform data from selected channels
   * Displays status during acquisition
   * Supports cursor measurements
@@ -359,7 +359,7 @@ For every other provider, use the exact model identifier from that provider's cu
 Click the **AI Chat** button in the top toolbar to open or close the chat interface. The chat replaces the main content area ([Control Panel](#9-control-panel), Waveform, etc.) while open.  
 Your conversation history is preserved while the panel remains open; closing and reopening the chat clears the history. The trash button in the chat header clears the transcript and the AI session, so the next question starts without the previous turns.
 
-The [Help panel](#23-help-panel), the [Control Panel](#910-ai-assistant), [Acquire Waveform](#812-ai-assistant), [Macro Editor](#77-ai-assistant) and [Engineering Calculator](#118-ai-assistant) have their own AI assistants that work directly in those views without replacing them.
+The [Help panel](#23-help-panel), the [Control Panel](#910-ai-assistant), [Acquire Waveform](#812-ai-assistant-experimental), [Macro Editor](#77-ai-assistant) and [Engineering Calculator](#118-ai-assistant) have their own AI assistants that work directly in those views without replacing them.
 
 #### Interface Layout
 
@@ -426,7 +426,7 @@ The device response (for queries) is returned verbatim.
 
 When a JDS6600 or FY6900 is configured and connected, the AI Chat can also control the separate signal generator. The request must contain a signal-generator keyword: **Signal Generator**. In the AI Chat the bare word **Generator** is also accepted. For example: “Signal Generator frequency channel 1 10 kHz”. Without a keyword the AI Chat treats the request as an oscilloscope command or asks for clarification.
 
-When a signal-generator keyword is present, the AI Chat treats the request as a signal-generator command. The keyword only selects the target device; it is not a separate confirmation step. An explicit instruction such as “Signal Generator frequency channel 1 10 kHz” states the requested value, so the AI Chat applies it immediately. It supports channel 1/2, frequency, amplitude (Vpp), DC offset, waveform, duty cycle, phase and output on/off, reading the current settings and device limits, resetting both channels to safe defaults and stopping a running modulation or sweep. The Waveform assistant supports the same generator control, but requires the normal confirmation step before applying a change ([8.12 AI Assistant](#812-ai-assistant)).
+When a signal-generator keyword is present, the AI Chat treats the request as a signal-generator command. The keyword only selects the target device; it is not a separate confirmation step. An explicit instruction such as “Signal Generator frequency channel 1 10 kHz” states the requested value, so the AI Chat applies it immediately. It supports channel 1/2, frequency, amplitude (Vpp), DC offset, waveform, duty cycle, phase and output on/off, reading the current settings and device limits, resetting both channels to safe defaults and stopping a running modulation or sweep. The Waveform assistant supports the same generator control, but requires the normal confirmation step before applying a change ([8.12 AI Assistant](#812-ai-assistant-experimental)).
 
 Waveform names are validated against the active device profile. A name that the selected generator does not support is rejected with a clear message instead of being guessed. The one documented exception is the FY6900 cross-model mapping: JDS6600-only names map to the closest FY6900 preset, and PULS on channel 2 becomes RECT. The assistant reports the requested and the actual name.
 
@@ -1224,7 +1224,7 @@ The chat stays open, including its complete history, when the editor is closed a
 
 ---
 
-## 8. Acquire Waveform
+## 8. Waveform Analysis
 
 The Waveform Acquisition feature captures waveform data from the connected oscilloscope and displays it as an interactive chart.  
 The waveform display supports cursor measurements, zoom and pan controls, [reference waveform](#86-reference-waveforms) overlays, and export of a PDF measurement report together with CSV data.
@@ -1601,7 +1601,7 @@ The clock icon in the top toolbar opens **Timelapse**:
 * Auto capture and the live screen cannot be started while a timelapse runs.
 * The run ends after the planned frame count, on **Stop**, or when a capture fails. The final snackbar names the number of frames and the output folder.
 
-### 8.12 AI Assistant
+### 8.12 AI Assistant (experimental) ⚠️
 
 The **AI Agent** button in the header of the **Device Parameters** panel opens the Waveform AI assistant. The trash button in the panel header clears the transcript, the session and the measurement history, so the next question starts without previous turns or stored acquisitions.
 
@@ -1739,7 +1739,7 @@ Each channel has an independent set of controls in the **Vertical** section:
 | **CH1 / CH2 Button** | Toggles the channel on or off. CH1 is yellow, CH2 is magenta. |
 | **Position Knob** (bottom) | Adjusts the vertical position (offset) of the waveform. |
 
-Clicking a channel button while the **[Acquire Waveform](#8-acquire-waveform)** panel is also active toggles channel visibility in both the waveform chart and the Control Panel,  
+Clicking a channel button while the **[Acquire Waveform](#8-waveform-analysis)** panel is also active toggles channel visibility in both the waveform chart and the Control Panel,  
 keeping them synchronized.
 
 ### 9.4 Horizontal Controls

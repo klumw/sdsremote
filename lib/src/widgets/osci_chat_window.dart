@@ -7,6 +7,7 @@ import 'package:url_launcher/url_launcher.dart';
 import '../voice/voice_input_binding.dart';
 import '../voice/voice_input_service.dart';
 import 'animated_sync_icon.dart';
+import 'markdown_table_width.dart';
 
 /// Regular expression to match bare URLs (http, https, ftp).
 ///
@@ -662,6 +663,7 @@ class _ChatWindowState extends State<ChatWindow> {
                       color: Colors.black26,
                       borderRadius: BorderRadius.circular(4),
                     ),
+                    tableColumnWidth: const ContentColumnWidth(),
                     blockquote: const TextStyle(color: Colors.yellow),
                     blockquoteDecoration: BoxDecoration(
                       color: Colors.black,
@@ -711,6 +713,7 @@ class _ChatWindowState extends State<ChatWindow> {
             color: Colors.black26,
             borderRadius: BorderRadius.circular(4),
           ),
+          tableColumnWidth: const ContentColumnWidth(),
           blockquote: const TextStyle(color: Colors.yellow),
           blockquoteDecoration: BoxDecoration(
             color: Colors.black,

@@ -15,6 +15,7 @@ import '../help/help_sections.dart';
 import '../voice/voice_input_binding.dart';
 import '../voice/voice_input_service.dart';
 import 'animated_sync_icon.dart';
+import 'markdown_table_width.dart';
 import 'osci_chat_window.dart';
 
 /// The slug helpers live in `help_sections.dart` because the AI help
@@ -1248,7 +1249,10 @@ class _HelpWindowState extends State<HelpWindow>
         ),
       ),
       tablePadding: const EdgeInsets.fromLTRB(8, 0, 8, 4),
-      tableColumnWidth: const IntrinsicColumnWidth(),
+      // Content-sized columns keep short tables narrow. The table still
+      // receives the available width, so wide tables shrink their columns
+      // down to the longest word and wrap the remaining text.
+      tableColumnWidth: const ContentColumnWidth(),
     );
   }
 
