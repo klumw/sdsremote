@@ -27,6 +27,7 @@ import 'unsaved_changes_dialog.dart';
 import 'package:window_manager/window_manager.dart';
 
 import '../instrument/dart_vxi11.dart';
+import '../instrument/screen_report.dart';
 import '../instrument/scpi_parser.dart';
 import '../instrument/vnc_screen_service.dart';
 import '../spectrum/spectrum_analysis.dart';
@@ -234,6 +235,9 @@ class _OsciHomePageState extends State<OsciHomePage>
   bool _hasUnreadUpdate = false;
   Uint8List? _screenDump;
 
+  /// Time the current [_screenDump] was captured, shown in the PDF report.
+  DateTime? _screenDumpCapturedAt;
+
   // Live screen (VNC) — four-channel instruments connected over IP only.
   //
   // [_vncReachable] mirrors whether the instrument's VNC server answered the
@@ -248,6 +252,9 @@ class _OsciHomePageState extends State<OsciHomePage>
   DateTime _lastVncProbe = DateTime.fromMillisecondsSinceEpoch(0);
   VncScreenService? _vncService;
   ui.Image? _liveScreenImage;
+
+  /// Time the current [_liveScreenImage] frame was received.
+  DateTime? _liveScreenCapturedAt;
 
   /// Incremented whenever a live session starts or ends, so a frame that is
   /// still being decoded cannot be applied to a newer session.
@@ -3580,7 +3587,10 @@ class _OsciHomePageState extends State<OsciHomePage>
           return;
         }
         final previous = _liveScreenImage;
-        setState(() => _liveScreenImage = image);
+        setState(() {
+          _liveScreenImage = image;
+          _liveScreenCapturedAt = DateTime.now();
+        });
         if (previous != null) {
           // The old frame may still be painted in this frame; release it
           // only after the widgets have rebuilt.
@@ -3618,6 +3628,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     service?.stop();
     final image = _liveScreenImage;
     _liveScreenImage = null;
+    _liveScreenCapturedAt = null;
     if (image != null) {
       // The panel may still paint the last frame until it rebuilds.
       WidgetsBinding.instance.addPostFrameCallback((_) => image.dispose());
@@ -3685,6 +3696,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       if (mounted) {
         setState(() {
           _screenDump = processedData;
+          _screenDumpCapturedAt = DateTime.now();
           _waveformCh1 = null;
           _waveformCh2 = null;
           _waveformCh3 = null;
@@ -3815,6 +3827,7 @@ class _OsciHomePageState extends State<OsciHomePage>
           _triggerSourceChannel = triggerSourceChannel;
         }
         _screenDump = null;
+        _screenDumpCapturedAt = null;
         _isOnline = true;
         _waveformAcquired = true;
         _lastRawData = raw;
@@ -4920,7 +4933,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     } else if (_canSaveDataLoggerReport) {
       await _saveDataLoggerReport();
     } else if (_screenDump != null) {
-      await _saveScreenDump();
+      await _saveScreenReport();
     } else if (_waveformCh1 != null ||
         _waveformCh2 != null ||
         _waveformCh3 != null ||
@@ -5042,29 +5055,162 @@ class _OsciHomePageState extends State<OsciHomePage>
     );
   }
 
-  Future<void> _saveScreenDump() async {
+  /// Saves the Control Panel screenshot as a PDF report.
+  ///
+  /// The report embeds the screenshot and records the capture time, the
+  /// instrument identity and the channel settings read from the instrument.
+  Future<void> _saveScreenReport() async {
     try {
       final prefix = await _askForFilenamePrefixIfNeeded();
       if (prefix == null) return; // user cancelled
-      final baseName = prefix.isNotEmpty ? prefix : 'screen_dump';
+      final baseName = prefix.isNotEmpty ? prefix : 'screen_dump_report';
 
-      final dir = await AppPaths.getOrCreateScreenshotsDir();
-      final file = await AppPaths.getUniqueFilePath(dir, baseName, 'png');
       final liveImage = _vncLive ? _liveScreenImage : null;
+      final Uint8List screenshotBytes;
+      final DateTime capturedAt;
       if (liveImage != null) {
-        // While live, the SCDP dump above is stale — save the current frame.
+        // While live, the SCDP dump is stale — use the current frame.
         final data = await liveImage.toByteData(format: ui.ImageByteFormat.png);
         if (data == null) {
           throw Exception('Failed to encode live screen');
         }
-        await file.writeAsBytes(data.buffer.asUint8List());
+        screenshotBytes = data.buffer.asUint8List();
+        capturedAt = _liveScreenCapturedAt ?? DateTime.now();
       } else {
-        await file.writeAsBytes(_screenDump!);
+        final dump = _screenDump;
+        if (dump == null) {
+          throw Exception('No screen dump available');
+        }
+        screenshotBytes = dump;
+        capturedAt = _screenDumpCapturedAt ?? DateTime.now();
       }
+
+      final info = await _collectScreenReportInfo(
+        capturedAt: capturedAt,
+        live: liveImage != null,
+      );
+      AppLogger().debug(
+        'Screenshot report: device=${info.deviceName}, '
+        'serial=${info.serialNumber}, firmware=${info.firmware}, '
+        'captured=${info.capturedAt}, live=${info.live}, '
+        'channels=${info.channels.length}',
+      );
+
+      final pdfBytes = await ScreenReport.generatePdf(
+        screenshotBytes: screenshotBytes,
+        info: info,
+      );
+
+      final dir = await AppPaths.getOrCreateScreenshotReportsDir();
+      final file = await AppPaths.getUniqueFilePath(dir, baseName, 'pdf');
+      await file.writeAsBytes(pdfBytes);
       final fileName = file.uri.pathSegments.last;
       _showInfoSnackBar('Saved $fileName');
     } catch (e) {
       _showErrorSnackBar('Save failed: $e');
+    }
+  }
+
+  /// Collects the metadata for a Control Panel screenshot report.
+  ///
+  /// The channel settings are read from the instrument when it is reachable.
+  /// A failed query leaves the affected value unknown instead of failing the
+  /// save.
+  Future<ScreenReportInfo> _collectScreenReportInfo({
+    required DateTime capturedAt,
+    required bool live,
+  }) async {
+    String? serialNumber;
+    String? firmware;
+    double? timebase;
+    double? triggerDelay;
+    String? bandwidthResponse;
+    final channels = <ScreenChannelSettings>[];
+
+    Vxi11Instrument? instrument = _instrument;
+    if (instrument == null && _isOnline) {
+      instrument = await _getInstrument();
+    }
+
+    if (instrument != null) {
+      final connection = instrument;
+      Future<String?> query(String command) async {
+        try {
+          return await connection.queryString(command);
+        } catch (e) {
+          AppLogger().warning('Screenshot report: $command failed: $e');
+          return null;
+        }
+      }
+
+      final idn = await query('*IDN?');
+      if (idn != null) {
+        final parts = idn.split(',');
+        if (parts.length >= 4) {
+          serialNumber = parts[2].trim();
+          firmware = parts[3].trim();
+        }
+      }
+      timebase = _parseScpiValue(await query('TDIV?'));
+      triggerDelay = _parseScpiValue(await query('TRDL?'));
+      bandwidthResponse = await query('BWL?');
+
+      for (var channel = 1; channel <= _numChannels; channel++) {
+        final trace = await query('C$channel:TRA?');
+        final coupling = await query('C$channel:CPL?');
+        final attenuation = await query('C$channel:ATTN?');
+        final vdiv = await query('C$channel:VDIV?');
+        final offset = await query('C$channel:OFST?');
+        channels.add(
+          ScreenChannelSettings(
+            channel: channel,
+            enabled: _parseTraceState(trace),
+            coupling: coupling == null ? null : parseCouplingResponse(coupling),
+            bandwidthLimit: bandwidthResponse == null
+                ? null
+                : parseBandwidthLimitResponse(bandwidthResponse, channel),
+            probeAttenuation: _parseScpiValue(attenuation),
+            voltsPerDiv: _parseScpiValue(vdiv),
+            offsetVolts: _parseScpiValue(offset),
+          ),
+        );
+      }
+    } else {
+      for (var channel = 1; channel <= _numChannels; channel++) {
+        channels.add(ScreenChannelSettings(channel: channel));
+      }
+    }
+
+    return ScreenReportInfo(
+      capturedAt: capturedAt,
+      deviceName:
+          _deviceName ??
+          _deviceModel ??
+          (_isUsb ? 'USB instrument' : _ipAddress),
+      deviceModel: _deviceModel,
+      serialNumber: serialNumber,
+      firmware: firmware,
+      connection: _isUsb ? 'USB' : '$_ipAddress (VXI-11)',
+      live: live,
+      timebaseSeconds: timebase,
+      triggerDelaySeconds: triggerDelay,
+      channels: channels,
+    );
+  }
+
+  /// Whether the trace is displayed, parsed from a `C<n>:TRA?` response.
+  static bool? _parseTraceState(String? response) {
+    if (response == null || response.trim().isEmpty) return null;
+    return ScpiParser.parseStatus(response);
+  }
+
+  /// Numeric value from a SCPI response, or null when it cannot be parsed.
+  static double? _parseScpiValue(String? response) {
+    if (response == null) return null;
+    try {
+      return ScpiParser.parseValue(response);
+    } on FormatException {
+      return null;
     }
   }
 

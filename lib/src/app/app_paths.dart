@@ -7,7 +7,7 @@ import 'dart:io';
 /// - Other:   Directory.current (fallback)
 ///
 /// File-type-specific subdirectories within the working directory:
-///   screenshots/        Screen dump images
+///   screenshots/reports/ Control Panel screenshot PDF reports
 ///   profiles/           Instrument profile (.lss) files
 ///   waveform/csv/       Waveform data CSV files (save & reference load)
 ///   waveform/reports/   Waveform PDF measurement reports
@@ -42,9 +42,9 @@ class AppPaths {
 
   static final String _sep = Platform.pathSeparator;
 
-  /// `  <app working dir>/screenshots  `
-  static Directory get screenshotsDirectory =>
-      Directory('${defaultSaveDirectory.path}${_sep}screenshots');
+  /// `  <app working dir>/screenshots/reports  `
+  static Directory get screenshotReportsDirectory =>
+      Directory('${defaultSaveDirectory.path}${_sep}screenshots${_sep}reports');
 
   /// `  <app working dir>/profiles  `
   static Directory get profilesDirectory =>
@@ -136,8 +136,8 @@ class AppPaths {
   static Future<Directory> getOrCreateDefaultDirectory() =>
       ensureDirectoryExists(defaultSaveDirectory);
 
-  static Future<Directory> getOrCreateScreenshotsDir() =>
-      ensureDirectoryExists(screenshotsDirectory);
+  static Future<Directory> getOrCreateScreenshotReportsDir() =>
+      ensureDirectoryExists(screenshotReportsDirectory);
 
   static Future<Directory> getOrCreateProfilesDir() =>
       ensureDirectoryExists(profilesDirectory);

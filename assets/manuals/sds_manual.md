@@ -152,7 +152,7 @@ All user data (screenshots, waveforms, profiles, macros, reports) is stored unde
   * Opens configuration panel (IP and AI settings, export options)
 
 * **Save**  
-  * Saves the output of the active view: a PNG screenshot (Control Panel), a PDF report (Waveform, Data Logger, Bode Plot) and CSV data where applicable (see [3.5 Export Options](#35-export-options))
+  * Saves the output of the active view: a PDF screenshot report (Control Panel), a PDF report (Waveform, Data Logger, Bode Plot) and CSV data where applicable (see [3.5 Export Options](#35-export-options))
 
 * **Timelapse** (clock icon)
   * Captures the oscilloscope screen at a fixed interval into a timestamped folder (see [8.11 Timelapse](#811-timelapse))
@@ -232,7 +232,7 @@ Two toggle switches control default export behavior across the application:
 
 * **Save CSV data** — Controls whether the Data Logger and the Bode Plot also write a CSV file when you save their PDF report. It has no effect on the Waveform view: saving a waveform always writes both a PDF report and a CSV file (see [8.7 Saving Waveform Data](#87-saving-waveform-data)).
 * **Ask for filename on save** — When enabled, a dialog prompts for a custom filename prefix before each save operation, including PDF reports created by the Waveform AI assistant.
-  When disabled, default prefixes are used (for example `screen_dump`, `waveform_report`, `waveform_data`, `data_logging_report`, `data_logger_data`, `bode_plot_report` and `bode_plot_data`).  
+  When disabled, default prefixes are used (for example `screen_dump_report`, `waveform_report`, `waveform_data`, `data_logging_report`, `data_logger_data`, `bode_plot_report` and `bode_plot_data`).  
   A numeric suffix is always appended to avoid overwriting existing files, regardless of this setting.
 
 The following table shows which files each save action writes:
@@ -243,6 +243,7 @@ The following table shows which files each save action writes:
 | Waveform AI report | Always | Never |
 | Data Logger **Save** | Always | Only when **Save CSV data** is on |
 | Bode Plot **Save** | Always | Only when **Save CSV data** is on |
+| Control Panel **Save** | Always | Never |
 
 CSV files contain plain-text numerical values for spreadsheets and analysis tools. Waveform CSV files contain the displayed, downsampled points, not the full oscilloscope acquisition memory ([8.7 Saving Waveform Data](#87-saving-waveform-data)). Data Logger CSV files contain the recorded measurement samples.
 
@@ -1786,9 +1787,9 @@ This allows you to build automation sequences by simply operating the virtual fr
 
 ### 9.9 Saving Screenshots
 
-Press the **Save** button in the top toolbar while the Control Panel is active to save the current oscilloscope screen as a PNG file.  
-Screenshots are stored in the `screenshots/` subdirectory of the application working directory.  
-The image format is PNG.
+Press the **Save** button in the top toolbar while the Control Panel is active to save the current oscilloscope screen as a PDF report.  
+The report contains the screenshot, the capture time, the device (name, serial number, firmware, connection), the acquisition settings (timebase, trigger delay) and the channel settings (state, coupling, bandwidth limit, probe attenuation, V/div, offset).  
+The PDF is stored in the `screenshots/reports/` subdirectory of the application working directory.
 
 ### 9.10 AI Assistant
 
@@ -2386,7 +2387,7 @@ The directory is OS specific:
 | Subfolder | Description |
 | :-------- | :-------- |
 | `preferences` | Application settings, including the AI API token in plain text |
-| `screenshots` | Display screenshots |
+| `screenshots/reports` | Control Panel screenshot PDF reports |
 | `waveform/csv` | Waveform CSV data |
 | `waveform/reports` | Waveform PDF measurement reports |
 | `waveform/exports` | Waveform export files (PWL, WAV, VCD) |
@@ -2442,10 +2443,10 @@ The directory is OS specific:
 
 ### Data Formats
 
-* **Screen Capture**: BMP (device) → PNG (application)
+* **Screen Capture**: BMP (device) → PNG (application) → PDF report (Control Panel save)
 * **Waveform Data**: Binary → voltage/time values
 * **[Device Profiles](#5-device-profiles)**: SCPI XML → .lss files
-* **Other Export Formats**: PNG ([Control Panel](#9-control-panel), Timelapse), CSV (Waveform — displayed points; [Data Logger](#6-data-logger) — recorded samples; Bode Plot — sweep points), PDF (Waveform, [Data Logger](#6-data-logger), Bode Plot), PWL/WAV/VCD (Waveform Export)
+* **Other Export Formats**: PNG (Timelapse), CSV (Waveform — displayed points; [Data Logger](#6-data-logger) — recorded samples; Bode Plot — sweep points), PDF (Waveform, [Data Logger](#6-data-logger), Bode Plot, [Control Panel](#9-control-panel)), PWL/WAV/VCD (Waveform Export)
 * **Macro Files**: Plain text `.m` files with one command per line
 
 ---
