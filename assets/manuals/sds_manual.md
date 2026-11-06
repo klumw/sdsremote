@@ -7,7 +7,7 @@ Welcome to the SDS-Remote Help Center.
 ***SDS-Remote*** is a remote control application for the Siglent SDS 1000X-E series.
 It combines instrument control and waveform analysis with data logging, macro recording and playback, screen capture and an optional AI-assisted chat interface.
 
-> **Before you connect a probe to any circuit,** read [Electrical Safety](#electrical-safety) in section 1.2. The probe ground of a mains-powered oscilloscope is connected to protective earth, and an incorrect connection can damage equipment or cause injury.
+> **Before you connect a probe to any circuit,** read [Electrical Safety](#electrical-safety) in section 1.2. The probe ground of a mains-powered oscilloscope is connected to protective earth, and an incorrect connection can damage equipment or cause injury. Make sure your oscilloscope is running the latest available firmware version
 
 ### 1.1 Compatibility
 

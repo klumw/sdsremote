@@ -631,7 +631,11 @@ class _ChatWindowState extends State<ChatWindow> {
           _wrapSelection(
             MarkdownBody(
               selectable: true,
-              data: _convertBareUrlsToMarkdownLinks(msg['content']!),
+              data: wrapMarkdownLines(
+                _convertBareUrlsToMarkdownLinks(msg['content']!),
+                maxLineLength: kMarkdownMaxLineLength,
+              ),
+              softLineBreak: true,
               builders: widget.markdownBuilders,
               onTapLink: (text, href, title) => _handleLink(href),
               styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context))
@@ -682,7 +686,11 @@ class _ChatWindowState extends State<ChatWindow> {
     return _wrapSelection(
       MarkdownBody(
         selectable: true,
-        data: _convertBareUrlsToMarkdownLinks(msg['content']!),
+        data: wrapMarkdownLines(
+          _convertBareUrlsToMarkdownLinks(msg['content']!),
+          maxLineLength: kMarkdownMaxLineLength,
+        ),
+        softLineBreak: true,
         builders: widget.markdownBuilders,
         onTapLink: (text, href, title) => _handleLink(href),
         styleSheet: MarkdownStyleSheet.fromTheme(Theme.of(context)).copyWith(

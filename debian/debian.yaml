@@ -6,7 +6,7 @@ flutter_app:
 
 control:
   Package: sdsremote
-  Version: 0.3.0
+  Version: 0.4.0
   Architecture: amd64
   Priority: optional
   Depends: libgtk-3-0 | libgtk-3-0t64, libblkid1, liblzma5, libusb-1.0-0, libstdc++6, pulseaudio-utils

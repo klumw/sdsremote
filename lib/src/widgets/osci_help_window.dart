@@ -303,8 +303,9 @@ class _HelpWindowState extends State<HelpWindow>
     final minLoadTime = Future.delayed(const Duration(milliseconds: 400));
     final sw = Stopwatch()..start();
     try {
-      _manualContent = await rootBundle.loadString(
-        'assets/manuals/sds_manual.md',
+      _manualContent = wrapMarkdownLines(
+        await rootBundle.loadString('assets/manuals/sds_manual.md'),
+        maxLineLength: kMarkdownMaxLineLength,
       );
       log.log(
         'Manual asset loaded: ${_manualContent.length} chars in '
@@ -379,8 +380,7 @@ class _HelpWindowState extends State<HelpWindow>
         _pendingScrollMatchIndex = -1;
       } else {
         try {
-          final pattern = RegExp.escape(term);
-          final regex = RegExp(pattern, caseSensitive: false);
+          final regex = _searchPattern(term);
           _matchOffsets = [];
           int searchStart = 0;
           while (searchStart < _manualContent.length) {
@@ -438,8 +438,7 @@ class _HelpWindowState extends State<HelpWindow>
 
     final buffer = StringBuffer();
     final renderedOffsets = List<int>.filled(sourceOffsets.length, 0);
-    final pattern = RegExp.escape(_searchTerm);
-    final regex = RegExp(pattern, caseSensitive: false);
+    final regex = _searchPattern(_searchTerm);
     var boundary = 0;
     var lastEnd = 0;
 
@@ -1162,6 +1161,10 @@ class _HelpWindowState extends State<HelpWindow>
     return MarkdownBody(
       key: ValueKey('help-chunk-$index'),
       data: chunk.data,
+      // Keep the source line breaks: the manual is preprocessed to at most
+      // 200 characters per line, and Markdown must not join those lines into
+      // one long paragraph again.
+      softLineBreak: true,
       // Selection is OFF for the manual as a whole. `selectable: true` wraps
       // every text node in its own SelectableText plus selection bookkeeping,
       // which measured 4767 ms to lay out versus 577 ms without — an 8x cost
@@ -1498,6 +1501,18 @@ class _HelpFocusSearchIntent extends Intent {
 /// Parses text delimited by ASCII STX / ETX (\x02 … \x03) into a
 /// `md.Element` with tag `mark`.  These control characters cannot
 /// collide with manual content or markdown syntax.
+/// Search pattern for [term] that treats every whitespace run as a wildcard.
+///
+/// The manual is preprocessed with hard line breaks, so a phrase can span a
+/// line break. Matching the words with `\s+` keeps the search working there.
+RegExp _searchPattern(String term) {
+  final words = term.trim().split(RegExp(r'\s+'));
+  if (words.length <= 1) {
+    return RegExp(RegExp.escape(term), caseSensitive: false);
+  }
+  return RegExp(words.map(RegExp.escape).join(r'\s+'), caseSensitive: false);
+}
+
 class _HighlightSyntax extends md.InlineSyntax {
   _HighlightSyntax() : super('\x02([^\x02\x03]+)\x03');
 
