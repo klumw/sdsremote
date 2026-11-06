@@ -15,7 +15,7 @@ SDS-Remote enables remote control and AI-assisted operation of the Siglent SDS12
 ### Key features
 
 - **Remote oscilloscope control:** Control your oscilloscope remotely over a network or via USB.
-- **Waveform acquisition and analysis:** Acquire and display waveform data from enabled channels, and analyse signals using the available measurement and analysis tools.
+- **Waveform acquisition and analysis:** Acquire and display waveform data from enabled channels, and analyze signals using the available measurement and analysis tools.
 - **Device parameter monitoring:** Monitor parameters such as the timebase, sample rate, and voltage settings in real time. Cursor-based measurements and AI-assisted analysis are also supported.
 - **Data logging:** Record selected measurement values over time. Generate PDF measurement reports containing charts and key metrics, or export all recorded measurement points as CSV files.
 - **Signal generator and Bode plot support:** If you own a **JDS6600** or **FY6900** signal generator, you can create Bode plots using a range of parameters. You can also configure alarms and generate detailed reports.
@@ -23,7 +23,7 @@ SDS-Remote enables remote control and AI-assisted operation of the Siglent SDS12
 
 ### Waveform data acquisition
 
-Acquire and visualise waveform data from your oscilloscope. Use X/Y cursors and zoom controls to perform detailed measurements and analyse signals. The AI assistant can help with time-domain and frequency-domain analysis. Export waveform data as image files or CSV datasets.
+Acquire and visualize waveform data from your oscilloscope. Use X/Y cursors and zoom controls to perform detailed measurements and analyze signals. The AI assistant can help with time-domain and frequency-domain analysis. Export waveform data as PDF reports and CSV datasets.
 
 #### Waveform analysis
 
@@ -314,20 +314,13 @@ The AI chat feature supports the following providers:
 - OpenRouter
 - xAI
 
-### Known working models
+### Model names
 
-The following model identifiers or model families are reported to work with the application:
+The application does not ship a fixed model catalog. The built-in agents use `deepseek-v4-flash` as their default DeepSeek model. Enter that identifier in the **LLM Model** field for the default configuration.
 
-- `deepseek-flash`
-- `gpt-6-luna`
-- `gemini-flash`
-- `claude-sonnet`
-- `qwen-3.x-max`
-- `mistral-code`
+For other providers, use the exact model identifier from the provider's current documentation. The application passes the entered name to the selected provider.
 
-For the exact model identifiers supported by your provider, refer to the provider's documentation.
-
-> **Warning:** The AI subsystem may produce inaccurate information or incorrect operating instructions. Use AI-generated information at your own risk, and verify AI generated instructions before applying them to your equipment.
+> **Warning:** The AI subsystem may produce inaccurate information or incorrect operating instructions. Use AI-generated information at your own risk, and verify AI-generated instructions before applying them to your equipment.
 
 ---
 
