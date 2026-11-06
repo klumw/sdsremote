@@ -54,6 +54,11 @@ class DataLoggerDialog extends StatefulWidget {
   /// "Recording Complete" headline once the recording has stopped.
   final VoidCallback? onToggleDeltas;
 
+  /// Measurement legend chips shown in the running/stopped status row,
+  /// directly to the right of the "Recording..." / "Recording Complete"
+  /// label.
+  final Widget? measureChips;
+
   const DataLoggerDialog({
     super.key,
     this.currentConfig,
@@ -72,6 +77,7 @@ class DataLoggerDialog extends StatefulWidget {
     this.onToggleAlarms,
     this.deltasPanelVisible = false,
     this.onToggleDeltas,
+    this.measureChips,
   });
 
   @override
@@ -850,9 +856,38 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
+              if (widget.measureChips != null)
+                Expanded(child: widget.measureChips!)
+              else
+                const Spacer(),
+              const SizedBox(width: 12),
+              // Elapsed sits right-aligned directly below Data Points.
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  Text(
+                    'Data Points: ${widget.pointCount}/${widget.totalPoints}',
+                    style: const TextStyle(color: Colors.white70, fontSize: 13),
+                  ),
+                  const SizedBox(height: 2),
+                  Text(
+                    'Elapsed: ${_fmtDuration(elapsed)}',
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // Status label centered directly above the Stop/New button;
+          // Remaining stays right-aligned on the same row.
+          Row(
+            children: [
+              const Expanded(child: SizedBox.shrink()),
               const Row(
+                mainAxisSize: MainAxisSize.min,
                 children: [
                   AnimatedSyncIcon(size: 16, color: Colors.greenAccent),
                   SizedBox(width: 8),
@@ -866,32 +901,22 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                   ),
                 ],
               ),
-              Text(
-                'Data Points: ${widget.pointCount}/${widget.totalPoints}',
-                style: const TextStyle(color: Colors.white70, fontSize: 13),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(
-                'Elapsed: ${_fmtDuration(elapsed)}',
-                style: const TextStyle(color: Colors.white54, fontSize: 12),
-              ),
-              if (remaining > 0)
-                Text(
-                  'Remaining: ${_fmtDuration(remaining)}',
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: remaining > 0
+                      ? Text(
+                          'Remaining: ${_fmtDuration(remaining)}',
+                          style: const TextStyle(
+                            color: Colors.white54,
+                            fontSize: 12,
+                          ),
+                        )
+                      : const SizedBox.shrink(),
                 ),
+              ),
             ],
           ),
-          const SizedBox(height: 8),
-
-          // ---- Probe Info (running) ----
-          if (widget.currentConfig != null)
-            _buildProbeLabelRow(widget.currentConfig!),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -971,7 +996,16 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          Row(
+            children: [
+              if (widget.measureChips != null)
+                Flexible(child: widget.measureChips!),
+            ],
+          ),
+          const SizedBox(height: 6),
+          // Status label centered directly above the New button.
           const Row(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(Icons.check_circle, color: Colors.greenAccent, size: 18),
               SizedBox(width: 8),
@@ -985,17 +1019,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
               ),
             ],
           ),
-          const SizedBox(height: 4),
-          Text(
-            '${widget.pointCount} points collected in ${_fmtDuration(widget.elapsedSeconds)}',
-            style: const TextStyle(color: Colors.white54, fontSize: 12),
-          ),
           const SizedBox(height: 8),
-
-          // ---- Probe Info (stopped) ----
-          if (widget.currentConfig != null)
-            _buildProbeLabelRow(widget.currentConfig!),
-          const SizedBox(height: 12),
           Row(
             // Without alarms New sits level with Deltas; with alarms New
             // aligns with the bottom (Alarms) row of the left column.
@@ -1038,7 +1062,25 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                   ),
                 ),
               ),
-              const Expanded(child: SizedBox.shrink()),
+              // Recording summary sits right next to the New button.
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 12),
+                  child: Align(
+                    alignment: Alignment.centerRight,
+                    child: Text(
+                      '${widget.pointCount} points collected in '
+                      '${_fmtDuration(widget.elapsedSeconds)}',
+                      style: const TextStyle(
+                        color: Colors.white54,
+                        fontSize: 12,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
         ],
@@ -1064,62 +1106,6 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
         side: const BorderSide(color: Colors.cyanAccent),
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      ),
-    );
-  }
-
-  /// Build a probe label column for the running/stopped states.
-  /// Labels are stacked vertically so both fit without wrapping issues.
-  Widget _buildProbeLabelRow(DataLoggerConfig config) {
-    final items = <Widget>[];
-    if (config.ch1VppEnabled ||
-        config.ch1MeanEnabled ||
-        config.ch1RmsEnabled ||
-        config.gainDbEnabled) {
-      items.add(
-        Text(
-          'CH1-Probe: ${_fmtProbe(config.probeDividerCh1)}',
-          style: const TextStyle(color: Color(0xFFFFFF00), fontSize: 11),
-        ),
-      );
-    }
-    if (config.ch2VppEnabled ||
-        config.ch2MeanEnabled ||
-        config.ch2RmsEnabled ||
-        config.gainDbEnabled) {
-      if (items.isNotEmpty) items.add(const SizedBox(height: 2));
-      items.add(
-        Text(
-          'CH2-Probe: ${_fmtProbe(config.probeDividerCh2)}',
-          style: const TextStyle(color: Color(0xFFFF20FF), fontSize: 11),
-        ),
-      );
-    }
-    if (config.ch3VppEnabled || config.ch3MeanEnabled || config.ch3RmsEnabled) {
-      if (items.isNotEmpty) items.add(const SizedBox(height: 2));
-      items.add(
-        Text(
-          'CH3-Probe: ${_fmtProbe(config.probeDividerCh3)}',
-          style: const TextStyle(color: Color(0xFF4FC3F7), fontSize: 11),
-        ),
-      );
-    }
-    if (config.ch4VppEnabled || config.ch4MeanEnabled || config.ch4RmsEnabled) {
-      if (items.isNotEmpty) items.add(const SizedBox(height: 2));
-      items.add(
-        Text(
-          'CH4-Probe: ${_fmtProbe(config.probeDividerCh4)}',
-          style: const TextStyle(color: Color(0xFF66BB6A), fontSize: 11),
-        ),
-      );
-    }
-    if (items.isEmpty) return const SizedBox.shrink();
-    return Align(
-      alignment: Alignment.centerRight,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        mainAxisSize: MainAxisSize.min,
-        children: items,
       ),
     );
   }

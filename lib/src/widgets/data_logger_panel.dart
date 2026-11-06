@@ -113,6 +113,16 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
   bool _showAlarmsPanel = false;
   bool _showDeltasPanel = false;
 
+  /// Whether the bottom controls box is collapsed to its slim header bar,
+  /// leaving the plot the full panel height.
+  bool _controlsCollapsed = false;
+
+  void _toggleControls() {
+    setState(() {
+      _controlsCollapsed = !_controlsCollapsed;
+    });
+  }
+
   /// Whether the recording produced an alarm worth showing in the panel.
   bool get _hasAlarms =>
       _alarmEvents.isNotEmpty ||
@@ -352,6 +362,7 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       _elapsedSeconds = 0;
       _showAlarmsPanel = false;
       _showDeltasPanel = false;
+      _controlsCollapsed = false;
       _status = DataLoggerStatus.configuring;
       // Keep _config as-is so the form shows previously entered values
     });
@@ -533,13 +544,6 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
                       ),
                     ),
                   ),
-                  // Legend toggle chips (outside RepaintBoundary, not captured)
-                  if (_status == DataLoggerStatus.running ||
-                      _status == DataLoggerStatus.stopped)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
-                      child: _buildLegendToggleRow(),
-                    ),
                   // Collapsible detail panels, hidden by default and opened
                   // from the Alarms / Deltas buttons in the control box.
                   if (_showAlarmsPanel &&
@@ -859,98 +863,158 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     return v.toStringAsFixed(1);
   }
 
-  /// Row of clickable legend chips to toggle individual plot lines on/off.
-  Widget _buildLegendToggleRow() {
-    final items = <Widget>[];
-    if (_config?.ch1VppEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 8));
-      items.add(_legendChip('CH1 Vpp', 'ch1_vpp', const Color(0xFFFFFF00)));
+  /// Row of clickable measurement chips to toggle individual plot lines.
+  ///
+  /// Chips are grouped per channel; each channel's probe divider label sits
+  /// directly underneath its chips. Gain has no channel of its own, so when
+  /// CH1/CH2 have no chips of their own, their probe labels are shown under
+  /// the Gain chip that reads them.
+  Widget _buildMeasurementChips() {
+    final config = _config;
+    if (config == null) return const SizedBox.shrink();
+
+    Widget probeLabel(int channel) {
+      final divider = switch (channel) {
+        1 => config.probeDividerCh1,
+        2 => config.probeDividerCh2,
+        3 => config.probeDividerCh3,
+        _ => config.probeDividerCh4,
+      };
+      return Text(
+        'CH$channel-Probe: ${_fmtProbe(divider)}',
+        style: TextStyle(
+          color: _parameterColor('ch$channel'),
+          fontSize: 9,
+          fontWeight: FontWeight.bold,
+        ),
+      );
     }
-    if (_config?.ch1MeanEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH1 Mean', 'ch1_mean', const Color(0xFF00E676)));
+
+    final groups = <Widget>[];
+
+    void addGroup(List<Widget> chips, List<Widget> probeLabels) {
+      if (chips.isEmpty && probeLabels.isEmpty) return;
+      if (groups.isNotEmpty) groups.add(const SizedBox(width: 8));
+      groups.add(
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (chips.isNotEmpty)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < chips.length; i++) ...[
+                    if (i > 0) const SizedBox(width: 4),
+                    chips[i],
+                  ],
+                ],
+              ),
+            for (final label in probeLabels)
+              Padding(
+                padding: const EdgeInsets.only(left: 4, top: 2),
+                child: label,
+              ),
+          ],
+        ),
+      );
     }
-    if (_config?.ch1RmsEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH1 Rms', 'ch1_rms', const Color(0xFF00E676)));
-    }
-    if (_config?.ch1DutyEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH1 Duty', 'ch1_duty', const Color(0xFFFFFF00)));
-    }
-    if (_config?.ch1FreqEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH1 Freq', 'ch1_freq', const Color(0xFFFFFF00)));
-    }
-    if (_config?.ch2VppEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 8));
-      items.add(_legendChip('CH2 Vpp', 'ch2_vpp', const Color(0xFFFF20FF)));
-    }
-    if (_config?.ch2MeanEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH2 Mean', 'ch2_mean', const Color(0xFFFF5252)));
-    }
-    if (_config?.ch2RmsEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH2 Rms', 'ch2_rms', const Color(0xFFFF5252)));
-    }
-    if (_config?.ch2DutyEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH2 Duty', 'ch2_duty', const Color(0xFFFF20FF)));
-    }
-    if (_config?.ch2FreqEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH2 Freq', 'ch2_freq', const Color(0xFFFF20FF)));
-    }
-    if (_config?.ch3VppEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 8));
-      items.add(_legendChip('CH3 Vpp', 'ch3_vpp', const Color(0xFF4FC3F7)));
-    }
-    if (_config?.ch3MeanEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH3 Mean', 'ch3_mean', const Color(0xFF00B0FF)));
-    }
-    if (_config?.ch3RmsEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH3 Rms', 'ch3_rms', const Color(0xFF00B0FF)));
-    }
-    if (_config?.ch3DutyEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH3 Duty', 'ch3_duty', const Color(0xFF4FC3F7)));
-    }
-    if (_config?.ch3FreqEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH3 Freq', 'ch3_freq', const Color(0xFF4FC3F7)));
-    }
-    if (_config?.ch4VppEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 8));
-      items.add(_legendChip('CH4 Vpp', 'ch4_vpp', const Color(0xFF66BB6A)));
-    }
-    if (_config?.ch4MeanEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH4 Mean', 'ch4_mean', const Color(0xFFFFA726)));
-    }
-    if (_config?.ch4RmsEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH4 Rms', 'ch4_rms', const Color(0xFFFFA726)));
-    }
-    if (_config?.ch4DutyEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH4 Duty', 'ch4_duty', const Color(0xFF66BB6A)));
-    }
-    if (_config?.ch4FreqEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 4));
-      items.add(_legendChip('CH4 Freq', 'ch4_freq', const Color(0xFF66BB6A)));
-    }
-    if (_config?.gainDbEnabled == true) {
-      if (items.isNotEmpty) items.add(const SizedBox(width: 8));
-      items.add(_legendChip('Gain (dB)', 'gain_db', _gainColor));
-    }
-    if (items.isEmpty) return const SizedBox.shrink();
+
+    final ch1Chips = <Widget>[
+      if (config.ch1VppEnabled)
+        _legendChip('CH1 Vpp', 'ch1_vpp', const Color(0xFFFFFF00)),
+      if (config.ch1MeanEnabled)
+        _legendChip('CH1 Mean', 'ch1_mean', const Color(0xFF00E676)),
+      if (config.ch1RmsEnabled)
+        _legendChip('CH1 Rms', 'ch1_rms', const Color(0xFF00E676)),
+      if (config.ch1DutyEnabled)
+        _legendChip('CH1 Duty', 'ch1_duty', const Color(0xFFFFFF00)),
+      if (config.ch1FreqEnabled)
+        _legendChip('CH1 Freq', 'ch1_freq', const Color(0xFFFFFF00)),
+    ];
+    final ch2Chips = <Widget>[
+      if (config.ch2VppEnabled)
+        _legendChip('CH2 Vpp', 'ch2_vpp', const Color(0xFFFF20FF)),
+      if (config.ch2MeanEnabled)
+        _legendChip('CH2 Mean', 'ch2_mean', const Color(0xFFFF5252)),
+      if (config.ch2RmsEnabled)
+        _legendChip('CH2 Rms', 'ch2_rms', const Color(0xFFFF5252)),
+      if (config.ch2DutyEnabled)
+        _legendChip('CH2 Duty', 'ch2_duty', const Color(0xFFFF20FF)),
+      if (config.ch2FreqEnabled)
+        _legendChip('CH2 Freq', 'ch2_freq', const Color(0xFFFF20FF)),
+    ];
+    final ch3Chips = <Widget>[
+      if (config.ch3VppEnabled)
+        _legendChip('CH3 Vpp', 'ch3_vpp', const Color(0xFF4FC3F7)),
+      if (config.ch3MeanEnabled)
+        _legendChip('CH3 Mean', 'ch3_mean', const Color(0xFF00B0FF)),
+      if (config.ch3RmsEnabled)
+        _legendChip('CH3 Rms', 'ch3_rms', const Color(0xFF00B0FF)),
+      if (config.ch3DutyEnabled)
+        _legendChip('CH3 Duty', 'ch3_duty', const Color(0xFF4FC3F7)),
+      if (config.ch3FreqEnabled)
+        _legendChip('CH3 Freq', 'ch3_freq', const Color(0xFF4FC3F7)),
+    ];
+    final ch4Chips = <Widget>[
+      if (config.ch4VppEnabled)
+        _legendChip('CH4 Vpp', 'ch4_vpp', const Color(0xFF66BB6A)),
+      if (config.ch4MeanEnabled)
+        _legendChip('CH4 Mean', 'ch4_mean', const Color(0xFFFFA726)),
+      if (config.ch4RmsEnabled)
+        _legendChip('CH4 Rms', 'ch4_rms', const Color(0xFFFFA726)),
+      if (config.ch4DutyEnabled)
+        _legendChip('CH4 Duty', 'ch4_duty', const Color(0xFF66BB6A)),
+      if (config.ch4FreqEnabled)
+        _legendChip('CH4 Freq', 'ch4_freq', const Color(0xFF66BB6A)),
+    ];
+    final gainChips = <Widget>[
+      if (config.gainDbEnabled) _legendChip('Gain (dB)', 'gain_db', _gainColor),
+    ];
+
+    final showCh1Probe =
+        config.ch1VppEnabled ||
+        config.ch1MeanEnabled ||
+        config.ch1RmsEnabled ||
+        config.gainDbEnabled;
+    final showCh2Probe =
+        config.ch2VppEnabled ||
+        config.ch2MeanEnabled ||
+        config.ch2RmsEnabled ||
+        config.gainDbEnabled;
+    final showCh3Probe =
+        config.ch3VppEnabled || config.ch3MeanEnabled || config.ch3RmsEnabled;
+    final showCh4Probe =
+        config.ch4VppEnabled || config.ch4MeanEnabled || config.ch4RmsEnabled;
+
+    addGroup(ch1Chips, [
+      if (showCh1Probe && ch1Chips.isNotEmpty) probeLabel(1),
+    ]);
+    addGroup(ch2Chips, [
+      if (showCh2Probe && ch2Chips.isNotEmpty) probeLabel(2),
+    ]);
+    addGroup(ch3Chips, [
+      if (showCh3Probe && ch3Chips.isNotEmpty) probeLabel(3),
+    ]);
+    addGroup(ch4Chips, [
+      if (showCh4Probe && ch4Chips.isNotEmpty) probeLabel(4),
+    ]);
+    addGroup(gainChips, [
+      if (config.gainDbEnabled && ch1Chips.isEmpty) probeLabel(1),
+      if (config.gainDbEnabled && ch2Chips.isEmpty) probeLabel(2),
+    ]);
+
+    if (groups.isEmpty) return const SizedBox.shrink();
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
-      child: Row(children: items),
+      child: Row(children: groups),
     );
+  }
+
+  /// Format a probe divider value (10.0 → "10x", 1.0 → "1x").
+  String _fmtProbe(double value) {
+    if (value == value.roundToDouble()) return '${value.round()}x';
+    return '${value.toStringAsFixed(1)}x';
   }
 
   Widget _legendChip(String label, String id, Color color) {
@@ -1373,9 +1437,13 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       onToggleAlarms: _toggleAlarmsPanel,
       deltasPanelVisible: _showDeltasPanel,
       onToggleDeltas: _toggleDeltasPanel,
+      // The measurement chips live in the running/stopped status row.
+      measureChips: isExpanded ? _buildMeasurementChips() : null,
     );
+    // The configuration form must stay visible so the recording can be
+    // started; only the running/stopped control box is collapsible.
+    final isCollapsible = _status != DataLoggerStatus.configuring;
     return Container(
-      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: const Color(0xFF0F1D33),
         borderRadius: const BorderRadius.only(
@@ -1384,14 +1452,67 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
         ),
         border: const Border(top: BorderSide(color: Color(0xFF475569))),
       ),
-      child: isExpanded
-          ? Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 700),
-                child: dialog,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (isCollapsible) _buildControlsHeaderBar(),
+          if (!isCollapsible || !_controlsCollapsed)
+            Padding(
+              padding: isCollapsible
+                  ? const EdgeInsets.fromLTRB(16, 0, 16, 16)
+                  : const EdgeInsets.all(16),
+              child: isExpanded
+                  ? Center(
+                      child: ConstrainedBox(
+                        constraints: const BoxConstraints(maxWidth: 700),
+                        child: dialog,
+                      ),
+                    )
+                  : dialog,
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// Slim header bar of the collapsible bottom controls panel.
+  ///
+  /// Collapsing it leaves the recording controls hidden and lets the plot
+  /// fill the remaining panel height.
+  Widget _buildControlsHeaderBar() {
+    return Tooltip(
+      message: _controlsCollapsed ? 'Show controls' : 'Hide controls',
+      child: InkWell(
+        onTap: _toggleControls,
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(12),
+          topRight: Radius.circular(12),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 6, 12, 6),
+          child: Row(
+            children: [
+              const Icon(Icons.tune, size: 14, color: Colors.white54),
+              const SizedBox(width: 6),
+              const Text(
+                'Controls',
+                style: TextStyle(
+                  color: Colors.white54,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 0.4,
+                ),
               ),
-            )
-          : dialog,
+              const Spacer(),
+              Icon(
+                _controlsCollapsed ? Icons.expand_less : Icons.expand_more,
+                size: 18,
+                color: Colors.white54,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }
