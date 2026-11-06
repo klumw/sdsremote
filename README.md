@@ -1,12 +1,10 @@
 # SDS-Remote – Version 0.4.0 available
 
-Version 0.4.0 is now available. This release introduces several new features for waveform analysis and enhanced AI-assisted operation.
+Version 0.4.0 is now available. This release introduces several new features for Time-Domain and Frequency analysis and enhanced AI-assisted operation.
 
-**SDS-Remote** is a remote-control interface and help center for Siglent SDS1000X-E series oscilloscopes. It provides a modern graphical user interface (GUI) for instrument control, waveform acquisition, screen capture, data logging, and interaction through an integrated AI-powered chat interface. SDS-Remote runs on **Linux** and **Windows**.
+**SDS-Remote** is a remote-control interface and help center for Siglent SDS1000X-E series oscilloscopes. It provides a modern graphical user interface for instrument control, waveform acquisition, screen capture, data logging, and interaction through an integrated AI-powered chat interface. SDS-Remote runs on **Linux** and **Windows**.
 
 For a quick overview, watch the [introductory video](https://youtu.be/sbQIYpyg1p4).
-
-> **Note:** This application is not affiliated with Siglent or any other commercial entity.
 
 ---
 
@@ -32,6 +30,8 @@ Acquire and visualise waveform data from your oscilloscope. Use X/Y cursors and 
 ![Waveform analysis](docs/sdsremote_wf.png)
 
 #### Spectrum analysis
+
+Evaluate signal spectra, measure harmonic distortion, detect noise and jitter and check for electromagnetic interference.  
 
 ![Spectrum analysis](docs/sdsremote_sp.png)
 
@@ -67,7 +67,7 @@ You can control a signal generator remotely using its dedicated control panel or
 
 ### Macro recorder
 
-Record, edit, and replay SCPI command sequences to automate repetitive measurement and configuration tasks. The macro recorder supports variables, conditional statements (`if`/`else`), loops (`while`), assertions, and both network (`connect("IP")`) and USB (`connect(usb)`) connections.
+Record, edit, and replay SCPI command sequences to automate repetitive measurement and configuration tasks. The macro recorder supports variables, conditional statements, loops and assertions.
 
 ![Macro recorder](docs/sdsremote_mr.png)
 
@@ -327,7 +327,7 @@ The following model identifiers or model families are reported to work with the 
 
 For the exact model identifiers supported by your provider, refer to the provider's documentation.
 
-> **Warning:** The AI subsystem may produce inaccurate information or incorrect operating instructions. Use AI-generated information at your own risk, and verify any instructions before applying them to your equipment.
+> **Warning:** The AI subsystem may produce inaccurate information or incorrect operating instructions. Use AI-generated information at your own risk, and verify AI generated instructions before applying them to your equipment.
 
 ---
 
@@ -344,3 +344,5 @@ This software is released under the terms and conditions of the [Apache License,
   - **Linux:** `/tmp/sds/logging/sds.log`
   - **Windows:** `%TEMP%\sds\logging\sds.log`
 - Submit bug reports and feature requests through the [SDS-Remote GitHub Issues page](https://github.com/klumw/sdsremote/issues).
+
+> **Note:** This application is not affiliated with Siglent or any other commercial entity.
