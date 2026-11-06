@@ -108,6 +108,28 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
   double _hoverX = 0;
   double _hoverY = 0;
 
+  // Collapsible detail panels; both start hidden and are toggled from the
+  // buttons in the control box.
+  bool _showAlarmsPanel = false;
+  bool _showDeltasPanel = false;
+
+  /// Whether the recording produced an alarm worth showing in the panel.
+  bool get _hasAlarms =>
+      _alarmEvents.isNotEmpty ||
+      (_points.isNotEmpty && _points.last.activeAlarms.isNotEmpty);
+
+  void _toggleAlarmsPanel() {
+    setState(() {
+      _showAlarmsPanel = !_showAlarmsPanel;
+    });
+  }
+
+  void _toggleDeltasPanel() {
+    setState(() {
+      _showDeltasPanel = !_showDeltasPanel;
+    });
+  }
+
   // ---------- Animation for running indicator ----------
   late final AnimationController _pulseController;
 
@@ -295,6 +317,8 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       _points.clear();
       _alarmEvents.clear();
       _elapsedSeconds = 0;
+      _showAlarmsPanel = false;
+      _showDeltasPanel = false;
       _status = DataLoggerStatus.running;
     });
     _pulseController.repeat();
@@ -326,6 +350,8 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       _points.clear();
       _alarmEvents.clear();
       _elapsedSeconds = 0;
+      _showAlarmsPanel = false;
+      _showDeltasPanel = false;
       _status = DataLoggerStatus.configuring;
       // Keep _config as-is so the form shows previously entered values
     });
@@ -340,6 +366,8 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
       _points.clear();
       _alarmEvents.clear();
       _elapsedSeconds = 0;
+      _showAlarmsPanel = false;
+      _showDeltasPanel = false;
       _status = DataLoggerStatus.running;
     });
     _pulseController.repeat();
@@ -512,22 +540,14 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
                       padding: const EdgeInsets.fromLTRB(16, 6, 16, 0),
                       child: _buildLegendToggleRow(),
                     ),
-                  if ((_status == DataLoggerStatus.running ||
-                          _status == DataLoggerStatus.stopped) &&
-                      _points.length > 1)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                      child: _buildStatisticsRow(),
-                    ),
-                  if ((_status == DataLoggerStatus.running ||
-                          _status == DataLoggerStatus.stopped) &&
-                      (_alarmEvents.isNotEmpty ||
-                          (_points.isNotEmpty &&
-                              _points.last.activeAlarms.isNotEmpty)))
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
-                      child: _buildAlarmStatusRow(),
-                    ),
+                  // Collapsible detail panels, hidden by default and opened
+                  // from the Alarms / Deltas buttons in the control box.
+                  if (_showAlarmsPanel &&
+                      (_status == DataLoggerStatus.running ||
+                          _status == DataLoggerStatus.stopped))
+                    _buildAlarmsPanel(),
+                  if (_showDeltasPanel && _status == DataLoggerStatus.stopped)
+                    _buildDeltasPanel(),
                 ],
               ),
             ),
@@ -970,121 +990,287 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     );
   }
 
-  /// Compact per-parameter statistics strip shown above the controls.
-  Widget _buildStatisticsRow() {
+  /// Collapsible panel listing the alarm messages of the current recording.
+  ///
+  /// Newest entry first; the list scrolls when it outgrows the panel.
+  Widget _buildAlarmsPanel() {
+    final active = _points.isNotEmpty
+        ? _points.last.activeAlarms
+        : const <String>{};
+    final events = _alarmEvents;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 6, 8, 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF172A45).withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.redAccent.withValues(alpha: 0.45)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  size: 16,
+                  color: Colors.redAccent,
+                ),
+                const SizedBox(width: 6),
+                const Text(
+                  'Alarm Messages',
+                  style: TextStyle(
+                    color: Colors.redAccent,
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  '${events.length} events',
+                  style: const TextStyle(color: Colors.white54, fontSize: 10),
+                ),
+                const Spacer(),
+                _buildPanelCloseButton(_toggleAlarmsPanel),
+              ],
+            ),
+            if (active.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: [
+                  for (final parameterId in active)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.redAccent.withValues(alpha: 0.15),
+                        borderRadius: BorderRadius.circular(4),
+                        border: Border.all(
+                          color: Colors.redAccent.withValues(alpha: 0.6),
+                        ),
+                      ),
+                      child: Text(
+                        '${dataLoggerParameterLabel(parameterId)} active',
+                        style: const TextStyle(
+                          color: Colors.redAccent,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 4),
+            if (events.isEmpty)
+              const Text(
+                'No alarms during this recording.',
+                style: TextStyle(color: Colors.white54, fontSize: 11),
+              )
+            else
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 140),
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: events.length,
+                  itemBuilder: (context, index) {
+                    // Newest event first.
+                    final event = events[events.length - 1 - index];
+                    return _buildAlarmEventRow(event);
+                  },
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// One alarm message: recording time, parameter, value and breached bound.
+  Widget _buildAlarmEventRow(DataLoggerAlarmEvent event) {
+    final parameter = dataLoggerParameterById(event.parameterId);
+    final unit = parameter?.unit ?? '';
+    final bound = event.direction == DataLoggerAlarmDirection.belowLower
+        ? event.lower
+        : event.upper;
+    final relation = event.direction == DataLoggerAlarmDirection.belowLower
+        ? 'below lower'
+        : 'above upper';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 70,
+            child: Text(
+              't=${_fmtAlarmTime(event.elapsedSeconds)}',
+              style: const TextStyle(color: Colors.white54, fontSize: 10),
+            ),
+          ),
+          const Icon(
+            Icons.warning_amber_rounded,
+            size: 12,
+            color: Colors.redAccent,
+          ),
+          const SizedBox(width: 4),
+          Expanded(
+            child: Text(
+              '${event.parameterLabel} ${_fmtStat(event.value, unit)} '
+              '$relation ${_fmtStat(bound, unit)}',
+              style: TextStyle(
+                color: parameter == null
+                    ? Colors.white70
+                    : _parameterColor(parameter.channel),
+                fontSize: 10,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Collapsible panel with the per-parameter statistics of the recording.
+  ///
+  /// Replaces the former always-visible statistics strip.
+  Widget _buildDeltasPanel() {
     final config = _config;
     if (config == null) return const SizedBox.shrink();
     final statistics = computeDataLoggerStatistics(
       config: config,
       points: _points,
     );
-    if (statistics.isEmpty) return const SizedBox.shrink();
 
-    final items = <Widget>[];
+    final rows = <Widget>[];
     for (final parameter in dataLoggerParameters) {
       final stats = statistics[parameter.id];
       if (stats == null) continue;
-      if (items.isNotEmpty) items.add(const SizedBox(width: 8));
-      final mean = stats.mean;
-      final deviation = stats.standardDeviation;
-      final trend = stats.trendPerMinute;
-      final drift = stats.driftPercent;
-      items.add(
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: const Color(0xFF172A45).withValues(alpha: 0.5),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: const Color(0xFF475569)),
-          ),
-          child: Text(
-            '${parameter.label}: μ ${_fmtStat(mean, stats.unit)}'
-            '${deviation == null ? '' : ' · σ ${_fmtStat(deviation, stats.unit)}'}'
-            '${trend == null ? '' : ' · ${_fmtSignedStat(trend, stats.unit)}/min'}'
-            '${drift == null ? '' : ' · ${drift >= 0 ? '+' : ''}${drift.toStringAsFixed(1)}%'}',
-            style: const TextStyle(color: Colors.white70, fontSize: 10),
-          ),
-        ),
-      );
+      rows.add(_buildDeltaRow(parameter, stats));
     }
-    if (items.isEmpty) return const SizedBox.shrink();
-    return SizedBox(
-      height: 26,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(children: items),
-      ),
-    );
-  }
 
-  /// Active alarms and the most recent alarm events.
-  Widget _buildAlarmStatusRow() {
-    final active = _points.isNotEmpty
-        ? _points.last.activeAlarms
-        : const <String>{};
-    final recent = _alarmEvents.length > 20
-        ? _alarmEvents.sublist(_alarmEvents.length - 20)
-        : _alarmEvents;
-
-    return SizedBox(
-      height: 26,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(12, 6, 8, 10),
+        decoration: BoxDecoration(
+          color: const Color(0xFF172A45).withValues(alpha: 0.6),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.45)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Icon(
-              Icons.warning_amber_rounded,
-              size: 14,
-              color: Colors.redAccent,
-            ),
-            const SizedBox(width: 4),
-            const Text(
-              'Alarms',
-              style: TextStyle(
-                color: Colors.redAccent,
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(width: 8),
-            for (final parameterId in active) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(
-                  color: Colors.redAccent.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(4),
-                  border: Border.all(
-                    color: Colors.redAccent.withValues(alpha: 0.6),
-                  ),
+            Row(
+              children: [
+                const Icon(
+                  Icons.trending_up,
+                  size: 16,
+                  color: Colors.cyanAccent,
                 ),
-                child: Text(
-                  '${dataLoggerParameterLabel(parameterId)} active',
-                  style: const TextStyle(
-                    color: Colors.redAccent,
-                    fontSize: 10,
+                const SizedBox(width: 6),
+                const Text(
+                  'Deltas',
+                  style: TextStyle(
+                    color: Colors.cyanAccent,
+                    fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-              ),
-              const SizedBox(width: 6),
-            ],
-            Text(
-              '${_alarmEvents.length} events',
-              style: const TextStyle(color: Colors.white54, fontSize: 10),
+                const SizedBox(width: 8),
+                const Text(
+                  'Change per parameter',
+                  style: TextStyle(color: Colors.white54, fontSize: 10),
+                ),
+                const Spacer(),
+                _buildPanelCloseButton(_toggleDeltasPanel),
+              ],
             ),
-            for (final event in recent) ...[
-              const SizedBox(width: 6),
-              Text(
-                't=${_fmtAlarmTime(event.elapsedSeconds)} '
-                '${event.parameterLabel} ${_fmtStat(event.value, dataLoggerParameterById(event.parameterId)?.unit ?? '')}',
-                style: const TextStyle(color: Colors.white70, fontSize: 10),
+            const SizedBox(height: 4),
+            if (rows.isEmpty)
+              const Text(
+                'No data recorded.',
+                style: TextStyle(color: Colors.white54, fontSize: 11),
+              )
+            else
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 140),
+                child: ListView(shrinkWrap: true, children: rows),
               ),
-            ],
           ],
         ),
       ),
     );
   }
+
+  /// One parameter row inside the deltas panel.
+  Widget _buildDeltaRow(
+    DataLoggerParameter parameter,
+    ParameterStatistics stats,
+  ) {
+    final mean = stats.mean;
+    final deviation = stats.standardDeviation;
+    final trend = stats.trendPerMinute;
+    final drift = stats.driftPercent;
+    final values =
+        'μ ${_fmtStat(mean, stats.unit)}'
+        '${deviation == null ? '' : ' · σ ${_fmtStat(deviation, stats.unit)}'}'
+        '${trend == null ? '' : ' · ${_fmtSignedStat(trend, stats.unit)}/min'}'
+        '${drift == null ? '' : ' · ${drift >= 0 ? '+' : ''}${drift.toStringAsFixed(1)}%'}';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 2),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 92,
+            child: Text(
+              parameter.label,
+              style: TextStyle(
+                color: _parameterColor(parameter.channel),
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              values,
+              style: const TextStyle(color: Colors.white70, fontSize: 10),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Small close button shared by the collapsible panels.
+  Widget _buildPanelCloseButton(VoidCallback onPressed) {
+    return IconButton(
+      onPressed: onPressed,
+      icon: const Icon(Icons.close, size: 16, color: Colors.white54),
+      padding: EdgeInsets.zero,
+      constraints: const BoxConstraints(),
+      tooltip: 'Hide panel',
+    );
+  }
+
+  /// Channel color used by the delta rows, matching the plot lines.
+  Color _parameterColor(String channel) => switch (channel) {
+    'ch1' => const Color(0xFFFFFF00),
+    'ch2' => const Color(0xFFFF20FF),
+    'ch3' => const Color(0xFF4FC3F7),
+    'ch4' => const Color(0xFF66BB6A),
+    _ => _gainColor,
+  };
 
   String _fmtStat(double? value, String unit) {
     if (value == null || !value.isFinite) return '—';
@@ -1170,6 +1356,24 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
     final isExpanded =
         _status == DataLoggerStatus.running ||
         _status == DataLoggerStatus.stopped;
+    final dialog = DataLoggerDialog(
+      currentConfig: _config,
+      status: _status,
+      channelCount: widget.channelCount,
+      pointCount: _points.length,
+      totalPoints: _config?.totalPoints ?? 0,
+      elapsedSeconds: _elapsedSeconds,
+      onStart: _onStart,
+      onStop: _onStop,
+      onNew: _onNew,
+      onRestart: _onRestart,
+      onConfigChanged: _onConfigChanged,
+      hasAlarms: _hasAlarms,
+      alarmsPanelVisible: _showAlarmsPanel,
+      onToggleAlarms: _toggleAlarmsPanel,
+      deltasPanelVisible: _showDeltasPanel,
+      onToggleDeltas: _toggleDeltasPanel,
+    );
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1184,34 +1388,10 @@ class _DataLoggerPanelState extends State<DataLoggerPanel>
           ? Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 700),
-                child: DataLoggerDialog(
-                  currentConfig: _config,
-                  status: _status,
-                  channelCount: widget.channelCount,
-                  pointCount: _points.length,
-                  totalPoints: _config?.totalPoints ?? 0,
-                  elapsedSeconds: _elapsedSeconds,
-                  onStart: _onStart,
-                  onStop: _onStop,
-                  onNew: _onNew,
-                  onRestart: _onRestart,
-                  onConfigChanged: _onConfigChanged,
-                ),
+                child: dialog,
               ),
             )
-          : DataLoggerDialog(
-              currentConfig: _config,
-              status: _status,
-              channelCount: widget.channelCount,
-              pointCount: _points.length,
-              totalPoints: _config?.totalPoints ?? 0,
-              elapsedSeconds: _elapsedSeconds,
-              onStart: _onStart,
-              onStop: _onStop,
-              onNew: _onNew,
-              onRestart: _onRestart,
-              onConfigChanged: _onConfigChanged,
-            ),
+          : dialog,
     );
   }
 }

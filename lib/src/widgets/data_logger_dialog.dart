@@ -37,6 +37,23 @@ class DataLoggerDialog extends StatefulWidget {
   final VoidCallback? onRestart;
   final ValueChanged<DataLoggerConfig>? onConfigChanged;
 
+  /// Whether at least one alarm occurred during the recording. Shows the
+  /// red Alarms button next to the Stop/New button when true.
+  final bool hasAlarms;
+
+  /// Whether the alarm message panel is currently visible.
+  final bool alarmsPanelVisible;
+
+  /// Toggles the alarm message panel.
+  final VoidCallback? onToggleAlarms;
+
+  /// Whether the delta values panel is currently visible.
+  final bool deltasPanelVisible;
+
+  /// Toggles the delta values panel. The Deltas button is shown below the
+  /// "Recording Complete" headline once the recording has stopped.
+  final VoidCallback? onToggleDeltas;
+
   const DataLoggerDialog({
     super.key,
     this.currentConfig,
@@ -50,6 +67,11 @@ class DataLoggerDialog extends StatefulWidget {
     this.onNew,
     this.onRestart,
     this.onConfigChanged,
+    this.hasAlarms = false,
+    this.alarmsPanelVisible = false,
+    this.onToggleAlarms,
+    this.deltasPanelVisible = false,
+    this.onToggleDeltas,
   });
 
   @override
@@ -101,6 +123,10 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
 
   /// Alarm rules edited in the configuration form, keyed by parameter id.
   Map<String, DataLoggerAlarmRule> _alarmRules = const {};
+
+  /// Whether the alarm rule list is expanded; it starts collapsed so the
+  /// configuration form stays compact.
+  bool _alarmRulesExpanded = false;
 
   @override
   void initState() {
@@ -867,30 +893,69 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
           if (widget.currentConfig != null)
             _buildProbeLabelRow(widget.currentConfig!),
           const SizedBox(height: 8),
-          Align(
-            child: OutlinedButton.icon(
-              onPressed: widget.onStop,
-              icon: const Icon(Icons.stop, size: 18, color: Colors.redAccent),
-              label: const Text(
-                'Stop',
-                style: TextStyle(
-                  color: Colors.redAccent,
-                  fontWeight: FontWeight.bold,
+          Row(
+            children: [
+              // Alarms sits on the left; the trailing spacer keeps Stop
+              // horizontally centered.
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: widget.hasAlarms
+                      ? _buildAlarmsButton()
+                      : const SizedBox.shrink(),
                 ),
               ),
-              style: OutlinedButton.styleFrom(
-                side: const BorderSide(color: Colors.redAccent),
-                padding: const EdgeInsets.symmetric(
-                  vertical: 10,
-                  horizontal: 30,
+              OutlinedButton.icon(
+                onPressed: widget.onStop,
+                icon: const Icon(Icons.stop, size: 18, color: Colors.redAccent),
+                label: const Text(
+                  'Stop',
+                  style: TextStyle(
+                    color: Colors.redAccent,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: Colors.redAccent),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 10,
+                    horizontal: 30,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
                 ),
               ),
-            ),
+              const Expanded(child: SizedBox.shrink()),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  /// Red-text button that opens the alarm message panel.
+  ///
+  /// Only rendered while the recording has produced at least one alarm.
+  Widget _buildAlarmsButton() {
+    return OutlinedButton.icon(
+      onPressed: widget.onToggleAlarms,
+      icon: const Icon(
+        Icons.warning_amber_rounded,
+        size: 16,
+        color: Colors.redAccent,
+      ),
+      label: const Text(
+        'Alarms',
+        style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold),
+      ),
+      style: OutlinedButton.styleFrom(
+        backgroundColor: widget.alarmsPanelVisible
+            ? Colors.redAccent.withValues(alpha: 0.15)
+            : null,
+        side: const BorderSide(color: Colors.redAccent),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 18),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
@@ -931,25 +996,74 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
           if (widget.currentConfig != null)
             _buildProbeLabelRow(widget.currentConfig!),
           const SizedBox(height: 12),
-          Align(
-            child: OutlinedButton.icon(
-              onPressed: widget.onNew,
-              icon: const Icon(Icons.add_circle_outline, size: 18),
-              label: const Text('New'),
-              style: OutlinedButton.styleFrom(
-                foregroundColor: Colors.cyanAccent,
-                side: const BorderSide(color: Colors.cyanAccent),
-                padding: const EdgeInsets.symmetric(
-                  vertical: 10,
-                  horizontal: 30,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(8),
+          Row(
+            // Without alarms New sits level with Deltas; with alarms New
+            // aligns with the bottom (Alarms) row of the left column.
+            crossAxisAlignment: widget.hasAlarms
+                ? CrossAxisAlignment.end
+                : CrossAxisAlignment.center,
+            children: [
+              // Left column: Deltas, plus the Alarms button directly below it
+              // when an alarm occurred. The trailing spacer keeps New
+              // horizontally centered.
+              Expanded(
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildDeltasButton(),
+                      if (widget.hasAlarms) ...[
+                        const SizedBox(height: 6),
+                        _buildAlarmsButton(),
+                      ],
+                    ],
+                  ),
                 ),
               ),
-            ),
+              OutlinedButton.icon(
+                onPressed: widget.onNew,
+                icon: const Icon(Icons.add_circle_outline, size: 18),
+                label: const Text('New'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: Colors.cyanAccent,
+                  side: const BorderSide(color: Colors.cyanAccent),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 10,
+                    horizontal: 30,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+              const Expanded(child: SizedBox.shrink()),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  /// Button that opens the delta values panel, shown on a completed
+  /// recording directly below the "Recording Complete" headline.
+  Widget _buildDeltasButton() {
+    return OutlinedButton.icon(
+      onPressed: widget.onToggleDeltas,
+      icon: const Icon(Icons.trending_up, size: 16),
+      label: const Text(
+        'Deltas',
+        style: TextStyle(fontWeight: FontWeight.bold),
+      ),
+      style: OutlinedButton.styleFrom(
+        foregroundColor: Colors.cyanAccent,
+        backgroundColor: widget.deltasPanelVisible
+            ? Colors.cyanAccent.withValues(alpha: 0.12)
+            : null,
+        side: const BorderSide(color: Colors.cyanAccent),
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 20),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       ),
     );
   }
@@ -1087,8 +1201,9 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
 
   /// Alarm-rule editor for the currently selected parameters.
   ///
-  /// Bounds are optional; an empty field removes that bound. Values equal to a
-  /// bound are still considered inside the allowed range.
+  /// The rule list starts collapsed and only opens when the "Alarm Rules"
+  /// button is activated. Bounds are optional; an empty field removes that
+  /// bound. Values equal to a bound are still considered inside the range.
   Widget _buildAlarmSection() {
     final config = _buildConfig();
     final selected = dataLoggerParameters
@@ -1096,18 +1211,74 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
         .toList();
     if (selected.isEmpty) return const SizedBox.shrink();
 
+    final configuredRules = selected
+        .where((parameter) => _alarmRules[parameter.id]?.isActive ?? false)
+        .length;
+    final accent = Colors.orangeAccent;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _buildSectionTitle('Alarm Rules'),
-        const SizedBox(height: 2),
-        const Text(
-          'Optional thresholds per selected parameter. An empty field means '
-          'no bound; values equal to a bound are still inside the range.',
-          style: TextStyle(color: Colors.white38, fontSize: 10),
+        OutlinedButton.icon(
+          onPressed: () {
+            setState(() {
+              _alarmRulesExpanded = !_alarmRulesExpanded;
+            });
+          },
+          icon: Icon(
+            _alarmRulesExpanded ? Icons.expand_less : Icons.expand_more,
+            size: 18,
+            color: accent,
+          ),
+          label: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                'Alarm Rules',
+                style: TextStyle(
+                  color: Colors.white70,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              if (configuredRules > 0) ...[
+                const SizedBox(width: 8),
+                Text(
+                  '$configuredRules active',
+                  style: TextStyle(
+                    color: accent,
+                    fontSize: 11,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ],
+          ),
+          style: OutlinedButton.styleFrom(
+            backgroundColor: _alarmRulesExpanded
+                ? accent.withValues(alpha: 0.1)
+                : const Color(0xFF172A45).withValues(alpha: 0.3),
+            side: BorderSide(
+              color: _alarmRulesExpanded
+                  ? accent.withValues(alpha: 0.6)
+                  : _axisColor,
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(8),
+            ),
+          ),
         ),
-        const SizedBox(height: 6),
-        for (final parameter in selected) _buildAlarmRuleRow(parameter),
+        if (_alarmRulesExpanded) ...[
+          const SizedBox(height: 4),
+          const Text(
+            'Optional thresholds per selected parameter. An empty field means '
+            'no bound; values equal to a bound are still inside the range.',
+            style: TextStyle(color: Colors.white38, fontSize: 10),
+          ),
+          const SizedBox(height: 6),
+          for (final parameter in selected) _buildAlarmRuleRow(parameter),
+        ],
       ],
     );
   }
