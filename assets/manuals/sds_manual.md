@@ -719,7 +719,7 @@ The bottom control bar adapts to the current state:
 |:------|:-------------------|
 | **Configuring** | **Start** — Begins recording with the current configuration |
 | **Running** | **Stop** — Stops recording immediately and finalizes data |
-| **Stopped** | **New** — Returns to the configuration dialog (clears data). **Restart** — Starts a new recording with the same configuration (clears previous data, keeps settings). |
+| **Stopped** | **New** — Returns to the configuration dialog (clears data). &#10;**Restart** — Starts a new recording with the same configuration (clears previous data, keeps settings). |
 
 Clicking **Close** (X) in the header returns to the main view. The Data Logger state (plot data, configuration, hidden lines) is preserved so you can close and reopen the panel without losing results.
 
@@ -1240,7 +1240,7 @@ The waveform display supports cursor measurements, zoom and pan controls, [refer
 
 **Waveform transfer limit:** The application transfers a sparsely sampled record, not the full acquisition memory. The maximum number of transferred points per channel depends on the transport and operating system:
 
-| Transport | Maximum transferred points per channel |
+| Transport | Maximum transferred &#10;points per channel |
 |:----------|--------------------------------------:|
 | VXI-11 (network) | 250,000 |
 | USB (USBTMC) on Linux | 100,000 |
@@ -1420,7 +1420,7 @@ The waveform view uses different representations of one acquisition:
 | Stage | What it contains | Used by |
 |:------|:-----------------|:--------|
 | Acquisition memory | The oscilloscope's full record | Not transferred completely |
-| Transferred record | Every n-th acquisition sample, selected by the `WFSU SP` sparsing factor, up to the transport cap (see [8.1 Acquiring Waveforms](#81-acquiring-waveforms)) | Automatic measurements, spectrum, conversion to display data |
+| Transferred record | Every n-th acquisition sample, selected by the `WFSU SP` sparsing factor, &#10;up to the transport cap (see [8.1 Acquiring Waveforms](#81-acquiring-waveforms)) | Automatic measurements, spectrum, conversion to display data |
 | Display data | The first 8 transferred samples are discarded, then every second remaining sample is kept | Waveform chart, cursor measurements, CSV and PWL/WAV/VCD exports |
 | CSV file | The display data with its real sample timestamps, normalized so the first row starts at 0 | Reloading as a reference waveform, spreadsheet analysis |
 
@@ -1518,13 +1518,13 @@ If the acquisition contains fewer than 20 usable samples, or every measured peri
 
 | Control | Meaning |
 |:--------|:--------|
-| **Channel** | **All channels** overlays every acquired trace; selecting CH1–CH4 shows only that channel. The selection also determines whose peak markers, metric cards and peak table are shown. |
-| **Window** | Window function applied before the FFT: Rectangular, Hann (default), Hamming, Blackman-Harris or Flat-top. The window fixes the trade-off between frequency resolution and leakage; selecting Rectangular shows a leakage warning because it is only suitable for coherently sampled signals. |
+| **Channel** | **All channels** overlays every acquired trace; selecting CH1–CH4 shows only that channel. &#10;The selection also determines whose peak markers, metric cards and peak table are shown. |
+| **Window** | Window function applied before the FFT: Rectangular, Hann (default), Hamming, Blackman-Harris or Flat-top.  &#10;The window fixes the trade-off between frequency resolution and leakage;  &#10;selecting Rectangular shows a leakage warning because it is only suitable for coherently sampled signals. |
 | **FFT size** | `Auto` or an explicit upper bound (4096 to 1,048,576 points). The actual size is always the largest power of two that fits the available samples. |
 | **Unit** | Level unit of the chart and peaks: **dBFS** (dB relative to the channel full scale derived from V/div), **dBV** or **dBm** into 50 Ω. |
 | **Peak markers** | Number of automatic peak markers (3, 5 or 10). Markers are labeled 1…n; marker 1 is the fundamental. |
 | **Logarithmic** | Switches the frequency axis between linear and logarithmic. In logarithmic mode the DC bin is omitted. |
-| **Zoom** | Horizontal frequency zoom: **−** and **+** change the zoom factor, the center value shows the current factor (1.0x … 1000x) and the reset button returns to the full frequency range. |
+| **Zoom** | Horizontal frequency zoom: **−** and **+** change the zoom factor, &#10;the center value shows the current factor (1.0x … 1000x) and the reset button returns to the full frequency range. |
 
 #### Horizontal Zoom and Pan
 
@@ -1899,7 +1899,7 @@ The Bode panel is not available when no generator is configured or no generator 
 | Vin channel | Oscilloscope channel connected to the DUT input (default CH1). |
 | Vout channel | Oscilloscope channel connected to the DUT output (default CH2). |
 | Measure phase | Enables phase measurement in addition to gain. |
-| Outputs off after sweep | When enabled (default), both generator outputs are switched off after completion, failure or cancellation. Turn it off to leave the generator output running at the last sweep frequency. |
+| Outputs off after sweep | When enabled (default), both generator outputs are switched off after completion, failure or cancellation. &#10;Turn it off to leave the generator output running at the last sweep frequency. |
 
 The form shows the active model limits below the waveform field, for example:
 
@@ -1989,7 +1989,7 @@ The top keypad row controls the operating modes:
 | `SHIFT` | Applies the amber secondary function printed above the keys |
 | `INV` | Applies the inverse or hyperbolic alternative; mutually exclusive with SHIFT |
 | `DEG` / `RAD` / `GRAD` | Cycles the angle unit for plain numbers: degrees → radians → gradians |
-| `AUTO` / `ENG` / `FIXED` / `SCI` | Cycles the number format: Auto → Engineering → Fixed-point → Scientific. Fixed-point uses the decimal places from the calculator settings |
+| `AUTO` / `ENG` / `FIXED` / `SCI` | Cycles the number format: Auto → Engineering → Fixed-point → Scientific. &#10;Fixed-point uses the decimal places from the calculator settings |
 | `DEC` / `HEX` / `OCT` / `BIN` | Cycles the integer display base; the extra row provides `0x`, `0b`, `0o` and `A`–`F` |
 | `CLR` | Clears the expression and the result |
 
@@ -2276,7 +2276,7 @@ Right-clicking a marker opens these actions:
 |:-------|:-------|
 | **Copy** | Copies the result |
 | **Insert result** | Inserts the result value and unit into the expression field; the expression is not evaluated until you press `=` |
-| **Use in program** | Inserts the last code block from the answer into the Programs editor without running it. Existing code requires confirmation before replacement |
+| **Use in program** | Inserts the last code block from the answer into the Programs editor without running it. &#10;Existing code requires confirmation before replacement |
 | **Use as variable** | Opens the normal **Store variable** dialog with the result prefilled |
 
 If the answer has no code block, **Use in program** inserts the cited calculation instead.
@@ -2488,7 +2488,7 @@ This is a SCPI emulation subset, not a complete implementation:
 |:---------------|:--------------|:--------|
 | `SOUR<n>:FUNC <shape>` | Sets the waveform; accepted shapes in [15.5 Waveform Names](#155-waveform-names). `ARB` is rejected with -113. | `SOUR1:FUNC SIN` |
 | `SOUR<n>:FUNC?` | Returns the waveform mnemonic. | `SIN` |
-| `SOUR<n>:FREQ <value>[unit]` | Sets the frequency; no unit means Hz. The value must be positive and within the model and waveform limit (see [10.2 Signal Generators and Model Limits](#102-signal-generators-and-model-limits)). | `SOUR1:FREQ 1KHZ` |
+| `SOUR<n>:FREQ <value>[unit]` | Sets the frequency, no unit means Hz. The value must be positive and within the model and waveform limit&#10;(see [10.2 Signal Generators and Model Limits](#102-signal-generators-and-model-limits)). | `SOUR1:FREQ 1KHZ` |
 | `SOUR<n>:FREQ?` | Returns the frequency in Hz with two decimals. | `1000.00` |
 | `SOUR<n>:VOLT <value>[unit]` | Sets the amplitude in Vpp; no unit means V. | `SOUR1:VOLT 3.3VPP` |
 | `SOUR<n>:VOLT?` | Returns the amplitude in Vpp with three decimals. | `3.300` |
