@@ -302,8 +302,7 @@ double mathNthRoot(double a, double n) {
     return 0;
   }
   if (a < 0) {
-    final isOddIntegerDegree =
-        n == n.roundToDouble() && n.round().isOdd;
+    final isOddIntegerDegree = n == n.roundToDouble() && n.round().isOdd;
     if (!isOddIntegerDegree) {
       throw MathException(
         'the n-th root of a negative value ($a) has no real result',
@@ -514,10 +513,7 @@ double mathFactorial(double a) {
 
 /// `v_max - v_min`. Always non-negative.
 double peakToPeak(List<double> values) {
-  return _finite(
-    mathMaxOf(values) - mathMinOf(values),
-    'peak-to-peak voltage',
-  );
+  return _finite(mathMaxOf(values) - mathMinOf(values), 'peak-to-peak voltage');
 }
 
 /// `v_max - reference`.

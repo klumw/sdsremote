@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../../devices/device_agent_context.dart';
+import '../tools/acquire_waveform_tool.dart';
 import '../tools/calculator_tool.dart';
 import '../tools/date_time_tool.dart';
 import '../tools/log_tool.dart';
@@ -76,11 +77,20 @@ class InstrumentAgent with MaxToolCallsHandler {
   /// Combines the user's keyword with an autonomous audio grant.
   final _GeneratorAccessGate _generatorGate;
 
+  /// Carries the most recent automatic waveform refresh to the caller.
+  final _WaveformUpdateSink _waveformUpdates;
+
   DeviceAgentContext? _deviceContext;
 
   /// Maximum number of tool calls allowed per user input.
   @override
   final int maxToolCalls;
+
+  /// Result of the automatic waveform refresh after a successful scope write.
+  ///
+  /// `null` when the last request did not change a scope setting or no
+  /// acquisition provider is available.
+  Map<String, dynamic>? get lastWaveformUpdate => _waveformUpdates.value;
 
   /// Creates an [InstrumentAgent] configured for the specified model.
   ///
@@ -113,6 +123,7 @@ class InstrumentAgent with MaxToolCallsHandler {
     String? vxi11Host,
     List<Tool>? tools,
     ScpiCommandCallback? onCommandSent,
+    WaveformAcquisitionProvider? acquireWaveform,
     LogReader? readLog,
     DeviceAgentContext? deviceContext,
     DeviceCommandGate? commandGate,
@@ -129,6 +140,7 @@ class InstrumentAgent with MaxToolCallsHandler {
         readSignalGeneratorStatus != null &&
         applySignalGenerator != null &&
         controlSignalGenerator != null;
+    final waveformUpdates = _WaveformUpdateSink();
     final prompt =
         systemPrompt ??
         buildInstrumentAgentSystemPrompt(
@@ -142,6 +154,21 @@ class InstrumentAgent with MaxToolCallsHandler {
           agentName: 'InstrumentAgent',
           onCommandSent: onCommandSent,
           commandGate: gate,
+          afterWrite: acquireWaveform == null
+              ? null
+              : (command) async {
+                  try {
+                    final update = await acquireWaveform(delaySeconds: 0);
+                    waveformUpdates.value = update;
+                    return update;
+                  } on Object catch (error) {
+                    final update = <String, dynamic>{
+                      'error': 'The waveform refresh failed ($error).',
+                    };
+                    waveformUpdates.value = update;
+                    return update;
+                  }
+                },
         ),
       // Resolves a semantic command against the active device profile. It
       // never sends anything; the returned string goes through the
@@ -204,6 +231,7 @@ class InstrumentAgent with MaxToolCallsHandler {
       ownsSystemPrompt: systemPrompt == null,
       hasSignalGeneratorTools: hasSignalGeneratorTools,
       generatorGate: generatorGate,
+      waveformUpdates: waveformUpdates,
       maxToolCalls: maxToolCalls,
     );
   }
@@ -217,12 +245,14 @@ class InstrumentAgent with MaxToolCallsHandler {
     required bool ownsSystemPrompt,
     required bool hasSignalGeneratorTools,
     required _GeneratorAccessGate generatorGate,
+    required _WaveformUpdateSink waveformUpdates,
     required this.maxToolCalls,
   }) : _deviceContext = deviceContext,
        _commandGate = commandGate,
        _ownsSystemPrompt = ownsSystemPrompt,
        _hasSignalGeneratorTools = hasSignalGeneratorTools,
        _generatorGate = generatorGate,
+       _waveformUpdates = waveformUpdates,
        _tools = List.unmodifiable(agentTools),
        _agent = Agent(
          model,
@@ -300,6 +330,7 @@ class InstrumentAgent with MaxToolCallsHandler {
   /// further tool calls.
   Stream<String> sendStream(String prompt) async* {
     final chunks = <String>[];
+    _waveformUpdates.value = null;
 
     await for (final chunk in _agent.sendStream(prompt, history: _history)) {
       // Yield text output. Tool calls and results are handled internally
@@ -339,6 +370,11 @@ class InstrumentAgent with MaxToolCallsHandler {
       _history.removeRange(1, _history.length);
     }
   }
+}
+
+/// Mutable holder shared between the VXI-11 write hook and the agent.
+class _WaveformUpdateSink {
+  Map<String, dynamic>? value;
 }
 
 /// Combines the user's signal-generator keyword with an autonomous grant.

@@ -5,6 +5,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import '../core/logger.dart';
 import '../devices/device_agent_context.dart';
 import 'agents/control_panel_agent.dart';
+import 'tools/acquire_waveform_tool.dart';
 import 'tools/macro_tools.dart';
 import 'tools/vxi11_tool.dart';
 import 'tools/waveform_summary_tool.dart';
@@ -42,6 +43,7 @@ class ControlPanelAiService {
     DeviceAgentContext? instrumentDeviceContext,
     MacroOscilloscopeStatusReader? readOscilloscopeStatus,
     ScpiCommandCallback? onCommandSent,
+    WaveformAcquisitionProvider? acquireWaveform,
     WaveformSummaryProvider? readWaveformSummary,
   }) {
     if (_isDisposed) return;
@@ -68,6 +70,7 @@ class ControlPanelAiService {
         instrumentDeviceContext: instrumentDeviceContext,
         readOscilloscopeStatus: readOscilloscopeStatus,
         onCommandSent: onCommandSent,
+        acquireWaveform: acquireWaveform,
         readWaveformSummary: readWaveformSummary,
       );
       logger.debug(

@@ -4,6 +4,7 @@ import 'package:logging/logging.dart';
 import 'package:openai_dart/openai_dart.dart'
     hide ChatMessage, FinishReason, Tool;
 
+import '../../deepseek_thinking_client.dart';
 import '../../retry_http_client.dart';
 import 'openai_chat_options.dart';
 import 'openai_message_mappers.dart';
@@ -31,9 +32,11 @@ class OpenAIChatModel extends ChatModel<OpenAIChatOptions> {
            defaultHeaders: headers ?? const {},
            retryPolicy: const RetryPolicy(maxRetries: 0),
          ),
-         httpClient: client != null
-             ? RetryHttpClient(inner: client)
-             : RetryHttpClient(inner: http.Client()),
+         httpClient: RetryHttpClient(
+           inner: _isDeepSeek(baseUrl)
+               ? DeepSeekThinkingClient(inner: client ?? http.Client())
+               : client ?? http.Client(),
+         ),
        ),
        _isTogetherAI =
            baseUrl?.toString().toLowerCase().contains('together.xyz') ?? false,
@@ -58,6 +61,11 @@ class OpenAIChatModel extends ChatModel<OpenAIChatOptions> {
 
   final OpenAIClient _client;
   final bool _isTogetherAI;
+
+  /// Whether [baseUrl] points at DeepSeek, whose V4 models enable thinking by
+  /// default and need an explicit `thinking` object to disable it.
+  static bool _isDeepSeek(Uri? baseUrl) =>
+      baseUrl?.host.toLowerCase().contains('deepseek.com') ?? false;
 
   /// Optional agent name for logging context (e.g., "FrontendAgent",
   /// "ChatAgent", "QueryAgent"). Set by [Agent.sendStream] after creation.

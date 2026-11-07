@@ -4,6 +4,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../../core/logger.dart';
 import '../../devices/device_agent_context.dart';
+import '../tools/acquire_waveform_tool.dart';
 import '../tools/scpi_agent_tool.dart';
 import '../tools/search_agent_tool.dart';
 import '../tools/signal_generator_tool.dart';
@@ -120,6 +121,7 @@ class FrontendAgent {
     String? instrumentModel,
     List<Tool>? tools,
     ScpiCommandCallback? onCommandSent,
+    WaveformAcquisitionProvider? acquireWaveform,
     SignalGeneratorStatusProvider? readSignalGeneratorStatus,
     SignalGeneratorApplyProvider? applySignalGenerator,
     SignalGeneratorActionProvider? controlSignalGenerator,
@@ -135,6 +137,7 @@ class FrontendAgent {
             vxi11Host: vxi11Host,
             maxToolCalls: instrumentToolCalls,
             onCommandSent: onCommandSent,
+            acquireWaveform: acquireWaveform,
             deviceContext: instrumentDeviceContext,
             readSignalGeneratorStatus: readSignalGeneratorStatus,
             applySignalGenerator: applySignalGenerator,

@@ -8,6 +8,7 @@ import '../voice/voice_input_binding.dart';
 import '../voice/voice_input_service.dart';
 import 'chat_checklist_prompt.dart';
 import 'chat_choice_prompt.dart';
+import 'measurement_form_prompt.dart';
 import 'component_name_prompt.dart';
 import 'osci_chat_window.dart';
 
@@ -195,10 +196,17 @@ class _WaveformAiPanelState extends State<WaveformAiPanel> {
   /// radio-button dialog. Only one prompt is active at a time in the tool
   /// flow; the order below is the priority if that ever changes.
   Widget? _buildInputBanner() {
+    if (_chat.measurementForm.isVisible) {
+      return MeasurementFormPrompt(controller: _chat.measurementForm);
+    }
     if (_chat.choicePrompt.isVisible) {
       return ChatChoicePrompt(
         request: _chat.choicePrompt.request!,
         onSelect: _chat.choicePrompt.selectAndSubmit,
+        onTextChanged: _chat.choicePrompt.setText,
+        onSubmit: _chat.choicePrompt.submit,
+        canSubmit: _chat.choicePrompt.canSubmit,
+        selectedValue: _chat.choicePrompt.selectedValue,
       );
     }
     if (_chat.checklistPrompt.isVisible) {

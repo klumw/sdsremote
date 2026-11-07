@@ -591,6 +591,9 @@ class _OsciHomePageState extends State<OsciHomePage>
     );
     _controlPanelChatController.attachCommandListener(_onControlPanelAiCommand);
     _controlPanelChatController.attachWaveformSummary(_waveformSummaryForAi);
+    _controlPanelChatController.attachWaveformAcquisition(
+      ({int delaySeconds = 0}) => _acquireWaveformForAi(),
+    );
     _controlPanelChatController.attachScreenDumpRefresh(
       _refreshScreenDumpForAi,
     );
@@ -5999,9 +6002,31 @@ class _OsciHomePageState extends State<OsciHomePage>
         'max_duty_percent': info.limits.maxDutyPercent,
         'min_phase_deg': info.limits.minPhaseDegrees,
         'max_phase_deg': info.limits.maxPhaseDegrees,
+        'amplitude_vpp_by_frequency_band': _signalGeneratorAmplitudeBands(info),
       };
     }
     return status;
+  }
+
+  /// Amplitude limits of the generator by frequency band, for the planner.
+  ///
+  /// The last band omits `max_frequency_hz`, meaning unlimited. The values are
+  /// JSON-safe (no infinity) and mirror `Jds6600DeviceInfo.maxAmplitudeVpp`.
+  List<Map<String, Object?>> _signalGeneratorAmplitudeBands(
+    Jds6600DeviceInfo info,
+  ) {
+    if (info.family == SiggenFamily.fy6900) {
+      return const <Map<String, Object?>>[
+        {'max_frequency_hz': 5e6, 'max_amplitude_vpp': 24.0},
+        {'max_frequency_hz': 10e6, 'max_amplitude_vpp': 20.0},
+        {'max_frequency_hz': 20e6, 'max_amplitude_vpp': 10.0},
+        {'max_amplitude_vpp': 5.0},
+      ];
+    }
+    return const <Map<String, Object?>>[
+      {'max_frequency_hz': 10e6, 'max_amplitude_vpp': 20.0},
+      {'max_amplitude_vpp': 10.0},
+    ];
   }
 
   /// Applies a Waveform Agent signal-generator change request.
@@ -7094,6 +7119,7 @@ class _OsciHomePageState extends State<OsciHomePage>
       // timer reports the name via updateInstrumentModel() once it is known.
       instrumentModel: _deviceModel,
       instrumentDeviceContext: _sdsDeviceContext,
+      acquireWaveform: ({int delaySeconds = 0}) => _acquireWaveformForAi(),
       readSignalGeneratorStatus: _readSignalGeneratorStatusForAi,
       applySignalGenerator: _applySignalGeneratorForAi,
       controlSignalGenerator: _controlSignalGeneratorForAi,

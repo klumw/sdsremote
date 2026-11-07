@@ -187,40 +187,40 @@ Tool<Map<String, dynamic>> createLogicLevelReferenceTool({
               'unavailable.',
         };
       }
-      final selectors = [
-        standard,
-        esp32Variant,
-        stm32Series,
-        raspberryPiMcu,
-        gowinFpga,
-        xilinxFpga,
-        latticeFpga,
-        component,
-      ].whereType<String>().toList();
-      final result = selectors.length > 1
-          ? <String, dynamic>{
-              'error':
-                  'Choose only one of standard, esp32Variant, stm32Series, '
-                  'raspberryPiMcu, gowinFpga, xilinxFpga, latticeFpga or '
-                  'component.',
-            }
-          : standard != null
-          ? _selectedStandard(currentCatalog, standard, supplyVolts)
-          : esp32Variant != null
-          ? _selectedEsp32(currentCatalog, esp32Variant, supplyVolts)
-          : stm32Series != null
-          ? _selectedStm32(currentCatalog, stm32Series, supplyVolts)
-          : raspberryPiMcu != null
-          ? _selectedRaspberryPi(currentCatalog, raspberryPiMcu, supplyVolts)
-          : gowinFpga != null
-          ? _selectedGowin(currentCatalog, gowinFpga, supplyVolts)
-          : xilinxFpga != null
-          ? _selectedXilinx(currentCatalog, xilinxFpga, supplyVolts)
-          : latticeFpga != null
-          ? _selectedLattice(currentCatalog, latticeFpga, supplyVolts)
-          : component != null
-          ? _selectedComponent(currentCatalog, component)
-          : _fullTable(currentCatalog);
+      // Models frequently fill every selector field when the schema lists
+      // them all. Resolve the most specific selector that yields a reference
+      // instead of rejecting the call, so one harmless schema fill-in does
+      // not cost a full model turn.
+      final candidates = <Map<String, dynamic> Function()>[
+        if (component != null)
+          () => _selectedComponent(currentCatalog, component),
+        if (esp32Variant != null)
+          () => _selectedEsp32(currentCatalog, esp32Variant, supplyVolts),
+        if (stm32Series != null)
+          () => _selectedStm32(currentCatalog, stm32Series, supplyVolts),
+        if (raspberryPiMcu != null)
+          () =>
+              _selectedRaspberryPi(currentCatalog, raspberryPiMcu, supplyVolts),
+        if (gowinFpga != null)
+          () => _selectedGowin(currentCatalog, gowinFpga, supplyVolts),
+        if (xilinxFpga != null)
+          () => _selectedXilinx(currentCatalog, xilinxFpga, supplyVolts),
+        if (latticeFpga != null)
+          () => _selectedLattice(currentCatalog, latticeFpga, supplyVolts),
+        if (standard != null)
+          () => _selectedStandard(currentCatalog, standard, supplyVolts),
+      ];
+      Map<String, dynamic>? selected;
+      Map<String, dynamic>? firstError;
+      for (final candidate in candidates) {
+        final candidateResult = candidate();
+        if (candidateResult['error'] == null) {
+          selected = candidateResult;
+          break;
+        }
+        firstError ??= candidateResult;
+      }
+      final result = selected ?? firstError ?? _fullTable(currentCatalog);
       logger.logToolCall(input: args, output: result);
       return result;
     },

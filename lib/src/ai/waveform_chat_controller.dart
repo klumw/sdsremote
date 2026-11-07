@@ -11,6 +11,8 @@ import 'chat_checklist.dart';
 import 'chat_choice.dart';
 import 'component_name_prompt.dart';
 import 'input_history.dart';
+import 'measurement_form.dart';
+import 'planner/models/input_form.dart';
 import 'specification_upload.dart';
 import 'tools/audio/audio_tools.dart';
 import 'tools/digital_measurement_tools.dart';
@@ -43,6 +45,7 @@ class WaveformChatController extends ChangeNotifier {
     _choicePrompt.addListener(notifyListeners);
     _checklistPrompt.addListener(notifyListeners);
     _componentNamePrompt.addListener(notifyListeners);
+    _measurementForm.addListener(notifyListeners);
   }
 
   final WaveformAiService Function() _serviceFactory;
@@ -70,6 +73,13 @@ class WaveformChatController extends ChangeNotifier {
 
   /// The pending checkbox prompt, if any.
   ChatChecklistPromptController get checklistPrompt => _checklistPrompt;
+
+  /// Bundled planner form shown above the input line.
+  final MeasurementFormController _measurementForm =
+      MeasurementFormController();
+
+  /// The pending measurement form, if any.
+  MeasurementFormController get measurementForm => _measurementForm;
 
   WaveformAiService? _service;
   AiSettings? _settings;
@@ -242,6 +252,8 @@ class WaveformChatController extends ChangeNotifier {
       audioAnalysisContext: _audioAnalysisContext,
       audioSweep: _audioSweep,
       digitalMeasurement: _digitalMeasurement,
+      requestInputForm: _requestMeasurementForm,
+      requestUserChoice: requestUserChoice,
     );
     _service = service;
     notifyListeners();
@@ -418,6 +430,8 @@ class WaveformChatController extends ChangeNotifier {
     _choicePrompt.dismissPending();
     _checklistPrompt.clearSession();
     _componentNamePrompt.clearSession();
+    _measurementForm.dismissPending();
+    _measurementForm.clearSession();
     if (_isChatting) {
       _isChatting = false;
       _generation++;
@@ -484,6 +498,20 @@ class WaveformChatController extends ChangeNotifier {
         _signalGeneratorIntent = true;
       }
       return result;
+    } finally {
+      _service?.resumeResponseTimeout();
+    }
+  }
+
+  /// Shows the planner's bundled input form and waits for the user.
+  ///
+  /// Called by the `present_input_form` tool. The form is rendered by the chat
+  /// panel through [measurementForm]; the response timeout is suspended while
+  /// the user is filling it.
+  Future<MeasurementFormResult> _requestMeasurementForm(InputForm form) async {
+    _service?.suspendResponseTimeout();
+    try {
+      return await _measurementForm.requestForm(form);
     } finally {
       _service?.resumeResponseTimeout();
     }
@@ -624,6 +652,7 @@ class WaveformChatController extends ChangeNotifier {
     _choicePrompt.dismissPending();
     _checklistPrompt.dismissPending();
     _componentNamePrompt.dismissPending();
+    _measurementForm.dismissPending();
     _cancelRequested = true;
     final subscription = _subscription;
     _subscription = null;
@@ -644,6 +673,8 @@ class WaveformChatController extends ChangeNotifier {
     _checklistPrompt.dispose();
     _componentNamePrompt.removeListener(notifyListeners);
     _componentNamePrompt.dispose();
+    _measurementForm.removeListener(notifyListeners);
+    _measurementForm.dispose();
     _service?.dispose();
     _service = null;
     super.dispose();

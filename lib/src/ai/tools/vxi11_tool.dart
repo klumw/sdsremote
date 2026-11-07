@@ -9,6 +9,16 @@ import '../../instrument/dart_vxi11.dart';
 /// (`"write"` or `"query"`).
 typedef ScpiCommandCallback = void Function(String command, String operation);
 
+/// Refreshes the waveform acquisition after a successful scope write.
+///
+/// Returns a JSON-safe update that is attached to the tool result under
+/// `waveformUpdate`. The write itself stays successful when the refresh fails.
+typedef ScopeWriteHandler =
+    Future<Map<String, dynamic>> Function(String command);
+
+/// Builds the VXI-11 transport. Overridable in tests.
+typedef Vxi11InstrumentBuilder = Vxi11Instrument Function(String host);
+
 /// A static callback that is invoked for every SCPI command sent through
 /// the vxi11 tool. Set this from the macro recorder to capture AI-driven
 /// SCPI commands into the recorded macro.
@@ -29,6 +39,8 @@ Tool<Map<String, dynamic>> createVxi11Tool({
   String agentName = 'unknown',
   ScpiCommandCallback? onCommandSent,
   DeviceCommandGate? commandGate,
+  ScopeWriteHandler? afterWrite,
+  Vxi11InstrumentBuilder? instrumentBuilder,
 }) {
   return Tool<Map<String, dynamic>>(
     name: 'vxi11',
@@ -38,7 +50,10 @@ Tool<Map<String, dynamic>> createVxi11Tool({
         'or "query" to send a query and get a response. '
         'Every command is validated against the active device profile before '
         'it is sent; a rejected command returns success=false and an '
-        'error_code. '
+        'error_code. After a successful write (a scope setting change) the '
+        'tool automatically refreshes the waveform acquisition and returns '
+        'the result as waveformUpdate; a failed refresh does not undo the '
+        'write. '
         'The configured device IP is $host.',
     inputSchema: Schema.fromMap({
       'type': 'object',
@@ -96,10 +111,9 @@ Tool<Map<String, dynamic>> createVxi11Tool({
       // refresh) without disturbing the global recorder callback.
       onCommandSent?.call(command, operation);
 
-      final instrument = Vxi11Instrument(
-        effectiveHost,
-        sourceLabel: 'AI-tool($agentName)',
-      );
+      final instrument =
+          instrumentBuilder?.call(effectiveHost) ??
+          Vxi11Instrument(effectiveHost, sourceLabel: 'AI-tool($agentName)');
 
       try {
         await instrument.open(timeoutSeconds: 10.0);
@@ -135,6 +149,25 @@ Tool<Map<String, dynamic>> createVxi11Tool({
             throw ArgumentError('Unknown operation: $operation');
         }
 
+        // A successful write is an active scope setting change. Refresh the
+        // waveform acquisition so every agent works with the new state. A
+        // failed refresh must not turn the successful write into an error.
+        if (operation == 'write' &&
+            afterWrite != null &&
+            _changesScopeState(command)) {
+          try {
+            final update = await afterWrite(command);
+            result = <String, dynamic>{...result, 'waveformUpdate': update};
+          } on Object catch (error) {
+            result = <String, dynamic>{
+              ...result,
+              'waveformUpdate': <String, dynamic>{
+                'error': 'The waveform refresh failed ($error).',
+              },
+            };
+          }
+        }
+
         logger.logToolCall(input: args, output: result);
         return result;
       } catch (e) {
@@ -158,4 +191,14 @@ Tool<Map<String, dynamic>> createVxi11Tool({
       }
     },
   );
+}
+
+/// Whether [command] changes a scope setting or state.
+///
+/// Status and synchronization commands do not change a setting, so they need
+/// no waveform refresh.
+bool _changesScopeState(String command) {
+  final normalized = command.trim().toUpperCase();
+  if (normalized.isEmpty) return false;
+  return normalized != '*CLS' && normalized != '*OPC' && normalized != '*WAI';
 }

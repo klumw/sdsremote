@@ -60,8 +60,7 @@ class SpecAnalystAgent {
                   .map((row) => row.reference)
                   .toSet()
                   .toList(),
-              if (analysis.warnings.isNotEmpty)
-                'warnings': analysis.warnings,
+              if (analysis.warnings.isNotEmpty) 'warnings': analysis.warnings,
             };
           },
         ),
@@ -186,9 +185,10 @@ Schema _submissionSchema() => Schema.fromMap({
           },
           'parameter': {
             'type': 'string',
-            'enum': [for (final parameter in SpecParameter.values) parameter.id],
-            'description':
-                'Canonical parameter id. Never invent an id.',
+            'enum': [
+              for (final parameter in SpecParameter.values) parameter.id,
+            ],
+            'description': 'Canonical parameter id. Never invent an id.',
           },
           'symbol': {
             'type': 'string',
@@ -204,9 +204,7 @@ Schema _submissionSchema() => Schema.fromMap({
             'value; do not convert units.',
           ),
           'typ': _numberSchema('Typical value in the unit given in `unit`.'),
-          'max': _numberSchema(
-            'Maximum value in the unit given in `unit`.',
-          ),
+          'max': _numberSchema('Maximum value in the unit given in `unit`.'),
           'unit': {
             'type': 'string',
             'description':

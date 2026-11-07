@@ -192,7 +192,10 @@ class AppLogger {
     required Map<String, dynamic> input,
     required Map<String, dynamic> output,
   }) {
-    return _writeQueue = _writeQueue.then((_) async {
+    // Queue the write behind the shared log queue but complete immediately:
+    // tool handlers must not block on a large DEBUG backlog just to record
+    // their call. The queue keeps the write order.
+    _writeQueue = _writeQueue.then((_) async {
       if (!_shouldLog(Level.FINE)) return;
 
       try {
@@ -222,6 +225,7 @@ class AppLogger {
         stderr.writeln('Failed to write tool call log: $e');
       }
     });
+    return Future<void>.value();
   }
 
   Future<void> _rotateLogs(File currentFile) async {

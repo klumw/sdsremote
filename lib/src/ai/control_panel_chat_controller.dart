@@ -8,6 +8,7 @@ import 'ai_settings.dart';
 import 'capture_command.dart';
 import 'control_panel_ai_service.dart';
 import 'input_history.dart';
+import 'tools/acquire_waveform_tool.dart';
 import 'tools/macro_tools.dart';
 import 'tools/vxi11_tool.dart';
 import 'tools/waveform_summary_tool.dart';
@@ -46,6 +47,7 @@ class ControlPanelChatController extends ChangeNotifier {
   DeviceAgentContext? _instrumentDeviceContext;
   MacroOscilloscopeStatusReader? _readOscilloscopeStatus;
   ScpiCommandCallback? _onCommandSent;
+  WaveformAcquisitionProvider? _acquireWaveform;
   WaveformSummaryProvider? _readWaveformSummary;
   ScreenDumpRefreshCallback? _refreshScreenDump;
 
@@ -127,6 +129,15 @@ class ControlPanelChatController extends ChangeNotifier {
     _refreshScreenDump = refreshScreenDump;
   }
 
+  /// Registers the waveform acquisition used after a successful scope write.
+  ///
+  /// The callback is read dynamically, so it may be registered before or after
+  /// [configure]. Every scope change through the Control Panel agent refreshes
+  /// the Acquire Waveform view without a separate request.
+  void attachWaveformAcquisition(WaveformAcquisitionProvider acquire) {
+    _acquireWaveform = acquire;
+  }
+
   /// Cancels an in-flight response without changing the transcript.
   ///
   /// Used when the agent is reconfigured or the controller is disposed. User
@@ -200,6 +211,7 @@ class ControlPanelChatController extends ChangeNotifier {
       onCommandSent: (command, operation) {
         _onCommandSent?.call(command, operation);
       },
+      acquireWaveform: _acquireWaveform,
       readWaveformSummary: () => _readWaveformSummary?.call(),
     );
     _service = service;

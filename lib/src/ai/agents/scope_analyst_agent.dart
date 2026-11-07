@@ -11,12 +11,14 @@ import '../tools/date_time_tool.dart';
 import '../tools/log_tool.dart';
 import '../tools/math_tool.dart';
 import '../tools/spectrum_summary_tool.dart';
+import '../tools/scpi_agent_tool.dart';
 import '../tools/waveform_analysis_tools.dart';
 import '../tools/waveform_fault_profile_tool.dart';
 import '../tools/waveform_fault_tool.dart';
 import '../tools/waveform_history_tool.dart';
 import '../tools/waveform_report_tool.dart';
 import '../tools/waveform_summary_tool.dart';
+import 'instrument_agent.dart';
 import 'systemprompts.dart';
 
 /// Scope measurement specialist and sub-agent of the Waveform Agent.
@@ -28,9 +30,9 @@ import 'systemprompts.dart';
 /// `submit_scope_analysis`. The Waveform Agent presents that result to the user.
 ///
 /// The agent keeps no conversation between calls: every request starts with a
-/// fresh system prompt. It does not access the oscilloscope through SCPI and
-/// cannot change instrument settings; live queries and instrument changes stay
-/// with the Waveform Agent's InstrumentAgent.
+/// fresh system prompt. With an injected [InstrumentAgent] it can run live
+/// SCPI queries and, after the Waveform Agent grants autonomous permission,
+/// change scope settings as needed for the measurement.
 class ScopeAnalystAgent {
   static const String defaultModel = 'deepseek:deepseek-v4-flash';
 
@@ -42,6 +44,7 @@ class ScopeAnalystAgent {
   final String _model;
   final int _maxToolCalls;
   final WaveformSummaryProvider? _readWaveformSummary;
+  final bool _instrumentAvailable;
   late final List<Tool> _tools;
   Map<String, dynamic>? _lastSubmission;
   Map<String, dynamic>? _lastReportResult;
@@ -68,6 +71,7 @@ class ScopeAnalystAgent {
     WaveformSummaryProvider? readWaveformSummary,
     SpectrumSummaryProvider? readSpectrumSummary,
     WaveformAcquisitionProvider? acquireWaveform,
+    InstrumentAgent? instrumentAgent,
     WaveformHistoryProvider? readWaveformHistory,
     WaveformClassificationProvider? classifyWaveform,
     WaveformReferenceComparisonProvider? compareWaveformToReferences,
@@ -81,7 +85,8 @@ class ScopeAnalystAgent {
     int maxToolCalls = defaultMaxToolCalls,
   }) : _model = model,
        _maxToolCalls = maxToolCalls,
-       _readWaveformSummary = readWaveformSummary {
+       _readWaveformSummary = readWaveformSummary,
+       _instrumentAvailable = instrumentAgent != null {
     final reportTool = createWaveformReportTool(
       createReport: createWaveformReport,
       agentName: 'ScopeAnalystAgent',
@@ -99,6 +104,10 @@ class ScopeAnalystAgent {
         acquire: acquireWaveform,
         agentName: 'ScopeAnalystAgent',
       ),
+      if (instrumentAgent != null)
+        _guardedTool(
+          createScpiAgentTool(instrumentAgent, agentName: 'ScopeAnalystAgent'),
+        ),
       createWaveformHistoryTool(
         readHistory: readWaveformHistory,
         agentName: 'ScopeAnalystAgent',
@@ -180,12 +189,14 @@ class ScopeAnalystAgent {
         return const {
           'read_waveform_summary',
           'acquire_waveform',
+          'scpi_instrument_agent',
           'submit_scope_analysis',
         };
       case 'spectrum':
         return const {
           'read_waveform_summary',
           'read_spectrum_summary',
+          'scpi_instrument_agent',
           'math_tool',
           'calculator_tool',
           'submit_scope_analysis',
@@ -193,6 +204,7 @@ class ScopeAnalystAgent {
       case 'signal_analysis':
         return const {
           'read_waveform_summary',
+          'scpi_instrument_agent',
           'classify_waveform',
           'compare_waveform_to_references',
           'compare_waveforms',
@@ -206,6 +218,7 @@ class ScopeAnalystAgent {
         return const {
           'read_waveform_summary',
           'read_spectrum_summary',
+          'scpi_instrument_agent',
           'analyze_waveform_faults',
           'manage_fault_analysis_profile',
           'math_tool',
@@ -248,6 +261,7 @@ class ScopeAnalystAgent {
   Future<Map<String, dynamic>> analyze({
     required String request,
     bool reportConfirmed = false,
+    bool autonomous = false,
     String? channel,
     String? focus,
     CancellationToken? cancelToken,
@@ -278,6 +292,12 @@ class ScopeAnalystAgent {
       ..writeln(
         'FOCUS: ${requestedFocus == null || requestedFocus.isEmpty ? 'full' : requestedFocus}',
       )
+      ..writeln(
+        'AUTONOMOUS_PERMISSION: ${autonomous ? 'granted' : 'not granted'}',
+      )
+      ..writeln(
+        'INSTRUMENT_AGENT_AVAILABLE: ${_instrumentAvailable ? 'true' : 'false'}',
+      )
       ..writeln()
       ..writeln('CURRENT ACQUISITION CONTEXT (read before this request):')
       ..writeln(_contextSummary())
@@ -306,7 +326,7 @@ class ScopeAnalystAgent {
       'Scope analysis started '
       '(channel=${requestedChannel ?? 'auto'}, '
       'focus=${requestedFocus ?? 'full'}, reportConfirmed=$reportConfirmed, '
-      'chars=${trimmed.length})',
+      'autonomous=$autonomous, chars=${trimmed.length})',
     );
 
     final agent = _buildAgent(requestedFocus);
@@ -515,9 +535,11 @@ class ScopeAnalystAgent {
           'asks for one value, do not add other measurements or device '
           'parameters. Do not dump raw tool output. Keep every string short '
           'and free of quotation marks, apostrophes and line breaks so the '
-          'JSON encoding stays valid. If the request cannot be completed, '
-          'set `error` or `needsInput` and explain the limitation. The '
-          'summary must be in the language of the request.',
+          'JSON encoding stays valid. If a scope setting change is needed '
+          'without autonomous permission, set `requestedAction` with the exact '
+          'change instead of performing it. If the request cannot be '
+          'completed, set `error` or `needsInput` and explain the limitation. '
+          'The summary must be in the language of the request.',
       inputSchema: _submissionSchema(),
       onCall: (args) async {
         _lastSubmission = Map<String, dynamic>.from(args);
@@ -611,6 +633,26 @@ Schema _submissionSchema() => Schema.fromMap({
       'items': {'type': 'string'},
       'description':
           'Scope measurement and analysis tools used for this result.',
+    },
+    'requestedAction': {
+      'type': 'object',
+      'description':
+          'A scope change or extra step that requires the Waveform Agent or '
+          'the user. Use it when autonomous permission is not granted or the '
+          'action needs a decision.',
+      'properties': {
+        'type': {
+          'type': 'string',
+          'enum': ['instrument_change', 'acquire', 'user_input'],
+        },
+        'description': {'type': 'string'},
+        'channel': {'type': 'string'},
+        'parameter': {'type': 'string'},
+        'value': {'type': 'string'},
+        'unit': {'type': 'string'},
+        'reason': {'type': 'string'},
+      },
+      'required': ['type', 'description'],
     },
     'needsInput': {
       'type': 'string',

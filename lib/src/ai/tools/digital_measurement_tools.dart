@@ -308,7 +308,9 @@ Tool<Map<String, dynamic>> _measurementTool({
           result = <String, dynamic>{'error': '$name failed: $error'};
         }
       }
-      await logger.logToolCall(input: args, output: result);
+      // Logging is best-effort and must not delay the measurement result:
+      // the pretty-printed JSON can queue behind a large DEBUG backlog.
+      logger.logToolCall(input: args, output: result);
       return result;
     },
   );

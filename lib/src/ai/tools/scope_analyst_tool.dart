@@ -14,6 +14,7 @@ typedef ScopeAnalysisProvider =
     Future<Map<String, dynamic>> Function({
       required String request,
       bool reportConfirmed,
+      bool autonomous,
       String? channel,
       String? focus,
     });
@@ -40,6 +41,10 @@ Tool<Map<String, dynamic>> createScopeAnalysisAgentTool({
         'the fault-analysis profile store, the PDF measurement report, and '
         'derived calculations with the math and calculator tools. The agent '
         'also has the current date/time tool and can read the application log. '
+        'With `autonomous: true` the agent may also change scope settings '
+        'through the InstrumentAgent; set it only after the user explicitly '
+        'approved the exact change. Without it the agent is read-only and '
+        'returns a `requestedAction` when a change is needed. '
         'The result is JSON and contains `summary`, `measurements` '
         '(each with `name`, `formattedValue`, optional `value`, `unit`, '
         '`channel`, `method` and `notes`), `warnings`, `limitations`, '
@@ -68,6 +73,15 @@ Tool<Map<String, dynamic>> createScopeAnalysisAgentTool({
               'report should be created for the current acquisition. When '
               'false or omitted, the ScopeAnalystAgent must not create a '
               'report.',
+        },
+        'autonomous': {
+          'type': 'boolean',
+          'description':
+              'True only after the user explicitly approved the exact scope '
+              'setting change. It allows the ScopeAnalystAgent to apply the '
+              'change through its InstrumentAgent and continue the '
+              'measurement. When false or omitted, the agent is read-only and '
+              'returns a requestedAction for a needed change.',
         },
         'channel': {
           'type': 'string',
@@ -105,6 +119,7 @@ Tool<Map<String, dynamic>> createScopeAnalysisAgentTool({
       );
       final request = _stringArg(args, 'request');
       final reportConfirmed = args['reportConfirmed'] == true;
+      final autonomous = args['autonomous'] == true;
       final channel = _stringArg(args, 'channel');
       final focus = _stringArg(args, 'focus');
       final Map<String, dynamic> result;
@@ -127,6 +142,7 @@ Tool<Map<String, dynamic>> createScopeAnalysisAgentTool({
           result = await provider(
             request: request,
             reportConfirmed: reportConfirmed,
+            autonomous: autonomous,
             channel: channel,
             focus: focus,
           );
@@ -138,6 +154,7 @@ Tool<Map<String, dynamic>> createScopeAnalysisAgentTool({
         input: {
           'requestCharacters': request?.length ?? 0,
           'reportConfirmed': reportConfirmed,
+          'autonomous': autonomous,
           'channel': ?channel,
           'focus': ?focus,
         },
@@ -145,6 +162,8 @@ Tool<Map<String, dynamic>> createScopeAnalysisAgentTool({
           if (result['ok'] != null) 'ok': result['ok'],
           if (result['error'] != null) 'error': result['error'],
           if (result['needsInput'] != null) 'needsInput': result['needsInput'],
+          if (result['requestedAction'] != null)
+            'requestedAction': result['requestedAction'],
           if (result['measurements'] is List)
             'measurementCount': (result['measurements'] as List).length,
           if (result['report'] != null) 'report': result['report'],

@@ -360,11 +360,13 @@ class DigitalAgent {
       inputSchema: tool.inputSchema,
       onCall: (args) async {
         if (_analysisCancelled) return _cancelledToolResult();
-        final result = await tool.onCall(args);
-        if (result is Map<String, dynamic>) {
-          _partialResults.add({'tool': tool.name, 'result': result});
-        }
-        return result;
+        return _timedCall(tool.name, () async {
+          final result = await tool.onCall(args);
+          if (result is Map<String, dynamic>) {
+            _partialResults.add({'tool': tool.name, 'result': result});
+          }
+          return result;
+        });
       },
     );
   }
@@ -377,9 +379,54 @@ class DigitalAgent {
       inputSchema: tool.inputSchema,
       onCall: (args) async {
         if (_analysisCancelled) return _cancelledToolResult();
-        return tool.onCall(args);
+        return _timedCall(tool.name, () async => tool.onCall(args));
       },
     );
+  }
+
+  /// Runs one tool call and logs its wall-clock duration at INFO level.
+  ///
+  /// The detailed tool-call log ([AppLogger.logToolCall]) is written at DEBUG,
+  /// so the default log level hides it. This line keeps the per-tool cost
+  /// visible in `sds.log` without a debug run, and its timestamp separates
+  /// tool time from the model time between the calls.
+  Future<T> _timedCall<T>(String toolName, Future<T> Function() call) async {
+    final stopwatch = Stopwatch()..start();
+    var threw = false;
+    Object? outcome;
+    try {
+      final result = await call();
+      outcome = result;
+      return result;
+    } on Object {
+      threw = true;
+      rethrow;
+    } finally {
+      stopwatch.stop();
+      final status = threw ? 'exception' : _toolStatus(outcome);
+      AppLogger(agentName: 'DigitalAgent', toolName: toolName).log(
+        'Tool call finished in ${stopwatch.elapsedMilliseconds} ms ($status)',
+      );
+    }
+  }
+
+  /// Short status marker for the INFO timing line.
+  ///
+  /// Error texts are truncated because a failed nested agent can return a long
+  /// explanation; the full output remains in the DEBUG tool-call log.
+  String _toolStatus(Object? result) {
+    if (result is Map) {
+      if (result['cancelled'] == true) return 'cancelled';
+      final error = result['error'];
+      if (error != null) {
+        final text = error.toString();
+        final shortened = text.length > 120
+            ? '${text.substring(0, 120)}…'
+            : text;
+        return 'error: $shortened';
+      }
+    }
+    return 'ok';
   }
 
   Map<String, dynamic> _cancelledToolResult() => <String, dynamic>{
@@ -421,7 +468,8 @@ Schema _submissionSchema() => Schema.fromMap({
       'type': 'string',
       'description':
           'Concise result summary in the language of the request. Lead with '
-          'the measured result; do not repeat the full tool output.',
+          'the measured result; do not repeat the full tool output. At most '
+          'three sentences.',
     },
     'measurements': {
       'type': 'array',
@@ -456,7 +504,9 @@ Schema _submissionSchema() => Schema.fromMap({
           },
           'notes': {
             'type': 'string',
-            'description': 'Short caveat or measurement limitation.',
+            'description':
+                'Short caveat or measurement limitation (at most 120 '
+                'characters).',
           },
         },
         'required': ['name', 'value'],
@@ -465,14 +515,15 @@ Schema _submissionSchema() => Schema.fromMap({
     'warnings': {
       'type': 'array',
       'items': {'type': 'string'},
-      'description': 'Measurement warnings and limitations.',
+      'description':
+          'Measurement warnings and limitations. One sentence per entry.',
     },
     'limitations': {
       'type': 'array',
       'items': {'type': 'string'},
       'description':
           'Known limits such as sample rate, bandwidth, record length, 8-bit '
-          'ADC or probe loading.',
+          'ADC or probe loading. One sentence per entry.',
     },
     'toolsUsed': {
       'type': 'array',
@@ -484,7 +535,7 @@ Schema _submissionSchema() => Schema.fromMap({
       'description':
           'A change or extra step that requires the Waveform Agent or user. '
           'Use it when autonomous permission is not granted or the action '
-          'needs a decision.',
+          'needs a decision. Omit it when no action is required.',
       'properties': {
         'type': {
           'type': 'string',

@@ -6,7 +6,10 @@ import '../core/logger.dart';
 import '../devices/device_agent_context.dart';
 import 'agents/waveform_agent.dart';
 import 'cancellation.dart';
+import 'measurement_form.dart';
+import 'planner/planner_agent.dart';
 import 'tools/acquire_waveform_tool.dart';
+import 'tools/chat_choice_tool.dart';
 import 'tools/audio/audio_tools.dart';
 import 'tools/digital_measurement_tools.dart';
 import 'tools/signal_generator_tool.dart';
@@ -68,6 +71,9 @@ class WaveformAiService {
     AudioAnalysisContextProvider? audioAnalysisContext,
     AudioSweepProvider? audioSweep,
     DigitalMeasurementProvider? digitalMeasurement,
+    MeasurementFormProvider? requestInputForm,
+    ChatChoiceProvider? requestUserChoice,
+    PlannerModelRunner? plannerModelRunner,
     int maxToolCalls = WaveformAgent.defaultMaxToolCalls,
   }) {
     if (_isDisposed) return;
@@ -100,6 +106,9 @@ class WaveformAiService {
         audioAnalysisContext: audioAnalysisContext,
         audioSweep: audioSweep,
         digitalMeasurement: digitalMeasurement,
+        requestInputForm: requestInputForm,
+        requestUserChoice: requestUserChoice,
+        plannerModelRunner: plannerModelRunner,
         suspendResponseTimeout: suspendResponseTimeout,
         resumeResponseTimeout: resumeResponseTimeout,
         maxToolCalls: maxToolCalls,

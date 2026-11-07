@@ -16,10 +16,23 @@ import '../chat_choice.dart';
 typedef ChatChoiceProvider =
     Future<ChatChoiceResult> Function(ChatChoiceRequest request);
 
+/// Handles free text the user entered in a choice prompt.
+///
+/// [args] are the tool arguments, so a host can read context such as a plan
+/// reference. The returned map becomes the tool result.
+typedef ChatChoiceCorrectionHandler =
+    Future<Map<String, dynamic>> Function(
+      String correction,
+      Map<String, dynamic> args,
+    );
+
 /// Registers `request_user_choice` for a chat agent.
 Tool<Map<String, dynamic>> createChatChoiceTool({
   ChatChoiceProvider? requestChoice,
+  ChatChoiceCorrectionHandler? onCorrection,
   String agentName = 'unknown',
+  void Function()? onLongRunningStart,
+  void Function()? onLongRunningEnd,
 }) {
   final provider = requestChoice;
   return Tool<Map<String, dynamic>>(
@@ -30,12 +43,17 @@ Tool<Map<String, dynamic>> createChatChoiceTool({
         'is a small set of options — yes/no, a channel, an option, a '
         'confirmation, a choice between approaches — instead of asking that '
         'question as plain chat text. This also applies to choices relayed '
-        'from sub-agent results. Pass a stable `id` when one option grants '
-        'the answer for the rest of the session; mark that option with '
-        '`remember_for_session: true` so later calls with the same id return '
-        'it immediately without showing the prompt. Returns `selected` with '
-        'the chosen value and label, or `cancelled` when the user dismisses '
-        'the prompt. Never invent an answer; use only the returned value.',
+        'from sub-agent results. Set `allow_text: true` to add a free-text '
+        'field for corrections or answers outside the options; translate '
+        '`text_label`, `text_hint` and `text_submit_label` for the user. For '
+        'a plan approval also pass `plan_ref`; a correction entered there is '
+        'applied by the application before the plan starts. Pass a stable '
+        '`id` when one option grants the answer for the rest of the session; '
+        'mark that option with `remember_for_session: true` so later calls '
+        'with the same id return it immediately without showing the prompt. '
+        'Returns `selected` with the chosen value and label, `correction` '
+        'with the free text, or `cancelled` when the user dismisses the '
+        'prompt. Never invent an answer; use only the returned value.',
     inputSchema: Schema.fromMap({
       'type': 'object',
       'properties': <String, dynamic>{
@@ -55,6 +73,38 @@ Tool<Map<String, dynamic>> createChatChoiceTool({
           'description':
               'Whether the user may dismiss the prompt without answering. '
               'Defaults to true.',
+        },
+        'allow_text': {
+          'type': 'boolean',
+          'description':
+              'Whether to show a free-text field in addition to the options. '
+              'Use it for corrections so the user can change a value before '
+              'confirming. Text takes precedence over a selected option.',
+        },
+        'text_label': {
+          'type': 'string',
+          'description':
+              'Label of the free-text field, translated into the user\'s '
+              'language.',
+        },
+        'text_hint': {
+          'type': 'string',
+          'description':
+              'Placeholder of the free-text field, translated into the '
+              'user\'s language.',
+        },
+        'text_submit_label': {
+          'type': 'string',
+          'description':
+              'Label of the button that submits the free text, translated '
+              'into the user\'s language.',
+        },
+        'plan_ref': {
+          'type': 'string',
+          'description':
+              'Plan reference when this question approves or confirms a '
+              'stored plan. Enables the application to apply a correction '
+              'from the free-text field to that plan.',
         },
         'options': {
           'type': 'array',
@@ -157,6 +207,10 @@ Tool<Map<String, dynamic>> createChatChoiceTool({
         question: question.trim(),
         options: options,
         allowCancel: args['allow_cancel'] != false,
+        allowText: args['allow_text'] == true,
+        textLabel: _optionalText(args['text_label']),
+        textHint: _optionalText(args['text_hint']),
+        textSubmitLabel: _optionalText(args['text_submit_label']),
       );
 
       logger.log('User choice requested: ${request.id ?? request.question}');
@@ -171,6 +225,28 @@ Tool<Map<String, dynamic>> createChatChoiceTool({
           output: {'cancelled': true},
         );
         return output;
+      }
+
+      final correction = result.text?.trim();
+      if (correction != null && correction.isNotEmpty) {
+        onLongRunningStart?.call();
+        final Map<String, dynamic> handled;
+        try {
+          handled = onCorrection == null
+              ? <String, dynamic>{'correction': correction}
+              : await onCorrection(correction, args);
+        } finally {
+          onLongRunningEnd?.call();
+        }
+        await logger.logToolCall(
+          input: {'id': request.id, 'planRef': args['plan_ref']},
+          output: {
+            'correction': true,
+            if (handled['status'] != null) 'status': handled['status'],
+            if (handled['error'] != null) 'error': handled['error'],
+          },
+        );
+        return handled;
       }
 
       final selectedOption = result.value == null
@@ -188,4 +264,10 @@ Tool<Map<String, dynamic>> createChatChoiceTool({
       return output;
     },
   );
+}
+
+String? _optionalText(Object? value) {
+  if (value is! String) return null;
+  final trimmed = value.trim();
+  return trimmed.isEmpty ? null : trimmed;
 }

@@ -5,6 +5,7 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 import '../core/logger.dart';
 import '../devices/device_agent_context.dart';
 import 'agents/frontend_agent.dart';
+import 'tools/acquire_waveform_tool.dart';
 import 'tools/signal_generator_tool.dart';
 
 /// Service that wraps a [FrontendAgent] instance and provides a streaming
@@ -57,6 +58,7 @@ class AiChatService {
     DeviceAgentContext? instrumentDeviceContext,
     int? instrumentToolCalls,
     int? searchToolCalls,
+    WaveformAcquisitionProvider? acquireWaveform,
     SignalGeneratorStatusProvider? readSignalGeneratorStatus,
     SignalGeneratorApplyProvider? applySignalGenerator,
     SignalGeneratorActionProvider? controlSignalGenerator,
@@ -91,6 +93,7 @@ class AiChatService {
             instrumentToolCalls ?? FrontendAgent.defaultInstrumentToolCalls,
         searchToolCalls:
             searchToolCalls ?? FrontendAgent.defaultSearchToolCalls,
+        acquireWaveform: acquireWaveform,
         readSignalGeneratorStatus: readSignalGeneratorStatus,
         applySignalGenerator: applySignalGenerator,
         controlSignalGenerator: controlSignalGenerator,

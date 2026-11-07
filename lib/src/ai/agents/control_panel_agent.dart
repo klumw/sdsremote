@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../../devices/device_agent_context.dart';
+import '../tools/acquire_waveform_tool.dart';
 import '../tools/date_time_tool.dart';
 import '../tools/macro_tools.dart';
 import '../tools/vxi11_tool.dart';
@@ -44,6 +45,7 @@ class ControlPanelAgent {
     DeviceAgentContext? instrumentDeviceContext,
     MacroOscilloscopeStatusReader? readOscilloscopeStatus,
     ScpiCommandCallback? onCommandSent,
+    WaveformAcquisitionProvider? acquireWaveform,
     WaveformSummaryProvider? readWaveformSummary,
     int instrumentToolCalls = FrontendAgent.defaultInstrumentToolCalls,
     int searchToolCalls = FrontendAgent.defaultSearchToolCalls,
@@ -53,6 +55,7 @@ class ControlPanelAgent {
          systemPrompt: controlPanelAgentSystemPrompt,
          instrumentDeviceContext: instrumentDeviceContext,
          onCommandSent: onCommandSent,
+         acquireWaveform: acquireWaveform,
          instrumentToolCalls: instrumentToolCalls,
          searchToolCalls: searchToolCalls,
          tools: [

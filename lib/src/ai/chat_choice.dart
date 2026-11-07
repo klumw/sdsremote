@@ -36,6 +36,10 @@ class ChatChoiceRequest {
     required this.options,
     this.id,
     this.allowCancel = true,
+    this.allowText = false,
+    this.textLabel,
+    this.textHint,
+    this.textSubmitLabel,
   });
 
   /// Stable identifier used to remember a session-wide answer.
@@ -53,6 +57,23 @@ class ChatChoiceRequest {
   /// Whether the user may dismiss the prompt without an answer.
   final bool allowCancel;
 
+  /// Whether the prompt offers a free-text field in addition to the options.
+  ///
+  /// The field lets the user correct a value or give an answer that is not
+  /// covered by the options. When it contains text, the prompt returns that
+  /// text instead of the selected option; the field therefore takes precedence
+  /// over a radio-button selection.
+  final bool allowText;
+
+  /// Label of the free-text field, already translated for the user.
+  final String? textLabel;
+
+  /// Placeholder of the free-text field, already translated for the user.
+  final String? textHint;
+
+  /// Label of the button that submits the free-text value.
+  final String? textSubmitLabel;
+
   /// Returns the option with [value], or null when it does not exist.
   ChatChoiceOption? optionFor(String value) {
     for (final option in options) {
@@ -68,13 +89,21 @@ class ChatChoiceRequest {
 
 /// Answer of a [ChatChoiceRequest].
 class ChatChoiceResult {
-  const ChatChoiceResult({this.value, this.label, this.cancelled = false});
+  const ChatChoiceResult({
+    this.value,
+    this.label,
+    this.text,
+    this.cancelled = false,
+  });
 
-  /// Selected option value, or null when the user cancelled.
+  /// Selected option value, or null when the user cancelled or submitted text.
   final String? value;
 
-  /// Selected option label, or null when the user cancelled.
+  /// Selected option label, or null when the user cancelled or submitted text.
   final String? label;
+
+  /// Free-text correction or answer, or null when no text was submitted.
+  final String? text;
 
   /// Whether the user dismissed the prompt without an answer.
   final bool cancelled;
@@ -91,6 +120,7 @@ class ChatChoicePromptController extends ChangeNotifier {
 
   ChatChoiceRequest? _request;
   String? _selectedValue;
+  String _text = '';
   Completer<ChatChoiceResult>? _pending;
   bool _disposed = false;
 
@@ -103,8 +133,14 @@ class ChatChoicePromptController extends ChangeNotifier {
   /// Value of the currently selected radio button, or null.
   String? get selectedValue => _selectedValue;
 
-  /// Whether the user selected an option that can be submitted.
-  bool get canSubmit => _selectedValue != null;
+  /// Current free-text value, or an empty string.
+  String get text => _text;
+
+  /// Whether the user entered text or selected an option that can be
+  /// submitted.
+  bool get canSubmit =>
+      _selectedValue != null ||
+      (_request?.allowText == true && _text.trim().isNotEmpty);
 
   /// Shows [request] and completes with the user's answer.
   ///
@@ -134,6 +170,7 @@ class ChatChoicePromptController extends ChangeNotifier {
     _pending = completer;
     _request = request;
     _selectedValue = null;
+    _text = '';
     notifyListeners();
     return completer.future;
   }
@@ -149,14 +186,31 @@ class ChatChoicePromptController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Submits the current selection.
+  /// Updates the free-text field of a prompt that allows text.
+  void setText(String value) {
+    final request = _request;
+    if (_disposed || request == null || !request.allowText) return;
+    if (_text == value) return;
+    _text = value;
+    notifyListeners();
+  }
+
+  /// Submits the free text or the current selection.
   ///
-  /// When the selected option sets [ChatChoiceOption.rememberForSession], the
-  /// answer is stored for the rest of the session.
+  /// Text takes precedence over a selected option so a correction is never
+  /// lost when the user also left an option selected. When the selected option
+  /// sets [ChatChoiceOption.rememberForSession], the answer is stored for the
+  /// rest of the session.
   void submit() {
     final request = _request;
+    if (_disposed || request == null) return;
+    final text = _text.trim();
+    if (request.allowText && text.isNotEmpty) {
+      _complete(cancelled: false, value: null, label: null, text: text);
+      return;
+    }
     final value = _selectedValue;
-    if (_disposed || request == null || value == null) return;
+    if (value == null) return;
     final option = request.optionFor(value);
     if (option == null) return;
 
@@ -171,8 +225,12 @@ class ChatChoicePromptController extends ChangeNotifier {
   ///
   /// Radio-button prompts confirm on selection, so the chat panels call this
   /// from the radio callback instead of offering a separate confirm action.
+  /// While a free-text correction is pending, the selection is only recorded:
+  /// the user submits the correction with the submit button, so a tap on an
+  /// option cannot discard the typed correction.
   void selectAndSubmit(String value) {
     select(value);
+    if (_request?.allowText == true && _text.trim().isNotEmpty) return;
     submit();
   }
 
@@ -202,15 +260,22 @@ class ChatChoicePromptController extends ChangeNotifier {
     required bool cancelled,
     required String? value,
     required String? label,
+    String? text,
   }) {
     final completer = _pending;
     _pending = null;
     _request = null;
     _selectedValue = null;
+    _text = '';
     if (!_disposed) notifyListeners();
     if (completer != null && !completer.isCompleted) {
       completer.complete(
-        ChatChoiceResult(value: value, label: label, cancelled: cancelled),
+        ChatChoiceResult(
+          value: value,
+          label: label,
+          text: text,
+          cancelled: cancelled,
+        ),
       );
     }
   }
@@ -222,6 +287,7 @@ class ChatChoicePromptController extends ChangeNotifier {
     _pending = null;
     _request = null;
     _selectedValue = null;
+    _text = '';
     if (completer != null && !completer.isCompleted) {
       completer.complete(const ChatChoiceResult(cancelled: true));
     }

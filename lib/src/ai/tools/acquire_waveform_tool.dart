@@ -60,7 +60,8 @@ Tool<Map<String, dynamic>> createAcquireWaveformTool({
           'error':
               'delaySeconds must be between 0 and $maxAcquireDelaySeconds.',
         };
-        await logger.logToolCall(
+        // Logging is best-effort and must not delay the tool result.
+        logger.logToolCall(
           input: {'delaySeconds': delaySeconds},
           output: {'error': result['error']},
         );
@@ -71,7 +72,7 @@ Tool<Map<String, dynamic>> createAcquireWaveformTool({
               'error': 'Waveform acquisition is not available in this context.',
             }
           : await provider(delaySeconds: delaySeconds);
-      await logger.logToolCall(
+      logger.logToolCall(
         input: {'delaySeconds': delaySeconds},
         output: {
           if (result['acquired'] != null) 'acquired': result['acquired'],
