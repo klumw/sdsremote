@@ -6,13 +6,9 @@ import '../core/logger.dart';
 import '../devices/device_agent_context.dart';
 import 'agents/waveform_agent.dart';
 import 'cancellation.dart';
-import 'component_name_prompt.dart';
 import 'tools/acquire_waveform_tool.dart';
 import 'tools/audio/audio_tools.dart';
-import 'tools/chat_choice_tool.dart';
-import 'tools/checklist_tool.dart';
 import 'tools/digital_measurement_tools.dart';
-import 'tools/specification_upload_tool.dart';
 import 'tools/signal_generator_tool.dart';
 import 'tools/spectrum_summary_tool.dart';
 import 'tools/vxi11_tool.dart';
@@ -62,10 +58,6 @@ class WaveformAiService {
     WaveformFaultAnalysisProvider? analyzeWaveformFaults,
     WaveformFaultProfileProvider? manageFaultProfile,
     WaveformReportProvider? createWaveformReport,
-    SpecificationUploadProvider? requestSpecUpload,
-    ChatChoiceProvider? requestUserChoice,
-    ChecklistProvider? requestChecklist,
-    ComponentNameProvider? requestComponentName,
     String? vxi11Host,
     ScpiCommandCallback? onCommandSent,
     DeviceAgentContext? instrumentDeviceContext,
@@ -98,10 +90,6 @@ class WaveformAiService {
         analyzeWaveformFaults: analyzeWaveformFaults,
         manageFaultProfile: manageFaultProfile,
         createWaveformReport: createWaveformReport,
-        requestSpecUpload: requestSpecUpload,
-        requestUserChoice: requestUserChoice,
-        requestChecklist: requestChecklist,
-        requestComponentName: requestComponentName,
         vxi11Host: vxi11Host,
         onCommandSent: onCommandSent,
         instrumentDeviceContext: instrumentDeviceContext,

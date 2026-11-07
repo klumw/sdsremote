@@ -45,6 +45,7 @@ class DigitalAgent {
   Map<String, dynamic>? _lastSubmission;
   final List<Map<String, dynamic>> _partialResults = <Map<String, dynamic>>[];
   CancellationToken? _activeCancelToken;
+  void Function()? _onSubmissionReceived;
   bool _analysisCancelled = false;
 
   /// Tools registered with the agent, exposed for diagnostics and tests.
@@ -200,7 +201,7 @@ class DigitalAgent {
       'chars=${trimmed.length})',
     );
 
-    String response;
+    String response = '';
     StreamSubscription<ChatResult<String>>? subscription;
     final done = Completer<void>();
     final chunks = <String>[];
@@ -214,6 +215,13 @@ class DigitalAgent {
         done.completeError(const _DigitalAnalysisCancelled());
       }
     }
+
+    // Stop the model stream as soon as the structured result has arrived.
+    // Continuing after the submission would cost one more full model turn
+    // that cannot change the result.
+    _onSubmissionReceived = () {
+      if (!done.isCompleted) done.complete();
+    };
 
     // One-time autonomous permission covers the scope and generator changes
     // this analysis needs, so the generator tools are enabled for its
@@ -245,11 +253,21 @@ class DigitalAgent {
         'error': 'The digital analysis was cancelled.',
       };
     } on Object catch (error) {
-      logger.error('Digital analysis failed: $error');
-      return <String, dynamic>{
-        'error': 'The DigitalAgent request failed ($error).',
-      };
+      if (_lastSubmission != null) {
+        // The submission arrived and the model stream was stopped early; the
+        // resulting cancellation error is expected and must not discard the
+        // structured result.
+        logger.log(
+          'Digital analysis submission received; stream stopped early',
+        );
+      } else {
+        logger.error('Digital analysis failed: $error');
+        return <String, dynamic>{
+          'error': 'The DigitalAgent request failed ($error).',
+        };
+      }
     } finally {
+      _onSubmissionReceived = null;
       cancelToken?.removeListener(cancelAnalysis);
       final current = subscription;
       if (current != null) unawaited(current.cancel());
@@ -385,6 +403,7 @@ class DigitalAgent {
         _lastSubmission = Map<String, dynamic>.from(args);
         final measurements = args['measurements'];
         final warnings = args['warnings'];
+        _onSubmissionReceived?.call();
         return <String, dynamic>{
           'accepted': true,
           'measurementCount': measurements is List ? measurements.length : 0,

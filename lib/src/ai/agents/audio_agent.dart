@@ -43,6 +43,7 @@ class AudioAgent {
   String? _cachedSweepKey;
   bool _sweepUsedInAnalysis = false;
   CancellationToken? _activeCancelToken;
+  void Function()? _onSubmissionReceived;
   bool _analysisCancelled = false;
 
   /// Tools registered with the agent, exposed for diagnostics and tests.
@@ -160,7 +161,7 @@ class AudioAgent {
       'chars=${trimmed.length})',
     );
 
-    String response;
+    String response = '';
     StreamSubscription<ChatResult<String>>? subscription;
     final done = Completer<void>();
     final chunks = <String>[];
@@ -174,6 +175,13 @@ class AudioAgent {
         done.completeError(const _AudioAnalysisCancelled());
       }
     }
+
+    // Stop the model stream as soon as the structured result has arrived.
+    // Continuing after the submission would cost one more full model turn
+    // that cannot change the result.
+    _onSubmissionReceived = () {
+      if (!done.isCompleted) done.complete();
+    };
 
     // One-time autonomous permission covers the scope and generator changes
     // this analysis needs, so the generator tools are enabled for its
@@ -205,33 +213,41 @@ class AudioAgent {
         'error': 'The audio analysis was cancelled.',
       };
     } on Object catch (error) {
-      logger.error('Audio analysis failed: $error');
-      final partial = _partialResults.length > 12
-          ? _partialResults.sublist(_partialResults.length - 12)
-          : List<Map<String, dynamic>>.of(_partialResults);
-      if (partial.isEmpty) {
+      if (_lastSubmission != null) {
+        // The submission arrived and the model stream was stopped early; the
+        // resulting cancellation error is expected and must not discard the
+        // structured result.
+        logger.log('Audio analysis submission received; stream stopped early');
+      } else {
+        logger.error('Audio analysis failed: $error');
+        final partial = _partialResults.length > 12
+            ? _partialResults.sublist(_partialResults.length - 12)
+            : List<Map<String, dynamic>>.of(_partialResults);
+        if (partial.isEmpty) {
+          return <String, dynamic>{
+            'error': 'The AudioAgent request failed ($error).',
+          };
+        }
+        // A malformed structured submission (for example an unescaped quote in
+        // a JSON string) must not discard measurements that already completed:
+        // returning the recorded tool results lets the Waveform Agent present
+        // the sweep without re-running it.
         return <String, dynamic>{
-          'error': 'The AudioAgent request failed ($error).',
+          'ok': false,
+          'error':
+              'The AudioAgent could not encode its structured result ($error).',
+          'partialResults': partial,
+          'limitations': const [
+            'The structured submission failed; the values below come from the '
+                'completed tool calls and were not re-measured.',
+          ],
+          'needsInput':
+              'Present the completed measurements from partialResults and ask '
+              'whether the remaining analysis should be continued.',
         };
       }
-      // A malformed structured submission (for example an unescaped quote in
-      // a JSON string) must not discard measurements that already completed:
-      // returning the recorded tool results lets the Waveform Agent present
-      // the sweep without re-running it.
-      return <String, dynamic>{
-        'ok': false,
-        'error':
-            'The AudioAgent could not encode its structured result ($error).',
-        'partialResults': partial,
-        'limitations': const [
-          'The structured submission failed; the values below come from the '
-              'completed tool calls and were not re-measured.',
-        ],
-        'needsInput':
-            'Present the completed measurements from partialResults and ask '
-            'whether the remaining analysis should be continued.',
-      };
     } finally {
+      _onSubmissionReceived = null;
       cancelToken?.removeListener(cancelAnalysis);
       final current = subscription;
       if (current != null) unawaited(current.cancel());
@@ -431,6 +447,7 @@ class AudioAgent {
         _lastSubmission = Map<String, dynamic>.from(args);
         final measurements = args['measurements'];
         final warnings = args['warnings'];
+        _onSubmissionReceived?.call();
         return <String, dynamic>{
           'accepted': true,
           'measurementCount': measurements is List ? measurements.length : 0,

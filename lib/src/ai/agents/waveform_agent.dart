@@ -2,21 +2,14 @@ import 'package:dartantic_ai/dartantic_ai.dart';
 
 import '../../devices/device_agent_context.dart';
 import '../cancellation.dart';
-import '../component_name_prompt.dart';
 import '../tools/acquire_waveform_tool.dart';
 import '../tools/audio/audio_tools.dart';
 import '../tools/audio_agent_tool.dart';
-import '../tools/calculator_tool.dart';
-import '../tools/chat_choice_tool.dart';
-import '../tools/checklist_tool.dart';
-import '../tools/date_time_tool.dart';
 import '../tools/digital_agent_tool.dart';
 import '../tools/digital_measurement_tools.dart';
-import '../tools/math_tool.dart';
+import '../tools/scope_analyst_tool.dart';
 import '../tools/scpi_agent_tool.dart';
 import '../tools/signal_generator_tool.dart';
-import '../tools/spec_analyst_tool.dart';
-import '../tools/specification_upload_tool.dart';
 import '../tools/spectrum_summary_tool.dart';
 import '../tools/vxi11_tool.dart';
 import '../tools/waveform_analysis_tools.dart';
@@ -28,17 +21,17 @@ import '../tools/waveform_summary_tool.dart';
 import 'audio_agent.dart';
 import 'digital_agent.dart';
 import 'instrument_agent.dart';
-import 'spec_analyst_agent.dart';
+import 'scope_analyst_agent.dart';
 import 'systemprompts.dart';
 
-/// Analysis assistant for the Acquire Waveform view.
+/// Orchestrator for the Acquire Waveform view.
 ///
-/// The agent sees the current time-domain measurements and the FFT spectrum
-/// through deterministic read tools, performs derived calculations with the
-/// math and calculator tools, and can place results in time with the
-/// date/time tool. When an instrument address is configured it can also read
-/// live values and change scope settings through the instrument agent; the
-/// system prompt requires explicit user confirmation before any change.
+/// The agent does not read the oscilloscope or analyze waveforms itself. It
+/// routes every measurement, acquisition, spectrum, classification, fault
+/// analysis and report request to the [ScopeAnalystAgent], audio requests to
+/// the [AudioAgent], digital requests to the [DigitalAgent], and live
+/// instrument access to the [InstrumentAgent]. It then presents the returned
+/// structured results to the user and keeps the diagnostic dialog.
 class WaveformAgent {
   static const int defaultMaxToolCalls = 16;
   static const int defaultInstrumentToolCalls = 8;
@@ -49,6 +42,7 @@ class WaveformAgent {
   InstrumentAgent? _instrumentAgent;
   late final AudioAgent _audioAgent;
   late final DigitalAgent _digitalAgent;
+  late final ScopeAnalystAgent _scopeAnalystAgent;
   CancellationToken? _activeCancelToken;
 
   /// The instrument sub-agent, exposed for diagnostics and tests.
@@ -59,6 +53,9 @@ class WaveformAgent {
 
   /// The digital measurement sub-agent, exposed for diagnostics and tests.
   DigitalAgent get digitalAgent => _digitalAgent;
+
+  /// The scope measurement sub-agent, exposed for diagnostics and tests.
+  ScopeAnalystAgent get scopeAnalystAgent => _scopeAnalystAgent;
 
   WaveformAgent({
     String model = 'deepseek:deepseek-v4-flash',
@@ -74,10 +71,6 @@ class WaveformAgent {
     WaveformFaultAnalysisProvider? analyzeWaveformFaults,
     WaveformFaultProfileProvider? manageFaultProfile,
     WaveformReportProvider? createWaveformReport,
-    SpecificationUploadProvider? requestSpecUpload,
-    ChatChoiceProvider? requestUserChoice,
-    ChecklistProvider? requestChecklist,
-    ComponentNameProvider? requestComponentName,
     String? vxi11Host,
     ScpiCommandCallback? onCommandSent,
     DeviceAgentContext? instrumentDeviceContext,
@@ -126,88 +119,42 @@ class WaveformAgent {
       instrumentAgent: instrumentAgent,
       digitalMeasurement: digitalMeasurement,
     );
+    _scopeAnalystAgent = ScopeAnalystAgent(
+      model: model,
+      readWaveformSummary: readWaveformSummary,
+      readSpectrumSummary: readSpectrumSummary,
+      acquireWaveform: acquireWaveform,
+      readWaveformHistory: readWaveformHistory,
+      classifyWaveform: classifyWaveform,
+      compareWaveformToReferences: compareWaveformToReferences,
+      readWaveformFeatures: readWaveformFeatures,
+      compareWaveforms: compareWaveforms,
+      generateReferenceWaveform: generateReferenceWaveform,
+      analyzeWaveformFaults: analyzeWaveformFaults,
+      manageFaultProfile: manageFaultProfile,
+      createWaveformReport: createWaveformReport,
+    );
     _agent = Agent(
       model,
       displayName: 'WaveformAgent',
       maxToolCalls: maxToolCalls,
       tools: [
-        createWaveformSummaryTool(
-          readSummary: readWaveformSummary,
-          agentName: 'WaveformAgent',
-        ),
-        createSpectrumSummaryTool(
-          readSummary: readSpectrumSummary,
-          agentName: 'WaveformAgent',
-        ),
-        createAcquireWaveformTool(
-          acquire: acquireWaveform,
-          agentName: 'WaveformAgent',
-        ),
-        if (readSignalGeneratorStatus != null)
-          createReadSignalGeneratorStatusTool(
-            readStatus: readSignalGeneratorStatus,
-            agentName: 'WaveformAgent',
-            description:
-                'Return the status of the separate JDS6600/FY6900 signal '
-                'generator: the configured device, whether it is detected and '
-                'connected, the serial port, model, cached per-channel '
-                'settings, the output states and the device limits. Call it '
-                'before proposing an automatic frequency/Bode sweep. This '
-                'read-only pre-check does not need a signal-generator '
-                'keyword; generator changes still require the keyword and '
-                'user confirmation.',
-          ),
-        createWaveformHistoryTool(
-          readHistory: readWaveformHistory,
-          agentName: 'WaveformAgent',
-        ),
-        createWaveformReportTool(
-          createReport: createWaveformReport,
-          agentName: 'WaveformAgent',
-        ),
-        createClassifyWaveformTool(
-          classify: classifyWaveform,
-          agentName: 'WaveformAgent',
-        ),
-        createCompareWaveformToReferencesTool(
-          compare: compareWaveformToReferences,
-          agentName: 'WaveformAgent',
-        ),
-        createCompareWaveformsTool(
-          compare: compareWaveforms,
-          agentName: 'WaveformAgent',
-        ),
-        createGetWaveformFeaturesTool(
-          readFeatures: readWaveformFeatures,
-          agentName: 'WaveformAgent',
-        ),
-        createWaveformFaultAnalysisTool(
-          analyze: analyzeWaveformFaults,
-          agentName: 'WaveformAgent',
-        ),
-        createWaveformFaultProfileTool(
-          manage: manageFaultProfile,
-          agentName: 'WaveformAgent',
-        ),
-        createSpecificationUploadTool(
-          requestUpload: requestSpecUpload,
-          agentName: 'WaveformAgent',
-        ),
-        createChatChoiceTool(
-          requestChoice: requestUserChoice,
-          agentName: 'WaveformAgent',
-        ),
-        createChecklistTool(
-          requestChecklist: requestChecklist,
-          agentName: 'WaveformAgent',
-        ),
-        createSpecificationAnalysisTool(
-          analyze: SpecAnalystAgent(model: model).analyze,
-          requestComponentName: requestComponentName,
-          agentName: 'WaveformAgent',
-        ),
-        createGenerateReferenceWaveformTool(
-          generate: generateReferenceWaveform,
+        createScopeAnalysisAgentTool(
+          analyze:
+              ({
+                required String request,
+                bool reportConfirmed = false,
+                String? channel,
+                String? focus,
+              }) => _scopeAnalystAgent.analyze(
+                request: request,
+                reportConfirmed: reportConfirmed,
+                channel: channel,
+                focus: focus,
+                cancelToken: _activeCancelToken,
+              ),
+          onLongRunningStart: suspendResponseTimeout,
+          onLongRunningEnd: resumeResponseTimeout,
           agentName: 'WaveformAgent',
         ),
         if (instrumentAgent != null)
@@ -248,9 +195,6 @@ class WaveformAgent {
           onLongRunningEnd: resumeResponseTimeout,
           agentName: 'WaveformAgent',
         ),
-        createMathTool(agentName: 'WaveformAgent'),
-        createCalculatorTool(agentName: 'WaveformAgent'),
-        createDateTimeTool(agentName: 'WaveformAgent'),
       ],
     );
   }
