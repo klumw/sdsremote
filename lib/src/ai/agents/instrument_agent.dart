@@ -6,6 +6,7 @@ import '../../devices/device_agent_context.dart';
 import '../tools/acquire_waveform_tool.dart';
 import '../tools/calculator_tool.dart';
 import '../tools/date_time_tool.dart';
+import '../tools/fft_timebase_tool.dart';
 import '../tools/log_tool.dart';
 import '../tools/math_tool.dart';
 import '../tools/measurement_tool.dart';
@@ -24,14 +25,15 @@ import 'systemprompts.dart';
 /// By default, the agent is equipped with a VXI-11 tool that allows it
 /// to send SCPI commands and queries to a remote instrument, a log tool that
 /// lets it inspect the application log when a command fails, a date/time tool
-/// that places log entries in time, plus three deterministic tools that need
+/// that places log entries in time, plus four deterministic tools that need
 /// no instrument connection:
 /// [createMeasurementTool], which turns raw `PAVA` responses such as
 /// `C1:PAVA PKPK,3.000000E+00V` into structured values,
 /// [createMathTool], which calculates derived quantities such as the
-/// voltage gain in dB between two channels, and [createCalculatorTool],
+/// voltage gain in dB between two channels, [createCalculatorTool],
 /// which evaluates unit-aware, complex and dB expressions and runs the
-/// engineering formula library.
+/// engineering formula library, and [createFftTimebaseTool], which derives
+/// the 1-2-5 timebase for an FFT from the signal frequency.
 ///
 /// The agent limits the number of tool calls per user input to
 /// [maxToolCalls] (default: 10). This prevents runaway tool loops.
@@ -185,6 +187,10 @@ class InstrumentAgent with MaxToolCallsHandler {
       // Unit-aware, complex-capable engineering calculator with the
       // electronics, measurement, audio and RF formula library.
       createCalculatorTool(agentName: 'InstrumentAgent'),
+      // Deterministic FFT timebase calculation; needs no instrument
+      // connection. The returned TDIV value goes through the communication
+      // tool and its validator.
+      createFftTimebaseTool(agentName: 'InstrumentAgent'),
       // Lets the agent inspect the application log when a SCPI command or
       // the communication itself fails.
       createLogFileTool(

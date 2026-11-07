@@ -1599,7 +1599,7 @@ The clock icon in the bottom bar of the Control Panel, next to the automatic scr
 
 ### 8.12 AI Assistant (experimental) ⚠️
 
-The **AI Agent** button in the header of the **Device Parameters** panel opens the Waveform AI assistant. The trash button in the panel header clears the transcript, the session and the measurement history, so the next question starts without previous turns or stored acquisitions.
+The **AI Agent** button in the header of the **Device Parameters** panel opens the Waveform AI assistant.&#10;The trash button in the panel header clears the session, **always clear the session** before you start a new conversation.
 
 #### Questions About the Acquisition
 

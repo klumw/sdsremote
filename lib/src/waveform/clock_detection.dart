@@ -44,6 +44,12 @@ const int minFftPeriodsOnScreen = 20;
 /// Target number of visible periods when optimizing the timebase for FFT.
 const int fftTargetPeriodsOnScreen = 50;
 
+/// Preferred upper bound for the period count of an FFT timebase.
+///
+/// The 1-2-5 grid cannot always land inside 50…100 periods; the smallest
+/// step that still reaches [fftTargetPeriodsOnScreen] wins in that case.
+const int fftMaxPeriodsOnScreen = 100;
+
 /// Whether [periodsOnScreen] is too low for an effective FFT.
 bool needsFftOptimization(double periodsOnScreen) =>
     periodsOnScreen < minFftPeriodsOnScreen;
@@ -131,6 +137,31 @@ double timebaseForPeriods(
   return nearestTimebase(periodSeconds * targetPeriods / 14);
 }
 
+/// Timebase in seconds per division that captures at least [minPeriods]
+/// periods of a signal with [periodSeconds] across the 14-division graticule.
+///
+/// Unlike [timebaseForPeriods], the 1-2-5 grid is rounded **up** so an FFT
+/// always sees enough periods. When no step lands inside
+/// [minPeriods]…[fftMaxPeriodsOnScreen], the next larger step is returned (for
+/// example 112 periods when the next smaller step would give 45).
+double timebaseForFftPeriods(
+  double periodSeconds, {
+  int minPeriods = fftTargetPeriodsOnScreen,
+  int divisions = 14,
+}) {
+  if (!periodSeconds.isFinite || periodSeconds <= 0 || divisions <= 0) {
+    return _timebaseSteps.first;
+  }
+  final ideal = periodSeconds * minPeriods / divisions;
+  for (final step in _timebaseSteps) {
+    // The epsilon keeps an exact grid value from rounding to the next step.
+    if (step >= ideal * (1 - 1e-9)) {
+      return step;
+    }
+  }
+  return _timebaseSteps.last;
+}
+
 /// Whether [measurement] contains at least [minFftPeriodsOnScreen] complete
 /// periods for an effective FFT.
 ///
@@ -147,6 +178,22 @@ String formatTimebase(double seconds) {
   if (seconds >= 1e-3) return '${_trim(seconds * 1e3)} ms/div';
   if (seconds >= 1e-6) return '${_trim(seconds * 1e6)} µs/div';
   return '${_trim(seconds * 1e9)} ns/div';
+}
+
+/// Formats a timebase as a Siglent SCPI value with an SI unit.
+///
+/// Examples: `5MS`, `500US`, `200NS`, `1S`.
+String formatScpiTimebase(double seconds) {
+  if (seconds >= 1) return '${_trimScpi(seconds)}S';
+  if (seconds >= 1e-3) return '${_trimScpi(seconds * 1e3)}MS';
+  if (seconds >= 1e-6) return '${_trimScpi(seconds * 1e6)}US';
+  return '${_trimScpi(seconds * 1e9)}NS';
+}
+
+String _trimScpi(double value) {
+  final text = value.toStringAsFixed(3);
+  if (!text.contains('.')) return text;
+  return text.replaceFirst(RegExp(r'0+$'), '').replaceFirst(RegExp(r'\.$'), '');
 }
 
 String _trim(double value) {
