@@ -1,12 +1,14 @@
 /// Result contract of the planner pipeline.
 ///
 /// A run returns exactly one of: a complete action plan, one bundled input
-/// form for missing data, or an abort with a machine-readable reason.
+/// form for missing data, a classification for the orchestrator to route, or
+/// an abort with a machine-readable reason.
 library;
 
 import 'action_plan.dart';
 import 'input_form.dart';
 import 'json_value.dart';
+import 'measurement_classification.dart';
 
 /// Machine-readable reason of an aborted planning run.
 enum AbortReason {
@@ -42,7 +44,7 @@ enum AbortReason {
 sealed class PlannerResult {
   const PlannerResult();
 
-  /// Wire status: `plan_ready`, `needs_input` or `aborted`.
+  /// Wire status: `plan_ready`, `needs_input`, `classified` or `aborted`.
   String get status;
 
   /// JSON representation returned to the model verbatim.
@@ -66,6 +68,9 @@ sealed class PlannerResult {
         form: InputForm.fromMap(requireJsonMap(map['form'], 'form')),
         stateRef: requireJsonString(map['stateRef'], 'stateRef'),
       ),
+      'classified' => ClassifiedResult.fromMap(
+        requireJsonMap(map['classification'], 'classification'),
+      ),
       'aborted' => AbortedResult(
         reason: AbortReason.fromWire(map['reason']),
         message: requireJsonString(map['message'], 'message'),
@@ -75,7 +80,7 @@ sealed class PlannerResult {
       ),
       _ => throw PlannerFormatException(
         'status',
-        'plan_ready|needs_input|aborted',
+        'plan_ready|needs_input|classified|aborted',
         status,
       ),
     };
@@ -117,6 +122,53 @@ final class NeedsInputResult extends PlannerResult {
     'status': status,
     'form': form.toJson(),
     'stateRef': stateRef,
+  };
+}
+
+/// A measurement classification that the orchestrator routes to a specialist.
+///
+/// The planner produces this result instead of a plan when the automatic
+/// classification was uncertain and the user chose a category in the form.
+final class ClassifiedResult extends PlannerResult {
+  const ClassifiedResult({
+    required this.category,
+    required this.confidence,
+    required this.source,
+  });
+
+  /// Category chosen by the model or the user.
+  final MeasurementCategory category;
+
+  /// Confidence in the category.
+  final ClassificationConfidence confidence;
+
+  /// Who supplied the category.
+  final ClassificationSource source;
+
+  /// Specialist agent that handles the category, or `null` for
+  /// [MeasurementCategory.other].
+  String? get route => category.route;
+
+  @override
+  String get status => 'classified';
+
+  factory ClassifiedResult.fromMap(Map<String, dynamic> map) {
+    return ClassifiedResult(
+      category: MeasurementCategory.fromWire(map['type']),
+      confidence: ClassificationConfidence.fromWire(map['confidence']),
+      source: ClassificationSource.fromWire(map['source']),
+    );
+  }
+
+  @override
+  Map<String, dynamic> toJson() => <String, dynamic>{
+    'status': status,
+    'classification': <String, Object?>{
+      'type': category.wireName,
+      'confidence': confidence.wireName,
+      'source': source.wireName,
+    },
+    if (route != null) 'route': route,
   };
 }
 

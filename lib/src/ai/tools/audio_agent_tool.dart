@@ -37,7 +37,8 @@ Tool<Map<String, dynamic>> createAudioAnalysisAgentTool({
         'gain, frequency response, phase response, group delay, sweeps and '
         'coherence. For a frequency response, Bode sweep or -3 dB bandwidth '
         'request, call planner_agent first; use this tool directly only when '
-        'the planner aborts unsupported_method or for an approved follow-up. '
+        'the planner returns classified with route audio_analysis_agent or '
+        'for an approved follow-up. '
         'The AudioAgent can use all audio tools, call the '
         'InstrumentAgent for live queries and signal changes, and run a Bode '
         'sweep when needed. Before the first call, ask the user once whether '
@@ -86,11 +87,12 @@ Tool<Map<String, dynamic>> createAudioAnalysisAgentTool({
             'level_distortion',
             'time_domain',
             'frequency_response',
+            'frequency_series',
           ],
           'description':
               'Optional measurement block. Use a focused block after a broad '
-              'request ran out of budget: level_distortion, time_domain or '
-              'frequency_response. full is the default.',
+              'request ran out of budget: level_distortion, time_domain, '
+              'frequency_response or frequency_series. full is the default.',
         },
       },
       'required': ['request'],

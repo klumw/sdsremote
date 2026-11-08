@@ -37,18 +37,18 @@ const int timeDomainTargetPeriodsOnScreen = 4;
 /// Minimum number of visible periods for an effective FFT.
 ///
 /// The spectrum transforms the largest power of two that fits the transferred
-/// record, which is roughly half of the visible acquisition. Twenty visible
-/// periods therefore leave about ten periods in the FFT window.
-const int minFftPeriodsOnScreen = 20;
+/// record, which is roughly half of the visible acquisition. Eighty visible
+/// periods therefore leave about forty periods in the FFT window.
+const int minFftPeriodsOnScreen = 80;
 
 /// Target number of visible periods when optimizing the timebase for FFT.
-const int fftTargetPeriodsOnScreen = 50;
+const int fftTargetPeriodsOnScreen = 80;
 
 /// Preferred upper bound for the period count of an FFT timebase.
 ///
-/// The 1-2-5 grid cannot always land inside 50…100 periods; the smallest
+/// The 1-2-5 grid cannot always land inside 80…160 periods; the smallest
 /// step that still reaches [fftTargetPeriodsOnScreen] wins in that case.
-const int fftMaxPeriodsOnScreen = 100;
+const int fftMaxPeriodsOnScreen = 160;
 
 /// Whether [periodsOnScreen] is too low for an effective FFT.
 bool needsFftOptimization(double periodsOnScreen) =>
@@ -160,6 +160,32 @@ double timebaseForFftPeriods(
     }
   }
   return _timebaseSteps.last;
+}
+
+/// Deterministic FFT timebase preparation for an acquired signal.
+///
+/// Returns a JSON-safe map with the measured frequency, the standard 1-2-5
+/// timebase that shows at least [minPeriods] periods and the exact SCPI value.
+/// Returns null when the measurement has no reliable frequency. The map is
+/// embedded in the acquisition summary so agents quote it verbatim instead of
+/// deriving a timebase from the timebase or sample-rate fields.
+Map<String, Object?>? fftPreparationForMeasurement(
+  WaveformMeasurements measurement, {
+  int minPeriods = fftTargetPeriodsOnScreen,
+}) {
+  final frequency = measurement.frequencyHz;
+  if (frequency == null || !frequency.isFinite || frequency <= 0) return null;
+  final period = 1 / frequency;
+  final timebase = timebaseForFftPeriods(period, minPeriods: minPeriods);
+  final periods = 14 * timebase / period;
+  return <String, Object?>{
+    'channel': measurement.channel,
+    'measuredFrequencyHz': double.parse(frequency.toStringAsFixed(6)),
+    'timebaseSecondsPerDiv': timebase,
+    'timebaseScpi': formatScpiTimebase(timebase),
+    'periodsOnScreen': double.parse(periods.toStringAsFixed(3)),
+    'minPeriods': minPeriods,
+  };
 }
 
 /// Whether [measurement] contains at least [minFftPeriodsOnScreen] complete

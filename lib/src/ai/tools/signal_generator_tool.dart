@@ -157,9 +157,11 @@ Tool<Map<String, dynamic>> createReadSignalGeneratorStatusTool({
             'the configured device, whether it is detected and connected, the '
             'serial port, model, cached per-channel settings (waveform, frequency, '
             'amplitude, offset, duty cycle, phase), the output states and the '
-            'device limits. Only use this tool when the user\'s request contains '
-            'a signal-generator keyword such as Signalgenerator, Generator (AI Chat only), Signalgeber,'
-            'Funktionsgenerator, Signalquelle, Function Generator or WaveGen.',
+            'device limits. This is a read-only query and does not need a '
+            'signal-generator keyword. Use it whenever the current generator '
+            'settings, outputs, limits or connection state are needed, '
+            'including before a generator change and when another agent asks '
+            'for the generator values.',
     inputSchema: Schema.fromMap({
       'type': 'object',
       'properties': <String, dynamic>{},

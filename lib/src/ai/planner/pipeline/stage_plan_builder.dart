@@ -80,7 +80,8 @@ PlanDraft buildPlanDraft({
         template: template,
         parameterKeys: templatePlaceholders(template).toList(),
         dependsOn: List<String>.of(manualIds),
-        requiresUserConfirmation: true,
+        // The plan approval already authorizes this listed setup change.
+        requiresUserConfirmation: false,
         expectedOutput:
             'The generator is configured and its output is enabled.',
         estimatedToolCalls: 1,

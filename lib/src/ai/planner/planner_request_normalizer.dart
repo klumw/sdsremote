@@ -94,6 +94,55 @@ MeasurementRequest enrichStatedCornerFrequency(
   return request.merged(knownParameters: known);
 }
 
+/// Wording that explicitly asks to keep the current generator settings.
+final RegExp _currentSettingsHint = RegExp(
+  r'(1\s*:\s*1|aktuell|unverändert|unveraendert|beibehalten|'
+  r'current settings|keep the|unchanged|as is|wie eingestellt)',
+  caseSensitive: false,
+);
+
+/// Wording that explicitly asks to configure new generator settings.
+final RegExp _configureSettingsHint = RegExp(
+  r'(neu(e|en)?\s+(einstellung|parameter)|konfigurier|einstellen|'
+  r'configure|set new|new settings|waveform|amplitude|'
+  r'ausgangsspannung|vpp)',
+  caseSensitive: false,
+);
+
+/// Drops a model-supplied generator settings mode without text evidence.
+///
+/// The mode must be asked for every generator measurement. A small model
+/// sometimes fills `current` or `configure` without the user saying so; in
+/// that case the value is removed so the planner form asks the question.
+MeasurementRequest enforceStatedGeneratorSettingsMode(
+  MeasurementRequest request,
+  String originalText,
+) {
+  final mode = request.knownParameters[PlannerKeys.generatorSettingsMode];
+  if (mode is! String) return request;
+  // Only the user's own words count as evidence. The model-generated goal is
+  // not evidence: a model that wants to keep a mode it invented could
+  // otherwise write the matching words into the goal and legitimize itself.
+  final text = originalText;
+  final hasEvidence = switch (mode) {
+    'current' => _currentSettingsHint.hasMatch(text),
+    'configure' => _configureSettingsHint.hasMatch(text),
+    _ => false,
+  };
+  if (hasEvidence) return request;
+  final known = Map<String, Object?>.of(request.knownParameters)
+    ..remove(PlannerKeys.generatorSettingsMode);
+  return MeasurementRequest(
+    goal: request.goal,
+    measurements: request.measurements,
+    knownParameters: known,
+    safetyHints: request.safetyHints,
+    classification: request.classification,
+    stateRef: request.stateRef,
+    answers: request.answers,
+  );
+}
+
 ({double start, double stop})? _parseRange(String text) {
   final bothUnits = _rangeWithBothUnits.firstMatch(text);
   if (bothUnits != null) {

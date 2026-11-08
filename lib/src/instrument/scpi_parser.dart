@@ -168,16 +168,33 @@ class ScpiParser {
     var s = raw.trim();
     if (s.isEmpty) return (0, 0);
 
-    // Strip command echo if present
-    final lastSpace = s.lastIndexOf(' ');
-    if (lastSpace >= 0) s = s.substring(lastSpace + 1).trim();
+    // Strip the command echo, e.g. "SANU " or "SANU C1 ".
+    if (s.toUpperCase().startsWith('SANU')) {
+      s = s.substring(4).trim();
+    }
 
     final parts = s.split(',');
-    if (parts.length < 2) return (0, 0);
     return (
-      int.tryParse(parts[0].trim()) ?? 0,
-      int.tryParse(parts[1].trim()) ?? 0,
+      _parsePointCount(parts.first),
+      parts.length > 1 ? _parsePointCount(parts[1]) : 0,
     );
+  }
+
+  /// Parses a sample count such as `1.40E+04pts`, `28Mpts` or `700000`.
+  static int _parsePointCount(String value) {
+    final match = RegExp(
+      r'([-+]?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?)\s*([kKmMgG]?)',
+    ).firstMatch(value.trim());
+    if (match == null) return 0;
+    final number = double.tryParse(match.group(1)!);
+    if (number == null || !number.isFinite || number < 0) return 0;
+    final multiplier = switch (match.group(2)?.toUpperCase()) {
+      'K' => 1e3,
+      'M' => 1e6,
+      'G' => 1e9,
+      _ => 1.0,
+    };
+    return (number * multiplier).round();
   }
 
   /// Parses a SCPI status string such as `"C1:TRA ON"`, `"C1:TRA OFF"`, `"1"`, `"0"`.

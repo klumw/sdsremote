@@ -314,13 +314,7 @@ ChatMessage createCompleteMessageWithTools(
 
     // Parse the complete JSON arguments
     if (rawArgs.isNotEmpty) {
-      final decoded = json.decode(rawArgs);
-      if (decoded is Map<String, dynamic>) {
-        arguments = decoded;
-      } else if (decoded == null || decoded == 'null') {
-        // Handle null case
-        arguments = <String, dynamic>{};
-      }
+      arguments = decodeToolArguments(rawArgs);
     }
 
     parts.add(
@@ -366,14 +360,7 @@ ChatMessage messageFromOpenAIResponse(ChatCompletion response) {
 
       // Parse arguments, handling empty arguments case for streaming
       if (rawArgs.isNotEmpty) {
-        final decoded = json.decode(rawArgs);
-        if (decoded is Map<String, dynamic>) {
-          arguments = decoded;
-        } else if (decoded == null || decoded == 'null') {
-          // Handle cases where decoded is null (e.g., Cohere sends "null" for
-          // no params)
-          arguments = <String, dynamic>{};
-        }
+        arguments = decodeToolArguments(rawArgs);
       }
 
       parts.add(
@@ -387,4 +374,119 @@ ChatMessage messageFromOpenAIResponse(ChatCompletion response) {
   }
 
   return ChatMessage(role: ChatMessageRole.model, parts: parts);
+}
+
+/// Decodes the JSON arguments of a tool call.
+///
+/// Models occasionally emit a prose value without the surrounding quotes, for
+/// example `"needsInput": Should I acquire a new waveform?`. Strict JSON
+/// rejects that and the whole agent turn fails with a [FormatException]. This
+/// decoder first tries strict JSON and then repairs unquoted string values
+/// before giving up. An empty or `null` result becomes an empty map.
+Map<String, dynamic> decodeToolArguments(String rawArgs) {
+  final trimmed = rawArgs.trim();
+  if (trimmed.isEmpty) return <String, dynamic>{};
+  try {
+    return _asArgumentMap(json.decode(trimmed));
+  } on FormatException {
+    final repaired = _quoteUnquotedStringValues(trimmed);
+    if (repaired == null) rethrow;
+    return _asArgumentMap(json.decode(repaired));
+  }
+}
+
+Map<String, dynamic> _asArgumentMap(dynamic decoded) {
+  if (decoded is Map<String, dynamic>) return decoded;
+  return <String, dynamic>{};
+}
+
+bool _isJsonWhitespace(String ch) =>
+    ch == ' ' || ch == '\n' || ch == '\r' || ch == '\t';
+
+/// Quotes prose that follows an object key without its own quotes.
+///
+/// Returns `null` when the input contains no such value. A comma inside the
+/// prose (for example `100 Hz, 3 Vpp`) stays part of the value; only a comma
+/// followed by a quoted key or a closing bracket ends it.
+String? _quoteUnquotedStringValues(String source) {
+  final out = StringBuffer();
+  var i = 0;
+  var inString = false;
+  var escaped = false;
+  var changed = false;
+  while (i < source.length) {
+    final ch = source[i];
+    if (inString) {
+      out.write(ch);
+      if (escaped) {
+        escaped = false;
+      } else if (ch == '\\') {
+        escaped = true;
+      } else if (ch == '"') {
+        inString = false;
+      }
+      i++;
+      continue;
+    }
+    if (ch == '"') {
+      inString = true;
+      out.write(ch);
+      i++;
+      continue;
+    }
+    if (ch != ':') {
+      out.write(ch);
+      i++;
+      continue;
+    }
+    out.write(ch);
+    i++;
+    while (i < source.length && _isJsonWhitespace(source[i])) {
+      out.write(source[i]);
+      i++;
+    }
+    if (i >= source.length) break;
+    final next = source[i];
+    final isJsonValueStart =
+        next == '"' ||
+        next == '{' ||
+        next == '[' ||
+        next == '-' ||
+        next == '+' ||
+        (next.codeUnitAt(0) >= 0x30 && next.codeUnitAt(0) <= 0x39) ||
+        next == 't' ||
+        next == 'f' ||
+        next == 'n';
+    if (isJsonValueStart) continue;
+
+    final value = StringBuffer();
+    while (i < source.length) {
+      final valueChar = source[i];
+      if (valueChar == '}' || valueChar == ']') break;
+      if (valueChar == ',') {
+        var j = i + 1;
+        while (j < source.length && _isJsonWhitespace(source[j])) {
+          j++;
+        }
+        if (j >= source.length ||
+            source[j] == '"' ||
+            source[j] == '}' ||
+            source[j] == ']') {
+          break;
+        }
+      }
+      value.write(valueChar);
+      i++;
+    }
+    final escapedValue = value
+        .toString()
+        .trim()
+        .replaceAll('\\', '\\\\')
+        .replaceAll('"', '\\"');
+    out.write('"');
+    out.write(escapedValue);
+    out.write('"');
+    changed = true;
+  }
+  return changed ? out.toString() : null;
 }

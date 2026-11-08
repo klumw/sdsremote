@@ -19,15 +19,167 @@ import 'audio_tool_support.dart';
 List<Tool<Map<String, dynamic>>> createAudioFrequencyTools({
   AudioAnalysisContextProvider? context,
   AudioSweepProvider? sweep,
+  AudioFrequencySeriesProvider? series,
   String agentName = 'unknown',
 }) {
   return [
     _measureFrequencyResponse(sweep, agentName),
+    _measureFrequencySeries(series, agentName),
     _detectHum(context, agentName),
     _detectInterference(context, agentName),
     _analyzeSpectralPeaks(context, agentName),
     _measureBandwidth(context, sweep, agentName),
   ];
+}
+
+Tool<Map<String, dynamic>> _measureFrequencySeries(
+  AudioFrequencySeriesProvider? seriesProvider,
+  String agentName,
+) {
+  return createAudioTool(
+    name: 'measure_frequency_series',
+    agentName: agentName,
+    description:
+        'Measures the level (Vpp or Vrms) on one scope channel at an explicit '
+        'list of frequencies. The host switches the generator output on, runs '
+        'Auto Setup (ASET) on the oscilloscope, adjusts the scope timebase and '
+        'vertical scale for each point, restores the previous settings '
+        'afterwards and turns the generator output off. '
+        'Use it when the user names several discrete frequencies. Do not use it '
+        'for a continuous frequency response or Bode sweep; use '
+        'measure_frequency_response for that.',
+    properties: {
+      'frequenciesHz': {
+        'type': 'array',
+        'minItems': 1,
+        'maxItems': 50,
+        'items': {'type': 'number', 'minimum': 0.001},
+        'description': 'Frequencies in Hz, in measurement order.',
+      },
+      'channel': audioChannelProperty('Scope channel with the DUT output.'),
+      'quantity': {
+        'type': 'string',
+        'enum': ['vpp', 'vrms'],
+        'description': 'Measured level quantity.',
+      },
+      'useCurrentSettings': {
+        'type': 'boolean',
+        'description':
+            'True keeps the generator waveform, amplitude and offset that are '
+            'currently set and only steps the frequency. False applies '
+            'amplitudeVpp and waveform before the series.',
+      },
+      'waveform': {
+        'type': 'string',
+        'enum': ['sine', 'square', 'triangle', 'ramp', 'pulse'],
+        'description':
+            'Generator waveform used when useCurrentSettings is false.',
+      },
+      'amplitudeVpp': audioNumberProperty(
+        'Generator amplitude in Vpp used when useCurrentSettings is false.',
+        minimum: 0.001,
+        maximum: 20,
+      ),
+      'generatorChannel': audioIntegerProperty(
+        'Generator channel (1 or 2).',
+        minimum: 1,
+        maximum: 2,
+      ),
+      'settlingMs': audioIntegerProperty(
+        'Settling time after each frequency change in milliseconds.',
+        minimum: 100,
+        maximum: 10000,
+      ),
+    },
+    required: const ['frequenciesHz'],
+    handler: (args) async {
+      if (seriesProvider == null) return audioSeriesError();
+      final raw = args['frequenciesHz'];
+      final frequencies = <double>[];
+      if (raw is Iterable) {
+        for (final entry in raw) {
+          if (entry is num && entry.isFinite && entry > 0) {
+            frequencies.add(entry.toDouble());
+          }
+        }
+      }
+      if (frequencies.isEmpty) {
+        return {'error': 'Enter at least one positive frequency in Hz.'};
+      }
+      if (frequencies.length > 50) {
+        return {'error': 'At most 50 frequencies are supported.'};
+      }
+      final channel = audioStringOr(args, 'channel', 'ch1');
+      final quantity = audioStringOr(args, 'quantity', 'vpp');
+      if (quantity != 'vpp' && quantity != 'vrms') {
+        return {'error': 'quantity must be vpp or vrms.'};
+      }
+      final useCurrentSettings = args['useCurrentSettings'] == true;
+      final amplitude = audioNumberArg(args, 'amplitudeVpp');
+      if (!useCurrentSettings &&
+          (amplitude == null || !amplitude.isFinite || amplitude <= 0)) {
+        return {
+          'error':
+              'amplitudeVpp is required unless useCurrentSettings is true.',
+        };
+      }
+      final waveform = audioStringOr(args, 'waveform', 'sine');
+      if (waveform != 'sine' &&
+          waveform != 'square' &&
+          waveform != 'triangle' &&
+          waveform != 'ramp' &&
+          waveform != 'pulse') {
+        return {
+          'error': 'waveform must be sine, square, triangle, ramp or pulse.',
+        };
+      }
+      final generatorChannel = audioIntOr(args, 'generatorChannel', 1);
+      if (generatorChannel != 1 && generatorChannel != 2) {
+        return {'error': 'generatorChannel must be 1 or 2.'};
+      }
+      final settling = audioIntOr(args, 'settlingMs', 1000);
+      final data = await seriesProvider(
+        AudioFrequencySeriesRequest(
+          frequenciesHz: frequencies,
+          channel: channel,
+          quantity: quantity,
+          amplitudeVpp: useCurrentSettings ? null : amplitude,
+          waveform: waveform,
+          useCurrentSettings: useCurrentSettings,
+          generatorChannel: generatorChannel,
+          settlingMs: settling,
+        ),
+      );
+      if (data == null) return audioSeriesError();
+      final values = <double>[
+        for (final point in data.points)
+          if (point.valid && point.value != null) point.value!,
+      ];
+      return {
+        'source': data.source,
+        'configSummary': data.configSummary,
+        'quantity': data.quantity,
+        'pointCount': data.points.length,
+        'validPointCount': values.length,
+        'points': [
+          for (final point in data.points)
+            {
+              'frequencyHz': point.frequencyHz,
+              'value': point.value,
+              'unit': point.unit,
+              'valid': point.valid,
+              'note': point.note,
+            },
+        ],
+        'minValue': values.isEmpty ? null : values.reduce(math.min),
+        'maxValue': values.isEmpty ? null : values.reduce(math.max),
+        'meanValue': values.isEmpty
+            ? null
+            : values.reduce((a, b) => a + b) / values.length,
+        'method': 'host_frequency_series',
+      };
+    },
+  );
 }
 
 Tool<Map<String, dynamic>> _measureFrequencyResponse(
@@ -58,6 +210,21 @@ Tool<Map<String, dynamic>> _measureFrequencyResponse(
         minimum: 2,
         maximum: 200,
       ),
+      'useCurrentSettings': audioBooleanProperty(
+        'Keep the current generator waveform, amplitude and offset and only '
+        'step the frequency.',
+      ),
+      'waveform': audioEnumProperty(
+        'Generator waveform when useCurrentSettings is false.',
+        ['sine', 'square', 'triangle', 'ramp', 'pulse'],
+      ),
+      'amplitudeVpp': audioNumberProperty(
+        'Generator amplitude when useCurrentSettings is false.',
+        minimum: 0.001,
+      ),
+      'offsetV': audioNumberProperty(
+        'Generator offset when useCurrentSettings is false.',
+      ),
       'measurePhase': audioBooleanProperty(
         'Also measure phase during the sweep.',
       ),
@@ -69,12 +236,25 @@ Tool<Map<String, dynamic>> _measureFrequencyResponse(
       final points = audioIntOr(args, 'pointCount', 20);
       final validation = _validateSweep(start, stop, points);
       if (validation != null) return {'error': validation};
+      final useCurrentSettings = args['useCurrentSettings'] == true;
+      final amplitude = audioNumberArg(args, 'amplitudeVpp');
+      if (!useCurrentSettings &&
+          (amplitude == null || !amplitude.isFinite || amplitude <= 0)) {
+        return {
+          'error':
+              'amplitudeVpp is required unless useCurrentSettings is true.',
+        };
+      }
       final data = await sweepProvider(
         AudioSweepRequest(
           startFrequencyHz: start,
           stopFrequencyHz: stop,
           pointCount: points,
           measurePhase: audioBoolArg(args, 'measurePhase'),
+          useCurrentGeneratorSettings: useCurrentSettings,
+          waveform: audioStringOr(args, 'waveform', 'sine'),
+          amplitudeVpp: amplitude,
+          offsetV: audioNumberArg(args, 'offsetV'),
         ),
       );
       if (data == null) return audioSweepError();
@@ -473,6 +653,7 @@ Tool<Map<String, dynamic>> _measureBandwidth(
               startFrequencyHz: start,
               stopFrequencyHz: stop,
               pointCount: points,
+              useCurrentGeneratorSettings: true,
             ),
           );
           if (data != null) {

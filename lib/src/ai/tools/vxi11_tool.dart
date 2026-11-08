@@ -122,6 +122,10 @@ Tool<Map<String, dynamic>> createVxi11Tool({
         switch (operation) {
           case 'write':
             await instrument.writeString(command);
+            // Keep scope changes visible at the default log level: the
+            // waveform refresh and the agent's later reasoning depend on the
+            // exact value that was sent.
+            logger.log('SCPI write: $command (host: $effectiveHost)');
             result = {
               'success': true,
               'operation': 'write',

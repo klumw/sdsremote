@@ -52,6 +52,7 @@ void main() {
     expect(service.points.first.phaseDeg, -45);
     expect(service.points.first.phaseSource, BodePhaseSource.mead);
     expect(scope.prepareCalls, 1);
+    expect(scope.autoSetCalls, 1);
     expect(scope.readCalls, 3);
     expect(scope.restoreCalls, 1);
     expect(transport.sentCommands, contains(':w20=1,0.'));
@@ -102,7 +103,7 @@ void main() {
       ),
     );
 
-    expect(scope.autoSetCalls, 1);
+    expect(scope.autoSetCalls, 2);
     expect(service.status, BodeStatus.completed);
     expect(service.points.length, 2);
     expect(service.points.every((point) => point.valid), isTrue);

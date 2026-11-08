@@ -265,6 +265,9 @@ class ScopeAnalystAgent {
     String? channel,
     String? focus,
     CancellationToken? cancelToken,
+
+    /// Internal: marks the automatic retry after a malformed model response.
+    bool isRetry = false,
   }) async {
     _analysisCancelled = cancelToken?.isCancelled == true;
     if (_analysisCancelled) {
@@ -383,6 +386,25 @@ class ScopeAnalystAgent {
         // resulting cancellation error is expected and must not discard the
         // structured result.
         logger.log('Scope analysis submission received; stream stopped early');
+      } else if (!isRetry && error is FormatException && !_analysisCancelled) {
+        // The model occasionally emits a tool call whose JSON is not strict
+        // (for example an unquoted prose value). The stream fails before the
+        // submission tool runs. One retry usually returns valid JSON.
+        logger.warning(
+          'Scope analysis failed because the model response was not valid '
+          'JSON ($error); retrying once.',
+        );
+        final current = subscription;
+        if (current != null) unawaited(current.cancel());
+        return await analyze(
+          request: request,
+          reportConfirmed: reportConfirmed,
+          autonomous: autonomous,
+          channel: channel,
+          focus: focus,
+          cancelToken: cancelToken,
+          isRetry: true,
+        );
       } else {
         logger.error('Scope analysis failed: $error');
         final partial = _partialResults.length > 12
@@ -533,10 +555,12 @@ class ScopeAnalystAgent {
           '"2.45 Vpp" or "45.6 ns"). Use only values returned by the tools. '
           'Report only the quantities the delegation request asks for; if it '
           'asks for one value, do not add other measurements or device '
-          'parameters. Do not dump raw tool output. Keep every string short '
-          'and free of quotation marks, apostrophes and line breaks so the '
-          'JSON encoding stays valid. If a scope setting change is needed '
-          'without autonomous permission, set `requestedAction` with the exact '
+          'parameters. Do not dump raw tool output. The arguments must be '
+          'strict JSON: wrap every string value in double quotes. Keep every '
+          'string short and free of quotation marks, apostrophes and line '
+          'breaks so the JSON encoding stays valid. If a scope setting change '
+          'is needed without autonomous permission, set `requestedAction` '
+          'with the exact '
           'change instead of performing it. If the request cannot be '
           'completed, set `error` or `needsInput` and explain the limitation. '
           'The summary must be in the language of the request.',

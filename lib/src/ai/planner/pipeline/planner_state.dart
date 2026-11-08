@@ -20,8 +20,8 @@ class TypeAssessment {
 
   /// Free-text measurements that are not in the catalog.
   ///
-  /// These abort `unsupported_method`; the field is kept so the abort details
-  /// can list them.
+  /// The classification stage asks the user for a category when these are
+  /// present. The field is kept so the details can list them.
   final List<String> otherMeasurements;
 
   /// Whether the request is a simple scope reading.

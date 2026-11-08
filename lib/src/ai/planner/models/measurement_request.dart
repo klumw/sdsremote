@@ -2,6 +2,7 @@
 library;
 
 import 'json_value.dart';
+import 'measurement_classification.dart';
 
 /// Coupling of the measurement input.
 enum Coupling {
@@ -89,6 +90,7 @@ class MeasurementRequest {
     required this.measurements,
     this.knownParameters = const <String, Object?>{},
     this.safetyHints = const SafetyHints(),
+    this.classification,
     this.stateRef,
     this.answers,
   });
@@ -104,6 +106,12 @@ class MeasurementRequest {
 
   /// Safety information stated by the user.
   final SafetyHints safetyHints;
+
+  /// Classification supplied by the model, or `null` when it was omitted.
+  ///
+  /// The pipeline treats a missing classification as unknowable and asks the
+  /// user when the catalog cannot resolve the request on its own.
+  final MeasurementClassification? classification;
 
   /// Host-managed session reference. Never part of the LLM schema.
   final String? stateRef;
@@ -131,12 +139,19 @@ class MeasurementRequest {
     final hints = hintsRaw == null
         ? const SafetyHints()
         : SafetyHints.fromMap(requireJsonMap(hintsRaw, 'safetyHints'));
+    final classificationRaw = map['classification'];
+    final classification = classificationRaw == null
+        ? null
+        : MeasurementClassification.fromMap(
+            requireJsonMap(classificationRaw, 'classification'),
+          );
     final answers = optionalJsonValueMap(map['answers'], 'answers');
     return MeasurementRequest(
       goal: goal,
       measurements: measurements ?? const <String>[],
       knownParameters: knownParameters ?? const <String, Object?>{},
       safetyHints: hints,
+      classification: classification,
       stateRef: optionalJsonString(
         map['stateRef'] ?? map['state_ref'],
         'stateRef',
@@ -160,6 +175,7 @@ class MeasurementRequest {
         ...knownParameters,
       },
       safetyHints: safetyHints,
+      classification: classification,
       stateRef: stateRef,
       answers: <String, Object?>{...?this.answers, ...answers},
     );
@@ -170,6 +186,7 @@ class MeasurementRequest {
     'measurements': measurements,
     if (knownParameters.isNotEmpty) 'knownParameters': knownParameters,
     'safetyHints': safetyHints.toJson(),
+    if (classification != null) 'classification': classification!.toJson(),
     if (stateRef != null) 'stateRef': stateRef,
     if (answers != null) 'answers': answers,
   };

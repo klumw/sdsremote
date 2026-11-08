@@ -11,6 +11,7 @@ import 'planner/planner_agent.dart';
 import 'tools/acquire_waveform_tool.dart';
 import 'tools/chat_choice_tool.dart';
 import 'tools/audio/audio_tools.dart';
+import 'tools/digital_frequency_series_tool.dart';
 import 'tools/digital_measurement_tools.dart';
 import 'tools/signal_generator_tool.dart';
 import 'tools/spectrum_summary_tool.dart';
@@ -70,7 +71,9 @@ class WaveformAiService {
     SignalGeneratorIntentCheck? isSignalGeneratorIntentEnabled,
     AudioAnalysisContextProvider? audioAnalysisContext,
     AudioSweepProvider? audioSweep,
+    AudioFrequencySeriesProvider? audioFrequencySeries,
     DigitalMeasurementProvider? digitalMeasurement,
+    DigitalFrequencySeriesProvider? digitalFrequencySeries,
     MeasurementFormProvider? requestInputForm,
     ChatChoiceProvider? requestUserChoice,
     PlannerModelRunner? plannerModelRunner,
@@ -105,7 +108,9 @@ class WaveformAiService {
         isSignalGeneratorIntentEnabled: isSignalGeneratorIntentEnabled,
         audioAnalysisContext: audioAnalysisContext,
         audioSweep: audioSweep,
+        audioFrequencySeries: audioFrequencySeries,
         digitalMeasurement: digitalMeasurement,
+        digitalFrequencySeries: digitalFrequencySeries,
         requestInputForm: requestInputForm,
         requestUserChoice: requestUserChoice,
         plannerModelRunner: plannerModelRunner,

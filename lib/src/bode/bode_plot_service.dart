@@ -126,11 +126,21 @@ class BodePlotService extends ChangeNotifier {
     final generator = signalGenerator;
     final channel = config.generatorChannel;
     final first = frequencies.first;
+    AppLogger(agentName: 'Bode', toolName: 'run').log(
+      'Generator config: channel=$channel, waveform=${config.waveform.name}, '
+      'amplitude=${config.amplitudeVpp} Vpp, offset=${config.offsetV} V, '
+      'useCurrentGeneratorSettings=${config.useCurrentGeneratorSettings}, '
+      'range=${config.startFrequencyHz}..${config.stopFrequencyHz} Hz, '
+      'points=${frequencies.length}',
+    );
 
-    // A signal must be present before ASET can scale the scope sensibly.
-    await generator.setWaveform(channel, config.waveform);
-    await generator.setAmplitude(channel, config.amplitudeVpp);
-    await generator.setOffset(channel, config.offsetV);
+    // The generator is configured before ASET. When the current settings are
+    // kept, only the frequency is stepped.
+    if (!config.useCurrentGeneratorSettings) {
+      await generator.setWaveform(channel, config.waveform);
+      await generator.setAmplitude(channel, config.amplitudeVpp);
+      await generator.setOffset(channel, config.offsetV);
+    }
     await generator.setFrequency(channel, first);
     await generator.setOutput(channel, true);
     await _settle(effectiveSettling(config, first));
@@ -141,6 +151,12 @@ class BodePlotService extends ChangeNotifier {
       voutChannel: config.voutChannel,
       measurePhase: config.measurePhase,
     );
+    _throwIfStopped();
+
+    // The generator is switched on and configured at the first frequency
+    // here. A fresh ASET scales and triggers the scope for the actual signal
+    // before the first measurement point.
+    await scope.autoSet();
     _throwIfStopped();
 
     var autoSetCount = 0;

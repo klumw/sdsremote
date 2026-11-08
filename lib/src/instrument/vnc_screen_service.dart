@@ -172,9 +172,9 @@ class VncScreenService {
   }
 
   Future<void> _handshake(_SocketReader reader, Socket socket) async {
-    final banner = await reader.readBytes(12).timeout(
-      const Duration(seconds: 5),
-    );
+    final banner = await reader
+        .readBytes(12)
+        .timeout(const Duration(seconds: 5));
     if (!String.fromCharCodes(banner).startsWith('RFB 003.')) {
       throw const VncScreenException('not an RFB server');
     }
@@ -244,9 +244,9 @@ class VncScreenService {
     // serves them at roughly 10 fps, so no additional pacing is needed.
     _requestUpdate(socket);
     while (_running) {
-      final messageType = await reader
-          .readUint8()
-          .timeout(const Duration(seconds: 6));
+      final messageType = await reader.readUint8().timeout(
+        const Duration(seconds: 6),
+      );
       switch (messageType) {
         case 0: // FramebufferUpdate
           await _readFramebufferUpdate(
@@ -390,8 +390,7 @@ class VncScreenService {
             final source = row * tileWidth * 2;
             for (var column = 0; column < tileWidth; column++) {
               final offset = source + column * 2;
-              fb[destination + column] =
-                  data[offset] | (data[offset + 1] << 8);
+              fb[destination + column] = data[offset] | (data[offset + 1] << 8);
             }
           }
           continue;

@@ -101,6 +101,11 @@ class AudioSweepRequest {
     required this.stopFrequencyHz,
     required this.pointCount,
     this.measurePhase = false,
+    this.useCurrentGeneratorSettings = false,
+    this.waveform = 'sine',
+    this.amplitudeVpp,
+    this.offsetV,
+    this.generatorChannel = 1,
     this.cancelToken,
   });
 
@@ -108,6 +113,20 @@ class AudioSweepRequest {
   final double stopFrequencyHz;
   final int pointCount;
   final bool measurePhase;
+
+  /// Whether the current generator waveform, amplitude and offset stay.
+  final bool useCurrentGeneratorSettings;
+
+  /// Generator waveform when the current settings are not kept.
+  final String waveform;
+
+  /// Generator amplitude when the current settings are not kept.
+  final double? amplitudeVpp;
+
+  /// Generator offset when the current settings are not kept.
+  final double? offsetV;
+
+  final int generatorChannel;
 
   /// Cancels a running sweep immediately when the chat request is cancelled.
   final CancellationToken? cancelToken;
@@ -185,3 +204,93 @@ typedef AudioAnalysisContextProvider = AudioAnalysisContext? Function();
 /// provider throws an [AudioSweepException] with the concrete cause.
 typedef AudioSweepProvider =
     Future<AudioSweepData?> Function(AudioSweepRequest request);
+
+/// One level measurement of a host-managed frequency series.
+class AudioFrequencySeriesPoint {
+  const AudioFrequencySeriesPoint({
+    required this.frequencyHz,
+    this.value,
+    this.unit = 'Vpp',
+    this.valid = true,
+    this.note,
+  });
+
+  final double frequencyHz;
+  final double? value;
+  final String unit;
+  final bool valid;
+  final String? note;
+}
+
+/// Result of a host-managed frequency series.
+class AudioFrequencySeriesData {
+  const AudioFrequencySeriesData({
+    required this.points,
+    this.quantity = 'vpp',
+    this.source = 'frequency_series',
+    this.configSummary,
+  });
+
+  final List<AudioFrequencySeriesPoint> points;
+  final String quantity;
+  final String source;
+  final String? configSummary;
+}
+
+/// Parameters for a host-managed level measurement at explicit frequencies.
+class AudioFrequencySeriesRequest {
+  const AudioFrequencySeriesRequest({
+    required this.frequenciesHz,
+    required this.channel,
+    required this.quantity,
+    this.amplitudeVpp,
+    this.waveform = 'sine',
+    this.useCurrentSettings = false,
+    this.generatorChannel = 1,
+    this.settlingMs = 1000,
+    this.cancelToken,
+  });
+
+  final List<double> frequenciesHz;
+
+  /// Scope channel label, for example `ch1`.
+  final String channel;
+
+  /// `vpp` or `vrms`.
+  final String quantity;
+
+  /// Generator amplitude when [useCurrentSettings] is false.
+  final double? amplitudeVpp;
+
+  /// Generator waveform when [useCurrentSettings] is false.
+  final String waveform;
+
+  /// Whether the current generator waveform, amplitude and offset stay.
+  final bool useCurrentSettings;
+
+  final int generatorChannel;
+  final int settlingMs;
+  final CancellationToken? cancelToken;
+}
+
+/// Reports why a host-managed frequency series could not run.
+class AudioFrequencySeriesException implements Exception {
+  const AudioFrequencySeriesException(
+    this.message, {
+    this.code = 'SERIES_FAILED',
+    this.hint,
+  });
+
+  final String message;
+  final String code;
+  final String? hint;
+
+  @override
+  String toString() => message;
+}
+
+/// Runs a host-managed frequency series and returns the measured levels.
+typedef AudioFrequencySeriesProvider =
+    Future<AudioFrequencySeriesData?> Function(
+      AudioFrequencySeriesRequest request,
+    );

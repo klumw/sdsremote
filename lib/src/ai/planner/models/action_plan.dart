@@ -335,6 +335,154 @@ class PlanBudget {
   };
 }
 
+/// Equipment facts recorded when the plan was created.
+class PlanEquipment {
+  const PlanEquipment({required this.scope, required this.generator});
+
+  /// Oscilloscope facts.
+  final PlanScopeEquipment scope;
+
+  /// Signal-generator facts.
+  final PlanGeneratorEquipment generator;
+
+  factory PlanEquipment.fromMap(Map<String, dynamic> map) {
+    return PlanEquipment(
+      scope: PlanScopeEquipment.fromMap(
+        requireJsonMap(map['scope'], 'equipment.scope'),
+        'equipment.scope',
+      ),
+      generator: PlanGeneratorEquipment.fromMap(
+        requireJsonMap(map['generator'], 'equipment.generator'),
+        'equipment.generator',
+      ),
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'scope': scope.toJson(),
+    'generator': generator.toJson(),
+  };
+}
+
+/// Oscilloscope facts recorded in the plan.
+class PlanScopeEquipment {
+  const PlanScopeEquipment({
+    required this.reachable,
+    this.model,
+    this.profile,
+    this.host,
+    this.error,
+  });
+
+  /// Whether the scope was reachable.
+  final bool reachable;
+
+  /// Detected model designation from `*IDN?`, when known.
+  final String? model;
+
+  /// Configured device profile display name, when known.
+  final String? profile;
+
+  /// Configured VXI-11 host, when known.
+  final String? host;
+
+  /// English reason when the scope is not reachable.
+  final String? error;
+
+  factory PlanScopeEquipment.fromMap(Map<String, dynamic> map, String field) {
+    return PlanScopeEquipment(
+      reachable:
+          optionalJsonBool(map['reachable'], '$field.reachable') ?? false,
+      model: optionalJsonString(map['model'], '$field.model'),
+      profile: optionalJsonString(map['profile'], '$field.profile'),
+      host: optionalJsonString(map['host'], '$field.host'),
+      error: optionalJsonString(map['error'], '$field.error'),
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'reachable': reachable,
+    if (model != null) 'model': model,
+    if (profile != null) 'profile': profile,
+    if (host != null) 'host': host,
+    if (error != null) 'error': error,
+  };
+}
+
+/// Signal-generator facts recorded in the plan.
+class PlanGeneratorEquipment {
+  const PlanGeneratorEquipment({
+    required this.configured,
+    required this.connected,
+    required this.supported,
+    this.detected = false,
+    this.model,
+    this.identity,
+    this.family,
+    this.port,
+    this.error,
+  });
+
+  /// Whether a generator device is selected in the settings.
+  final bool configured;
+
+  /// Whether the generator was connected.
+  final bool connected;
+
+  /// Whether the configured device is supported.
+  final bool supported;
+
+  /// Whether the device was detected on a serial port.
+  final bool detected;
+
+  /// Reported model name.
+  final String? model;
+
+  /// Reported SCPI identity.
+  final String? identity;
+
+  /// Detected device family.
+  final String? family;
+
+  /// Serial port of the connection.
+  final String? port;
+
+  /// English reason when the generator is unavailable.
+  final String? error;
+
+  factory PlanGeneratorEquipment.fromMap(
+    Map<String, dynamic> map,
+    String field,
+  ) {
+    return PlanGeneratorEquipment(
+      configured:
+          optionalJsonBool(map['configured'], '$field.configured') ?? false,
+      connected:
+          optionalJsonBool(map['connected'], '$field.connected') ?? false,
+      supported:
+          optionalJsonBool(map['supported'], '$field.supported') ?? false,
+      detected: optionalJsonBool(map['detected'], '$field.detected') ?? false,
+      model: optionalJsonString(map['model'], '$field.model'),
+      identity: optionalJsonString(map['identity'], '$field.identity'),
+      family: optionalJsonString(map['family'], '$field.family'),
+      port: optionalJsonString(map['port'], '$field.port'),
+      error: optionalJsonString(map['error'], '$field.error'),
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'configured': configured,
+    'connected': connected,
+    'supported': supported,
+    'detected': detected,
+    if (model != null) 'model': model,
+    if (identity != null) 'identity': identity,
+    if (family != null) 'family': family,
+    if (port != null) 'port': port,
+    if (error != null) 'error': error,
+  };
+}
+
 /// Complete executable measurement plan.
 class ActionPlan {
   const ActionPlan({
@@ -345,6 +493,7 @@ class ActionPlan {
     required this.safetyNotes,
     required this.steps,
     required this.budget,
+    this.equipment,
   });
 
   /// Opaque identifier, also used as the plan reference.
@@ -367,6 +516,12 @@ class ActionPlan {
 
   /// Sub-agent step counts.
   final PlanBudget budget;
+
+  /// Equipment facts recorded when the plan was created.
+  ///
+  /// `null` only for plans parsed from an older payload that did not carry the
+  /// field; plans built by the pipeline always record it.
+  final PlanEquipment? equipment;
 
   factory ActionPlan.fromMap(Map<String, dynamic> map) {
     final rawInputs =
@@ -397,6 +552,11 @@ class ActionPlan {
         requireJsonMap(map['budget'], 'budget'),
         'budget',
       ),
+      equipment: map['equipment'] == null
+          ? null
+          : PlanEquipment.fromMap(
+              requireJsonMap(map['equipment'], 'equipment'),
+            ),
     );
   }
 
@@ -408,6 +568,7 @@ class ActionPlan {
     'safetyNotes': safetyNotes,
     'steps': [for (final step in steps) step.toJson()],
     'budget': budget.toJson(),
+    if (equipment != null) 'equipment': equipment!.toJson(),
   };
 
   /// Structural validation of the plan.

@@ -26,12 +26,20 @@ abstract interface class EquipmentProbe {
 class CallbackEquipmentProbe implements EquipmentProbe {
   CallbackEquipmentProbe({
     required this.vxi11Host,
+    this.scopeModel,
+    this.scopeProfile,
     this.readGeneratorStatus,
     this.readWaveformSummary,
   });
 
   /// Configured VXI-11 host, or `null` when no scope is configured.
   final String? vxi11Host;
+
+  /// Detected oscilloscope model designation from `*IDN?`, when known.
+  final String? scopeModel;
+
+  /// Configured oscilloscope profile display name, when known.
+  final String? scopeProfile;
 
   /// Signal-generator status provider.
   final GeneratorStatusReader? readGeneratorStatus;
@@ -62,6 +70,8 @@ class CallbackEquipmentProbe implements EquipmentProbe {
     }
     return ScopeEquipment(
       reachable: true,
+      model: scopeModel,
+      profile: scopeProfile,
       host: host,
       readableValues: readable,
     );

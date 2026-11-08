@@ -211,7 +211,6 @@ class InstrumentAgent with MaxToolCallsHandler {
       if (readSignalGeneratorStatus != null)
         createReadSignalGeneratorStatusTool(
           readStatus: readSignalGeneratorStatus,
-          isEnabled: generatorGate.isEnabled,
           agentName: 'InstrumentAgent',
         ),
       if (applySignalGenerator != null)

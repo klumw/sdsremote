@@ -16,6 +16,8 @@ enum GeneratorFamily {
 class ScopeEquipment {
   const ScopeEquipment({
     required this.reachable,
+    this.model,
+    this.profile,
     this.host,
     this.error,
     this.readableValues = const <String, Object?>{},
@@ -23,6 +25,12 @@ class ScopeEquipment {
 
   /// Whether an oscilloscope host is configured.
   final bool reachable;
+
+  /// Detected model designation from `*IDN?`, when known.
+  final String? model;
+
+  /// Configured device profile display name, when known.
+  final String? profile;
 
   /// Configured VXI-11 host, if any.
   final String? host;
@@ -35,6 +43,8 @@ class ScopeEquipment {
 
   Map<String, Object?> toJson() => <String, Object?>{
     'reachable': reachable,
+    if (model != null) 'model': model,
+    if (profile != null) 'profile': profile,
     if (host != null) 'host': host,
     if (error != null) 'error': error,
   };

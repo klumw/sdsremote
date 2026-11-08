@@ -1632,7 +1632,7 @@ Press Decode Source to select the signal to be decoded:
 - CAN_L — CAN_L signal will be decoded.
 - CAN_H-CAN_L — CAN_H and CAN_L are both used as the source of decoding.
 
-## CAN Trigger (Start, Remote, ID, ID+DATA, Error) [2+4-channel]
+## CAN Trigger (Start, Remote, ID, ID+DATA) [2+4-channel]
 
 This part will provide a brief introduction and description for the operation of the CAN trigger.
 
@@ -1735,7 +1735,7 @@ This part will provide a brief introduction and description for the operation of
 
 - Data Error —the oscilloscope will be triggered when errors (such as ID check error, checksum error, sync byte field error) are detected.
 
-## Operation Steps (Setup, Protocol, Trigger Setting, Condition, ID, DATA) [2+4-channel]
+## Trigger Operation Steps (Setup, Protocol, Trigger Setting, Condition, ID, DATA) [2+4-channel]
 
 1. Press the Setup button to enter the TRIGGER function menu.
 2. Press the Type and select Serial.
@@ -1783,6 +1783,234 @@ After completing the setup of LIN signal and trigger, we will decode LIN signals
 - ID Parity — the two check bits of Protected Identifier Field.
 - Data — the value of Data Field.
 - Checksum — the value of Checksum Field.
+
+## Edge Trigger
+
+What it is for
+
+The Edge trigger starts acquisition when the signal crosses a specified voltage level in a selected direction. It is the standard trigger for displaying periodic signals such as clock, sine, square and switching waveforms.
+
+How to set it up
+
+1. Connect the signal to an analog input channel.
+2. Press `Setup` and select `Type` → `Edge`.
+3. Select the trigger `Source`.
+4. Select the desired `Slope`: Rising, Falling or Alternating, where available.
+5. Set the trigger `Level` to a voltage within the signal's amplitude.
+6. Adjust the horizontal timebase and vertical scale for a stable display.
+
+How to measure
+
+- Use `Measure` to display frequency, period, amplitude and other available parameters.
+- Use `Cursors` to measure the time between edges or the voltage at specific points.
+- For switching signals, place the trigger level near the switching threshold to obtain a stable display.
+
+## Slope Trigger
+
+What it is for
+
+The Slope trigger detects signals that rise or fall between two specified voltage levels within a defined time period. It is useful for identifying slow transitions, unusually fast edges and abnormal rise or fall times.
+
+How to set it up
+
+1. Press `Setup` and select `Type` → `Slope`.
+2. Select the trigger `Source`.
+3. Select the slope direction: Rising or Falling.
+4. Set the upper and lower voltage thresholds.
+5. Set the time condition, such as greater than, less than or within a specified range.
+6. Adjust the trigger time limits to match the transition you want to capture.
+
+How to measure
+
+- Use `Measure` to obtain rise time or fall time, if available for the selected signal.
+- Use `Cursors` to measure the time between the two threshold crossings.
+- Check whether the transition time falls within the specified trigger condition.
+
+## Pulse Trigger
+
+What it is for
+
+The Pulse trigger detects positive or negative pulses according to their width. It is useful for finding glitches, short pulses, missing pulse-width conditions and abnormal digital signals.
+
+How to set it up
+
+1. Press `Setup` and select `Type` → `Pulse`.
+2. Select the trigger `Source`.
+3. Select Positive or Negative pulse polarity.
+4. Set the trigger `Level`.
+5. Select the pulse-width condition:
+   - `>`: Pulse width greater than the specified value.
+   - `<`: Pulse width less than the specified value.
+   - `Within`: Pulse width within a specified range.
+   - `Outside`: Pulse width outside a specified range.
+6. Enter the required pulse-width value or range.
+
+How to measure
+
+- Use `Measure` to display pulse width and frequency.
+- Use `Cursors` to measure the pulse duration between its leading and trailing edges.
+- Use the trigger to isolate pulses that are too short or too long.
+
+## Video Trigger
+
+What it is for
+
+The Video trigger synchronizes the oscilloscope to analog video signals. It is useful for examining video synchronization pulses, lines and fields.
+
+How to set it up
+
+1. Connect the video signal to an analog input channel.
+2. Press `Setup` and select `Type` → `Video`.
+3. Select the trigger `Source`.
+4. Select the video standard, such as NTSC, PAL or HDTV, or configure a Custom standard where supported.
+5. Select the synchronization condition, such as All Lines, Line or Field.
+6. If required, specify the line or field number.
+7. Adjust the timebase to display the desired part of the video signal.
+
+How to measure
+
+- Use `Cursors` to measure the timing of synchronization pulses and the interval between lines.
+- Use automatic measurements where applicable to inspect voltage and timing.
+- Examine the selected line or field for missing or distorted synchronization pulses.
+
+## Window Trigger
+
+What it is for
+
+The Window trigger detects when a signal enters or leaves a defined voltage window. It is useful for monitoring signals that must remain within an allowed voltage range.
+
+How to set it up
+
+1. Press `Setup` and select `Type` → `Window`.
+2. Select the trigger `Source`.
+3. Select the window type:
+   - `Absolute`: Define upper and lower voltage thresholds.
+   - `Relative`: Define the window relative to the current trigger level, as supported by the instrument.
+4. Set the upper and lower voltage limits.
+5. Select the required window condition, where available.
+6. Adjust the timebase to inspect the event.
+
+How to measure
+
+- Use `Measure` to inspect the signal's voltage characteristics.
+- Use `Cursors` to determine the voltage at which the signal enters or leaves the window.
+- Check whether the signal exceeds the permitted voltage range.
+
+## Interval Trigger
+
+What it is for
+
+The Interval trigger measures the time between consecutive edges of the same polarity. It is useful for detecting abnormal periods, missing timing intervals and irregular repetition rates.
+
+How to set it up
+
+1. Press `Setup` and select `Type` → `Interval`.
+2. Select the trigger `Source`.
+3. Select the edge polarity used for interval detection.
+4. Set the interval condition:
+   - Less than or equal to a specified time.
+   - Greater than or equal to a specified time.
+   - Within a specified time range.
+   - Outside a specified time range.
+5. Enter the required time value or range.
+
+How to measure
+
+- Use `Measure` to display signal period and frequency.
+- Use `Cursors` to measure the interval between consecutive rising or falling edges.
+- Use the trigger to isolate intervals that are too short, too long or outside the expected range.
+
+## Dropout Trigger
+
+What it is for
+
+The Dropout trigger detects when a signal stops producing expected transitions or remains in a defined state longer than a specified time. It is useful for detecting missing pulses, interruptions and stalled digital signals.
+
+How to set it up
+
+1. Press `Setup` and select `Type` → `Dropout`.
+2. Select the trigger `Source`.
+3. Select the Dropout type:
+   - `Edge`: Detects a missing edge within the specified timeout.
+   - `State`: Detects a signal state that persists longer than the specified timeout.
+4. Set the required timeout value.
+5. Adjust the trigger level and other available conditions.
+6. Start acquisition and observe whether the expected signal activity stops.
+
+How to measure
+
+- Use `Cursors` to measure the duration of the signal interruption.
+- Use `Measure` to inspect the signal before and after the dropout.
+- Check whether the interruption exceeds the configured timeout.
+
+## Pattern Trigger
+
+What it is for
+
+The Pattern trigger detects a logical combination of signal states across multiple input channels. It is useful for troubleshooting digital control signals and identifying specific combinations of logic states.
+
+How to set it up
+
+1. Press `Setup` and select `Type` → `Pattern`.
+2. Assign a state to each required channel:
+   - `H`: High.
+   - `L`: Low.
+   - `X` or Invalid: Channel state is ignored.
+3. Select the required logical condition, such as AND, OR, NAND or NOR.
+4. Configure the time qualification if required.
+5. Set the trigger conditions and start acquisition.
+
+How to measure
+
+- Observe the channel combination that caused the trigger.
+- Use `Cursors` to measure the timing relationship between the digital signals.
+- Use `Measure` to inspect frequency, period and pulse width on individual channels.
+- Compare the captured pattern with the expected control logic.
+
+## Serial Trigger
+
+What it is for
+
+The Serial trigger captures specific events in supported serial communication protocols. It is useful for troubleshooting communication between controllers, sensors and peripheral devices.
+
+The SDS1000X-E supports serial protocol triggering and decoding for:
+
+- I²C
+- SPI
+- UART
+- CAN
+- LIN
+
+How to set it up
+
+1. Connect the relevant serial signals to the oscilloscope channels.
+2. Open `Decode` and select the required serial protocol.
+3. Assign the input channels to the protocol signals.
+4. Configure the signal thresholds and protocol parameters, such as baud rate or clock polarity, as applicable.
+5. Enable decoding and verify that the displayed frames are interpreted correctly.
+6. Press `Setup` and select `Type` → `Serial`.
+7. Select the protocol and configure the desired trigger condition.
+8. Start acquisition.
+
+Typical trigger conditions
+
+| Protocol | Example trigger conditions                       |
+| -------- | ------------------------------------------------ |
+| I²C      | Start, Stop, Restart, No Ack, address or data    |
+| SPI      | Data pattern or protocol-specific data condition |
+| UART     | Start, data or protocol-specific frame condition |
+| CAN      | Frame or protocol-specific data condition        |
+| LIN      | Frame or protocol-specific data condition        |
+
+Available conditions depend on the selected protocol and instrument firmware.
+
+How to measure
+
+- Use the serial decode display to inspect addresses, data and protocol events.
+- Use `Cursors` to measure bit duration, clock period and inter-frame gaps.
+- Use automatic measurements to inspect signal frequency, voltage and pulse timing.
+- Trigger on a specific address, data value or protocol event to isolate communication errors.
+
 
 ## Reference Waveform (REF, analog channel, math waveform, compare) [2+4-channel]
 
@@ -3940,13 +4168,893 @@ For 9600 baud:
 | Unstable display        | Check trigger settings              |
 | No MSO channels         | Check firmware and license          |
 
+## How To: Prepare the Oscilloscope, Grounding, Safety
+
+Connect the oscilloscope to a properly grounded power outlet using the
+supplied power cable. The Siglent SDS1000X-E is grounded through the
+protective earth conductor of the power line.
+
+Ensure that the instrument is correctly grounded before connecting
+signal inputs. The BNC connector grounds and probe ground clips are
+connected to protective earth. Never connect a probe ground clip to a
+point carrying a hazardous voltage.
+
+Observe the specified input voltage limits and measurement category
+restrictions. The SDS1000X-E is not intended for measurements on mains
+circuits (CAT II, CAT III or CAT IV).
+
+Use an ESD-protected working environment when handling sensitive
+electronic components.
+
+## How To: Reset the Oscilloscope, Default Settings, Initialization
+
+Restore the oscilloscope to its default configuration before starting a
+new measurement.
+
+Use the `Default` function, where available, to restore the factory
+default setup. Alternatively, use the `Save/Recall` menu to recall a
+previously saved setup.
+
+After resetting, configure the following parameters:
+
+-   Enable Channel 1 by pressing `CH1`.
+-   Set the vertical scale using the `Vertical Scale` knob.
+-   Adjust the vertical position using the `Vertical Position` knob.
+-   Select DC coupling in the `CH1` menu.
+-   Set the trigger type to Edge.
+-   Select Auto trigger mode.
+-   Set the trigger source to Channel 1.
+-   Adjust the horizontal scale using the `Horizontal Scale` knob.
+-   Adjust the horizontal position using the `Horizontal Position` knob.
+
+Check the displayed settings before starting the measurement.
+
+## How To: Connect a Probe, Signal Input, Grounding
+
+Connect the probe to an oscilloscope input channel, such as CH1.
+
+Attach the probe ground clip to a suitable circuit ground point and
+touch the probe tip to the test point.
+
+Select the correct probe attenuation factor (1X, 10X or another
+supported value).
+
+Press the corresponding channel button, such as `CH1`, and select the
+matching attenuation factor using the `Probe` softkey in the channel
+menu.
+
+Ensure that the attenuation setting on the oscilloscope matches the
+physical probe setting to obtain correct voltage readings.
+
+## How To: Compensate a Probe, Calibration, Accuracy
+
+Connect the passive probe to an oscilloscope channel and attach its tip
+to the probe compensation output terminal on the front panel.
+
+Connect the probe ground clip to the adjacent ground terminal.
+
+Set the probe attenuation switch to 10X and select the corresponding 10X
+setting in the channel menu.
+
+Press `Auto Setup` if necessary to display the calibration square wave.
+
+Inspect the waveform:
+
+-   Under-compensated probes display rounded waveform corners.
+-   Properly compensated probes display square waveform corners.
+-   Over-compensated probes display overshoot or peaked waveform
+    corners.
+
+Use a non-metallic adjustment tool to adjust the probe compensation
+until the waveform is correctly shaped.
+
+Repeat the procedure when using a new probe or when necessary.
+
+## How To: Set Vertical Scaling, Volts per Division, Amplitude
+
+Use the `Vertical Scale` knob in the VERTICAL control section to adjust
+the voltage represented by each vertical division.
+
+Adjust the vertical position using the `Vertical Position` knob to place
+the waveform appropriately on the display.
+
+Select a vertical scale that uses most of the display without clipping
+the waveform.
+
+Account for the probe attenuation factor configured in the channel menu
+when interpreting voltage readings.
+
+## How To: Select Input Coupling, AC Coupling, DC Coupling
+
+Press the appropriate channel button, such as `CH1`, to enter the
+channel configuration menu.
+
+Select the desired coupling mode using the `Coupling` softkey.
+
+The SDS1000X-E supports three input coupling modes:
+
+-   **DC:** Displays both AC and DC components of the input signal.
+-   **AC:** Blocks the DC component, allowing the AC component to be
+    displayed around zero volts.
+-   **GND:** Disconnects the input signal from the vertical amplifier
+    and displays the zero-volt reference position.
+
+Use DC coupling when measuring the complete signal, including its DC
+offset.
+
+Use AC coupling when investigating small AC variations superimposed on a
+large DC voltage.
+
+Use GND coupling to establish the zero-voltage reference position.
+
+## How To: Reduce Signal Noise, Bandwidth Limit, Filtering
+
+Press the appropriate channel button, such as `CH1`, to open the channel
+configuration menu.
+
+Select the `BW Limit` softkey to configure the bandwidth limitation.
+
+The SDS1000X-E provides two settings:
+
+-   **Full:** Uses the complete available analog bandwidth.
+-   **20M:** Limits the channel bandwidth to 20 MHz.
+
+Enable the 20 MHz bandwidth limit to reduce high-frequency noise and
+obtain a cleaner waveform.
+
+Be aware that this also attenuates signal components above 20 MHz.
+
+Use Full bandwidth when investigating fast edges, high-frequency signals
+or other high-speed signal details.
+
+## How To: Set the Timebase, Seconds per Division, Horizontal Scaling
+
+Use the `Horizontal Scale` knob to select the time represented by each
+horizontal division.
+
+Adjust the horizontal position using the `Horizontal Position` knob to
+move the waveform left or right.
+
+Select a suitable timebase to display the relevant signal interval and
+individual waveform details.
+
+The SDS1000X-E supports timebase settings from 1 ns/div to 100 s/div,
+depending on the model and operating conditions.
+
+## How To: Select Acquisition Mode, Sampling, Waveform Processing
+
+Press the `Acquire` button on the front panel to open the acquisition
+configuration menu.
+
+Select the appropriate acquisition mode:
+
+-   **Normal:** Standard waveform acquisition using equally spaced
+    samples.
+-   **Peak Detect:** Captures minimum and maximum signal values within
+    the sample interval. Useful for detecting narrow pulses and short
+    transients.
+-   **Average:** Averages multiple acquisitions to reduce random noise
+    and improve measurement stability.
+-   **Eres:** Enhanced resolution mode, which improves vertical
+    resolution by digitally processing the acquired signal.
+
+Use Average for repetitive signals with random noise.
+
+Use Peak Detect when looking for short pulses that might otherwise be
+missed.
+
+Use Eres when improved vertical resolution is required and the signal
+characteristics permit this processing.
+
+The SDS1000X-E does not provide a separate Envelope acquisition mode as
+described in some other oscilloscope families.
+
+## How To: Capture Single Events, Single Acquisition, Transient Acquisition
+
+Use the Single acquisition function to capture non-repetitive events.
+
+Configure the trigger source, trigger type and trigger level.
+
+Press the `Single` button on the front panel.
+
+The oscilloscope waits until the configured trigger condition is met,
+captures the waveform and then stops acquisition.
+
+The captured waveform remains available for detailed inspection.
+
+This is useful for investigating intermittent faults, switching events
+and transient signals.
+
+## How To: Optimize Sampling, Sample Rate, Aliasing
+
+Select an appropriate horizontal timebase and acquisition configuration
+to obtain the highest practical real-time sample rate.
+
+The SDS1000X-E provides a maximum real-time sampling rate of up to 1
+GSa/s, depending on the model and active channel configuration.
+
+Ensure that the sampling rate is sufficient to represent the highest
+frequency components of the signal under investigation.
+
+Insufficient sampling can cause aliasing, resulting in incorrect
+displayed frequencies or waveform shapes.
+
+Consider the available memory depth when selecting the sampling rate and
+acquisition duration.
+
+## How To: Configure Edge Triggering, Trigger Level, Rising and Falling Edges
+
+Press the `Setup` button on the front panel to enter the TRIGGER
+configuration menu.
+
+Select `Edge` as the trigger type.
+
+Configure the following parameters:
+
+-   **Source:** Select the channel used as the trigger source.
+-   **Slope:** Select rising or falling edge.
+-   **Level:** Adjust the trigger threshold using the `Trigger Level`
+    knob.
+
+The oscilloscope starts waveform acquisition when the selected signal
+crosses the trigger level in the specified direction.
+
+Use edge triggering to obtain a stable display of repetitive signals and
+to synchronize waveform acquisition.
+
+## How To: Capture Pre-Trigger Events, Trigger Position, Fault Analysis
+
+Use the `Horizontal Position` knob to adjust the trigger position within
+the acquisition record.
+
+Move the trigger point towards the right side of the display to increase
+the amount of pre-trigger information visible.
+
+Use pre-trigger data to examine signal conditions preceding a fault or
+switching event.
+
+This is particularly useful when investigating intermittent problems,
+unexpected transitions or signal disturbances.
+
+## How To: Detect Glitches, Pulse Width, Runt Pulses
+
+Press the `Setup` button to enter the TRIGGER menu.
+
+The oscilloscope provides `Pulse` and `Runt` trigger types for
+investigating abnormal pulse conditions.
+
+**Pulse Trigger:**
+
+Select `Pulse` as the trigger type.
+
+Configure the source, polarity and pulse-width limits.
+
+The oscilloscope can trigger on positive or negative pulses that are:
+
+-   Shorter than a specified time.
+-   Longer than a specified time.
+-   Within a specified time range.
+-   Outside a specified time range.
+
+Use this function to detect pulses with unexpected durations.
+
+**Runt Trigger:**
+
+Select `Runt` as the trigger type.
+
+Configure the source, polarity and threshold conditions.
+
+The oscilloscope triggers on pulses that cross one specified threshold
+but fail to cross the other.
+
+Use Runt Trigger to investigate incomplete logic transitions and
+abnormal digital signals.
+
+*Note: The SDS1000X-E does not have a separately named Glitch Trigger.
+Pulse Trigger and Runt Trigger provide the relevant supported triggering
+capabilities.*
+
+## How To: Analyze Logic Conditions, Pattern Triggering, Digital Faults
+
+The SDS1000X-E provides a `Pattern Trigger` function for triggering on
+specified combinations of signal states.
+
+Press the `Setup` button and select `Pattern` as the trigger type.
+
+Configure the available channel conditions and the required logical
+combination.
+
+The oscilloscope triggers when the configured pattern condition is
+satisfied.
+
+Use Pattern Trigger to isolate specific digital signal conditions during
+troubleshooting.
+
+This function is not equivalent to a dedicated multi-input logic
+analyzer trigger with arbitrary digital input channels.
+
+## How To: Find Events in Long Acquisitions, Search, Waveform Navigation
+
+**Four-channel models only**
+
+The SDS1000X-E four-channel models provide `Search` and `Navigate`
+functions for examining long waveform records.
+
+Press the `Search` button to enter the SEARCH menu.
+
+Select the required search condition. Available search types include:
+
+-   Edge
+-   Slope
+-   Pulse
+-   Interval
+-   Runt
+
+Configure the search criteria and start the search.
+
+Matching events are marked on the acquired waveform.
+
+Use the `Navigate` function to move between search events, waveform
+positions or stored history frames.
+
+This makes it easier to identify and examine specific events in long
+acquisition records without manually inspecting the entire waveform.
+
+## How To: Zoom into Waveforms, Horizontal Zoom, Detailed Analysis
+
+Use the `Zoom` function to magnify a selected section of the acquired
+waveform.
+
+Adjust the zoom factor and move the zoom window to inspect individual
+signal details.
+
+The SDS1000X-E provides horizontal zoom functionality, allowing detailed
+examination of glitches, transitions and timing relationships while
+retaining the original acquisition data.
+
+Use zoom together with the horizontal position control to navigate
+through the waveform.
+
+## How To: Measure Voltage, Amplitude, Peak-to-Peak, Cursors
+
+Use the automatic measurement functions by pressing the `Measure`
+button.
+
+Select the required measurement parameters, such as:
+
+-   Maximum voltage
+-   Minimum voltage
+-   Peak-to-peak voltage
+-   Mean voltage
+-   RMS voltage
+-   Amplitude
+
+Alternatively, press `Cursors` to enter the cursor measurement menu.
+
+Select manual cursor mode and position two horizontal cursors at the
+voltage levels of interest.
+
+Read the voltage difference displayed by the oscilloscope.
+
+Use the automatic measurements or cursors to determine peak-to-peak
+voltage and other signal characteristics.
+
+## How To: Measure Frequency, Period, Timing
+
+Press `Measure` and select the required channel and measurement
+parameters.
+
+Choose Frequency or Period to obtain the corresponding automatic
+measurement.
+
+Alternatively, use the cursor function to measure the time between
+equivalent points of successive waveform cycles.
+
+Calculate frequency using:
+
+\[ f=`\frac{1}{T}`{=tex} \]
+
+where (T) is the measured period.
+
+Use horizontal zoom to inspect the waveform more closely when precise
+timing measurements are required.
+
+## How To: Measure Pulse Width and Rise Time, Timing, Signal Integrity
+
+Press `Measure` and select the required channel.
+
+Select the automatic measurement parameters for pulse width and rise
+time.
+
+Alternatively, use the cursor function to measure time intervals
+manually.
+
+Inspect the waveform for distortion, ringing, overshoot and unexpected
+transitions that may cause digital circuit malfunctions.
+
+Use horizontal zoom to examine fast transitions in greater detail.
+
+## How To: Compare Signals, Multiple Channels, Timing Relationships
+
+Connect the signals to separate oscilloscope input channels.
+
+Enable the required channels using their corresponding channel buttons,
+such as `CH1`, `CH2`, `CH3` or `CH4`.
+
+Configure the vertical scales independently using the corresponding
+`Vertical Scale` controls.
+
+Use a common trigger source to synchronize waveform acquisition.
+
+Compare waveform timing, amplitudes and transitions to identify delays,
+signal integrity problems and differences between circuit stages.
+
+## How To: Measure Phase Difference, XY Mode, Phase
+
+Press the `Acquire` button to open the acquisition configuration menu.
+
+Select the `XY` display mode.
+
+The oscilloscope displays Channel 1 amplitude on the horizontal axis and
+Channel 2 amplitude on the vertical axis.
+
+Connect the two signals to CH1 and CH2.
+
+Use the resulting Lissajous pattern to investigate the phase
+relationship between two signals of the same frequency.
+
+The phase difference can be determined from the resulting ellipse using
+the appropriate geometric relationship.
+
+## How To: Improve Measurement Accuracy, Probe Setup, Calibration
+
+Use a probe with suitable bandwidth and attenuation for the signal under
+investigation.
+
+Compensate passive probes before measurement.
+
+Select the appropriate probe attenuation factor in the channel
+configuration menu.
+
+Choose suitable vertical and horizontal scales to ensure that the
+waveform can be displayed and measured accurately.
+
+Use the oscilloscope's self-calibration function when necessary.
+
+To perform self-calibration:
+
+1.  Disconnect all input channels.
+2.  Allow the oscilloscope to warm up for at least 30 minutes.
+3.  Press `Utility`.
+4.  Select `Do Self Cal`.
+5.  Press `Single` to start the calibration procedure.
+6.  Wait until the calibration has completed.
+7.  Press `Run/Stop` to exit the calibration interface.
+
+Perform self-calibration particularly when the ambient temperature has
+changed significantly (approximately 5 °C or more).
+
+## How To: Improve Period Measurement Accuracy, Multiple Cycles, Measurement Uncertainty
+
+Measure the time interval across several complete waveform cycles
+instead of measuring only one period.
+
+Use the cursor function to position the cursors at equivalent phase
+points at the beginning and end of the selected interval.
+
+Divide the measured time by the number of complete cycles.
+
+This reduces the relative influence of cursor placement errors and
+improves measurement accuracy.
+
+## How To: Verify Vertical and Horizontal Scale Accuracy, Reference Signal, Calibration
+
+Apply a reference signal with known amplitude and period to the
+oscilloscope input.
+
+Use the displayed waveform, automatic measurement functions or cursor
+measurements to determine its voltage and time characteristics.
+
+Compare the measured values with the reference values to verify the
+vertical voltage scale and horizontal timebase.
+
+Use a calibrated signal source and suitable measurement connections for
+reliable verification.
+
+## How To: Navigate Digital Oscilloscope Menus, Menu Control, Function Selection
+
+Use the dedicated front-panel buttons to access the corresponding
+configuration menus.
+
+Important Siglent SDS1000X-E buttons include:
+
+-   `CH1`, `CH2`, `CH3`, `CH4` -- Channel configuration (depending on
+    model).
+-   `Setup` -- Trigger configuration.
+-   `Acquire` -- Acquisition configuration.
+-   `Measure` -- Automatic measurements.
+-   `Cursors` -- Cursor measurements.
+-   `Display/Persist` -- Display configuration and persistence.
+-   `Utility` -- System configuration and calibration.
+-   `Save/Recall` -- Save and recall setups, waveforms and screenshots.
+-   `History` -- Historical waveform acquisition.
+-   `Decode` -- Serial bus decoding.
+-   `Auto Setup` -- Automatic signal configuration.
+-   `Run/Stop` -- Start and stop waveform acquisition.
+-   `Single` -- Single acquisition.
+
+Use the menu softkeys alongside the display and the `Universal Knob` to
+select and modify configuration parameters.
+
+## How To: Use Automatic Setup, AUTOSET, Signal Detection
+
+Press the `Auto Setup` button on the front panel.
+
+The oscilloscope automatically analyzes the connected input signal and
+determines suitable vertical scaling, horizontal timebase and trigger
+settings.
+
+The instrument also configures the trigger type and slope for a suitable
+waveform display.
+
+Use Auto Setup as a starting point for measurements and refine the
+settings manually when necessary.
+
+## How To: Understand ADC Resolution, Bit Depth, Voltage Quantization
+
+The analog-to-digital converter (ADC) determines the voltage resolution
+through its bit depth.
+
+The Siglent SDS1000X-E uses an 8-bit ADC.
+
+An 8-bit converter represents:
+
+\[ 2\^8=256 \]
+
+discrete voltage levels.
+
+The approximate voltage resolution is determined by dividing the total
+displayed voltage range by 256.
+
+Reducing the vertical voltage range can improve the absolute voltage
+resolution, provided the signal remains within the available display
+range.
+
+## How To: Understand Acquisition Memory, Record Length, Sample Storage
+
+The SDS1000X-E stores acquired waveform samples in internal acquisition
+memory.
+
+The available memory depth depends on the model, active channels and
+acquisition configuration.
+
+The series supports up to 14 Mpts of record length under supported
+operating conditions.
+
+A longer record allows more signal detail to be stored and examined.
+
+Use the `Acquire` menu to configure the memory depth and acquisition
+parameters.
+
+Consider the available memory when selecting the sampling rate and
+acquisition time interval.
+
+## How To: Save Waveform Screenshots, Image Export, Documentation
+
+Press the `Save/Recall` button to enter the SAVE/RECALL menu.
+
+Select the appropriate storage function and configure the desired file
+format and storage destination.
+
+The SDS1000X-E supports saving measurement results, waveform data,
+screenshots and oscilloscope setups.
+
+Connect a USB flash drive to the USB Host port on the front panel when
+external storage is required.
+
+Select the image format and save the current display.
+
+Depending on the model, the four-channel version also provides a
+dedicated one-button Save shortcut.
+
+Verify that the file has been saved successfully before disconnecting
+the USB drive.
+
+## How To: Measure Power Supply Ripple, Ripple Voltage, Power Supply Quality
+
+Connect the oscilloscope to the DC power supply output using a suitable
+probe and safe measurement connection.
+
+Select AC coupling in the channel configuration menu to remove the DC
+component and display the remaining ripple voltage.
+
+Adjust the vertical scale to obtain a clear view of the ripple waveform.
+
+Observe the waveform for periodic variations, noise and
+switching-related disturbances.
+
+Use automatic RMS measurements or cursors to determine the ripple
+amplitude.
+
+Compare ripple levels under different operating conditions.
+
+**Safety:** Ensure that the power supply output is isolated or otherwise
+suitable for measurement with the earth-referenced oscilloscope. Never
+connect the probe ground clip to a non-grounded hazardous potential.
+
+## How To: Measure DC Voltage, DC Readout, Zero Reference
+
+Select DC coupling in the channel configuration menu to preserve the DC
+component of the input signal.
+
+Use the automatic measurement function to obtain the Mean voltage or use
+cursors to measure the voltage relative to the zero reference.
+
+To establish the zero-voltage reference, temporarily select GND
+coupling.
+
+The displayed waveform then represents the zero-voltage position.
+
+Restore DC coupling and read the actual signal voltage.
+
+Check the signal polarity when interpreting positive and negative
+voltage values.
+
+## How To: Analyze Rectifier Waveforms, Half-Wave Rectification, Full-Wave Rectification
+
+Connect the oscilloscope to the rectifier output using a suitable
+measurement connection.
+
+Display the output waveform and inspect its shape.
+
+Identify half-wave rectification by observing that only one half of each
+AC cycle appears at the output.
+
+For full-wave rectification, observe how both halves of the AC cycle are
+converted into pulses of the same polarity.
+
+Compare the waveform shapes and measure their periods and frequencies to
+identify the rectifier type.
+
+Use AC coupling when necessary to remove a DC component and examine
+waveform variations.
+
+**Safety:** Do not connect an ordinary oscilloscope probe ground clip
+directly to a rectifier circuit that is connected to the mains. Use an
+appropriate isolated test arrangement and suitable differential
+measurement equipment where required.
+
+## How To: Diagnose Rectifier Diode Faults, Diode Failure, Waveform Analysis
+
+Connect the oscilloscope to the rectifier output using a suitable
+measurement arrangement.
+
+Inspect the waveform and compare it with the expected rectifier output.
+
+A short-circuited rectifier diode can cause the expected rectified
+waveform to become distorted or allow an abnormal AC component to
+appear.
+
+An open-circuit diode in a bridge rectifier can cause missing output
+pulses or an abnormal ripple waveform.
+
+Compare the observed signal with the expected rectifier waveform to
+identify possible diode faults.
+
+Use waveform amplitude, frequency and shape to support the diagnosis.
+
+## How To: Detect Signal Clipping, Waveform Distortion, Amplifier Overload
+
+Connect the oscilloscope to the circuit output and inspect the displayed
+waveform.
+
+Look for flattened or truncated upper and lower waveform peaks.
+
+These indicate clipping, which can occur when an amplifier or circuit
+reaches its voltage limits.
+
+Compare the waveform with the expected signal to identify distortion
+caused by circuit overload, insufficient supply voltage or incorrect
+bias conditions.
+
+Use the vertical scale to ensure that the observed clipping is not
+caused by the oscilloscope's own display range.
+
+## How To: Freeze Waveforms, Run Stop, Acquisition Control
+
+Press the `Run/Stop` button on the front panel to switch between
+continuous waveform acquisition and a frozen display.
+
+When acquisition is running, the oscilloscope continuously acquires and
+displays waveforms.
+
+Press `Run/Stop` to stop acquisition and preserve the current waveform
+for detailed inspection.
+
+Press the button again to resume continuous acquisition.
+
+Use `Single` when only one triggered acquisition is required.
+
+## How To: Invert a Signal, Waveform Inversion, Polarity
+
+Press the appropriate channel button, such as `CH1`, to enter the
+channel configuration menu.
+
+Select the `Invert` function to enable waveform inversion.
+
+The oscilloscope displays the input waveform with reversed polarity.
+
+Use this function to examine inverted signals without changing the
+physical circuit connections.
+
+## How To: Use Roll Mode, Slow Signals, Continuous Waveform Display
+
+Press the `Roll` shortcut on the horizontal control section to activate
+Roll mode.
+
+Roll mode is intended for observing slowly changing signals
+continuously.
+
+The waveform moves across the display from right to left as new samples
+are acquired.
+
+The SDS1000X-E supports Roll mode for timebase settings from 50 ms/div
+to 100 s/div.
+
+Use this mode for slow voltage variations, temperature measurements and
+other low-frequency signals.
+
+## How To: Prevent Multiple Trigger Events, Trigger Holdoff, Stable Display
+
+Press `Setup` to enter the TRIGGER configuration menu.
+
+Select the `Holdoff` setting and configure the desired holdoff time
+using the `Universal Knob`.
+
+Holdoff defines the time the oscilloscope waits after a trigger event
+before re-arming the trigger circuitry.
+
+Use this function when repetitive waveforms contain multiple trigger
+edges or events between waveform repetitions.
+
+An appropriate holdoff time can help stabilize the waveform display and
+ensure that the oscilloscope triggers on the desired event.
+
+The SDS1000X-E provides adjustable holdoff from 100 ns to 1.5 s.
+
+Holdoff is available for Edge Trigger and serial triggering.
+
+## How To: Force a Trigger Event, Manual Triggering, Waveform Acquisition
+
+When the oscilloscope is in Single trigger mode and the configured
+trigger condition is not met, press the `Single` button twice.
+
+This forces the oscilloscope to complete the acquisition and display the
+current waveform.
+
+Use this function when the configured trigger condition is not occurring
+but you still need to inspect the current signal.
+
+## How To: Configure Automatic Measurements, Measurement Menu, Source Selection
+
+Press the `Measure` button on the front panel to enter the MEASURE
+configuration menu.
+
+Select the required input channel using the Source setting.
+
+Select the desired measurement parameter.
+
+The oscilloscop provides automatic measurement functions for up to 38
+waveform parameters, depending on the model and firmware.
+
+Available measurement parameters include frequency, period, peak-to-peak
+voltage, RMS voltage, mean voltage, rise time and pulse width.
+
+Use the measurement configuration to display the required measurement
+values.
+
+The oscilloscope also supports measurement statistics and gating
+functions.
+
+Ensure that the relevant waveform periods are visible and that the
+acquisition settings are appropriate for the selected measurement.
+
+## How To: Reduce Circuit Loading, Probe Attenuation, Measurement Impedance
+
+Use an attenuating probe, such as a 10:1 or 100:1 probe, to reduce the
+influence of the oscilloscope on the measured circuit.
+
+A higher probe attenuation generally reduces the capacitive loading of
+the circuit, depending on the probe design.
+
+Select the matching attenuation factor in the channel configuration
+menu.
+
+Press the appropriate channel button and select the `Probe` softkey.
+
+Configure the attenuation factor to match the physical probe setting so
+that displayed voltage measurements are corrected accordingly.
+
+Use probes with suitable bandwidth and input characteristics for the
+circuit under investigation.
+
+## How To: Configure External Triggering, Synchronization, Trigger Source – 2-Channel Models only
 
 
-## How To: Use This Hobbyist Measurement Guide (beginner, intermediate, analog, digital, troubleshooting) [2+4-channel]
+### Purpose
 
-This guide teaches hobby electronics users how to measure analog and digital signals, find faults in circuits and interpret oscilloscope readings. Every section is self-contained and ends with a practical example. Start with probe safety and preparation, then follow the topic you need. The examples assume an SDS1000X-E at its default setup unless stated otherwise. Work on low-voltage circuits only.
+Configure external triggering using the dedicated external trigger input. This allows the oscilloscope to synchronize waveform acquisition with an independent external synchronization signal.
 
-Example: To check a 3.3 V sensor, read "How To: Check a Sensor Output" and "How To: Read Volts/Div and Time/Div Correctly" first; together they cover the measurement and the interpretation.
+### Procedure
+
+1\. Connect the external synchronization signal to the `EXT TRIG` input on the oscilloscope.
+
+2\. Press `Setup` to open the TRIGGER menu.
+
+3\. Select `EXT` or `EXT/5` as the trigger source, depending on the required input range and signal amplitude.
+
+4\. Adjust the trigger level until the waveform display becomes stable.
+
+5\. Verify that the oscilloscope reliably triggers on the external synchronization signal.
+
+### When to Use External Triggering
+
+Use external triggering when:
+
+- The measured signal does not contain suitable trigger edges.
+- A separate synchronization signal is available.
+- Multiple signals need to be measured relative to an independent trigger reference.
+
+### Notes
+
+- External triggering is available through the dedicated `EXT TRIG` input on the 2-channel models.
+- The available trigger-source options depend on the specific model.
+- Select `EXT` or `EXT/5` according to the required trigger input range.
+
+## How To: Configure Triggering, Synchronization, and Trigger Source – 4-Channel Models only
+
+### Purpose
+
+Configure the trigger source and synchronization behavior on 4-channel oscilloscopes. Unlike the 2-channel variants, the trigger-source selection must account for the different trigger configuration of the 4-channel models.
+
+### Procedure
+
+1\. Connect the synchronization signal to an appropriate available input channel (`CH1`, `CH2`, `CH3`, or `CH4`).
+
+2\. Press `Setup` to open the TRIGGER menu.
+
+3\. Select the channel carrying the synchronization signal as the trigger source.
+
+4\. Configure the trigger type and trigger parameters as required by the synchronization signal.
+
+5\. Adjust the trigger level until the waveform display becomes stable.
+
+6\. Verify that the oscilloscope reliably triggers on the selected synchronization signal.
+
+### When to Use Channel-Based Triggering
+
+Use a dedicated input channel as the trigger source when:
+
+- An independent synchronization signal is available on one of the input channels.
+- The measured signals need to be synchronized against a reference channel.
+- The trigger signal must also be available for waveform measurement and analysis.
+
+### Notes
+
+- Do not assume that the dedicated `EXT TRIG` input procedure of the 2-channel models applies to the 4-channel models.
+- Select the appropriate input channel as the trigger source.
+- Trigger-source availability and selection depend on the specific 4-channel model and its firmware.
+
+Important distinction
+
+| Feature           | 2-channel models           | 4-channel models                  |
+| ----------------- | -------------------------- | --------------------------------- |
+| Trigger reference | Dedicated `EXT TRIG` input | Input channel                     |
+| Trigger source    | `EXT` / `EXT/5`            | `CH1` / `CH2` / `CH3` / `CH4`     |
+| Synchronization   | External trigger signal    | Selected input channel            |
+| Trigger level     | Adjust to external signal  | Adjust to selected channel signal |
+
+Technical note: The 4-channel procedure above describes channel-based triggering. Before publishing this as definitive model documentation, the exact trigger-source options should be checked against the respective SDS1000X-E 4-channel model manual. This avoids incorrectly stating that all 4-channel variants lack a dedicated external trigger source.
 
 ## How To: Connect a Probe Safely (ground clip, earth, floating circuit, isolation) [2+4-channel]
 
@@ -4245,6 +5353,8 @@ Example: A 3.3 V supply reads 3.1 V on the scope and 3.30 V on a multimeter. The
 Use the grid as a ruler. Height in divisions × volts/div = voltage. Width in divisions × time/div = time. Frequency = 1 / period. Duty cycle = high time / period × 100 %. Phase = time shift / period × 360°. With cursors the scope does the math for you, but the division method is a quick sanity check.
 
 Example: A sine spans 6 divisions peak-to-peak at 0.5 V/div, so Vpp = 3 V. One period spans 4 divisions at 250 µs/div, so T = 1 ms and f = 1 kHz. The RMS is approximately 0.354 × 3 V = 1.06 V.
+
+
 
 ## Video: FFT Usage
 [FFT Usage](https://youtu.be/2F-qECVs5L0)

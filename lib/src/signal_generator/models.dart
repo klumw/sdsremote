@@ -191,8 +191,9 @@ enum Jds6600Waveform {
   ];
 
   /// CH2 has no Adj-Pulse entry in the FY6900 protocol.
-  static final List<Jds6600Waveform> fy6900AuxSelectable =
-      List.unmodifiable(fy6900Selectable.where((waveform) => waveform != pulse));
+  static final List<Jds6600Waveform> fy6900AuxSelectable = List.unmodifiable(
+    fy6900Selectable.where((waveform) => waveform != pulse),
+  );
 
   /// Waveforms the panel offers for [family] and [channel].
   static List<Jds6600Waveform> selectableFor(

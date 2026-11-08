@@ -38,6 +38,8 @@ Tool<Map<String, dynamic>> createAudioTool({
         result = audioResult(await handler(args));
       } on AudioSweepException catch (error) {
         result = audioResult(audioSweepFailure(error));
+      } on AudioFrequencySeriesException catch (error) {
+        result = audioResult(audioSeriesFailure(error));
       } on Object catch (error) {
         result = audioResult({'error': '$name failed: $error'});
       }
@@ -101,6 +103,23 @@ Map<String, dynamic> audioSweepFailure(AudioSweepException error) => {
   'error': error.message,
   if (error.hint != null) 'hint': error.hint,
 };
+
+/// Structured error for a missing frequency-series provider.
+Map<String, dynamic> audioSeriesError() => {
+  'error_code': 'SERIES_PROVIDER_MISSING',
+  'error':
+      'No frequency-series provider is available in this context. The '
+      'measurement needs a connected signal generator and oscilloscope.',
+};
+
+/// Structured result for a frequency series that failed after the provider
+/// was called.
+Map<String, dynamic> audioSeriesFailure(AudioFrequencySeriesException error) =>
+    {
+      'error_code': error.code,
+      'error': error.message,
+      if (error.hint != null) 'hint': error.hint,
+    };
 
 AudioAnalysisContext? audioContext(AudioAnalysisContextProvider? provider) =>
     provider?.call();

@@ -68,6 +68,9 @@ import '../ai/control_panel_chat_controller.dart';
 import '../ai/input_history.dart';
 import '../ai/macro_chat_controller.dart';
 import '../ai/tools/audio/audio_analysis_context.dart';
+import '../audio/frequency_series_service.dart';
+import '../audio/vxi11_frequency_series_scope.dart';
+import '../ai/tools/digital_frequency_series_tool.dart';
 import '../ai/tools/digital_measurement_tools.dart';
 import '../ai/tools/signal_generator_tool.dart';
 import '../ai/waveform_chat_controller.dart';
@@ -4247,6 +4250,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     final params = _deviceParams;
     final comparison = _comparison;
     final mask = _maskResult;
+    final fftPreparation = _fftPreparationForAi();
 
     return <String, dynamic>{
       'displayed': true,
@@ -4254,6 +4258,7 @@ class _OsciHomePageState extends State<OsciHomePage>
         for (final entry in measurements.entries)
           entry.key: _measurementSummaryForAi(entry.value, params),
       },
+      'fftPreparation': ?fftPreparation,
       if (params != null)
         'device': {
           'timebaseSecondsPerDiv': params.timebase,
@@ -4277,6 +4282,26 @@ class _OsciHomePageState extends State<OsciHomePage>
           'toleranceIsPercentOfVpp': _maskSettings.usePercent,
         },
     };
+  }
+
+  /// Deterministic FFT timebase preparation for the current acquisition.
+  ///
+  /// Agents must quote these values verbatim instead of deriving a timebase
+  /// from `timebaseSecondsPerDiv` or `sampleRatePerSecond`. The trigger-source
+  /// channel wins; when it has no reliable frequency the first acquired
+  /// channel with a periodic signal is used.
+  Map<String, Object?>? _fftPreparationForAi() {
+    final trigger = _triggerSourceMeasurement;
+    final candidates = <WaveformMeasurements>[
+      ?trigger,
+      ..._currentMeasurements().values,
+      ..._acquiredMeasurements().values,
+    ];
+    for (final measurement in candidates) {
+      final preparation = fftPreparationForMeasurement(measurement);
+      if (preparation != null) return preparation;
+    }
+    return null;
   }
 
   /// Spectrum analysis of the displayed waveform for the Waveform AI's
@@ -4525,11 +4550,11 @@ class _OsciHomePageState extends State<OsciHomePage>
     );
   }
 
-  /// Sets a timebase with about 50 visible periods on the trigger channel.
+  /// Sets a timebase with at least 80 visible periods on the trigger channel.
   Future<void> _optimizeFrequencyAnalysis() async {
     final period = _triggerSourcePeriod();
     if (period == null) return;
-    final timebase = timebaseForPeriods(period);
+    final timebase = timebaseForFftPeriods(period);
     await _setTimebaseAndRefresh(
       timebase,
       'Timebase optimized for frequency analysis: '
@@ -5813,7 +5838,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       controlSignalGenerator: _controlSignalGeneratorForAi,
       audioAnalysisContext: _audioAnalysisContextForAi,
       audioSweep: _audioSweepForAi,
+      audioFrequencySeries: _audioFrequencySeriesForAi,
       digitalMeasurement: _digitalMeasurementForAi,
+      digitalFrequencySeries: _digitalFrequencySeriesForAi,
     );
   }
 
@@ -6563,6 +6590,110 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
   }
 
+  /// Runs a host-managed digital frequency series for the DigitalAgent.
+  ///
+  /// The series preserves the generator waveform, amplitude and offset, only
+  /// steps the frequency and restores the device state afterwards.
+  Future<DigitalFrequencySeriesData?> _digitalFrequencySeriesForAi(
+    DigitalFrequencySeriesRequest request,
+  ) async {
+    final generator = _sigGenService;
+    if (generator == null) {
+      throw const DigitalFrequencySeriesException(
+        'The signal generator is not configured. Select a JDS6600 or FY6900 '
+        'in the settings before starting a frequency series.',
+        code: 'SERIES_NO_GENERATOR',
+      );
+    }
+    if (!generator.isConnected) {
+      throw const DigitalFrequencySeriesException(
+        'The signal generator is not connected. Check its USB connection and '
+        'the selected serial port, then retry.',
+        code: 'SERIES_GENERATOR_OFFLINE',
+      );
+    }
+    final channel = int.tryParse(
+      request.channel.replaceAll(RegExp(r'[^0-9]'), ''),
+    );
+    if (channel == null || channel < 1 || channel > 4) {
+      throw const DigitalFrequencySeriesException(
+        'Choose a scope channel between ch1 and ch4.',
+        code: 'SERIES_INVALID_CHANNEL',
+      );
+    }
+
+    _sigGenDetector?.setPaused(true);
+    generator.setPanelActive(false);
+    if (mounted) setState(() {});
+    try {
+      await generator.refreshAll();
+      final service = FrequencySeriesService(
+        signalGenerator: generator,
+        scope: Vxi11FrequencySeriesScope(_getInstrument),
+      );
+      final useCurrentSettings = request.useCurrentSettings;
+      final waveform = Jds6600Waveform.fromScpi(request.waveform);
+      if (!useCurrentSettings && waveform == null) {
+        throw DigitalFrequencySeriesException(
+          'The generator waveform "${request.waveform}" is not supported.',
+          code: 'SERIES_INVALID_WAVEFORM',
+        );
+      }
+      final amplitude = request.amplitudeVpp;
+      if (!useCurrentSettings &&
+          (amplitude == null || !amplitude.isFinite || amplitude <= 0)) {
+        throw const DigitalFrequencySeriesException(
+          'The generator amplitude is required when the current settings are '
+          'not kept.',
+          code: 'SERIES_INVALID_AMPLITUDE',
+        );
+      }
+      final result = await service.runQuantities(
+        FrequencySeriesQuantitiesConfig(
+          frequenciesHz: request.frequenciesHz,
+          channel: channel,
+          quantities: digitalFrequencySeriesQuantities,
+          generatorChannel: request.generatorChannel,
+          generatorWaveform: useCurrentSettings ? null : waveform,
+          amplitudeVpp: useCurrentSettings ? null : amplitude,
+          offsetV: useCurrentSettings ? null : (request.offsetV ?? 0),
+          settling: Duration(milliseconds: request.settlingMs),
+        ),
+        cancelToken: request.cancelToken,
+      );
+      return DigitalFrequencySeriesData(
+        points: <DigitalFrequencySeriesPoint>[
+          for (final point in result.points)
+            DigitalFrequencySeriesPoint(
+              frequencyHz: point.frequencyHz,
+              values: point.values,
+              valid: point.valid,
+              note: point.note,
+            ),
+        ],
+        configSummary: result.configSummary,
+      );
+    } on DigitalFrequencySeriesException {
+      rethrow;
+    } on AudioFrequencySeriesException catch (error) {
+      throw DigitalFrequencySeriesException(
+        error.message,
+        code: error.code,
+        hint: error.hint,
+      );
+    } on Object catch (error) {
+      AppLogger().warning('Digital frequency series for AI failed: $error');
+      throw DigitalFrequencySeriesException(
+        'The digital frequency series failed: $error',
+        code: 'SERIES_FAILED',
+      );
+    } finally {
+      _sigGenDetector?.setPaused(false);
+      generator.setPanelActive(_sigGenWindowOpen);
+      if (mounted) setState(() {});
+    }
+  }
+
   /// `compare_waveforms` provider for the Waveform AI.
   Future<Map<String, dynamic>> _compareWaveformsForAi({
     required String channelA,
@@ -6717,8 +6848,13 @@ class _OsciHomePageState extends State<OsciHomePage>
     final requestedPoints = request.pointCount;
     final points = requestedPoints.clamp(2, 50).toInt();
     // The sweep changes the generator's CH1 waveform, frequency, amplitude and
-    // offset. Snapshot them so the host can restore them without a separate
-    // agent tool round trip after the sweep.
+    // offset. Refresh and snapshot them so the host can restore them without a
+    // separate agent tool round trip after the sweep.
+    try {
+      await generator.refreshAll();
+    } on Object catch (error) {
+      AppLogger().warning('Generator refresh before Bode sweep failed: $error');
+    }
     final ch1Before = generator.ch1;
     final service = BodePlotService(
       signalGenerator: generator,
@@ -6734,19 +6870,53 @@ class _OsciHomePageState extends State<OsciHomePage>
     generator.setPanelActive(false);
     if (mounted) setState(() {});
     try {
+      final useCurrentSettings = request.useCurrentGeneratorSettings;
+      final generatorChannel = request.generatorChannel;
+      final currentSettings = generator.channel(generatorChannel);
+      final parsedWaveform = Jds6600Waveform.fromScpi(request.waveform);
+      if (!useCurrentSettings && parsedWaveform == null) {
+        throw AudioSweepException(
+          'The generator waveform "${request.waveform}" is not supported.',
+          code: 'SWEEP_INVALID_WAVEFORM',
+        );
+      }
+      final amplitude = useCurrentSettings
+          ? currentSettings.amplitudeVpp
+          : request.amplitudeVpp;
+      if (amplitude == null || !amplitude.isFinite || amplitude <= 0) {
+        throw const AudioSweepException(
+          'The generator amplitude is not usable. Set a positive amplitude or '
+          'keep a configured generator signal.',
+          code: 'SWEEP_INVALID_AMPLITUDE',
+        );
+      }
+      final effectiveWaveform = useCurrentSettings
+          ? currentSettings.waveform
+          : parsedWaveform!;
+      final effectiveOffset = useCurrentSettings
+          ? currentSettings.offsetV
+          : (request.offsetV ?? 0);
+      AppLogger(agentName: 'AudioSweep', toolName: 'request').log(
+        'Sweep request: start=${request.startFrequencyHz} Hz, '
+        'stop=${request.stopFrequencyHz} Hz, points=$points, '
+        'useCurrentGeneratorSettings=$useCurrentSettings, '
+        'waveform=${effectiveWaveform.name}, amplitude=$amplitude Vpp, '
+        'offset=$effectiveOffset V, generatorChannel=$generatorChannel',
+      );
       await service.start(
         BodeConfig(
           startFrequencyHz: request.startFrequencyHz,
           stopFrequencyHz: request.stopFrequencyHz,
           pointCount: points,
           measurePhase: request.measurePhase,
-          amplitudeVpp: 1,
-          offsetV: 0,
-          waveform: Jds6600Waveform.sine,
+          amplitudeVpp: amplitude,
+          offsetV: effectiveOffset,
+          waveform: effectiveWaveform,
+          useCurrentGeneratorSettings: useCurrentSettings,
           settling: const Duration(milliseconds: 1000),
           vinChannel: 1,
           voutChannel: 2,
-          generatorChannel: 1,
+          generatorChannel: generatorChannel,
           turnOffOutputsAfterSweep: true,
         ),
       );
@@ -6756,8 +6926,8 @@ class _OsciHomePageState extends State<OsciHomePage>
           code: 'SWEEP_FAILED',
           hint:
               'The sweep needs a connected signal generator, the generator '
-              'signal on CH1 (Vin), the DUT output on CH2 (Vout), and both '
-              'channel traces enabled on the oscilloscope.',
+              'signal on CH1 (Vin) and the DUT output on CH2 (Vout). The '
+              'scope traces are enabled by the sweep.',
         );
       }
       if (service.status == BodeStatus.cancelled) {
@@ -6796,7 +6966,10 @@ class _OsciHomePageState extends State<OsciHomePage>
             '${request.startFrequencyHz}…${request.stopFrequencyHz} Hz, '
             '$points points'
             '${points != requestedPoints ? ' (clamped from $requestedPoints)' : ''}, '
-            'phase=${request.measurePhase}',
+            'phase=${request.measurePhase}, '
+            'generator=${useCurrentSettings ? 'current' : 'configured'} '
+            '(${effectiveWaveform.name}, $amplitude Vpp, '
+            'offset $effectiveOffset V)',
       );
     } on AudioSweepException {
       rethrow;
@@ -6825,6 +6998,95 @@ class _OsciHomePageState extends State<OsciHomePage>
         );
       }
       service.dispose();
+      if (mounted) setState(() {});
+    }
+  }
+
+  /// Runs a host-managed level series at explicit frequencies for the
+  /// AudioAgent. The service configures the generator, adjusts the scope and
+  /// restores both afterwards.
+  Future<AudioFrequencySeriesData?> _audioFrequencySeriesForAi(
+    AudioFrequencySeriesRequest request,
+  ) async {
+    final generator = _sigGenService;
+    if (generator == null) {
+      throw const AudioFrequencySeriesException(
+        'The signal generator is not configured. Select a JDS6600 or FY6900 '
+        'in the settings before starting a frequency series.',
+        code: 'SERIES_NO_GENERATOR',
+      );
+    }
+    if (!generator.isConnected) {
+      throw const AudioFrequencySeriesException(
+        'The signal generator is not connected. Check its USB connection and '
+        'the selected serial port, then retry.',
+        code: 'SERIES_GENERATOR_OFFLINE',
+      );
+    }
+    final channel = int.tryParse(
+      request.channel.replaceAll(RegExp(r'[^0-9]'), ''),
+    );
+    if (channel == null || channel < 1 || channel > 4) {
+      throw const AudioFrequencySeriesException(
+        'Choose a scope channel between ch1 and ch4.',
+        code: 'SERIES_INVALID_CHANNEL',
+      );
+    }
+
+    _sigGenDetector?.setPaused(true);
+    generator.setPanelActive(false);
+    if (mounted) setState(() {});
+    try {
+      final service = FrequencySeriesService(
+        signalGenerator: generator,
+        scope: Vxi11FrequencySeriesScope(_getInstrument),
+      );
+      final waveform = Jds6600Waveform.fromScpi(request.waveform);
+      if (!request.useCurrentSettings && waveform == null) {
+        throw AudioFrequencySeriesException(
+          'The generator waveform "${request.waveform}" is not supported.',
+          code: 'SERIES_INVALID_WAVEFORM',
+        );
+      }
+      final result = await service.run(
+        FrequencySeriesConfig(
+          frequenciesHz: request.frequenciesHz,
+          channel: channel,
+          quantity: request.quantity,
+          amplitudeVpp: request.amplitudeVpp,
+          waveform: waveform ?? Jds6600Waveform.sine,
+          useCurrentGeneratorSettings: request.useCurrentSettings,
+          generatorChannel: request.generatorChannel,
+          settling: Duration(milliseconds: request.settlingMs),
+        ),
+        cancelToken: request.cancelToken,
+      );
+      final unit = request.quantity == 'vrms' ? 'Vrms' : 'Vpp';
+      return AudioFrequencySeriesData(
+        points: [
+          for (final point in result.points)
+            AudioFrequencySeriesPoint(
+              frequencyHz: point.frequencyHz,
+              value: point.value,
+              unit: unit,
+              valid: point.valid,
+              note: point.note,
+            ),
+        ],
+        quantity: result.quantity,
+        configSummary: result.configSummary,
+      );
+    } on AudioFrequencySeriesException {
+      rethrow;
+    } on Object catch (error) {
+      AppLogger().warning('Frequency series for AI failed: $error');
+      throw AudioFrequencySeriesException(
+        'The frequency series failed: $error',
+        code: 'SERIES_FAILED',
+      );
+    } finally {
+      _sigGenDetector?.setPaused(false);
+      generator.setPanelActive(_sigGenWindowOpen);
       if (mounted) setState(() {});
     }
   }

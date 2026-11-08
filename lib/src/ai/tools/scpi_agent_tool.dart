@@ -18,7 +18,10 @@ Tool<Map<String, dynamic>> createScpiAgentTool(
         'separate signal generator. Use this tool when you need to interact '
         'with an instrument. Describe what you want to do in natural language; '
         'the instrument agent selects the device, validates the command '
-        'against the active device profile and handles the communication. A '
+        'against the active device profile and handles the communication. '
+        'Read-only queries of the signal generator\'s current settings, '
+        'outputs, limits and connection state are allowed without a '
+        'signal-generator keyword; changing generator settings requires it. A '
         'successful scope setting change automatically refreshes the waveform '
         'acquisition; the result then contains `waveformUpdate` with the new '
         'measurements. Use that update instead of acquiring again.',

@@ -15,6 +15,7 @@ import 'measurement_form.dart';
 import 'planner/models/input_form.dart';
 import 'specification_upload.dart';
 import 'tools/audio/audio_tools.dart';
+import 'tools/digital_frequency_series_tool.dart';
 import 'tools/digital_measurement_tools.dart';
 import 'tools/signal_generator_tool.dart';
 import 'tools/spectrum_summary_tool.dart';
@@ -93,7 +94,9 @@ class WaveformChatController extends ChangeNotifier {
   SignalGeneratorActionProvider? _controlSignalGenerator;
   AudioAnalysisContextProvider? _audioAnalysisContext;
   AudioSweepProvider? _audioSweep;
+  AudioFrequencySeriesProvider? _audioFrequencySeries;
   DigitalMeasurementProvider? _digitalMeasurement;
+  DigitalFrequencySeriesProvider? _digitalFrequencySeries;
 
   /// Whether the current user request contains the signal-generator keyword.
   bool _signalGeneratorIntent = false;
@@ -186,7 +189,9 @@ class WaveformChatController extends ChangeNotifier {
     SignalGeneratorActionProvider? controlSignalGenerator,
     AudioAnalysisContextProvider? audioAnalysisContext,
     AudioSweepProvider? audioSweep,
+    AudioFrequencySeriesProvider? audioFrequencySeries,
     DigitalMeasurementProvider? digitalMeasurement,
+    DigitalFrequencySeriesProvider? digitalFrequencySeries,
   }) {
     if (_disposed) return;
     _acquireWaveform = acquireWaveform;
@@ -197,7 +202,9 @@ class WaveformChatController extends ChangeNotifier {
     _controlSignalGenerator = controlSignalGenerator;
     _audioAnalysisContext = audioAnalysisContext;
     _audioSweep = audioSweep;
+    _audioFrequencySeries = audioFrequencySeries;
     _digitalMeasurement = digitalMeasurement;
+    _digitalFrequencySeries = digitalFrequencySeries;
     _instrumentDeviceContext = instrumentDeviceContext;
     final configured = settings != null && settings.isConfigured;
     if (!configured) {
@@ -251,7 +258,9 @@ class WaveformChatController extends ChangeNotifier {
       isSignalGeneratorIntentEnabled: () => _signalGeneratorIntent,
       audioAnalysisContext: _audioAnalysisContext,
       audioSweep: _audioSweep,
+      audioFrequencySeries: _audioFrequencySeries,
       digitalMeasurement: _digitalMeasurement,
+      digitalFrequencySeries: _digitalFrequencySeries,
       requestInputForm: _requestMeasurementForm,
       requestUserChoice: requestUserChoice,
     );

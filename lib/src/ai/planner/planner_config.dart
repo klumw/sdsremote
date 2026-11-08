@@ -138,6 +138,8 @@ abstract final class PlannerKeys {
   static const String generatorChannel = 'generatorChannel';
   static const String generatorWaveform = 'generatorWaveform';
   static const String frequencyHz = 'frequencyHz';
+  static const String frequenciesHz = 'frequenciesHz';
+  static const String seriesQuantity = 'seriesQuantity';
   static const String amplitudeVpp = 'amplitudeVpp';
   static const String offsetV = 'offsetV';
   static const String dutyPercent = 'dutyPercent';
@@ -148,6 +150,18 @@ abstract final class PlannerKeys {
   static const String pointCount = 'pointCount';
   static const String loadImpedanceOhm = 'loadImpedanceOhm';
   static const String logicFamily = 'logicFamily';
+
+  /// Choice whether a generator measurement keeps the current settings.
+  ///
+  /// The value is `current` or `configure`. It is asked for every generator
+  /// measurement and is never remembered for later requests.
+  static const String generatorSettingsMode = 'generatorSettingsMode';
+
+  /// Answer key of the user-driven measurement classification.
+  ///
+  /// The value is a measurement category wire name. It is only read from
+  /// submitted form answers and is never remembered for later requests.
+  static const String measurementCategory = 'measurementCategory';
 }
 
 /// Wire name of the `other:<text>` escape hatch for uncatalogued measurements.

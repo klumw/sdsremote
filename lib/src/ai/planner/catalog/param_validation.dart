@@ -53,6 +53,14 @@ ParameterValue validateParameterValue(ParamSpec spec, Object? raw) {
         );
       }
       return ParameterValue.valid(value);
+    case ParamType.numberList:
+      final values = _parseNumberList(spec, raw);
+      if (values == null) {
+        return const ParameterValue.invalid(
+          'Enter one or more numbers separated by commas.',
+        );
+      }
+      return ParameterValue.valid(values);
     case ParamType.boolean:
       final value = _bool(raw);
       if (value == null) {
@@ -134,6 +142,29 @@ String? _normalizeOption(List<InputOption> options, Object? raw) {
 
 String _squash(String value) {
   return value.toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+}
+
+List<double>? _parseNumberList(ParamSpec spec, Object? raw) {
+  final tokens = <Object?>[];
+  if (raw is Iterable) {
+    tokens.addAll(raw);
+  } else if (raw is String) {
+    tokens.addAll(raw.split(RegExp(r'[,;\n]')));
+  } else {
+    return null;
+  }
+  final values = <double>[];
+  for (final token in tokens) {
+    if (token is String && token.trim().isEmpty) continue;
+    final value = _parseNumber(spec, token);
+    if (value == null || !value.isFinite) return null;
+    final minimum = spec.min;
+    if (minimum != null && value < minimum) return null;
+    final maximum = spec.max;
+    if (maximum != null && value > maximum) return null;
+    values.add(value);
+  }
+  return values.isEmpty ? null : values;
 }
 
 double? _parseNumber(ParamSpec spec, Object? raw) {

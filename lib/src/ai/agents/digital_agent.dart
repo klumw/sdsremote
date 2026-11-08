@@ -6,6 +6,7 @@ import '../../core/logger.dart';
 import '../cancellation.dart';
 import '../tools/acquire_waveform_tool.dart';
 import '../tools/calculator_tool.dart';
+import '../tools/digital_frequency_series_tool.dart';
 import '../tools/digital_measurement_tools.dart';
 import '../tools/logic_level_reference_tool.dart';
 import '../tools/math_tool.dart';
@@ -40,6 +41,7 @@ class DigitalAgent {
   final bool _instrumentAvailable;
   final bool _acquireAvailable;
   final bool _digitalMeasurementsAvailable;
+  final bool _digitalFrequencySeriesAvailable;
   late final List<Tool> _tools;
   late final Agent _agent;
   Map<String, dynamic>? _lastSubmission;
@@ -62,13 +64,15 @@ class DigitalAgent {
     WaveformAcquisitionProvider? acquireWaveform,
     InstrumentAgent? instrumentAgent,
     DigitalMeasurementProvider? digitalMeasurement,
+    DigitalFrequencySeriesProvider? digitalFrequencySeries,
     int maxToolCalls = defaultMaxToolCalls,
   }) : _readWaveformSummary = readWaveformSummary,
        _instrumentAgent = instrumentAgent,
        _faultAnalysisAvailable = analyzeWaveformFaults != null,
        _instrumentAvailable = instrumentAgent != null,
        _acquireAvailable = acquireWaveform != null,
-       _digitalMeasurementsAvailable = digitalMeasurement != null {
+       _digitalMeasurementsAvailable = digitalMeasurement != null,
+       _digitalFrequencySeriesAvailable = digitalFrequencySeries != null {
     final digitalTools = <Tool<Map<String, dynamic>>>[
       createWaveformSummaryTool(
         readSummary: readWaveformSummary,
@@ -99,6 +103,10 @@ class DigitalAgent {
       createCalculatorTool(agentName: 'DigitalAgent'),
       ...createDigitalMeasurementTools(
         provider: digitalMeasurement,
+        agentName: 'DigitalAgent',
+      ),
+      createDigitalFrequencySeriesTool(
+        provider: digitalFrequencySeries,
         agentName: 'DigitalAgent',
       ),
     ];
@@ -156,7 +164,7 @@ class DigitalAgent {
         'error': 'The current acquisition could not be read ($error).',
       };
     }
-    if (summary == null) {
+    if (summary == null && !_digitalFrequencySeriesAvailable) {
       return <String, dynamic>{
         'error':
             'No usable waveform acquisition is available. Acquire a waveform '
@@ -182,7 +190,13 @@ class DigitalAgent {
       )
       ..writeln()
       ..writeln('CURRENT ACQUISITION CONTEXT:')
-      ..writeln(_contextSummary(summary))
+      ..writeln(
+        summary == null
+            ? 'Acquisition available: false. The host-managed digital '
+                  'frequency series can still run; use '
+                  'measure_digital_frequency_series for a frequency series.'
+            : _contextSummary(summary),
+      )
       ..writeln(
         'Run all measurements needed for this request. If autonomous '
         'permission is granted, you may change the oscilloscope or signal '
@@ -346,6 +360,10 @@ class DigitalAgent {
       ..writeln(
         'Dedicated digital measurements available: '
         '$_digitalMeasurementsAvailable',
+      )
+      ..writeln(
+        'Digital frequency series available: '
+        '$_digitalFrequencySeriesAvailable',
       )
       ..writeln('Fault analysis available: $_faultAnalysisAvailable')
       ..writeln('Instrument agent available: $_instrumentAvailable')

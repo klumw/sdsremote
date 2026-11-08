@@ -31,6 +31,7 @@ class AudioAgent {
 
   final AudioAnalysisContextProvider _contextProvider;
   final AudioSweepProvider? _sweepProvider;
+  final AudioFrequencySeriesProvider? _seriesProvider;
   final InstrumentAgent? _instrumentAgent;
   final bool _sweepAvailable;
   final bool _instrumentAvailable;
@@ -53,11 +54,13 @@ class AudioAgent {
     String model = defaultModel,
     required AudioAnalysisContextProvider contextProvider,
     AudioSweepProvider? sweepProvider,
+    AudioFrequencySeriesProvider? seriesProvider,
     WaveformAcquisitionProvider? acquireWaveform,
     InstrumentAgent? instrumentAgent,
     int maxToolCalls = defaultMaxToolCalls,
   }) : _contextProvider = contextProvider,
        _sweepProvider = sweepProvider,
+       _seriesProvider = seriesProvider,
        _instrumentAgent = instrumentAgent,
        _sweepAvailable = sweepProvider != null,
        _instrumentAvailable = instrumentAgent != null,
@@ -65,6 +68,7 @@ class AudioAgent {
     final audioTools = createAudioTools(
       context: contextProvider,
       sweep: _sweepProvider == null ? null : _cachedSweepProvider,
+      series: _seriesProvider,
       agentName: 'AudioAgent',
     );
     _tools = [
@@ -352,11 +356,18 @@ class AudioAgent {
       stopFrequencyHz: request.stopFrequencyHz,
       pointCount: points,
       measurePhase: true,
+      useCurrentGeneratorSettings: request.useCurrentGeneratorSettings,
+      waveform: request.waveform,
+      amplitudeVpp: request.amplitudeVpp,
+      offsetV: request.offsetV,
+      generatorChannel: request.generatorChannel,
       cancelToken: cancelToken,
     );
     final key =
         '${effective.startFrequencyHz}|${effective.stopFrequencyHz}|'
-        '$points';
+        '$points|${effective.useCurrentGeneratorSettings}|'
+        '${effective.waveform}|${effective.amplitudeVpp}|'
+        '${effective.offsetV}|${effective.generatorChannel}';
     final cached = _cachedSweep;
     if (cached != null && _cachedSweepKey == key) return cached;
     final data = await provider(effective);

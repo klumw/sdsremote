@@ -395,6 +395,7 @@ Tool<Map<String, dynamic>> _measurePhaseResponse(
           stopFrequencyHz: stop,
           pointCount: points,
           measurePhase: true,
+          useCurrentGeneratorSettings: true,
         ),
       );
       if (data == null) return audioSweepError();
@@ -476,6 +477,7 @@ Tool<Map<String, dynamic>> _measureGroupDelay(
           stopFrequencyHz: stop,
           pointCount: points,
           measurePhase: true,
+          useCurrentGeneratorSettings: true,
         ),
       );
       if (data == null) return audioSweepError();
@@ -540,6 +542,21 @@ Tool<Map<String, dynamic>> _analyzeFrequencySweep(
         minimum: 2,
         maximum: 200,
       ),
+      'useCurrentSettings': audioBooleanProperty(
+        'Keep the current generator waveform, amplitude and offset and only '
+        'step the frequency.',
+      ),
+      'waveform': audioEnumProperty(
+        'Generator waveform when useCurrentSettings is false.',
+        ['sine', 'square', 'triangle', 'ramp', 'pulse'],
+      ),
+      'amplitudeVpp': audioNumberProperty(
+        'Generator amplitude when useCurrentSettings is false.',
+        minimum: 0.001,
+      ),
+      'offsetV': audioNumberProperty(
+        'Generator offset when useCurrentSettings is false.',
+      ),
     },
     handler: (args) async {
       if (sweepProvider == null) return audioSweepError();
@@ -548,12 +565,25 @@ Tool<Map<String, dynamic>> _analyzeFrequencySweep(
       final points = audioIntOr(args, 'pointCount', 20);
       final validation = _validateSweep(start, stop, points);
       if (validation != null) return {'error': validation};
+      final useCurrentSettings = args['useCurrentSettings'] == true;
+      final amplitude = audioNumberArg(args, 'amplitudeVpp');
+      if (!useCurrentSettings &&
+          (amplitude == null || !amplitude.isFinite || amplitude <= 0)) {
+        return {
+          'error':
+              'amplitudeVpp is required unless useCurrentSettings is true.',
+        };
+      }
       final data = await sweepProvider(
         AudioSweepRequest(
           startFrequencyHz: start,
           stopFrequencyHz: stop,
           pointCount: points,
           measurePhase: true,
+          useCurrentGeneratorSettings: useCurrentSettings,
+          waveform: audioStringOr(args, 'waveform', 'sine'),
+          amplitudeVpp: amplitude,
+          offsetV: audioNumberArg(args, 'offsetV'),
         ),
       );
       if (data == null) return audioSweepError();

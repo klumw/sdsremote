@@ -75,12 +75,7 @@ enum SpecParameter {
   loadCapacitance('load_capacitance', 'Load capacitance', 'F'),
   outputResistance('output_resistance', 'Output resistance / impedance', 'Ω'),
   pullResistance('pull_resistance', 'Pull resistance', 'Ω'),
-  frequency(
-    'frequency',
-    'Frequency',
-    'Hz',
-    WaveformFaultTest.frequencyError,
-  ),
+  frequency('frequency', 'Frequency', 'Hz', WaveformFaultTest.frequencyError),
   period('period', 'Period', 's'),
   riseTime('rise_time', 'Rise time', 's', WaveformFaultTest.edgeTimes),
   fallTime('fall_time', 'Fall time', 's', WaveformFaultTest.edgeTimes),
@@ -96,12 +91,7 @@ enum SpecParameter {
   holdTime('hold_time', 'Hold time', 's'),
   skew('skew', 'Skew', 's'),
   jitterTime('jitter_time', 'Jitter (time)', 's', WaveformFaultTest.jitter),
-  jitterPercent(
-    'jitter_percent',
-    'Jitter (%)',
-    '%',
-    WaveformFaultTest.jitter,
-  ),
+  jitterPercent('jitter_percent', 'Jitter (%)', '%', WaveformFaultTest.jitter),
   slewRate('slew_rate', 'Slew rate', 'V/s'),
   settlingTime(
     'settling_time',
@@ -130,12 +120,7 @@ enum SpecParameter {
   ),
   snr('snr', 'Signal-to-noise ratio', 'dB', WaveformFaultTest.noise),
   thd('thd', 'Total harmonic distortion', '%', WaveformFaultTest.distortion),
-  crosstalkDb(
-    'crosstalk_db',
-    'Crosstalk',
-    'dB',
-    WaveformFaultTest.crosstalk,
-  ),
+  crosstalkDb('crosstalk_db', 'Crosstalk', 'dB', WaveformFaultTest.crosstalk),
   crosstalkPercent(
     'crosstalk_percent',
     'Crosstalk',
@@ -362,9 +347,7 @@ class FaultSpecificationMapping {
 ///
 /// Only values whose fault test has a matching field are mapped. Everything
 /// else stays in the parameter table as information for the Waveform Agent.
-FaultSpecificationMapping buildFaultSpecification(
-  List<SpecParameterRow> rows,
-) {
+FaultSpecificationMapping buildFaultSpecification(List<SpecParameterRow> rows) {
   final specification = <String, Map<String, dynamic>>{};
   final entries = <SpecMappingEntry>[];
   final warnings = <String>[];
@@ -377,10 +360,7 @@ FaultSpecificationMapping buildFaultSpecification(
     required String basis,
   }) {
     if (value == null || !value.isFinite) return;
-    final block = specification.putIfAbsent(
-      testId,
-      () => <String, dynamic>{},
-    );
+    final block = specification.putIfAbsent(testId, () => <String, dynamic>{});
     final existing = block[field];
     if (existing is num) {
       if (existing.toDouble() != value) {
@@ -770,15 +750,11 @@ class SpecAnalysis {
           continue;
         }
         try {
-          final row = SpecParameterRow.fromMap(
-            Map<String, dynamic>.from(raw),
-          );
+          final row = SpecParameterRow.fromMap(Map<String, dynamic>.from(raw));
           rows.add(row);
           final unitError = row.unitError;
           if (unitError != null) {
-            warnings.add(
-              '${row.reference} ${row.parameter.id}: $unitError',
-            );
+            warnings.add('${row.reference} ${row.parameter.id}: $unitError');
           }
           final min = row.minCanonical;
           final max = row.maxCanonical;
@@ -852,10 +828,7 @@ class SpecAnalysis {
     final displayNames = <String, String>{};
     for (final row in rows) {
       final key = row.reference.trim().toLowerCase();
-      final display = displayNames.putIfAbsent(
-        key,
-        () => row.reference.trim(),
-      );
+      final display = displayNames.putIfAbsent(key, () => row.reference.trim());
       grouped.putIfAbsent(display, () => <SpecParameterRow>[]).add(row);
     }
 
@@ -938,9 +911,7 @@ String buildParameterTable(List<SpecParameterRow> rows) {
       '| Reference | Parameter | Symbol | Min | Typ | Max | Unit | '
       'Fault test | Conditions | Source |',
     )
-    ..writeln(
-      '|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|',
-    );
+    ..writeln('|:---|:---|:---|:---|:---|:---|:---|:---|:---|:---|');
   for (final row in rows) {
     buffer.writeln(
       '| ${_cell(row.reference)} '
@@ -1050,11 +1021,7 @@ String _defaultUnit(SpecParameter parameter) {
   return '';
 }
 
-double? _canonicalValue(
-  SpecParameter parameter,
-  double? value,
-  String unit,
-) {
+double? _canonicalValue(SpecParameter parameter, double? value, String unit) {
   if (value == null) return null;
   final scale = _unitScale(parameter, unit);
   return scale == null ? null : value * scale;

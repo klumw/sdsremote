@@ -37,6 +37,7 @@ const List<String> audioToolNames = [
   'analyze_distortion',
   // C. Frequency
   'measure_frequency_response',
+  'measure_frequency_series',
   'detect_hum',
   'detect_interference',
   'analyze_spectral_peaks',
@@ -62,6 +63,7 @@ const List<String> audioToolNames = [
 List<Tool<Map<String, dynamic>>> createAudioTools({
   AudioAnalysisContextProvider? context,
   AudioSweepProvider? sweep,
+  AudioFrequencySeriesProvider? series,
   String agentName = 'unknown',
 }) {
   return [
@@ -70,6 +72,7 @@ List<Tool<Map<String, dynamic>>> createAudioTools({
     ...createAudioFrequencyTools(
       context: context,
       sweep: sweep,
+      series: series,
       agentName: agentName,
     ),
     ...createAudioTimeDomainTools(context: context, agentName: agentName),

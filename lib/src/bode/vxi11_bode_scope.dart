@@ -42,6 +42,9 @@ class Vxi11BodeScope implements BodeScope {
   double? _vinVdiv;
   double? _voutVdiv;
 
+  /// Whether each selected channel trace was off before [prepare].
+  final Map<int, bool> _originalTraceOff = <int, bool>{};
+
   @override
   Future<void> prepare({
     required int vinChannel,
@@ -64,38 +67,12 @@ class Vxi11BodeScope implements BodeScope {
       await _write('TRMD AUTO');
     }
 
-    await _requireChannel(vinChannel);
-    await _requireChannel(voutChannel);
+    await _ensureChannelEnabled(vinChannel);
+    await _ensureChannelEnabled(voutChannel);
 
-    // A full ASET costs a fixed 10 s settle. Read the current scale and one
-    // primed measurement first: when the scope is already scaled for the
-    // signal, the sweep can start immediately. ASET remains the fallback when
-    // the primed readings are clipped or the scale is unusable.
-    await _readScaleSettings();
-    if (_measurePhase) {
-      await _configureMead();
-    }
-    final primedVin = await _query('C$vinChannel:PAVA? RMS');
-    final primedVout = await _query('C$voutChannel:PAVA? RMS');
-    if (_measurePhase && _meadConfigured) {
-      // Discard the first MEAD value, which can still be the default ±180°.
-      await _query('C1-C2:MEAD? PHA');
-    }
-    final vinRms = parsePavaRms(primedVin, vinChannel);
-    final voutRms = parsePavaRms(primedVout, voutChannel);
-    final usable =
-        !_isOutOfRange(primedVin) &&
-        !_isOutOfRange(primedVout) &&
-        _scaleIsUsable(vinRms, _vinVdiv) &&
-        _scaleIsUsable(voutRms, _voutVdiv);
-    if (usable) {
-      AppLogger(
-        agentName: 'Bode',
-        toolName: 'prepare',
-      ).log('ASET skipped: the current scale is usable');
-    } else {
-      await autoSet();
-    }
+    // ASET is orchestrated by BodePlotService after this preparation. The
+    // generator is already switched on and configured there, so the sweep
+    // always starts with a fresh auto-set for the actual signal.
   }
 
   /// Reads the probe attenuation and vertical scale without changing them.
@@ -104,17 +81,6 @@ class Vxi11BodeScope implements BodeScope {
     _attnVout = await _queryDouble('C$_voutChannel:ATTN?') ?? _attnVout;
     _vinVdiv = await _queryDouble('C$_vinChannel:VDIV?') ?? _vinVdiv;
     _voutVdiv = await _queryDouble('C$_voutChannel:VDIV?') ?? _voutVdiv;
-  }
-
-  /// Whether [rms] uses a healthy part of the vertical range at [vdiv].
-  ///
-  /// Assumes a sine (the Bode sweep generator waveform); the limits mirror
-  /// the ones used by [_autoRangeVout].
-  static bool _scaleIsUsable(double? rms, double? vdiv) {
-    if (rms == null || vdiv == null || vdiv <= 0) return false;
-    final vpp = rms * 2 * math.sqrt(2);
-    final divisions = vpp / vdiv;
-    return divisions >= 0.8 && divisions <= 8.0;
   }
 
   @override
@@ -272,6 +238,13 @@ class Vxi11BodeScope implements BodeScope {
   @override
   Future<void> restore() async {
     if (_instrument == null) return;
+    for (final entry in _originalTraceOff.entries) {
+      if (!entry.value) continue;
+      try {
+        await _write('C${entry.key}:TRA OFF');
+      } catch (_) {}
+    }
+    _originalTraceOff.clear();
     if (_changedTriggerMode && _originalTriggerMode != null) {
       try {
         await _write('TRMD $_originalTriggerMode');
@@ -329,13 +302,15 @@ class Vxi11BodeScope implements BodeScope {
     }
   }
 
-  Future<void> _requireChannel(int channel) async {
+  /// Enables the channel trace when it is off and remembers the original
+  /// state so [restore] can turn it off again.
+  Future<void> _ensureChannelEnabled(int channel) async {
     final response = await _query('C$channel:TRACE?');
     final normalized = response.toUpperCase();
-    if (RegExp(r'\b(OFF|0)\b').hasMatch(normalized)) {
-      throw BodeScopeException(
-        'Enable CH$channel on the oscilloscope for the Bode sweep.',
-      );
+    final wasOff = RegExp(r'\b(OFF|0)\b').hasMatch(normalized);
+    _originalTraceOff.putIfAbsent(channel, () => wasOff);
+    if (wasOff) {
+      await _write('C$channel:TRA ON');
     }
   }
 

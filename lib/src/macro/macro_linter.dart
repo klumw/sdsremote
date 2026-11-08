@@ -235,38 +235,44 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
         final pos = _findNotOperatorPos(source, notIdx);
         if (pos != null) {
           nextIdx['!'] = notIdx + 1;
-          errors.add(MacroLintError(
-            message:
-                "The '!' operator can only be applied to boolean expressions.",
-            start: pos.$1,
-            end: pos.$2,
-            line: pos.$3,
-          ));
+          errors.add(
+            MacroLintError(
+              message:
+                  "The '!' operator can only be applied to boolean expressions.",
+              start: pos.$1,
+              end: pos.$2,
+              line: pos.$3,
+            ),
+          );
         }
       case StringLiteral():
         final notIdx = (nextIdx['!'] ?? 0);
         final pos = _findNotOperatorPos(source, notIdx);
         if (pos != null) {
           nextIdx['!'] = notIdx + 1;
-          errors.add(MacroLintError(
-            message:
-                "The '!' operator can only be applied to boolean expressions.",
-            start: pos.$1,
-            end: pos.$2,
-            line: pos.$3,
-          ));
-        }
-      case Variable(:final name):
-        if (typeOf(name) == _VarType.numeric) {
-          final pos = _nextPos(posMap, nextIdx, name);
-          if (pos != null) {
-            errors.add(MacroLintError(
+          errors.add(
+            MacroLintError(
               message:
                   "The '!' operator can only be applied to boolean expressions.",
               start: pos.$1,
               end: pos.$2,
               line: pos.$3,
-            ));
+            ),
+          );
+        }
+      case Variable(:final name):
+        if (typeOf(name) == _VarType.numeric) {
+          final pos = _nextPos(posMap, nextIdx, name);
+          if (pos != null) {
+            errors.add(
+              MacroLintError(
+                message:
+                    "The '!' operator can only be applied to boolean expressions.",
+                start: pos.$1,
+                end: pos.$2,
+                line: pos.$3,
+              ),
+            );
           }
         }
       case BoolLiteral():
@@ -404,8 +410,7 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
       hasEq = hasEq || isEqualityOp(child.op);
     }
 
-    final categories =
-        (hasArith ? 1 : 0) + (hasRel ? 1 : 0) + (hasEq ? 1 : 0);
+    final categories = (hasArith ? 1 : 0) + (hasRel ? 1 : 0) + (hasEq ? 1 : 0);
     return categories >= 2;
   }
 
@@ -461,11 +466,7 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
       case ScpiExpr(:final variableName):
         if (variableName case final v?) checkRef(v);
 
-      case ConnectExpr(
-        :final address,
-        :final isVariable,
-        :final concatString,
-      ):
+      case ConnectExpr(:final address, :final isVariable, :final concatString):
         if (concatString != null) {
           walkConcat(concatString);
         } else if (isVariable && address != null) {
@@ -563,9 +564,7 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
           // Variable copy — inherit the source variable's type. Copying a
           // handle variable copies its address string, not the handle.
           final type = typeOf(value.name);
-          varTypes[varName] = type == _VarType.handle
-              ? _VarType.string
-              : type;
+          varTypes[varName] = type == _VarType.handle ? _VarType.string : type;
         } else if (value is QueryExpr) {
           // Query results are unknown at lint time.
           varTypes[varName] = _VarType.unknown;
@@ -640,8 +639,7 @@ List<MacroLintError> _checkSemantics(String source, Program program) {
 /// Detects patterns like `((a))` where double-wrapping is unnecessary.
 /// Since the AST flattens parentheses, this check operates on the source
 /// text directly using a simple brace-matching scan.
-void _checkRedundantParentheses(
-    String source, List<MacroLintError> errors) {
+void _checkRedundantParentheses(String source, List<MacroLintError> errors) {
   // Find patterns of the form ((...)) where the inner content is a simple
   // expression (single identifier, number, or already-wrapped expr).
   final pattern = RegExp(r'\(\(\s*([a-zA-Z_]\w*|\d+(?:\.\d+)?)\s*\)\)');
@@ -725,8 +723,7 @@ _Pos? _nextPos(
 /// Uses [nextIdx] to track which occurrence of the operator we are on.
 /// Handles multi-character operator ambiguity (e.g., `>` must not match
 /// inside `>=`, `<` must not match inside `<=`).
-int _findBinaryOpPos(
-    String source, String op, Map<String, int> nextIdx) {
+int _findBinaryOpPos(String source, String op, Map<String, int> nextIdx) {
   final key = '\$binop:$op';
   final idx = nextIdx[key] ?? 0;
 

@@ -112,7 +112,37 @@ _replacements = <({RegExp pattern, String replacement})>[
     replacement: 'the assistant',
   ),
 
+  // Classification categories.
+  (
+    pattern: RegExp(
+      r'\b(?:the\s+category\s+)?simple_signal\b',
+      caseSensitive: false,
+    ),
+    replacement: 'a simple signal measurement',
+  ),
+  (
+    pattern: RegExp(
+      r'\b(?:the\s+category\s+)?complex_audio\b',
+      caseSensitive: false,
+    ),
+    replacement: 'a complex audio measurement',
+  ),
+  (
+    pattern: RegExp(
+      r'\b(?:the\s+category\s+)?complex_digital\b',
+      caseSensitive: false,
+    ),
+    replacement: 'a complex digital measurement',
+  ),
+
   // Machine status and reason codes.
+  (
+    pattern: RegExp(
+      r'\bstatus(?:\s+is)?:?\s+classified\b',
+      caseSensitive: false,
+    ),
+    replacement: 'the measurement type is known',
+  ),
   (
     pattern: RegExp(
       r'\b(?:the\s+status\s+)?needs_input\b',

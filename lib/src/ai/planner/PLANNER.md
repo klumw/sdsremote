@@ -9,7 +9,9 @@ review**.
 `PlannerAgent` converts a free-text measurement request into exactly one of:
 
 - a complete, executable `ActionPlan` (`plan_ready`),
-- one bundled `InputForm` for missing user data (`needs_input`), or
+- one bundled `InputForm` for missing user data (`needs_input`),
+- a measurement classification for the orchestrator to route (`classified`),
+  or
 - an abort with a machine-readable reason.
 
 Planning is deterministic Dart. The LLM only fills the `MeasurementRequest`
@@ -54,8 +56,8 @@ whole pipeline on every invocation.
 | Stage | Function | Abort reasons |
 |---|---|---|
 | 1 | `calculateDanger` (first pass) | `too_dangerous` (uncorrectable only) |
-| 2 | `checkEquipment` | `no_scope`, `no_generator` |
-| 3 | `classifyType` | `input_incomplete`, `unsupported_method`, `too_complex` |
+| 2 | `checkEquipment` (scope + generator) | `no_scope`, `no_generator` (generator only when needed) |
+| 3 | `classifyRequest` (uses `classifyType`) | `input_incomplete` (invalid category only), `user_input_unknown`, `too_complex` |
 | 4 | `classifyComplexity` | `too_complex` |
 | 5 | `planSimple` / `planAudio` / `planDigital` | `not_feasible` (wrong planner) |
 | 6 | `calculateMissingInput` | `not_feasible` (generator limits) |
@@ -65,6 +67,152 @@ whole pipeline on every invocation.
 Invariants checked in stage 8: unique step ids, acyclic `dependsOn`, at most
 two steps per sub-agent (manual steps excluded), teardown when the planner
 enabled the generator, and a rendered instruction for every placeholder.
+
+## Equipment record
+
+Stage 2 always probes the oscilloscope and the signal generator. The generator
+probe no longer depends on the selected recipes: a missing generator only
+aborts `no_generator` when a recipe needs it, while a simple scope plan
+continues. The resulting facts are recorded in every plan under `equipment`:
+
+```json
+"equipment": {
+  "scope": {
+    "reachable": true,
+    "model": "SDS1202X-E",
+    "profile": "Siglent SDS1000X-E",
+    "host": "192.168.178.95"
+  },
+  "generator": {
+    "configured": true,
+    "connected": true,
+    "supported": true,
+    "detected": true,
+    "model": "FY6900",
+    "identity": "FY6900,SN123",
+    "family": "fy6900",
+    "port": "/dev/ttyUSB0"
+  }
+}
+```
+
+`scope.model` is the detected `*IDN?` designation; `scope.profile` is the
+configured device profile name. Both are omitted when unknown. A generator that
+is not connected is recorded with `connected: false` and the optional `error`;
+the plan still proceeds when no recipe needs it. Plans parsed from a payload
+without `equipment` remain valid, but plans built by the pipeline always carry
+it. The WaveformAgent presents the recorded equipment together with the plan.
+
+## User-driven classification fallback
+
+The `plan_measurement` schema requires a `classification` object:
+
+- `type` — `simple_signal`, `complex_audio`, `complex_digital` or `other`
+  (`MeasurementCategory`),
+- `confidence` — `high`, `medium` or `low` (`ClassificationConfidence`).
+
+Stage 3 returns one of three decisions:
+
+1. **Plan** — the catalog resolves every measurement and
+   `classification.type` matches the derived `PlanType` (or the model omitted
+   the classification).
+2. **Classified** — the user chose a category in the form. The result carries
+   `classification{type,confidence,source}` and, for every category except
+   `other`, a `route` with the specialist agent wire name. The orchestrator
+   routes the original request; the planner does not build a plan after a user
+   classification.
+3. **User form** — a single-choice `InputForm` with the question key
+   `measurementCategory` and the four category options. It triggers when:
+   - the model reports `confidence: low`,
+   - the model category contradicts the resolvable recipes,
+   - the catalog has no recipe (`input_incomplete` or `unsupported_method`),
+   - the submitted answer is not one of the four category values.
+
+A model classification of `other` with medium or high confidence and no
+resolvable recipe returns `classified` directly. `too_complex` (mixed audio and
+digital) stays an abort, because a category choice cannot split the request.
+
+The submitted category is deliberately **not** remembered in
+`PlannerAgent._sessionValues` and is not seeded into later requests: a category
+chosen for one measurement must not classify the next measurement. The same
+applies to the explicit `frequenciesHz` list of a frequency series.
+
+## Multi-frequency level series
+
+`audio.frequency_series` measures the level (Vpp or Vrms) at an explicit list
+of discrete frequencies. It is host-managed (`hostManagesGenerator: true`), so
+the plan contains no configure/teardown steps.
+
+- `frequenciesHz` uses the `numberList` parameter type. The form shows a text
+  field; the shared validator accepts a JSON list or comma/semicolon-separated
+  text with units (`1 kHz, 10 kHz; 20000 Hz`) and normalizes it to a list of
+  Hz values.
+- `seriesQuantity` defaults to `vpp`; `amplitudeVpp` and `generatorChannel`
+  use the existing generator parameters.
+- The AudioAgent calls `measure_frequency_series` once. The host provider runs
+  `FrequencySeriesService`: it configures the generator sine, switches the
+  generator output on, enables the scope channel and runs Auto Setup (ASET)
+  before the first point, sets a 1-2-5 vertical scale, sets the timebase to
+  about three periods per screen for each point, reads `C<ch>:PAVA? PKPK` or
+  `RMS`, and restores the generator, trace, V/div, timebase and trigger state
+  afterwards. The generator outputs are switched off for safety.
+- `Vxi11FrequencySeriesScope` owns the SCPI details; `FrequencySeriesService`
+  is deterministic and is tested with a fake generator transport and a fake
+  scope.
+
+## Digital input-suitability series
+
+`digital.frequency_series` checks logic levels, edge times and signal quality
+at an explicit list of frequencies. It is host-managed
+(`hostManagesGenerator: true`), so the plan contains one manual setup step and
+one measure step, but no `configure_generator` or teardown step.
+
+- Parameters: `channel`, `frequenciesHz`, `logicFamily`, `generatorChannel`.
+- The DigitalAgent calls `measure_digital_frequency_series` once. The host
+  provider runs `FrequencySeriesService.runQuantities`: it preserves the
+  generator waveform, amplitude and offset, sets each frequency, switches the
+  output on, prepares the scope channel, runs Auto Setup (ASET) before the
+  first point, reads PKPK/TOP/BASE/MAX/MIN/RISE/FALL/FREQ/DUTY via `PAVA`,
+  restores the generator and scope state and switches the generator outputs
+  off.
+- The DigitalAgent compares TOP with VIH min and BASE with VIL max of the
+  selected logic family for every frequency and reports one verdict per
+  frequency.
+- The logic-family options use the ids of the bundled reference table
+  (`ttl_5v`, `ttl_compatible_cmos_5v`, `cmos_5v`, `lvttl_3v3`, `cmos_2v5`,
+  `cmos_1v8`), so the DigitalAgent can pass the value directly to
+  `read_logic_level_reference`.
+
+## Bode sweep channel preparation and ASET
+
+`Vxi11BodeScope.prepare` now enables a disabled CH1/CH2 trace instead of
+throwing `BodeScopeException`. It remembers which traces were off and
+`restore()` turns them off again. This removes the most common manual
+prerequisite of a frequency-response sweep; a missing generator or unavailable
+sweep provider is still reported.
+
+`BodePlotService` now always runs Auto Setup (ASET) after it has configured the
+generator, switched its output on and prepared the scope channels, and before
+the first sweep point. `Vxi11BodeScope.prepare` no longer decides whether ASET
+is necessary. The out-of-range retry keeps its additional ASET call.
+
+## Generator settings mode
+
+Every recipe with `needsGenerator: true` includes a required
+`generatorSettingsMode` question (`current` or `configure`). It is asked for
+every measurement and is not remembered across requests.
+
+- `current`: the host reads the current waveform, amplitude and offset from
+  the generator status, keeps them and only steps the frequency. The plan
+  records these values with `source: device`.
+- `configure`: the form asks for `generatorWaveform` and `amplitudeVpp` when
+  the user did not state them; `offsetV` defaults to 0. The first frequency of
+  a series or the sweep start is the start frequency.
+- A model-supplied mode without matching text evidence is removed by
+  `enforceStatedGeneratorSettingsMode`, so the form always asks.
+- The audio frequency series, Bode sweep and digital series tools carry
+  `useCurrentSettings` and only send amplitude/waveform when configuring.
+  There is no implicit 1 Vpp default.
 
 ## Catalog and parameter sources
 
@@ -158,16 +306,18 @@ recomputed each run. `clearSession()` (called from
 - `planner_agent` — starts a plan, resumes a submitted form, or reports that a
   form is still open. It is capped at 8 invocations per user request by
   `PlannerInvocationBudget` (inside the global 16) and stores a `plan_ready`
-  plan under its `planRef`.
+  plan under its `planRef`. A `classified` result is relayed verbatim; the
+  WaveformAgent then delegates the original request to the agent named in
+  `route`, or handles the `other` category itself.
 - `present_input_form` — renders the canonical form with translated texts. The
   guard rejects any change to keys, types, option values, ranges, units or the
   question count. Answers are stored host-side in the session; the model only
   receives `{submitted, cancelled, stateRef, answerCount}`.
 - `execute_plan` — advances a stored plan through `PlanExecutor`. The executor
-  resolves `fromStep` values, pauses for approval and per-step confirmation,
-  marks manual setup steps complete without a second prompt, delegates each
-  measure step to the existing sub-agents, and runs teardown on failure or
-  cancellation. Scope writes performed through the instrument agent refresh
+  resolves `fromStep` values, pauses for plan approval, marks manual setup
+  steps complete without a second prompt, runs generated setup steps directly
+  (explicitly marked steps still pause), delegates each measure step to the
+  existing sub-agents, and runs teardown on failure or cancellation. Scope writes performed through the instrument agent refresh
   the waveform acquisition automatically before the next read or measure step.
 
 The plan approval uses `request_user_choice` with a free-text field
@@ -198,11 +348,13 @@ the controller suspends the response timeout while the user fills it.
   `PlanExecutor` drive the stored plan; every measure step still delegates to an
   existing sub-agent. This avoids the LLM re-reading a plan that may have left the
   20-message window.
-- **Teardown does not require confirmation.** The spec says
-  `requiresUserConfirmation` is always true for state changes; switching the
-  generator off is safety-restoring, so teardown is planned with
-  `requiresUserConfirmation: false`. All generator/scope *setup* changes still
-  require confirmation.
+- **Plan approval authorizes setup changes.** `configure_generator` steps are
+  planned with `requiresUserConfirmation: false`: the plan approval lists
+  every step and is the single authorization point. Changes outside an
+  approved plan still require confirmation. Teardown remains
+  `requiresUserConfirmation: false` because switching the generator off is
+  safety-restoring. The executor still pauses for explicitly marked steps, so
+  manually constructed plans keep the second confirmation gate.
 - **Manual setup steps do not pause execution.** The plan approval already
   covers the wiring instructions and safety notes shown in the plan, so a
   separate acknowledgement dialog would be redundant. `PlanExecutor` records
@@ -226,12 +378,15 @@ the controller suspends the response timeout while the user fills it.
 ## Tests
 
 Deterministic tests use fakes only; no LLM and no device I/O. They cover JSON
-round trips, safety boundaries, equipment probing, classification, golden step
-lists, missing-input sourcing, form ordering, plan construction, the mocked
-PlannerAgent, the tool wrappers, the form controller and widget, plan
-execution, and the end-to-end pipeline for every BPMN end event. The
-`bpmn_coverage_test.dart` table maps each edge to a scenario and asserts that
-every abort reason and execution status is covered.
+round trips, safety boundaries, equipment probing, automatic and user-driven
+classification, golden step lists, missing-input sourcing, form ordering, plan
+construction, the mocked PlannerAgent, the tool wrappers, the form controller
+and widget, plan execution, and the end-to-end pipeline for every BPMN end
+event. The `bpmn_coverage_test.dart` table maps each edge to a scenario and
+asserts that every abort reason and execution status is covered. The
+`unsupported_method` reason is retired from the pipeline (stage 3 now asks the
+user and returns `classified`), but remains part of the result contract for
+direct stage callers.
 
 Commands:
 

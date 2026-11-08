@@ -7,7 +7,7 @@ Welcome to the SDS-Remote Help Center.
 ***SDS-Remote*** is a remote control application for the Siglent SDS 1000X-E series.
 It combines instrument control and waveform analysis with data logging, macro recording and playback, screen capture and an optional AI-assisted chat interface.
 
-> **Before you connect a probe to any circuit,** read [Electrical Safety](#electrical-safety) in section 1.2. The probe ground of a mains-powered oscilloscope is connected to protective earth, and an incorrect connection can damage equipment or cause injury. Make sure your oscilloscope is running the latest available firmware version
+> **Before you connect a probe to any circuit,** read [Electrical Safety](#electrical-safety) in section 1.2. The probe ground of a mains-powered oscilloscope is connected to protective earth, and an incorrect connection can damage equipment or cause injury.&#10;For optimal results, make sure your oscilloscope is running the latest available firmware version
 
 ### 1.1 Compatibility
 
@@ -420,9 +420,9 @@ The device response (for queries) is returned verbatim.
 
 #### Signal Generator Control
 
-When a JDS6600 or FY6900 is configured and connected, the AI Chat can also control the separate signal generator. The request must contain a signal-generator keyword: **Signal Generator**. In the AI Chat the bare word **Generator** is also accepted. For example: “Signal Generator frequency channel 1 10 kHz”. Without a keyword the AI Chat treats the request as an oscilloscope command or asks for clarification.
+When a JDS6600 or FY6900 is configured and connected, the AI Chat can also control the separate signal generator. A setting change requires a signal-generator keyword: **Signal Generator**. In the AI Chat the bare word **Generator** is also accepted. For example: “Signal Generator frequency channel 1 10 kHz”. Read-only queries of the current generator settings, outputs, limits and connection state do not need a keyword. Without a keyword and without a read-only query, the AI Chat treats the request as an oscilloscope command or asks for clarification.
 
-When a signal-generator keyword is present, the AI Chat treats the request as a signal-generator command. The keyword only selects the target device; it is not a separate confirmation step. An explicit instruction such as “Signal Generator frequency channel 1 10 kHz” states the requested value, so the AI Chat applies it immediately. It supports channel 1/2, frequency, amplitude (Vpp), DC offset, waveform, duty cycle, phase and output on/off, reading the current settings and device limits, resetting both channels to safe defaults and stopping a running modulation or sweep. The Waveform assistant supports the same generator control, but requires the normal confirmation step before applying a change ([8.12 AI Assistant](#812-ai-assistant-experimental)).
+When a signal-generator keyword is present, the AI Chat treats the request as a signal-generator command. The keyword only selects the target device; it is not a separate confirmation step. An explicit instruction such as “Signal Generator frequency channel 1 10 kHz” states the requested value, so the AI Chat applies it immediately. It supports channel 1/2, frequency, amplitude (Vpp), DC offset, waveform, duty cycle, phase and output on/off, reading the current settings and device limits, resetting both channels to safe defaults and stopping a running modulation or sweep. Reading the current generator settings, outputs, limits and connection state is also available without a keyword. The Waveform assistant supports the same generator control, but requires the normal confirmation step before applying a change ([8.12 AI Assistant](#812-ai-assistant-experimental)).
 
 Waveform names are validated against the active device profile. A name that the selected generator does not support is rejected with a clear message instead of being guessed. The one documented exception is the FY6900 cross-model mapping: JDS6600-only names map to the closest FY6900 preset, and PULS on channel 2 becomes RECT. The assistant reports the requested and the actual name.
 
@@ -1474,7 +1474,7 @@ The wave icon in the **Measurements** header opens the **Ripple & Noise** dialog
 
 * The Measurements header permanently shows **Trigger source CHx: Optimize for** followed by **Time-Domain Analysis** and **Frequency-Analysis**. The buttons are disabled when the trigger channel has no usable period.
 * **Time-Domain Analysis** sets a timebase that shows about four periods of the trigger source signal and refreshes the waveform view with a fresh acquisition.
-* **Frequency-Analysis** sets a timebase that shows about 50 periods, giving the spectrum enough cycles for a useful FFT, and refreshes the waveform in the same way.
+* **Frequency-Analysis** sets a timebase that shows at least 80 periods, giving the spectrum enough cycles for a useful FFT, and refreshes the waveform in the same way.
 * Both calculations use only the channel selected as the oscilloscope trigger source; other displayed channels do not influence the result. The timebase is never changed automatically.
 
 #### Difference Trace
@@ -1634,7 +1634,7 @@ Read-only queries, such as the current volts/div or a live measurement, are exec
 
 #### Signal Generator Commands
 
-When a JDS6600 or FY6900 is configured and connected, the assistant can control the signal generator under the same routing rule as the AI Chat, except that the bare word **Generator** is not accepted ([4.3 Signal Generator Control](#signal-generator-control)). The generator keyword selects the generator but does not replace the confirmation step. Without a signal-generator keyword, a request such as “frequency on channel 1” refers to the oscilloscope.
+When a JDS6600 or FY6900 is configured and connected, the assistant can control the signal generator under the same routing rule as the AI Chat, except that the bare word **Generator** is not accepted ([4.3 Signal Generator Control](#signal-generator-control)). The generator keyword selects the generator but does not replace the confirmation step. Without a signal-generator keyword, a request such as “frequency on channel 1” refers to the oscilloscope. Read-only queries of the generator settings, outputs, limits and connection state are allowed without a keyword; setting changes require it.
 
 ---
 

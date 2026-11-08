@@ -35,7 +35,10 @@ Rect? getCursorInfoPanelRect(Size size, CursorState cursorState) {
   }
   final panelHeight = computeCursorPanelHeight(cursorState);
   final panelX =
-      size.width - cursorPanelWidth - cursorPanelMargin + cursorState.cursorInfoOffset.dx;
+      size.width -
+      cursorPanelWidth -
+      cursorPanelMargin +
+      cursorState.cursorInfoOffset.dx;
   final panelY = cursorPanelMargin + cursorState.cursorInfoOffset.dy;
   return Rect.fromLTWH(panelX, panelY, cursorPanelWidth, panelHeight);
 }
@@ -54,14 +57,15 @@ Offset clampCursorInfoOffset(
   final panelHeight = computeCursorPanelHeight(cursorState);
 
   // Constrain panelX within [margin, size.width - panelWidth - margin]
-  final minDx = cursorPanelMargin -
-      (size.width - cursorPanelWidth - cursorPanelMargin);
+  final minDx =
+      cursorPanelMargin - (size.width - cursorPanelWidth - cursorPanelMargin);
   final maxDx = cursorPanelMargin - cursorPanelMargin;
   final clampedDx = proposedOffset.dx.clamp(minDx, maxDx);
 
   // Constrain panelY within [margin, size.height - panelHeight - margin]
   final minDy = cursorPanelMargin - cursorPanelMargin;
-  final maxDy = size.height - panelHeight - cursorPanelMargin - cursorPanelMargin;
+  final maxDy =
+      size.height - panelHeight - cursorPanelMargin - cursorPanelMargin;
   final clampedDy = proposedOffset.dy.clamp(minDy, maxDy);
 
   return Offset(clampedDx, clampedDy);

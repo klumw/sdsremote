@@ -4,7 +4,7 @@ library;
 import '../models/input_form.dart';
 
 /// Input control type of a parameter.
-enum ParamType { number, boolean, text, singleChoice, multiChoice }
+enum ParamType { number, numberList, boolean, text, singleChoice, multiChoice }
 
 /// How a parameter value is obtained.
 enum ParamSource {
@@ -61,6 +61,21 @@ class ReadingSpec {
   final String outputField;
 }
 
+/// Condition under which a parameter is evaluated and may be required.
+///
+/// The controlling parameter must be resolved before this parameter is
+/// processed. When the condition does not match, the parameter is skipped;
+/// generator settings can then be filled from the current device state.
+class ParamCondition {
+  const ParamCondition({required this.key, required this.equals});
+
+  /// Parameter key whose resolved value controls this condition.
+  final String key;
+
+  /// Value that enables the parameter.
+  final Object? equals;
+}
+
 /// One parameter of a recipe.
 class ParamSpec {
   const ParamSpec({
@@ -79,6 +94,7 @@ class ParamSpec {
     this.derive,
     this.dependsOn = const <String>[],
     this.requiredWhen = SafetyCondition.always,
+    this.activeWhen,
     this.required = true,
   });
 
@@ -130,6 +146,13 @@ class ParamSpec {
   /// Condition under which the parameter is required.
   final SafetyCondition requiredWhen;
 
+  /// Condition under which this parameter is evaluated at all.
+  ///
+  /// When the condition does not match, the parameter is skipped: it is not
+  /// asked, no default is applied and a generator setting can be filled from
+  /// the current device state instead.
+  final ParamCondition? activeWhen;
+
   /// Whether a missing value for a `given` parameter is asked in the form.
   ///
   /// Optional parameters such as an expected cutoff are used when the user
@@ -144,6 +167,7 @@ class ParamSpec {
       help: validationMessage ?? help,
       type: switch (type) {
         ParamType.number => InputQuestionType.number,
+        ParamType.numberList => InputQuestionType.text,
         ParamType.boolean => InputQuestionType.boolean,
         ParamType.text => InputQuestionType.text,
         ParamType.singleChoice => InputQuestionType.singleChoice,
@@ -204,6 +228,15 @@ class ParamSpec {
     }
     if (derive != null && dependsOn.isEmpty) {
       errors.add('Parameter "$key" has a derivation without dependencies.');
+    }
+    final condition = activeWhen;
+    if (condition != null) {
+      if (condition.key.isEmpty) {
+        errors.add('Parameter "$key" has an empty condition key.');
+      }
+      if (!dependsOn.contains(condition.key)) {
+        errors.add('Parameter "$key" must list ${condition.key} in dependsOn.');
+      }
     }
     final minimum = min;
     final maximum = max;

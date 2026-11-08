@@ -42,7 +42,7 @@ Future<StageResult<EquipmentReport>> checkEquipment({
     );
   }
 
-  // Unknown ids are classified later as unsupported_method. Resolving them
+  // Unknown ids are handled by the classification stage. Resolving them
   // here must not turn into a misleading no_generator abort.
   List<Recipe> selected;
   try {
@@ -51,14 +51,21 @@ Future<StageResult<EquipmentReport>> checkEquipment({
     selected = const <Recipe>[];
   }
   final needsGenerator = selected.any((recipe) => recipe.needsGenerator);
-  if (!needsGenerator) {
-    return StageResult.ok(
-      EquipmentReport(scope: scope, generatorProbed: false),
+
+  // The generator is always probed so every plan records whether one is
+  // connected. A missing generator only blocks recipes that need it.
+  GeneratorEquipment generator;
+  try {
+    generator = await probe.probeGenerator();
+  } on Object catch (error) {
+    generator = GeneratorEquipment(
+      configured: false,
+      connected: false,
+      supported: false,
+      error: 'The signal generator probe failed ($error).',
     );
   }
-
-  final generator = await probe.probeGenerator();
-  if (!generator.available) {
+  if (needsGenerator && !generator.available) {
     return StageResult.abort(
       AbortReason.noGenerator,
       message:

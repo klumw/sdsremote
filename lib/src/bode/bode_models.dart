@@ -27,6 +27,7 @@ class BodeConfig {
     this.voutChannel = 2,
     this.generatorChannel = 1,
     this.turnOffOutputsAfterSweep = true,
+    this.useCurrentGeneratorSettings = false,
     this.reportName = '',
   });
 
@@ -49,6 +50,12 @@ class BodeConfig {
   /// after completion, cancellation or failure.
   final bool turnOffOutputsAfterSweep;
 
+  /// Whether the generator waveform, amplitude and offset stay unchanged.
+  ///
+  /// Only the frequency is stepped in that case. The current values are used
+  /// for the scope scaling and restored after the sweep.
+  final bool useCurrentGeneratorSettings;
+
   /// Optional free-text report name (max 150 characters).
   /// Shown in the configuration mask and included in the PDF report.
   final String reportName;
@@ -67,6 +74,7 @@ class BodeConfig {
     int? voutChannel,
     int? generatorChannel,
     bool? turnOffOutputsAfterSweep,
+    bool? useCurrentGeneratorSettings,
     String? reportName,
   }) {
     return BodeConfig(
@@ -84,6 +92,8 @@ class BodeConfig {
       generatorChannel: generatorChannel ?? this.generatorChannel,
       turnOffOutputsAfterSweep:
           turnOffOutputsAfterSweep ?? this.turnOffOutputsAfterSweep,
+      useCurrentGeneratorSettings:
+          useCurrentGeneratorSettings ?? this.useCurrentGeneratorSettings,
       reportName: reportName ?? this.reportName,
     );
   }
@@ -104,6 +114,7 @@ class BodeConfig {
         other.voutChannel == voutChannel &&
         other.generatorChannel == generatorChannel &&
         other.turnOffOutputsAfterSweep == turnOffOutputsAfterSweep &&
+        other.useCurrentGeneratorSettings == useCurrentGeneratorSettings &&
         other.reportName == reportName;
   }
 
@@ -122,6 +133,7 @@ class BodeConfig {
     voutChannel,
     generatorChannel,
     turnOffOutputsAfterSweep,
+    useCurrentGeneratorSettings,
     reportName,
   );
 }

@@ -56,14 +56,18 @@ Tool<Map<String, dynamic>> createPlannerAgentTool({
         'sweep, mix audio or digital measurement blocks, or depend on safety '
         'and setup data. For a single direct readout the '
         'specialist agents are faster. The result is JSON with status '
-        'plan_ready, needs_input or aborted. Relay it verbatim: never add, '
-        'remove or reorder steps and never change a value. On needs_input call '
-        'present_input_form with the returned stateRef and the translated '
-        'title, labels and help texts, then call planner_agent again without '
-        'a request; the application carries the answers. On aborted explain '
-        'the reason and what the user could change; do not retry blindly. On '
-        'plan_ready present the plan in the user\'s language, ask for '
-        'approval, then call execute_plan with the returned planRef.',
+        'plan_ready, needs_input, classified or aborted. Relay it verbatim: '
+        'never add, remove or reorder steps and never change a value. On '
+        'needs_input call present_input_form with the returned stateRef and '
+        'the translated title, labels and help texts, then call planner_agent '
+        'again without a request; the application carries the answers. On '
+        'aborted explain the reason and what the user could change; do not '
+        'retry blindly. On classified present no plan: route the original '
+        'request to the agent named in `route` (scope_analysis_agent, '
+        'audio_analysis_agent or digital_analysis_agent). Without a route the '
+        'category is other and you handle the request yourself. On plan_ready '
+        'present the plan in the user\'s language, ask for approval, then call '
+        'execute_plan with the returned planRef.',
     inputSchema: Schema.fromMap(<String, dynamic>{
       'type': 'object',
       'additionalProperties': false,
@@ -177,6 +181,7 @@ Tool<Map<String, dynamic>> createPlannerAgentTool({
           output: <String, dynamic>{
             'status': result['status'],
             if (result['reason'] != null) 'reason': result['reason'],
+            if (result['route'] != null) 'route': result['route'],
             if (result['planRef'] != null) 'planRef': result['planRef'],
             if (result['stateRef'] != null) 'stateRef': result['stateRef'],
           },

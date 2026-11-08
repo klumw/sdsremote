@@ -30,9 +30,10 @@ class WaveformAcquisition {
   /// Connects to the instrument, queries all required SCPI parameters and
   /// waveform data for the selected channels, then returns a [WaveformRawData].
   ///
-  /// Before acquiring waveform data, the trigger mode is queried via `TRMD?`
-  /// and set to `STOP` to freeze the display. After acquisition, the original
-  /// trigger mode is restored.
+  /// Before acquiring waveform data, the trigger mode is queried via `TRMD?`.
+  /// A running acquisition is completed as a single acquisition first, then
+  /// the display is frozen so the transferred frame is stable and complete.
+  /// After acquisition, the original trigger mode is restored.
   ///
   /// Throws [AcquisitionException] on any VXI-11 or parsing error.
   Future<WaveformRawData> acquire({
@@ -58,8 +59,7 @@ class WaveformAcquisition {
         }
       }
 
-      // --- Query and stop trigger mode ---
-      // Freeze the display by stopping the trigger so we get a stable waveform.
+      // --- Query trigger mode ---
       // The instrument may echo the command, e.g. "TRMD AUTO" or "TRMD STOP".
       // We extract only the mode value (the part after the last space).
       try {
@@ -72,6 +72,26 @@ class WaveformAcquisition {
       } catch (e) {
         AppLogger().error('Failed to query trigger mode: $e');
       }
+
+      // --- Global parameters (Requirement 1.2) ---
+      final timebase = await _queryValue(activeInstr, 'TDIV?');
+
+      // Freezing a running scope in the middle of a sweep leaves no complete
+      // waveform in acquisition memory, so `WF? DAT2` returns an empty block.
+      // This happens after a scope setting change restarts the acquisition
+      // (for example a new timebase for an FFT): the automatic refresh stops
+      // the trigger before the first new sweep has finished. Arm one single
+      // acquisition and wait until it has completed instead.
+      final bool freshFrameRequired = await _needsFreshFrame(
+        activeInstr,
+        originalTriggerMode,
+      );
+      final bool frameCompleted = freshFrameRequired
+          ? await _armAndWaitForComplete(activeInstr, timebase: timebase)
+          : true;
+
+      // Freeze the display so the transferred frame stays stable. When the
+      // single acquisition above already stopped the scope this is a no-op.
       if (originalTriggerMode != null &&
           originalTriggerMode.isNotEmpty &&
           originalTriggerMode != 'STOP') {
@@ -82,10 +102,8 @@ class WaveformAcquisition {
         }
       }
 
-      // --- Global parameters (Requirement 1.2) ---
-      final timebase = await _queryValue(activeInstr, 'TDIV?');
       final trdl = await _queryValue(activeInstr, 'TRDL?');
-      final sampleRate = await _queryValue(activeInstr, 'SARA?');
+      var sampleRate = await _queryValue(activeInstr, 'SARA?');
 
       // Configure waveform transfer setup so the complete display span
       // (timebase * 14 divisions) is transferred, not just its beginning.
@@ -105,8 +123,30 @@ class WaveformAcquisition {
           : defaultMaxTransferPoints;
       final int effectiveMaxTransferPoints = (maxTransferPoints ?? transportCap)
           .clamp(1201, transportCap);
-      final int desiredPoints = (timebase * horizontalDivisions * sampleRate)
+
+      // --- Acquisition record length and trigger position ---
+      // SANU? returns the record length ("SANU 1.40E+04pts"); some firmware
+      // appends the trigger position after a comma. With FP=0 in WFSU we read
+      // from index 0, so the trigger position (when present) lets us compute
+      // the time offset T(n) = (n - triggerPosition) / sampleRate + trdl.
+      // The point count is the actual record length of the completed frame.
+      // It is preferred over TDIV * 14 * SARA because SARA can lag behind for
+      // a moment after a timebase change and would produce a wrong sparsing
+      // factor.
+      int recordPoints = 0;
+      int triggerPosition = 0;
+      try {
+        final sanuRaw = (await activeInstr.queryString('SANU? C1')).trim();
+        final sanu = ScpiParser.parseSanu(sanuRaw);
+        recordPoints = sanu.$1;
+        triggerPosition = sanu.$2;
+      } catch (_) {
+        // Fall back to display-centric formula if SANU? fails
+      }
+
+      final int displayPoints = (timebase * horizontalDivisions * sampleRate)
           .ceil();
+      final int desiredPoints = recordPoints > 0 ? recordPoints : displayPoints;
       final int transferPoints = desiredPoints.clamp(
         1201,
         effectiveMaxTransferPoints,
@@ -131,19 +171,6 @@ class WaveformAcquisition {
         activeInstr,
         fallback: waveformSparsing,
       );
-
-      // --- Trigger position in acquisition memory ---
-      // SANU? returns "pointCount,triggerPosition" — the trigger's sample
-      // index within the acquisition memory.  With FP=0 in WFSU we read
-      // from index 0, so this position lets us compute the correct time
-      // offset for each sample: T(n) = (n - triggerPosition) / sampleRate + trdl
-      int triggerPosition = 0;
-      try {
-        final sanuRaw = (await activeInstr.queryString('SANU? C1')).trim();
-        triggerPosition = ScpiParser.parseSanu(sanuRaw).$2;
-      } catch (_) {
-        // Fall back to display-centric formula if SANU? fails
-      }
 
       // --- Channel status check ---
       // Check if channels are active on the oscilloscope.
@@ -180,25 +207,83 @@ class WaveformAcquisition {
           : null;
 
       // --- Waveform data ---
-      final ch1Raw = isCh1Active
+      var ch1Raw = isCh1Active
           ? await _queryDataBlock(activeInstr, 'C1:WF? DAT2')
           : null;
-      final ch2Raw = isCh2Active
+      var ch2Raw = isCh2Active
           ? await _queryDataBlock(activeInstr, 'C2:WF? DAT2')
           : null;
-      final ch3Raw = isCh3Active
+      var ch3Raw = isCh3Active
           ? await _queryDataBlock(activeInstr, 'C3:WF? DAT2')
           : null;
-      final ch4Raw = isCh4Active
+      var ch4Raw = isCh4Active
           ? await _queryDataBlock(activeInstr, 'C4:WF? DAT2')
           : null;
+
+      bool anyChannelActive() =>
+          isCh1Active || isCh2Active || isCh3Active || isCh4Active;
+      bool allChannelsEmpty() =>
+          (!isCh1Active || (ch1Raw?.isEmpty ?? true)) &&
+          (!isCh2Active || (ch2Raw?.isEmpty ?? true)) &&
+          (!isCh3Active || (ch3Raw?.isEmpty ?? true)) &&
+          (!isCh4Active || (ch4Raw?.isEmpty ?? true));
+
+      // An empty block means the scope has no complete frame in memory, for
+      // example when the trigger was frozen during a sweep that a setting
+      // change had just restarted. Re-arm once and retry before reporting a
+      // failed acquisition.
+      if (anyChannelActive() &&
+          allChannelsEmpty() &&
+          freshFrameRequired &&
+          frameCompleted) {
+        AppLogger().warning(
+          'Waveform transfer returned an empty block at TDIV=$timebase; '
+          're-arming the acquisition and retrying once.',
+        );
+        await _armAndWaitForComplete(activeInstr, timebase: timebase);
+        // The re-armed frame may have a different sample rate than the empty
+        // frame, for example when the first attempt ran right after a
+        // timebase change and SARA still reported the previous setting.
+        try {
+          sampleRate = await _queryValue(activeInstr, 'SARA?');
+        } catch (_) {
+          // Keep the previous sample rate.
+        }
+        try {
+          final sanuRaw = (await activeInstr.queryString('SANU? C1')).trim();
+          triggerPosition = ScpiParser.parseSanu(sanuRaw).$2;
+        } catch (_) {
+          // Keep the previous trigger position.
+        }
+        ch1Raw = isCh1Active
+            ? await _queryDataBlock(activeInstr, 'C1:WF? DAT2')
+            : null;
+        ch2Raw = isCh2Active
+            ? await _queryDataBlock(activeInstr, 'C2:WF? DAT2')
+            : null;
+        ch3Raw = isCh3Active
+            ? await _queryDataBlock(activeInstr, 'C3:WF? DAT2')
+            : null;
+        ch4Raw = isCh4Active
+            ? await _queryDataBlock(activeInstr, 'C4:WF? DAT2')
+            : null;
+      }
 
       AppLogger().info(
         'Waveform transfer: TDIV=$timebase, SARA=$sampleRate, '
         'SP=$sparsing, NP=$transferPoints, desired=$desiredPoints, '
-        'points=[${ch1Raw?.length}, ${ch2Raw?.length}, '
+        'record=$recordPoints, points=[${ch1Raw?.length}, ${ch2Raw?.length}, '
         '${ch3Raw?.length}, ${ch4Raw?.length}]',
       );
+
+      if (anyChannelActive() && allChannelsEmpty()) {
+        // No signal or no trigger event: this is a valid empty acquisition,
+        // not an error. The waveform view opens and shows placeholder values.
+        AppLogger().warning(
+          'No waveform data on the active channels at TDIV=$timebase; '
+          'opening an empty acquisition.',
+        );
+      }
 
       // --- Restore original trigger mode ---
       // Do this before the finally block so the connection is still fully open.
@@ -237,6 +322,82 @@ class WaveformAcquisition {
         await activeInstr.close();
       }
     }
+  }
+
+  /// Reads the acquisition status via `SAST?`.
+  ///
+  /// Returns the lowercase status value without the command echo, or `null`
+  /// when the instrument does not answer. The SDS1000X-E reports one of
+  /// `Ready`, `Auto`, `Stop`, `Arm`, `Trig'd` and `FStop`.
+  Future<String?> _queryAcquisitionStatus(Vxi11Instrument instr) async {
+    try {
+      final raw = (await instr.queryString('SAST?')).trim();
+      if (raw.isEmpty) return null;
+      final lastSpace = raw.lastIndexOf(' ');
+      final value = lastSpace >= 0 ? raw.substring(lastSpace + 1) : raw;
+      final status = value.trim().toLowerCase();
+      if (status.isEmpty ||
+          status.startsWith('-') ||
+          status.contains('error') ||
+          status.contains('undefined')) {
+        return null;
+      }
+      return status;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  /// Whether the scope must complete a fresh acquisition before it is frozen.
+  ///
+  /// A stopped scope keeps the frame the user froze; a running or armed
+  /// acquisition must finish a sweep first, otherwise `TRMD STOP` can abort an
+  /// incomplete frame and `WF? DAT2` returns an empty block. Without a status
+  /// answer, only the continuous trigger modes are treated as running so a
+  /// manually stopped frame is never overwritten.
+  Future<bool> _needsFreshFrame(
+    Vxi11Instrument instr,
+    String? triggerMode,
+  ) async {
+    final status = await _queryAcquisitionStatus(instr);
+    if (status != null) return !status.contains('stop');
+    final mode = triggerMode?.toUpperCase();
+    return mode == 'AUTO' || mode == 'NORM';
+  }
+
+  /// Arms one single acquisition and waits until the scope has stopped.
+  ///
+  /// The wait is bounded by one screen sweep ([timebase] times 14 divisions)
+  /// plus processing time. Returns whether the scope reported a completed
+  /// acquisition; when the trigger never fires (wrong level, missing signal),
+  /// the wait times out and the caller freezes the last frame.
+  Future<bool> _armAndWaitForComplete(
+    Vxi11Instrument instr, {
+    required double timebase,
+  }) async {
+    try {
+      await instr.writeString('ARM');
+    } catch (e) {
+      AppLogger().warning('Failed to arm a single acquisition: $e');
+      return false;
+    }
+    final double sweepSeconds = (timebase * 14).abs();
+    final int timeoutMs = ((sweepSeconds + 3) * 1000)
+        .round()
+        .clamp(2000, 30000)
+        .toInt();
+    final deadline = DateTime.now().add(Duration(milliseconds: timeoutMs));
+    while (DateTime.now().isBefore(deadline)) {
+      final status = await _queryAcquisitionStatus(instr);
+      if (status != null && status.contains('stop')) return true;
+      await Future<void>.delayed(const Duration(milliseconds: 120));
+    }
+    AppLogger().warning(
+      'The single acquisition did not complete within '
+      '${(timeoutMs / 1000).round()} s (TDIV=$timebase); using the last '
+      'completed frame.',
+    );
+    return false;
   }
 
   /// Reads the WFSU sparsing factor that the instrument actually uses.

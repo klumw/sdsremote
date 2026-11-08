@@ -18,8 +18,9 @@ import 'stage_ask_user.dart';
 import 'stage_calculate_missing_input.dart';
 import 'stage_check_equipment.dart';
 import 'stage_classify_complexity.dart';
-import 'stage_classify_type.dart';
+import 'stage_classify_request.dart';
 import 'stage_create_action_plan.dart';
+import 'planner_state.dart';
 import 'stage_plan_audio.dart';
 import 'stage_plan_digital.dart';
 import 'stage_plan_simple.dart';
@@ -127,12 +128,46 @@ class PlannerPipeline {
     }
     final equipment = equipmentResult.requireValue;
 
-    // Stage 3: type.
-    final typeResult = classifyType(request: mergedRequest, catalog: catalog);
-    if (typeResult.isAborted) {
-      return outcome(typeResult.toPlannerResult());
+    // Stage 3: classification. The automatic classification can hand the
+    // request back to the user or route it to a specialist.
+    final classificationResult = classifyRequest(
+      request: mergedRequest,
+      catalog: catalog,
+      round: round,
+      config: config,
+      idSource: idSource,
+    );
+    if (classificationResult.isAborted) {
+      return outcome(classificationResult.toPlannerResult());
     }
-    final type = typeResult.requireValue;
+    final TypeAssessment type;
+    switch (classificationResult.requireValue) {
+      case PlanClassification(:final assessment):
+        type = assessment;
+      case RoutedClassification(
+        :final category,
+        :final confidence,
+        :final source,
+      ):
+        return PlannerOutcome(
+          result: ClassifiedResult(
+            category: category,
+            confidence: confidence,
+            source: source,
+          ),
+          request: mergedRequest,
+          answers: effectiveAnswers,
+          nextRound: round + 1,
+        );
+      case UserClassificationRequired(:final form):
+        return PlannerOutcome(
+          result: NeedsInputResult(form: form, stateRef: effectiveStateRef),
+          request: mergedRequest,
+          answers: effectiveAnswers,
+          nextRound: round + 1,
+          form: form,
+        );
+    }
 
     // Stage 4: complexity.
     final complexityResult = classifyComplexity(
@@ -214,6 +249,7 @@ class PlannerPipeline {
       request: mergedRequest,
       draft: draft,
       inputs: missing,
+      equipment: equipment,
       safetyPolicy: safetyPolicy,
       config: config,
       idSource: idSource,

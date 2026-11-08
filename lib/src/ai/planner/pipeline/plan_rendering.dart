@@ -3,6 +3,7 @@ library;
 
 import '../models/action_plan.dart';
 import '../models/json_value.dart';
+import '../planner_config.dart';
 
 final RegExp _placeholderPattern = RegExp(r'\{([a-zA-Z0-9_]+)\}');
 
@@ -40,6 +41,44 @@ String renderTemplate(
       template,
     );
   });
+}
+
+/// Binding generator settings that the Waveform Agent appends to a sub-agent
+/// request.
+///
+/// The values come from the approved plan, including answers the user gave in
+/// an earlier round of the same chat. The block keeps the sub-agent from
+/// replacing them with defaults or with the live device state. Returns null
+/// when the plan has no generator settings mode.
+String? planGeneratorSettingsInstruction(Map<String, Object?> resolved) {
+  final mode = resolved[PlannerKeys.generatorSettingsMode];
+  if (mode is! String || mode.isEmpty) return null;
+  final lines = <String>[
+    'APPROVED PLAN GENERATOR SETTINGS (binding):',
+    'mode=$mode',
+  ];
+  void add(String key, String label) {
+    if (!resolved.containsKey(key)) return;
+    final value = resolved[key];
+    if (value == null) return;
+    lines.add('$label=${formatPlannerValue(value)}');
+  }
+
+  add(PlannerKeys.generatorWaveform, 'waveform');
+  add(PlannerKeys.amplitudeVpp, 'amplitudeVpp');
+  add(PlannerKeys.offsetV, 'offsetV');
+  add(PlannerKeys.generatorChannel, 'generatorChannel');
+  lines.add(
+    mode == 'configure'
+        ? 'Instruction: pass useCurrentSettings=false and exactly these '
+              'waveform, amplitudeVpp, offsetV and generatorChannel values to '
+              'every sweep or generator tool call. Never replace them with a '
+              'default or with the current device state.'
+        : 'Instruction: pass useCurrentSettings=true and omit waveform, '
+              'amplitudeVpp, offsetV and generatorChannel; the sweep keeps the '
+              'live generator settings.',
+  );
+  return lines.join('\n');
 }
 
 /// Formats a parameter value for an English instruction.

@@ -6,6 +6,7 @@
 library;
 
 import 'catalog/planner_catalog.dart';
+import 'models/measurement_classification.dart';
 
 /// One catalog entry as shown in the tool-schema description.
 String _catalogLine(PlannerCatalog catalog) {
@@ -66,7 +67,37 @@ Map<String, dynamic> buildPlanMeasurementSchema(PlannerCatalog catalog) {
           'floatingDut': <String, dynamic>{'type': 'boolean'},
         },
       },
+      'classification': <String, dynamic>{
+        'type': 'object',
+        'additionalProperties': false,
+        'properties': <String, dynamic>{
+          'type': <String, dynamic>{
+            'type': 'string',
+            'enum': <String>[
+              for (final category in MeasurementCategory.values)
+                category.wireName,
+            ],
+          },
+          'confidence': <String, dynamic>{
+            'type': 'string',
+            'enum': <String>[
+              for (final confidence in ClassificationConfidence.values)
+                confidence.wireName,
+            ],
+          },
+        },
+        'required': <String>['type', 'confidence'],
+        'description':
+            'Your own classification of the request. simple_signal is a '
+            'direct scope reading; complex_audio is audio, distortion, level '
+            'or frequency-response work; complex_digital is timing, logic and '
+            'signal-integrity work; other means no catalog category fits. '
+            'Confidence high means the request clearly matches, medium means '
+            'it probably matches, low means you are unsure. The application '
+            'asks the user when the confidence is low or the catalog has no '
+            'matching recipe. Never guess a high confidence.',
+      },
     },
-    'required': <String>['goal', 'measurements'],
+    'required': <String>['goal', 'measurements', 'classification'],
   };
 }

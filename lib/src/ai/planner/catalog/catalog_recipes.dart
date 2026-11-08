@@ -108,33 +108,65 @@ const ParamSpec _generatorChannel = ParamSpec(
   defaultValue: '1',
 );
 
-const ParamSpec _generatorWaveform = ParamSpec(
+/// Condition for parameters that are only needed when the generator is
+/// configured for this measurement instead of keeping its current settings.
+const ParamCondition _configureGenerator = ParamCondition(
+  key: PlannerKeys.generatorSettingsMode,
+  equals: 'configure',
+);
+
+const ParamSpec _generatorSettingsMode = ParamSpec(
+  key: PlannerKeys.generatorSettingsMode,
+  type: ParamType.singleChoice,
+  source: ParamSource.userRequired,
+  priority: 9,
+  question:
+      'Should the measurement keep the current signal-generator settings?',
+  help:
+      'Choose current to keep the waveform, amplitude and offset that are set '
+      'on the generator; only the measurement frequency is changed. Choose '
+      'configure to enter the generator waveform and amplitude. The first '
+      'frequency of a series or the sweep start is the start frequency.',
+  options: <InputOption>[
+    InputOption(
+      value: 'current',
+      label: 'Use the current generator settings 1:1',
+    ),
+    InputOption(value: 'configure', label: 'Set new generator parameters'),
+  ],
+);
+
+const ParamSpec _configuredGeneratorWaveform = ParamSpec(
   key: PlannerKeys.generatorWaveform,
   type: ParamType.singleChoice,
-  source: ParamSource.defaulted,
+  source: ParamSource.userRequired,
   priority: 21,
   question: 'Which generator waveform should be used?',
   options: <InputOption>[
     InputOption(value: 'sine', label: 'Sine'),
     InputOption(value: 'square', label: 'Square'),
     InputOption(value: 'triangle', label: 'Triangle'),
+    InputOption(value: 'ramp', label: 'Ramp'),
+    InputOption(value: 'pulse', label: 'Pulse'),
   ],
-  defaultValue: 'sine',
+  activeWhen: _configureGenerator,
+  dependsOn: <String>[PlannerKeys.generatorSettingsMode],
 );
 
-const ParamSpec _amplitudeVpp = ParamSpec(
+const ParamSpec _configuredAmplitudeVpp = ParamSpec(
   key: PlannerKeys.amplitudeVpp,
   type: ParamType.number,
-  source: ParamSource.defaulted,
+  source: ParamSource.userRequired,
   priority: 22,
   question: 'Which generator amplitude should be used?',
   unit: 'Vpp',
   min: 0.001,
   max: 24,
-  defaultValue: 1.0,
+  activeWhen: _configureGenerator,
+  dependsOn: <String>[PlannerKeys.generatorSettingsMode],
 );
 
-const ParamSpec _offsetV = ParamSpec(
+const ParamSpec _configuredOffsetV = ParamSpec(
   key: PlannerKeys.offsetV,
   type: ParamType.number,
   source: ParamSource.defaulted,
@@ -144,6 +176,8 @@ const ParamSpec _offsetV = ParamSpec(
   min: -12,
   max: 12,
   defaultValue: 0.0,
+  activeWhen: _configureGenerator,
+  dependsOn: <String>[PlannerKeys.generatorSettingsMode],
 );
 
 const ParamSpec _expectedCornerFrequencyHz = ParamSpec(
@@ -201,6 +235,33 @@ const ParamSpec _pointCount = ParamSpec(
   defaultValue: 10,
 );
 
+const ParamSpec _frequenciesHz = ParamSpec(
+  key: PlannerKeys.frequenciesHz,
+  type: ParamType.numberList,
+  source: ParamSource.userRequired,
+  priority: 16,
+  question: 'At which frequencies should the level be measured?',
+  help:
+      'Enter one or more frequencies separated by commas, for example '
+      '"1000, 10000, 20000" or "1k, 10k, 20k".',
+  unit: 'Hz',
+  min: 0.001,
+  max: 100e6,
+);
+
+const ParamSpec _seriesQuantity = ParamSpec(
+  key: PlannerKeys.seriesQuantity,
+  type: ParamType.singleChoice,
+  source: ParamSource.defaulted,
+  priority: 18,
+  question: 'Which level quantity should be measured?',
+  options: <InputOption>[
+    InputOption(value: 'vpp', label: 'Vpp'),
+    InputOption(value: 'vrms', label: 'Vrms'),
+  ],
+  defaultValue: 'vpp',
+);
+
 const ParamSpec _generatorFrequencyHz = ParamSpec(
   key: PlannerKeys.frequencyHz,
   type: ParamType.number,
@@ -214,15 +275,11 @@ const ParamSpec _generatorFrequencyHz = ParamSpec(
 const ParamSpec _gainFrequencyHz = ParamSpec(
   key: PlannerKeys.frequencyHz,
   type: ParamType.number,
-  source: ParamSource.readable,
+  source: ParamSource.userRequired,
   priority: 12,
   question: 'At which frequency should the gain be measured?',
   unit: 'Hz',
   min: 0.01,
-  reading: ReadingSpec(
-    tool: 'read_waveform_summary',
-    outputField: 'channels.{inputChannel}.frequencyHz',
-  ),
 );
 
 const ParamSpec _nominalFrequencyHz = ParamSpec(
@@ -247,8 +304,12 @@ const ParamSpec _logicFamily = ParamSpec(
   question: 'Which logic family does the DUT use?',
   options: <InputOption>[
     InputOption(value: 'ttl_5v', label: 'TTL 5 V'),
-    InputOption(value: 'lvttl_3v3', label: 'LVTTL 3.3 V'),
-    InputOption(value: 'cmos_3v3', label: 'CMOS 3.3 V'),
+    InputOption(
+      value: 'ttl_compatible_cmos_5v',
+      label: 'TTL-compatible CMOS 5 V',
+    ),
+    InputOption(value: 'cmos_5v', label: 'CMOS 5 V'),
+    InputOption(value: 'lvttl_3v3', label: 'LVTTL / CMOS 3.3 V'),
     InputOption(value: 'cmos_2v5', label: 'CMOS 2.5 V'),
     InputOption(value: 'cmos_1v8', label: 'CMOS 1.8 V'),
   ],
@@ -548,17 +609,21 @@ const List<Recipe> standardRecipes = <Recipe>[
     hostManagesGenerator: true,
     needsLiveScope: true,
     parameters: <ParamSpec>[
+      _generatorSettingsMode,
       _sweepChannel,
       _expectedCornerFrequencyHz,
       _startFrequencyHz,
       _stopFrequencyHz,
       _pointCount,
-      _amplitudeVpp,
+      _configuredGeneratorWaveform,
+      _configuredAmplitudeVpp,
     ],
     estimatedToolCalls: 6,
     requestTemplate:
-        'Run a frequency-response sweep on {channel} from {startFrequencyHz} to '
-        '{stopFrequencyHz} with {pointCount} points at {amplitudeVpp}.',
+        'Use generator settings mode {generatorSettingsMode}. Run a '
+        'frequency-response sweep on {channel} from {startFrequencyHz} to '
+        '{stopFrequencyHz} with {pointCount} points using waveform '
+        '{generatorWaveform} and amplitude {amplitudeVpp}.',
     manualInstructions: <String>[
       'Connect the generator output to the DUT input and the DUT output to the '
           'requested scope channel.',
@@ -569,6 +634,87 @@ const List<Recipe> standardRecipes = <Recipe>[
     setupId: standardSetupId,
   ),
   Recipe(
+    id: 'audio.frequency_series',
+    type: RecipeType.audio,
+    title: 'Level at multiple frequencies',
+    aliases: <String>[
+      'multiple frequencies',
+      'several frequencies',
+      'frequency series',
+      'multi frequency',
+      'level at frequencies',
+      'level sweep',
+    ],
+    focus: 'frequency_series',
+    needsGenerator: true,
+    hostManagesGenerator: true,
+    needsLiveScope: true,
+    parameters: <ParamSpec>[
+      _generatorSettingsMode,
+      _sweepChannel,
+      _frequenciesHz,
+      _seriesQuantity,
+      _generatorChannel,
+      _configuredGeneratorWaveform,
+      _configuredAmplitudeVpp,
+    ],
+    estimatedToolCalls: 4,
+    requestTemplate:
+        'Use generator settings mode {generatorSettingsMode}. Measure the '
+        'level in {seriesQuantity} on {channel} at the frequencies '
+        '{frequenciesHz}, using waveform {generatorWaveform} and amplitude '
+        '{amplitudeVpp} from generator channel {generatorChannel}.',
+    manualInstructions: <String>[
+      'Connect the generator output to the DUT input and the DUT output to the '
+          'requested scope channel.',
+    ],
+    expectedOutput: 'The measured level at each requested frequency',
+    setupId: standardSetupId,
+  ),
+  Recipe(
+    id: 'audio.attenuation_series',
+    type: RecipeType.audio,
+    title: 'Attenuation at multiple frequencies',
+    aliases: <String>[
+      'attenuation',
+      'damping',
+      'dämpfung',
+      'daempfung',
+      'insertion loss',
+      'gain at frequencies',
+      'attenuation at frequencies',
+      'level ratio at frequencies',
+    ],
+    focus: 'frequency_series',
+    needsGenerator: true,
+    hostManagesGenerator: true,
+    needsLiveScope: true,
+    parameters: <ParamSpec>[
+      _generatorSettingsMode,
+      _sweepChannel,
+      _frequenciesHz,
+      _generatorChannel,
+      _configuredGeneratorWaveform,
+      _configuredAmplitudeVpp,
+    ],
+    estimatedToolCalls: 4,
+    requestTemplate:
+        'Use generator settings mode {generatorSettingsMode}. Measure the '
+        'level in Vpp on {channel} at the frequencies {frequenciesHz} with '
+        'waveform {generatorWaveform} and amplitude {amplitudeVpp} from '
+        'generator channel {generatorChannel}. Derive the attenuation in dB '
+        'relative to the generator amplitude at each frequency and report the '
+        'values with their unit.',
+    manualInstructions: <String>[
+      'Connect the generator output to the DUT input and the DUT output to the '
+          'requested scope channel.',
+    ],
+    expectedOutput:
+        'The measured output level and the attenuation in dB at each '
+        'requested frequency',
+    setupId: standardSetupId,
+  ),
+  Recipe(
     id: 'audio.crosstalk',
     type: RecipeType.audio,
     title: 'Crosstalk',
@@ -576,19 +722,24 @@ const List<Recipe> standardRecipes = <Recipe>[
     needsGenerator: true,
     needsLiveScope: true,
     parameters: <ParamSpec>[
+      _generatorSettingsMode,
       _aggressorChannel,
       _victimChannel,
       _generatorFrequencyHz,
-      _amplitudeVpp,
       _generatorChannel,
-      _generatorWaveform,
-      _offsetV,
+      _configuredGeneratorWaveform,
+      _configuredAmplitudeVpp,
+      _configuredOffsetV,
     ],
     estimatedToolCalls: 4,
     requestTemplate:
-        'Measure crosstalk from aggressor channel {aggressorChannel} into '
-        'victim channel {victimChannel} at {frequencyHz} with {amplitudeVpp} '
-        'generator amplitude on generator channel {generatorChannel}.',
+        'Use generator settings mode {generatorSettingsMode}. Run Auto Setup '
+        '(ASET) on the oscilloscope after the generator is configured and '
+        'acquire a fresh waveform. Measure crosstalk from aggressor channel '
+        '{aggressorChannel} into victim channel {victimChannel} at '
+        '{frequencyHz} with waveform {generatorWaveform}, amplitude '
+        '{amplitudeVpp} and offset {offsetV} on generator channel '
+        '{generatorChannel}.',
     manualInstructions: _generatorSetup,
     expectedOutput: 'Crosstalk in dBc and percent',
     setupId: standardSetupId,
@@ -601,25 +752,78 @@ const List<Recipe> standardRecipes = <Recipe>[
     needsGenerator: true,
     needsLiveScope: true,
     parameters: <ParamSpec>[
+      _generatorSettingsMode,
       _inputChannel,
       _outputChannel,
       _gainFrequencyHz,
-      _amplitudeVpp,
       _generatorChannel,
-      _generatorWaveform,
-      _offsetV,
+      _configuredGeneratorWaveform,
+      _configuredAmplitudeVpp,
+      _configuredOffsetV,
     ],
     estimatedToolCalls: 4,
     requestTemplate:
-        'Measure the gain from input channel {inputChannel} to output channel '
-        '{outputChannel} at {frequencyHz} with {amplitudeVpp} generator '
-        'amplitude on generator channel {generatorChannel}.',
+        'Use generator settings mode {generatorSettingsMode}. Run Auto Setup '
+        '(ASET) on the oscilloscope after the generator is configured and '
+        'acquire a fresh waveform. Measure the gain from input channel '
+        '{inputChannel} to output channel {outputChannel} at {frequencyHz} '
+        'with waveform {generatorWaveform}, amplitude {amplitudeVpp} and '
+        'offset {offsetV} on generator channel {generatorChannel}.',
     manualInstructions: _generatorSetup,
     expectedOutput: 'Gain in decibels and as a ratio',
     setupId: standardSetupId,
   ),
 
   // --------------------------------------------------------------- digital
+  Recipe(
+    id: 'digital.frequency_series',
+    type: RecipeType.digital,
+    title: 'Input suitability at multiple frequencies',
+    aliases: <String>[
+      'input suitability',
+      'logic levels at frequencies',
+      'cmos input',
+      'cmos signal',
+      'multiple frequencies',
+      'frequency series',
+      'signal quality at frequencies',
+      'eingangssignal',
+      'eignung',
+    ],
+    focus: 'signal_integrity',
+    needsGenerator: true,
+    hostManagesGenerator: true,
+    needsLiveScope: true,
+    parameters: <ParamSpec>[
+      _generatorSettingsMode,
+      _channel,
+      _frequenciesHz,
+      _logicFamily,
+      _generatorChannel,
+      _configuredGeneratorWaveform,
+      _configuredAmplitudeVpp,
+      _configuredOffsetV,
+    ],
+    estimatedToolCalls: 3,
+    requestTemplate:
+        'Use generator settings mode {generatorSettingsMode}. Step the signal '
+        'generator through the frequencies {frequenciesHz} using waveform '
+        '{generatorWaveform}, amplitude {amplitudeVpp} and offset {offsetV} on '
+        'generator channel {generatorChannel}, and measure the logic levels, '
+        'rise and fall times, frequency and duty cycle on {channel}. Compare '
+        'the measured levels with the {logicFamily} input thresholds at every '
+        'frequency.',
+    manualInstructions: <String>[
+      'Configure the signal generator with the digital signal to check '
+          '(waveform, amplitude and offset) and connect its output to '
+          '{channel}. The series keeps these generator settings and only '
+          'changes the frequency.',
+    ],
+    expectedOutput:
+        'Per-frequency high and low levels, edge times and an input-suitability '
+        'verdict for the selected logic family',
+    setupId: standardSetupId,
+  ),
   Recipe(
     id: 'digital.rise_fall',
     type: RecipeType.digital,

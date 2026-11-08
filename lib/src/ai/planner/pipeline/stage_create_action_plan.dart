@@ -9,6 +9,7 @@ import '../models/planner_result.dart';
 import '../planner_config.dart';
 import '../planner_ids.dart';
 import '../safety/safety_policy.dart';
+import 'equipment_report.dart';
 import 'missing_input.dart';
 import 'plan_draft.dart';
 import 'plan_rendering.dart';
@@ -20,6 +21,7 @@ StageResult<ActionPlan> createActionPlan({
   required MeasurementRequest request,
   required PlanDraft draft,
   required MissingInputPlan inputs,
+  required EquipmentReport equipment,
   required SafetyPolicy safetyPolicy,
   required PlannerConfig config,
   required PlannerIdSource idSource,
@@ -182,6 +184,7 @@ StageResult<ActionPlan> createActionPlan({
     safetyNotes: danger.safetyNotes,
     steps: actionSteps,
     budget: PlanBudget(subAgentSteps: budgetCounts),
+    equipment: _planEquipment(equipment),
   );
 
   final errors = plan.validate(maxStepsPerSubAgent: config.maxStepsPerSubAgent);
@@ -207,6 +210,37 @@ StageResult<ActionPlan> createActionPlan({
   }
 
   return StageResult.ok(plan);
+}
+
+PlanEquipment _planEquipment(EquipmentReport report) {
+  final generator = report.generator;
+  return PlanEquipment(
+    scope: PlanScopeEquipment(
+      reachable: report.scope.reachable,
+      model: report.scope.model,
+      profile: report.scope.profile,
+      host: report.scope.host,
+      error: report.scope.error,
+    ),
+    generator: generator == null
+        ? const PlanGeneratorEquipment(
+            configured: false,
+            connected: false,
+            supported: false,
+            error: 'The signal generator was not probed.',
+          )
+        : PlanGeneratorEquipment(
+            configured: generator.configured,
+            connected: generator.connected,
+            supported: generator.supported,
+            detected: generator.detected,
+            model: generator.model,
+            identity: generator.identity,
+            family: generator.family?.wireName,
+            port: generator.port,
+            error: generator.error,
+          ),
+  );
 }
 
 List<PlanInput> _planInputs(PlanDraft draft, MissingInputPlan inputs) {

@@ -3,7 +3,7 @@
 /// The model has exactly one tool, `plan_measurement`. Its `onCall` runs the
 /// full pipeline, stores the typed result and stops the model stream. The
 /// agent returns the captured result verbatim; the model never edits,
-/// reorders or summarizes a plan, form or abort.
+/// reorders or summarizes a plan, form, classification or abort.
 library;
 
 import 'dart:async';
@@ -171,9 +171,11 @@ class PlannerAgent {
           'request. Call it exactly once. Use exact catalog ids in '
           '`measurements`; for an unlisted quantity use "other:<short name>". '
           'Fill `knownParameters` and `safetyHints` only with facts stated by '
-          'the user. The tool returns a JSON result with status '
-          'plan_ready, needs_input or aborted; the application returns it '
-          'verbatim. Never paraphrase or edit the result in prose.',
+          'the user. Always include `classification` with the category and '
+          'your honest confidence; the user is asked when it is low or no '
+          'catalog recipe matches. The tool returns a JSON result with status '
+          'plan_ready, needs_input, classified or aborted; the application '
+          'returns it verbatim. Never paraphrase or edit the result in prose.',
       inputSchema: Schema.fromMap(measurementSchema),
       onCall: (args) async {
         _toolCalls++;
@@ -201,7 +203,10 @@ class PlannerAgent {
           };
         }
         final sanitized = _sanitizeRequest(parsed, trimmed);
-        final enriched = enrichStatedCornerFrequency(sanitized, trimmed);
+        final enriched = enforceStatedGeneratorSettingsMode(
+          enrichStatedCornerFrequency(sanitized, trimmed),
+          trimmed,
+        );
         _rememberValues(sanitized.answers ?? const <String, Object?>{});
         _rememberRequestValues(enriched);
         final seeded = _seedWithSessionValues(enriched);
@@ -224,6 +229,7 @@ class PlannerAgent {
           'Planner request ids=${seeded.measurements.join(',')} '
           'known=${seeded.knownParameters.keys.join(',')} '
           'remembered=${_sessionValues.length} '
+          'classification=${seeded.classification == null ? '-' : '${seeded.classification!.category.wireName}/${seeded.classification!.confidence.wireName}'} '
           'hints=${_formatHintValues(sanitized.safetyHints)}'
           '${rejected.isEmpty ? '' : ' ignored=${rejected.join(',')}'}'
           '${droppedHints.isEmpty ? '' : ' ignoredHints=${droppedHints.join(',')}'}',
@@ -443,6 +449,9 @@ class PlannerAgent {
     for (final entry in values.entries) {
       final value = entry.value;
       if (entry.key.isEmpty ||
+          entry.key == PlannerKeys.measurementCategory ||
+          entry.key == PlannerKeys.frequenciesHz ||
+          entry.key == PlannerKeys.generatorSettingsMode ||
           value == null ||
           value == unknownAnswerValue ||
           value == cancelledAnswerKey) {
@@ -485,6 +494,7 @@ class PlannerAgent {
         evidence: evidence,
       ),
       safetyHints: evidence.trustedHints(request.safetyHints),
+      classification: request.classification,
       stateRef: request.stateRef,
       answers: request.answers == null
           ? null

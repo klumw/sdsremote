@@ -10,6 +10,7 @@ import '../planner/pipeline/equipment_probe.dart';
 import '../planner/pipeline/planner_pipeline.dart';
 import '../planner/plan_executor.dart';
 import '../planner/planner_agent.dart';
+import '../planner/pipeline/plan_rendering.dart';
 import '../planner/planner_config.dart';
 import '../planner/planner_session.dart';
 import '../planner/safety/safety_policy.dart';
@@ -18,6 +19,7 @@ import '../tools/audio/audio_tools.dart';
 import '../tools/audio_agent_tool.dart';
 import '../tools/chat_choice_tool.dart';
 import '../tools/digital_agent_tool.dart';
+import '../tools/digital_frequency_series_tool.dart';
 import '../tools/digital_measurement_tools.dart';
 import '../tools/execute_plan_tool.dart';
 import '../tools/planner_agent_tool.dart';
@@ -67,6 +69,7 @@ class WaveformAgent {
   late final EquipmentProbe _equipmentProbe;
   late final List<Tool> _tools;
   CancellationToken? _activeCancelToken;
+  final SignalGeneratorApplyProvider? _applySignalGenerator;
 
   /// The instrument sub-agent, exposed for diagnostics and tests.
   InstrumentAgent? get instrumentAgent => _instrumentAgent;
@@ -115,7 +118,9 @@ class WaveformAgent {
     SignalGeneratorIntentCheck? isSignalGeneratorIntentEnabled,
     AudioAnalysisContextProvider? audioAnalysisContext,
     AudioSweepProvider? audioSweep,
+    AudioFrequencySeriesProvider? audioFrequencySeries,
     DigitalMeasurementProvider? digitalMeasurement,
+    DigitalFrequencySeriesProvider? digitalFrequencySeries,
     MeasurementFormProvider? requestInputForm,
     ChatChoiceProvider? requestUserChoice,
     PlannerAgent? plannerAgent,
@@ -129,7 +134,8 @@ class WaveformAgent {
     void Function()? resumeResponseTimeout,
     int instrumentToolCalls = defaultInstrumentToolCalls,
     int maxToolCalls = defaultMaxToolCalls,
-  }) : _history = [ChatMessage.system(waveformAgentSystemPrompt)] {
+  }) : _history = [ChatMessage.system(waveformAgentSystemPrompt)],
+       _applySignalGenerator = applySignalGenerator {
     final instrumentAgent = vxi11Host == null
         ? null
         : InstrumentAgent(
@@ -149,6 +155,7 @@ class WaveformAgent {
       model: model,
       contextProvider: audioAnalysisContext ?? () => null,
       sweepProvider: audioSweep,
+      seriesProvider: audioFrequencySeries,
       acquireWaveform: acquireWaveform,
       instrumentAgent: instrumentAgent,
     );
@@ -163,6 +170,7 @@ class WaveformAgent {
       acquireWaveform: acquireWaveform,
       instrumentAgent: instrumentAgent,
       digitalMeasurement: digitalMeasurement,
+      digitalFrequencySeries: digitalFrequencySeries,
     );
     _scopeAnalystAgent = ScopeAnalystAgent(
       model: model,
@@ -184,6 +192,8 @@ class WaveformAgent {
         equipmentProbe ??
         CallbackEquipmentProbe(
           vxi11Host: vxi11Host,
+          scopeModel: instrumentDeviceContext?.instrumentModel,
+          scopeProfile: instrumentDeviceContext?.profile.displayName,
           readGeneratorStatus: readSignalGeneratorStatus,
           readWaveformSummary: readWaveformSummary,
         );
@@ -441,24 +451,30 @@ class WaveformAgent {
     Map<String, Object?> resolvedParameters,
     CancellationToken? cancelToken,
   ) async {
+    final subAgentRequest = _withGeneratorSettings(
+      instruction,
+      resolvedParameters,
+    );
     switch (step.agent) {
       case PlanAgent.scopeAnalysis:
+        // The approved plan authorizes the scope changes listed in this step.
         return _scopeAnalystAgent.analyze(
           request: instruction,
+          autonomous: true,
           focus: step.focus,
           cancelToken: cancelToken,
         );
       case PlanAgent.audioAnalysis:
         // The approved plan covers the listed generator and scope changes.
         return _audioAgent.analyze(
-          request: instruction,
+          request: subAgentRequest,
           autonomous: true,
           focus: step.focus,
           cancelToken: cancelToken,
         );
       case PlanAgent.digitalAnalysis:
         return _digitalAgent.analyze(
-          request: instruction,
+          request: subAgentRequest,
           autonomous: true,
           focus: step.focus,
           cancelToken: cancelToken,
@@ -470,12 +486,80 @@ class WaveformAgent {
             'error': 'The instrument agent is not available.',
           };
         }
-        final response = await agent.send(instruction);
-        return <String, dynamic>{'ok': true, 'text': response};
+        // The plan approval covers generator writes listed in the plan, so
+        // the keyword gate must not block them during execution.
+        final grantGenerator =
+            step.kind == ActionStepKind.configureGenerator ||
+            step.kind == ActionStepKind.teardown;
+        if (grantGenerator) agent.setAutonomousGeneratorAccess(true);
+        try {
+          final response = await agent.send(instruction);
+          final outputResult = step.kind == ActionStepKind.configureGenerator
+              ? await _ensureGeneratorOutputOn(resolvedParameters)
+              : null;
+          if (outputResult != null && outputResult['error'] != null) {
+            return <String, dynamic>{
+              'error':
+                  'The signal generator output could not be switched on: '
+                  '${outputResult['error']}',
+              'text': response,
+              'generatorOutput': outputResult,
+            };
+          }
+          return <String, dynamic>{
+            'ok': true,
+            'text': response,
+            if (outputResult != null) 'generatorOutput': outputResult,
+          };
+        } finally {
+          if (grantGenerator) agent.setAutonomousGeneratorAccess(false);
+        }
       case PlanAgent.user:
         return <String, dynamic>{
           'error': 'Manual steps are handled by the plan executor.',
         };
+    }
+  }
+
+  /// Appends the approved plan's binding generator settings to a sub-agent
+  /// request.
+  ///
+  /// The values include answers the user gave in an earlier round of the same
+  /// chat. Without the block the sub-agent can silently fall back to the live
+  /// device state, which the previous sweep restored to a different waveform.
+  String _withGeneratorSettings(
+    String instruction,
+    Map<String, Object?> resolvedParameters,
+  ) {
+    final block = planGeneratorSettingsInstruction(resolvedParameters);
+    if (block == null) return instruction;
+    return '$instruction\n\n$block';
+  }
+
+  /// Switches the generator output on after an approved configure step.
+  ///
+  /// The plan approval authorizes the listed generator changes, so the output
+  /// must not depend on the model repeating an "enable output" instruction.
+  Future<Map<String, dynamic>?> _ensureGeneratorOutputOn(
+    Map<String, Object?> resolvedParameters,
+  ) async {
+    final apply = _applySignalGenerator;
+    if (apply == null) return null;
+    final rawChannel = resolvedParameters['generatorChannel'] ?? 1;
+    final channel = int.tryParse(rawChannel.toString()) ?? 1;
+    try {
+      final result = await apply(
+        SignalGeneratorSettings(channel: channel, output: true),
+      );
+      AppLogger(
+        agentName: 'WaveformAgent',
+        toolName: 'execute_plan',
+      ).log('Generator output switched on for channel $channel');
+      return result;
+    } on Object catch (error) {
+      return <String, dynamic>{
+        'error': 'The generator output could not be switched on ($error).',
+      };
     }
   }
 }

@@ -68,6 +68,45 @@ StageResult<MissingInputPlan> calculateMissingInput({
   }
 
   for (final spec in specs) {
+    final condition = spec.activeWhen;
+    if (condition != null) {
+      final conditionValue =
+          effectiveValues[condition.key] ?? resolved[condition.key]?.value;
+      if (conditionValue == null) {
+        // The controlling question (for example the generator settings mode)
+        // is not answered yet. Ask it first and evaluate this parameter in the
+        // next round.
+        continue;
+      }
+      if (conditionValue != condition.equals) {
+        final current = _currentGeneratorSetting(
+          spec,
+          effectiveValues,
+          equipment,
+        );
+        if (current != null) {
+          resolved[spec.key] = ResolvedInput(
+            key: spec.key,
+            value: current,
+            source: InputSource.device,
+          );
+          effectiveValues[spec.key] = current;
+        } else {
+          missing.add(
+            MissingInput(
+              key: spec.key,
+              spec: spec,
+              reason: MissingInputReason.absent,
+              validationMessage:
+                  'The current generator setting could not be read. Enter '
+                  'the value explicitly.',
+            ),
+          );
+        }
+        continue;
+      }
+    }
+
     final raw = merged[spec.key];
     final hasRaw = merged.containsKey(spec.key);
     if (raw == unknownAnswerValue) {
@@ -277,6 +316,41 @@ StageResult<MissingInputPlan> calculateMissingInput({
       unknownKeys: unknownKeys,
     ),
   );
+}
+
+Object? _currentGeneratorSetting(
+  ParamSpec spec,
+  Map<String, Object?> effectiveValues,
+  EquipmentReport equipment,
+) {
+  final channels = equipment.generator?.readableValues['channels'];
+  if (channels is! Map) return null;
+  final channel =
+      effectiveValues[PlannerKeys.generatorChannel]?.toString() ?? '1';
+  final channelRaw = channels[channel];
+  if (channelRaw is! Map) return null;
+  switch (spec.key) {
+    case PlannerKeys.generatorWaveform:
+      final value = channelRaw['waveform'];
+      if (value is! String) return null;
+      final mnemonic = value.trim().toUpperCase();
+      return switch (mnemonic) {
+        'SIN' || 'SINE' => 'sine',
+        'SQU' || 'SQUARE' => 'square',
+        'TRI' || 'TRIANGLE' => 'triangle',
+        'PULS' || 'PULSE' => 'pulse',
+        'RAMP' => 'ramp',
+        _ => value.trim().toLowerCase(),
+      };
+    case PlannerKeys.amplitudeVpp:
+      final value = channelRaw['amplitude_vpp'];
+      return value is num && value.isFinite ? value.toDouble() : null;
+    case PlannerKeys.offsetV:
+      final value = channelRaw['offset_v'];
+      return value is num && value.isFinite ? value.toDouble() : null;
+    default:
+      return null;
+  }
 }
 
 StageResult<MissingInputPlan>? _checkGeneratorLimits({
