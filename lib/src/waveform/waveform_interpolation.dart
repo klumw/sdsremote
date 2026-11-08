@@ -12,8 +12,111 @@ import 'dart:typed_data';
 /// screen (interpolation = linear, i.e. `SXSA OFF` on a Siglent scope).
 /// Values between two samples are the values of the straight line connecting
 /// them; nothing is smoothed or invented.
+/// Vertical statistics of the samples that fall into one pixel column.
+///
+/// The per-column limits are what distinguish a genuine signal feature from
+/// horizontally offset (jittered) samples: a jittered edge moves its samples
+/// up and down *within* the column while the interpolated centre jumps
+/// between neighbouring columns. Keeping the exact vertical extent preserves
+/// the amplitude of the jitter - it is shown as a band instead of a spike.
+class WaveformColumnStats {
+  const WaveformColumnStats({
+    required this.counts,
+    required this.lows,
+    required this.highs,
+    required this.means,
+  });
+
+  /// Number of samples mapped into each column.
+  final Int32List counts;
+
+  /// Smallest and largest screen y of the samples in each column.
+  final Float64List lows;
+  final Float64List highs;
+
+  /// Mean screen y of the samples in each column (`NaN` when empty).
+  final Float64List means;
+}
+
 class WaveformInterpolation {
   WaveformInterpolation._();
+
+  /// Collects the vertical statistics of [count] samples per pixel column.
+  ///
+  /// [xAt] and [yAt] map a sample index to screen coordinates, exactly as in
+  /// [resample]. Samples outside the raster are ignored.
+  static WaveformColumnStats columnStats({
+    required int count,
+    required int columns,
+    required double Function(int index) xAt,
+    required double Function(int index) yAt,
+  }) {
+    final int cols = columns < 1 ? 1 : columns;
+    final counts = Int32List(cols);
+    final sums = Float64List(cols);
+    final lows = Float64List(cols);
+    final highs = Float64List(cols);
+    lows.fillRange(0, cols, double.infinity);
+    highs.fillRange(0, cols, double.negativeInfinity);
+
+    for (var i = 0; i < count; i++) {
+      final double x = xAt(i);
+      if (!x.isFinite) continue;
+      final int c = x.floor();
+      if (c < 0 || c >= cols) continue;
+      final double y = yAt(i);
+      if (!y.isFinite) continue;
+      counts[c]++;
+      sums[c] += y;
+      if (y < lows[c]) lows[c] = y;
+      if (y > highs[c]) highs[c] = y;
+    }
+
+    final means = Float64List(cols);
+    for (var c = 0; c < cols; c++) {
+      means[c] = counts[c] > 0 ? sums[c] / counts[c] : double.nan;
+    }
+    return WaveformColumnStats(
+      counts: counts,
+      lows: lows,
+      highs: highs,
+      means: means,
+    );
+  }
+
+  /// Median of the finite values in the window of ±[halfWidth] around every
+  /// entry.
+  ///
+  /// A median filter removes spikes a few columns wide while keeping ramps and
+  /// edges in place: on a monotonic run the median is the centre value, so a
+  /// real edge is not moved. Used to recover the smooth centre of a signal
+  /// from per-column means that are displaced by horizontal jitter. Entries
+  /// without any finite neighbour stay `NaN`.
+  static Float64List medianFilter(Float64List values, int halfWidth) {
+    final int n = values.length;
+    final out = Float64List(n);
+    if (halfWidth < 1) {
+      out.setAll(0, values);
+      return out;
+    }
+    final window = <double>[];
+    for (var i = 0; i < n; i++) {
+      final int lo = i - halfWidth < 0 ? 0 : i - halfWidth;
+      final int hi = i + halfWidth >= n ? n - 1 : i + halfWidth;
+      window.clear();
+      for (var k = lo; k <= hi; k++) {
+        final double v = values[k];
+        if (v.isFinite) window.add(v);
+      }
+      if (window.isEmpty) {
+        out[i] = double.nan;
+        continue;
+      }
+      window.sort();
+      out[i] = window[window.length ~/ 2];
+    }
+    return out;
+  }
 
   /// Resamples [count] source samples onto [columns] pixel columns.
   ///
@@ -78,6 +181,36 @@ class WaveformInterpolation {
     }
 
     return Float64List.sublistView(out, 0, n);
+  }
+
+  /// Mean of the finite values in the window of ±[halfWidth] around every
+  /// entry.
+  ///
+  /// Averaging the per-column means over a window wider than one jitter
+  /// excursion recovers the smooth signal behind it, because the horizontal
+  /// offset averages out while a ramp or curve is followed. Entries without
+  /// any finite neighbour stay `NaN`.
+  static Float64List meanFilter(Float64List values, int halfWidth) {
+    final int n = values.length;
+    final out = Float64List(n);
+    if (halfWidth < 1) {
+      out.setAll(0, values);
+      return out;
+    }
+    for (var i = 0; i < n; i++) {
+      final int lo = i - halfWidth < 0 ? 0 : i - halfWidth;
+      final int hi = i + halfWidth >= n ? n - 1 : i + halfWidth;
+      var sum = 0.0;
+      var count = 0;
+      for (var k = lo; k <= hi; k++) {
+        final double v = values[k];
+        if (!v.isFinite) continue;
+        sum += v;
+        count++;
+      }
+      out[i] = count > 0 ? sum / count : double.nan;
+    }
+    return out;
   }
 
   /// Smooths the y values of a resampled trace with a moving average.

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -681,7 +682,7 @@ class WaveformBasePainter extends CustomPainter {
     // have to be pixel shifts: a trace whose record is far shorter than the
     // visible span is drawn spread over the display width (see
     // [WaveformTrace.build]), where its time values are unused.
-    final Float64List smoothed = WaveformTrace.build(
+    final raster = WaveformTrace.buildRaster(
       data: data,
       size: size,
       visibleTMin: visibleTMin,
@@ -694,19 +695,161 @@ class WaveformBasePainter extends CustomPainter {
     );
 
     // A single point cannot be stroked as a line.
-    if (smoothed.length < 4) return;
-
-    final path = Path()..moveTo(smoothed[0], smoothed[1]);
-    for (int i = 2; i < smoothed.length; i += 2) {
-      path.lineTo(smoothed[i], smoothed[i + 1]);
-    }
+    if (raster.crisp.length < 4 && raster.soft.length < 4) return;
 
     // Restrict waveform drawing to the grid area to prevent
     // overflow beyond the grid when zoom factor > 1.
     canvas.save();
     canvas.clipRect(Rect.fromLTWH(0, 0, size.width, size.height));
-    canvas.drawPath(path, paint);
+
+    // Horizontally offset samples (jitter) are not joined into a jagged line.
+    // The complete trace is drawn softly: its exact min/max envelope as a
+    // translucent band plus a blurred robust centre line. No data point is
+    // lost, but the waveform reads as one uniformly soft trace instead of a
+    // saw. Traces without horizontal offsets keep the crisp line.
+    if (raster.hasBand) {
+      _drawSoftBand(canvas, raster.band, color);
+    }
+    if (raster.crisp.isNotEmpty) {
+      _drawPolyline(canvas, raster.crisp, paint);
+    } else if (raster.soft.isNotEmpty) {
+      _drawSoftTrace(canvas, raster.soft, color, strokeWidth);
+    }
     canvas.restore();
+  }
+
+  /// Strokes interleaved `x, y` vertices, breaking the line wherever the gap
+  /// between two vertices shows that a span was cut out.
+  void _drawPolyline(Canvas canvas, Float64List points, Paint paint) {
+    if (points.length < 4) return;
+    final path = Path()..moveTo(points[0], points[1]);
+    var previousX = points[0];
+    for (var i = 2; i + 1 < points.length; i += 2) {
+      final double x = points[i];
+      if (x - previousX > 1.5) {
+        path.moveTo(x, points[i + 1]);
+      } else {
+        path.lineTo(x, points[i + 1]);
+      }
+      previousX = x;
+    }
+    canvas.drawPath(path, paint);
+  }
+
+  /// Fills the vertical envelopes of the horizontally offset trace.
+  ///
+  /// [band] is interleaved `x, top, bottom`. Every column is drawn as a
+  /// vertical bar whose alpha fades to zero at both ends and peaks in the
+  /// middle. The per-column height is the exact min/max envelope of the
+  /// samples, so the full measured extent is kept, but the soft vertical
+  /// gradient blends the tops of neighbouring columns into a fuzzy band
+  /// instead of a hard, jagged silhouette.
+  void _drawSoftBand(Canvas canvas, Float64List band, Color color) {
+    final int count = band.length ~/ 3;
+    if (count < 2) return;
+
+    final int clearColor = color.withValues(alpha: 0).toARGB32();
+    final int coreColor = color.withValues(alpha: 0.28).toARGB32();
+    // Eight vertices per column, six triangles, as raw arrays: the band can
+    // cover the whole display width and this avoids one object per vertex.
+    final positions = Float32List(count * 16);
+    final colors = Int32List(count * 8);
+    final indices = Uint16List(count * 18);
+    var vertexCount = 0;
+    var indexCount = 0;
+
+    void addColumn(double x, double top, double bottom) {
+      final double height = bottom - top;
+      if (height <= 0.5) return;
+      final double coreTop = top + height * 0.25;
+      final double coreBottom = bottom - height * 0.25;
+      final int base = vertexCount;
+
+      void vertex(double px, double py, int argb) {
+        positions[vertexCount * 2] = px;
+        positions[vertexCount * 2 + 1] = py;
+        colors[vertexCount] = argb;
+        vertexCount++;
+      }
+
+      vertex(x - 0.5, top, clearColor);
+      vertex(x - 0.5, coreTop, coreColor);
+      vertex(x - 0.5, coreBottom, coreColor);
+      vertex(x - 0.5, bottom, clearColor);
+      vertex(x + 0.5, top, clearColor);
+      vertex(x + 0.5, coreTop, coreColor);
+      vertex(x + 0.5, coreBottom, coreColor);
+      vertex(x + 0.5, bottom, clearColor);
+
+      // Two triangles per vertical section, left and right edges paired.
+      for (final int offset in const [0, 4, 8]) {
+        final int left = base + offset ~/ 4;
+        final int right = left + 4;
+        indices[indexCount++] = left;
+        indices[indexCount++] = right;
+        indices[indexCount++] = left + 1;
+        indices[indexCount++] = left + 1;
+        indices[indexCount++] = right;
+        indices[indexCount++] = right + 1;
+      }
+    }
+
+    var start = 0;
+    for (var i = 1; i <= count; i++) {
+      final bool endOfRun = i == count || band[i * 3] - band[(i - 1) * 3] > 1.5;
+      if (!endOfRun) continue;
+      for (var k = start; k < i; k++) {
+        addColumn(band[k * 3], band[k * 3 + 1], band[k * 3 + 2]);
+      }
+      start = i;
+    }
+    if (indexCount == 0) return;
+
+    canvas.drawVertices(
+      ui.Vertices.raw(
+        ui.VertexMode.triangles,
+        Float32List.sublistView(positions, 0, vertexCount * 2),
+        colors: Int32List.sublistView(colors, 0, vertexCount),
+        indices: Uint16List.sublistView(indices, 0, indexCount),
+      ),
+      BlendMode.modulate,
+      Paint()..color = const Color(0xFFFFFFFF),
+    );
+  }
+
+  /// Strokes the robust centre line of a horizontally offset trace with a
+  /// soft focus.
+  ///
+  /// Two blurred passes - a wide glow and a narrower core - give the line the
+  /// same out-of-focus appearance at every point, so a jittery waveform looks
+  /// uniformly soft instead of having crisp and blurred pieces.
+  void _drawSoftTrace(
+    Canvas canvas,
+    Float64List points,
+    Color color,
+    double strokeWidth,
+  ) {
+    if (points.length < 4) return;
+
+    final glow = Paint()
+      ..color = color.withValues(alpha: 0.30)
+      ..strokeWidth = strokeWidth * 1.6
+      ..isAntiAlias = true
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.2);
+    _drawPolyline(canvas, points, glow);
+
+    final core = Paint()
+      ..color = color.withValues(alpha: 0.68)
+      ..strokeWidth = strokeWidth
+      ..isAntiAlias = true
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 0.9);
+    _drawPolyline(canvas, points, core);
   }
 
   void _drawNoDataHint(Canvas canvas, Size size) {
