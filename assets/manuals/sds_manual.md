@@ -1919,7 +1919,7 @@ When valid gain points are available, the panel below the plots and the gain cha
 ### 10.7 Reports and CSV
 
 The **Save** action in the top toolbar captures the Bode Plot and writes a PDF report to `bode/reports/`.  
-The report contains the plot, the report name, the sweep configuration and an **Analysis** table with peak, −3 dB, bandwidth, Q factor and 0 dB crossover. When **Save CSV data** is enabled in the Settings, the sweep points are additionally written as CSV to `bode/csv/`.  
+The report contains the plot, the report name, the sweep configuration, a **Measurement Results** summary and a **Measurement Points** table with one row per measured point. Each row shows the point's values, whether it is valid and its diagnostic note; a frequency sweep includes the frequency, Vin/Vout RMS, gain and, when enabled, phase, while an amplitude sweep includes the generator amplitude, gain, Vin/Vout Vpp and Vrms, and Vpp/Vrms. In every numeric column the maximum value is shown in green and the minimum value in red; cells of invalid points stay uncoloured. Frequency sweeps additionally contain an **Analysis** table with peak, −3 dB, bandwidth, Q factor and 0 dB crossover. When **Save CSV data** is enabled in the Settings, the sweep points are additionally written as CSV to `bode/csv/`.  
 The generator identity (for example `FeelElec,FY6900-60M`) and the oscilloscope name are included.
 
 ### 10.8 Troubleshooting
