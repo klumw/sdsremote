@@ -89,6 +89,10 @@ class WaveformAcquisition {
       final bool frameCompleted = freshFrameRequired
           ? await _armAndWaitForComplete(activeInstr, timebase: timebase)
           : true;
+      // The single-shot ARM above stops the scope when the frame is complete.
+      // Remember that we changed the run state so the restore below can resume
+      // continuous acquisition even when the original mode is unknown.
+      var triggerStateChanged = freshFrameRequired;
 
       // Freeze the display so the transferred frame stays stable. When the
       // single acquisition above already stopped the scope this is a no-op.
@@ -97,6 +101,7 @@ class WaveformAcquisition {
           originalTriggerMode != 'STOP') {
         try {
           await activeInstr.writeString('TRMD STOP');
+          triggerStateChanged = true;
         } catch (e) {
           AppLogger().error('Failed to stop trigger: $e');
         }
@@ -288,11 +293,25 @@ class WaveformAcquisition {
       // --- Restore original trigger mode ---
       // Do this before the finally block so the connection is still fully open.
       // TRMD is a set command (not a query), so we do NOT read a response after it.
-      if (originalTriggerMode != null &&
-          originalTriggerMode.isNotEmpty &&
-          originalTriggerMode != 'STOP') {
+      //
+      // When the original mode could not be read - for example while Auto Setup
+      // is still running on another VXI-11 link - an acquisition that armed a
+      // single shot or froze the display would otherwise leave the scope
+      // stopped. Resume continuous acquisition in that case; a frozen frame
+      // ('STOP', 'SINGLE') was detected above and is left untouched.
+      String? restoreTriggerMode;
+      if (originalTriggerMode != null && originalTriggerMode.isNotEmpty) {
+        restoreTriggerMode = originalTriggerMode;
+      } else if (triggerStateChanged) {
+        restoreTriggerMode = 'AUTO';
+        AppLogger().warning(
+          'Trigger mode could not be read; resuming continuous acquisition '
+          'with AUTO after the acquisition stopped the scope.',
+        );
+      }
+      if (restoreTriggerMode != null && restoreTriggerMode != 'STOP') {
         try {
-          await activeInstr.writeString('TRMD $originalTriggerMode');
+          await activeInstr.writeString('TRMD $restoreTriggerMode');
         } catch (e) {
           AppLogger().error('Failed to restore trigger mode: $e');
         }
