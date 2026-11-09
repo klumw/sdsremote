@@ -49,6 +49,19 @@ class InstrumentAgent with MaxToolCallsHandler {
   /// Default maximum number of tool calls per user input.
   static const int defaultMaxToolCalls = 3;
 
+  /// Settle time after the oscilloscope Auto Setup command (`ASET`).
+  ///
+  /// The scope does not answer queries while it reconfigures. The Bode,
+  /// data-logger and frequency-series paths wait the same interval before
+  /// their first query.
+  static const Duration _asetSettle = Duration(seconds: 10);
+
+  /// Whether [command] is the oscilloscope Auto Setup command.
+  static bool _isAutoSetupCommand(String command) {
+    final normalized = command.trim().toUpperCase();
+    return normalized == 'ASET' || normalized == ':ASET';
+  }
+
   /// The underlying dartantic_ai Agent instance.
   final Agent _agent;
 
@@ -160,6 +173,14 @@ class InstrumentAgent with MaxToolCallsHandler {
               ? null
               : (command) async {
                   try {
+                    // Auto Setup keeps the scope busy for several seconds. The
+                    // automatic refresh must not start while it runs: the
+                    // trigger-mode query times out then and the acquisition can
+                    // leave the scope stopped. The Bode, data-logger and
+                    // frequency-series paths wait the same interval.
+                    if (_isAutoSetupCommand(command)) {
+                      await Future<void>.delayed(_asetSettle);
+                    }
                     final update = await acquireWaveform(delaySeconds: 0);
                     waveformUpdates.value = update;
                     return update;
