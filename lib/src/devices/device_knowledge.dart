@@ -195,7 +195,12 @@ abstract final class DeviceKnowledgeParser {
     required String markdown,
     required String sourcePath,
   }) {
-    final metadataMatch = _metadataPattern.firstMatch(markdown);
+    // A Windows checkout (core.autocrlf) or a Windows editor can deliver CRLF
+    // line endings. Normalize them once: the heading pattern anchors with `$`,
+    // which does not match before a trailing `\r`, and stored prompts should
+    // not carry platform-specific line endings.
+    final normalized = markdown.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    final metadataMatch = _metadataPattern.firstMatch(normalized);
     if (metadataMatch == null) {
       throw DeviceCommandException(
         DeviceErrorCode.knowledgeFileInvalid,
@@ -238,7 +243,7 @@ abstract final class DeviceKnowledgeParser {
       );
     }
 
-    final body = markdown.substring(metadataMatch.end).trimLeft();
+    final body = normalized.substring(metadataMatch.end).trimLeft();
     final sections = _parseSections(body);
     if (sections.isEmpty) {
       throw DeviceCommandException(
@@ -257,7 +262,7 @@ abstract final class DeviceKnowledgeParser {
         validationStatus: fields['validation_status'] ?? 'not_specified',
         fields: Map.unmodifiable(fields),
       ),
-      rawMarkdown: markdown,
+      rawMarkdown: normalized,
       bodyMarkdown: body,
       sections: sections,
       sourcePath: sourcePath,
