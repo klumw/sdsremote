@@ -5354,7 +5354,49 @@ Use the grid as a ruler. Height in divisions × volts/div = voltage. Width in di
 
 Example: A sine spans 6 divisions peak-to-peak at 0.5 V/div, so Vpp = 3 V. One period spans 4 divisions at 250 µs/div, so T = 1 ms and f = 1 kHz. The RMS is approximately 0.354 × 3 V = 1.06 V.
 
+## How To: Configure an MCU Pin for Analog Sampling (analog input, digital buffer, noise) [2+4-channel]
 
+When a pin serves as an ADC input, configure it as an analog input and disable its digital input buffer. A buffer left enabled couples digital switching noise into the sample and increases supply current. Measure the pin with a 10X probe and the shortest possible ground lead; select the 20 MHz bandwidth limit and compare the trace with the buffer enabled and disabled. The difference is noise injected by the MCU itself. Example: an ADC pin reads a stable 1.000 V with the buffer off but shows 10 mV of clock-synchronous noise with it on.
+
+## How To: Measure High-Impedance Sources (source impedance, RC settling, acquisition time) [2+4-channel]
+
+An ADC first acquires the input on its sample-and-hold capacitor and then converts. The capacitor must reach within 0.5 LSB, so a high source impedance lengthens acquisition and causes gain, offset or missing-code errors. The RC model gives tACQ = (n+1)·R·C·ln(2) in the worst case, with R the source plus internal impedance and C the internal sample capacitor; typical estimates are 2 kΩ and 15 pF. Buffer the source or lower its impedance. On the scope, use a 10X probe and a short ground, and check that the reading does not change with the sample rate.
+
+## How To: Avoid Ground-Offset Errors in Single-Ended Measurements (return current, ground impedance) [2+4-channel]
+
+A single-ended measurement reads the input against the scope's earth, so any voltage across the ground return adds to the result: VOS = IFLOW × ZGROUND. Reduce the current through the return path or its impedance. Give motors, heaters and other high-current loads separate ground returns and do not route their current through the analog or MCU ground. Use a continuous ground plane, connect the MCU directly to it and keep returns short. Decoupling capacitors provide a short, low-impedance path for high-frequency currents. A DC level that reads differently at two ground points is ground offset, not signal.
+
+## How To: Measure Single-Ended Signals Cleanly (star ground, decoupling, switching noise) [2+4-channel]
+
+Use a continuous, uninterrupted ground plane. If the layout does not allow it, use star grounding: keep each return separate and join them at one central point. Decouple the MCU and digital logic with X5R or X7R ceramic capacitors close to the pins so high-frequency return currents stay local. Filter noisy analog inputs, and stop nonessential switching (clocks, I/O) while sampling; many ADCs can convert while the MCU sleeps. On the scope, keep the probe ground lead short and use the 20 MHz bandwidth limit. Compare the trace with the switching activity on and off to separate circuit noise from the signal.
+
+## How To: Use Differential Measurement to Reject Common-Mode Voltage (differential probe, bridge) [2+4-channel]
+
+A differential measurement reads the voltage between two inputs, so a small signal riding on a large common-mode level no longer forces the ADC or scope to cover the whole level. Amplifying a single-ended signal also amplifies the common mode; differential measurement reduces it, allowing a lower range and better resolution. Use a differential probe, or two matched channels with the MATH subtraction function, and keep both inputs within their absolute maximum ratings. Example: a Wheatstone bridge delivers a few millivolts on a common-mode level of half the excitation voltage; measure it differentially on the lowest suitable range.
+
+## How To: Reduce Crosstalk from Digital Routing (separation, slew rate, ground guard) [2+4-channel]
+
+Route fast digital signals away from analog traces, especially high-impedance inputs. Pin mapping can relocate functions and shorten crossings. Slow the digital edges with a slew-rate control register or a small series resistor; slower edges reduce both capacitive and inductive coupling. If distance is impossible, guard the analog trace with ground, which shields capacitive coupling but not inductive coupling. Avoid changing digital outputs while sampling; sleep during the conversion where possible. On the scope, compare the analog trace with the digital line idle and active: a disturbance that disappears when the digital activity stops is crosstalk.
+
+## How To: Avoid Channel-to-Channel Crosstalk (charge sharing, buffer, external capacitor) [2+4-channel]
+
+When an ADC samples a high-impedance channel after a low-impedance one, the sample-and-hold capacitor shares its residual charge with the new source and shifts the reading. Buffer the high-impedance channel, select a grounded channel first to discharge the capacitor, or add an external capacitor CEXT = CSAMPLE × (2^(n+1) − 1) with NP0 or C0G dielectric. CEXT supplies charge but increases the time constant and lowers bandwidth; a large capacitor can discharge through the ESD diodes at power-down. On the scope, measure the same DC level on two channels with different source impedances; a difference that changes with channel order indicates charge sharing.
+
+## How To: Use the Supply Voltage as the ADC Reference (ripple, ferrite bead, linear regulator) [2+4-channel]
+
+When VDD is the ADC reference, supply ripple and noise appear directly in the conversion result. Prefer a linear regulator over a switching regulator for the analog supply. Place a ferrite bead in series with the power input to suppress switching noise, enable slew-rate limiting or add small series resistors on the I/O to reduce current spikes, and decouple close to the pins. Measure VDD with AC coupling, a 10X probe and the 20 MHz bandwidth limit. Example: 30 mV of switching ripple on VDD can add about 30 mV of error at full scale; a ferrite bead and local decoupling reduce it.
+
+## How To: Measure VDD with the Fixed Voltage Reference (FVR, factory calibration) [2+4-channel]
+
+Newer PIC devices store factory-measured values of the internal fixed voltage reference (FVR) in the Device Information Area. To derive VDD while still using VDD as the ADC reference, select VDD as the reference, measure the FVR channel, read the matching DIA calibration value, then compute VDD = (DIA << N) / MEASURED, where N is the ADC resolution in bits. Using VDD as the reference gives the widest input range. Verify with the scope that VDD is stable and free of ripple, because every reference error appears directly in the result.
+
+## How To: Measure MCU Die Temperature (temperature indicator, ADC channel) [2+4-channel]
+
+The internal temperature indicator lets the ADC measure the die temperature for simple thermometer or thermal-protection functions. Enable the indicator, select its channel as the ADC input and convert the result using the device data sheet calibration values; the indicator is not a precision sensor. For accurate temperature measurement use a dedicated sensor. On the scope, probe the indicator output or the sensor signal with a 10X probe, DC coupling and a slow time base to check stability and noise. Remember that self-heating and the MCU workload raise the die temperature above ambient.
+
+## How To: Verify Capacitive Touch Sensing (CVD, PTC, charge transfer) [2+4-channel]
+
+Capacitive touch sensing charges a known capacitor, connects it to a discharged capacitor and measures the resulting voltage, which depends on the total capacitance. Touching the electrode adds capacitance and changes that voltage. PIC devices can use the ADC's Capacitive Voltage Divider; AVR devices use a Peripheral Touch Controller. To verify a channel, probe the electrode with a 10X probe and the shortest ground lead, and look for the charge/discharge bursts while touching and releasing the pad. Probe capacitance detunes the sensor, so use a test point or a buffered signal when possible.
 
 ## Video: FFT Usage
 [FFT Usage](https://youtu.be/2F-qECVs5L0)
