@@ -62,6 +62,57 @@ void main() {
     expect(generator.outputs.ch2, isFalse);
   });
 
+  test('runs an amplitude sweep and records Vpp and the ratio', () async {
+    await service.start(
+      const BodeConfig(
+        mode: BodeMode.amplitudeSweep,
+        sweepFrequencyHz: 1000,
+        startAmplitudeVpp: 0.5,
+        stopAmplitudeVpp: 2,
+        pointCount: 3,
+        amplitudeSpacing: BodeSpacing.linear,
+      ),
+    );
+
+    expect(service.status, BodeStatus.completed);
+    expect(service.points.length, 3);
+    expect(service.points.map((point) => point.amplitudeVpp), [0.5, 1.25, 2.0]);
+    expect(service.points.every((point) => point.frequencyHz == 1000), isTrue);
+    expect(
+      service.points.every((point) => (point.gainDb! - -6.0206).abs() < 1e-3),
+      isTrue,
+    );
+    expect(service.points.first.vinVpp, 2);
+    expect(service.points.first.voutVpp, 1);
+    expect(service.points.first.voutVppRmsRatio, closeTo(2, 1e-9));
+    expect(scope.vppReadCalls, 3);
+    expect(scope.lastExpectedVinVpp, 2.0);
+    expect(scope.prepareCalls, 1);
+    expect(scope.autoSetCalls, 1);
+    expect(scope.restoreCalls, 1);
+    expect(transport.sentCommands, contains(':w25=500.'));
+    expect(transport.sentCommands, contains(':w25=1250.'));
+    expect(transport.sentCommands, contains(':w25=2000.'));
+    expect(generator.outputs.ch1, isFalse);
+    expect(generator.outputs.ch2, isFalse);
+  });
+
+  test('rejects an invalid amplitude sweep before touching devices', () async {
+    await service.start(
+      const BodeConfig(
+        mode: BodeMode.amplitudeSweep,
+        sweepFrequencyHz: 1000,
+        startAmplitudeVpp: 10,
+        stopAmplitudeVpp: 1,
+      ),
+    );
+
+    expect(service.status, BodeStatus.error);
+    expect(service.errorMessage, contains('Stop amplitude'));
+    expect(scope.prepareCalls, 0);
+    expect(scope.readCalls, 0);
+  });
+
   test('keeps the generator output on when configured', () async {
     await service.start(
       const BodeConfig(

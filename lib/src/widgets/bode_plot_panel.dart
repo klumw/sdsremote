@@ -70,13 +70,17 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
 
   late final TextEditingController _startController;
   late final TextEditingController _stopController;
+  late final TextEditingController _sweepFrequencyController;
   late final TextEditingController _pointsController;
   late final TextEditingController _amplitudeController;
+  late final TextEditingController _startAmplitudeController;
+  late final TextEditingController _stopAmplitudeController;
   late final TextEditingController _offsetController;
   late final TextEditingController _settleController;
   late final TextEditingController _reportNameController;
   String _startUnit = 'Hz';
   String _stopUnit = 'kHz';
+  String _sweepFrequencyUnit = 'kHz';
 
   @override
   void initState() {
@@ -87,8 +91,11 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
     _status = widget.savedStatus ?? BodeStatus.configuring;
     _startController = TextEditingController();
     _stopController = TextEditingController();
+    _sweepFrequencyController = TextEditingController();
     _pointsController = TextEditingController();
     _amplitudeController = TextEditingController();
+    _startAmplitudeController = TextEditingController();
+    _stopAmplitudeController = TextEditingController();
     _offsetController = TextEditingController();
     _settleController = TextEditingController();
     _reportNameController = TextEditingController();
@@ -107,8 +114,11 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
     for (final controller in [
       _startController,
       _stopController,
+      _sweepFrequencyController,
       _pointsController,
       _amplitudeController,
+      _startAmplitudeController,
+      _stopAmplitudeController,
       _offsetController,
       _settleController,
       _reportNameController,
@@ -125,8 +135,13 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
     _stopController.text = _trim(
       _draft.stopFrequencyHz / _unitFactor(_stopUnit),
     );
+    _sweepFrequencyController.text = _trim(
+      _draft.sweepFrequencyHz / _unitFactor(_sweepFrequencyUnit),
+    );
     _pointsController.text = '${_draft.pointCount}';
     _amplitudeController.text = _trim(_draft.amplitudeVpp);
+    _startAmplitudeController.text = _trim(_draft.startAmplitudeVpp);
+    _stopAmplitudeController.text = _trim(_draft.stopAmplitudeVpp);
     _offsetController.text = _trim(_draft.offsetV);
     _settleController.text = '${_draft.settling.inMilliseconds}';
     _reportNameController.text = _draft.reportName;
@@ -177,19 +192,46 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
   void _updateDraft() {
     final start = _parse(_startController.text) * _unitFactor(_startUnit);
     final stop = _parse(_stopController.text) * _unitFactor(_stopUnit);
+    final sweepFrequency =
+        _parse(_sweepFrequencyController.text) *
+        _unitFactor(_sweepFrequencyUnit);
     final points = int.tryParse(_pointsController.text.trim()) ?? 0;
     final amplitude = _parse(_amplitudeController.text);
+    final startAmplitude = _parse(_startAmplitudeController.text);
+    final stopAmplitude = _parse(_stopAmplitudeController.text);
     final offset = _parse(_offsetController.text);
     final settle = int.tryParse(_settleController.text.trim()) ?? -1;
     setState(() {
       _draft = _draft.copyWith(
         startFrequencyHz: start,
         stopFrequencyHz: stop,
+        sweepFrequencyHz: sweepFrequency,
         pointCount: points,
         amplitudeVpp: amplitude,
+        startAmplitudeVpp: startAmplitude,
+        stopAmplitudeVpp: stopAmplitude,
         offsetV: offset,
         settling: Duration(milliseconds: settle),
         reportName: _reportNameController.text.trim(),
+      );
+    });
+  }
+
+  /// Switches the measurement method and keeps the form consistent.
+  void _setMode(BodeMode mode) {
+    setState(() {
+      _draft = _draft.copyWith(
+        mode: mode,
+        // Phase is frequency-response data and has no meaning for an
+        // amplitude sweep at a fixed frequency.
+        measurePhase: mode == BodeMode.amplitudeSweep
+            ? false
+            : _draft.measurePhase,
+        voutChannel:
+            mode == BodeMode.amplitudeSweep &&
+                _draft.vinChannel == _draft.voutChannel
+            ? (_draft.vinChannel == 1 ? 2 : 1)
+            : _draft.voutChannel,
       );
     });
   }
@@ -249,7 +291,12 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
         _status == BodeStatus.configuring ||
         _status == BodeStatus.idle ||
         _status == BodeStatus.error;
-    final analysis = analyzeBode(_points);
+    final displayConfig = _runConfig ?? _draft;
+    // The peak/-3 dB analysis is defined on the frequency axis and would be
+    // misleading for an amplitude sweep.
+    final analysis = displayConfig.mode == BodeMode.frequencySweep
+        ? analyzeBode(_points)
+        : const BodeAnalysisSummary();
     return Container(
       width: showConfig ? 700 : double.infinity,
       height: showConfig ? null : double.infinity,
@@ -271,7 +318,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                   child: CustomPaint(
                     painter: _BodePlotPainter(
                       points: _points,
-                      config: _runConfig ?? _draft,
+                      config: displayConfig,
                       status: _status,
                       analysis: analysis,
                     ),
@@ -288,6 +335,10 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
 
   Widget _buildHeader() {
     final running = _status == BodeStatus.running;
+    final mode = (_runConfig ?? _draft).mode;
+    final title = mode == BodeMode.amplitudeSweep
+        ? 'Bode Plot — Amplitude Sweep'
+        : 'Bode Plot';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: const BoxDecoration(
@@ -300,34 +351,44 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
       child: Row(
         children: [
           Icon(
-            Icons.analytics_outlined,
+            mode == BodeMode.amplitudeSweep
+                ? Icons.stacked_line_chart
+                : Icons.analytics_outlined,
             color: running ? Colors.greenAccent : Colors.cyanAccent,
             size: 22,
           ),
           const SizedBox(width: 10),
-          Text(
-            _status == BodeStatus.completed
-                ? 'Bode Plot — Complete'
-                : 'Bode Plot',
-            style: const TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
+          Expanded(
+            child: Row(
+              children: [
+                Flexible(
+                  child: Text(
+                    _status == BodeStatus.completed
+                        ? '$title — Complete'
+                        : title,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // The title already conveys completion, so no extra status
+                // label is shown then.
+                if (_status != BodeStatus.completed)
+                  Text(
+                    _statusLabel(_status),
+                    style: TextStyle(
+                      color: running ? Colors.greenAccent : Colors.white54,
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+              ],
             ),
           ),
-          const SizedBox(width: 16),
-          // The title already reads "Bode Plot — Complete" once the sweep
-          // has finished, so no extra status label is shown then.
-          if (_status != BodeStatus.completed)
-            Text(
-              _statusLabel(_status),
-              style: TextStyle(
-                color: running ? Colors.greenAccent : Colors.white54,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          const Spacer(),
           if (running)
             const AnimatedSyncIcon(size: 18, color: Colors.cyanAccent),
           IconButton(
@@ -404,6 +465,134 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
     );
   }
 
+  /// Measurement-method dropdown at the top of the configuration form.
+  Widget _buildModeDropdown() {
+    return DropdownButtonFormField<BodeMode>(
+      key: const ValueKey('bode-mode'),
+      initialValue: _draft.mode,
+      isExpanded: true,
+      dropdownColor: const Color(0xFF1E1E1E),
+      decoration: _decoration('Measurement method'),
+      items: const [
+        DropdownMenuItem(
+          value: BodeMode.frequencySweep,
+          child: Text('Frequency Sweep'),
+        ),
+        DropdownMenuItem(
+          value: BodeMode.amplitudeSweep,
+          child: Text('Amplitude Sweep'),
+        ),
+      ],
+      onChanged: (value) {
+        if (value == null) return;
+        _setMode(value);
+      },
+    );
+  }
+
+  Widget _buildPointsField() {
+    return TextField(
+      controller: _pointsController,
+      onChanged: (_) => _updateDraft(),
+      keyboardType: TextInputType.number,
+      decoration: _decoration('Points'),
+    );
+  }
+
+  Widget _buildSettleField() {
+    return TextField(
+      controller: _settleController,
+      onChanged: (_) => _updateDraft(),
+      keyboardType: TextInputType.number,
+      decoration: _decoration('Settle (ms)'),
+    );
+  }
+
+  Widget _numberField(
+    String label,
+    TextEditingController controller, {
+    bool signed = false,
+  }) {
+    return TextField(
+      controller: controller,
+      onChanged: (_) => _updateDraft(),
+      keyboardType: TextInputType.numberWithOptions(
+        decimal: true,
+        signed: signed,
+      ),
+      decoration: _decoration(label),
+    );
+  }
+
+  /// Spacing dropdown for the frequency or the amplitude sweep.
+  ///
+  /// Both modes keep their own value so switching the measurement method does
+  /// not overwrite the other configuration.
+  Widget _buildSpacingDropdown({required bool amplitude}) {
+    return DropdownButtonFormField<BodeSpacing>(
+      key: ValueKey(
+        amplitude ? 'bode-spacing-amplitude' : 'bode-spacing-frequency',
+      ),
+      initialValue: amplitude ? _draft.amplitudeSpacing : _draft.spacing,
+      isExpanded: true,
+      dropdownColor: const Color(0xFF1E1E1E),
+      decoration: _decoration('Spacing'),
+      items: const [
+        DropdownMenuItem(
+          value: BodeSpacing.logarithmic,
+          child: Text('Logarithmic'),
+        ),
+        DropdownMenuItem(value: BodeSpacing.linear, child: Text('Linear')),
+      ],
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() {
+          _draft = amplitude
+              ? _draft.copyWith(amplitudeSpacing: value)
+              : _draft.copyWith(spacing: value);
+        });
+      },
+    );
+  }
+
+  /// Scope input channel for the amplitude sweep.
+  ///
+  /// The other channel is used as the output, so only one channel needs to be
+  /// selected.
+  Widget _buildScopeInputDropdown() {
+    return DropdownButtonFormField<int>(
+      key: const ValueKey('bode-scope-input'),
+      initialValue: _draft.vinChannel,
+      isExpanded: true,
+      dropdownColor: const Color(0xFF1E1E1E),
+      decoration: _decoration('Scope input'),
+      items: const [
+        DropdownMenuItem(value: 1, child: Text('CH1')),
+        DropdownMenuItem(value: 2, child: Text('CH2')),
+      ],
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() {
+          _draft = _draft.copyWith(
+            vinChannel: value,
+            voutChannel: value == 1 ? 2 : 1,
+          );
+        });
+      },
+    );
+  }
+
+  /// Read-only display of the scope output channel paired with the input.
+  Widget _buildVoutDisplay() {
+    return InputDecorator(
+      decoration: _decoration('Vout'),
+      child: Text(
+        'CH${_draft.voutChannel}',
+        style: const TextStyle(color: Colors.white70, fontSize: 13),
+      ),
+    );
+  }
+
   /// Waveform dropdown restricted to the connected generator family.
   Widget _buildWaveformDropdown() {
     final info = widget.signalGenerator.deviceInfo;
@@ -418,6 +607,11 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
         ? _draft.waveform
         : waveforms.first;
     return DropdownButtonFormField<Jds6600Waveform>(
+      // Recreate when the generator output or the draft waveform changes;
+      // FY6900 CH2 does not offer the same waveform set as CH1.
+      key: ValueKey(
+        'bode-waveform-${_draft.generatorChannel}-${_draft.waveform.name}',
+      ),
       initialValue: selected,
       isExpanded: true,
       dropdownColor: const Color(0xFF1E1E1E),
@@ -437,6 +631,44 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
     );
   }
 
+  /// Generator output driven by the sweep.
+  ///
+  /// Only the selected output is configured and switched on; the other
+  /// output keeps its state.
+  Widget _buildGeneratorChannelDropdown() {
+    return DropdownButtonFormField<int>(
+      key: const ValueKey('bode-generator-channel'),
+      initialValue: _draft.generatorChannel,
+      isExpanded: true,
+      dropdownColor: const Color(0xFF1E1E1E),
+      decoration: _decoration('Generator output'),
+      items: const [
+        DropdownMenuItem(value: 1, child: Text('CH1')),
+        DropdownMenuItem(value: 2, child: Text('CH2')),
+      ],
+      onChanged: (value) {
+        if (value == null) return;
+        setState(() {
+          final info = widget.signalGenerator.deviceInfo;
+          final family = info?.family ?? SiggenFamily.jds6600;
+          final waveforms = Jds6600Waveform.selectableFor(
+            family,
+            channel: value,
+          );
+          // FY6900 CH2 has no Adj-Pulse entry; fall back to the first
+          // waveform the new output supports instead of keeping a value
+          // that fails validation.
+          _draft = _draft.copyWith(
+            generatorChannel: value,
+            waveform: waveforms.contains(_draft.waveform)
+                ? _draft.waveform
+                : waveforms.first,
+          );
+        });
+      },
+    );
+  }
+
   /// Shows the limits of the connected generator model for the current
   /// waveform. The same limits are enforced by [validateBodeConfig].
   Widget _buildModelLimits() {
@@ -448,8 +680,11 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
       );
     }
     final maxFrequency = info.maxFrequencyHz(_draft.waveform);
-    final maxAmplitude = info.maxAmplitudeVpp(_draft.stopFrequencyHz);
-    final maxOffset = info.maxOffsetVAt(_draft.stopFrequencyHz);
+    final referenceFrequency = _draft.mode == BodeMode.amplitudeSweep
+        ? _draft.sweepFrequencyHz
+        : _draft.stopFrequencyHz;
+    final maxAmplitude = info.maxAmplitudeVpp(referenceFrequency);
+    final maxOffset = info.maxOffsetVAt(referenceFrequency);
     return Text(
       'Model ${info.modelName}: '
       '${_draft.waveform.displayNameFor(info.family)} up to '
@@ -481,6 +716,10 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
               fontWeight: FontWeight.bold,
             ),
           ),
+          const SizedBox(height: 10),
+
+          // ---- Measurement Method ----
+          _buildModeDropdown(),
           const SizedBox(height: 10),
 
           // ---- Report Name ----
@@ -518,141 +757,176 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
           ),
           const SizedBox(height: 10),
 
-          Row(
-            children: [
-              Expanded(child: _frequencyField('Start', _startController, true)),
-              const SizedBox(width: 8),
-              Expanded(child: _frequencyField('Stop', _stopController, false)),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 110,
-                child: TextField(
-                  controller: _pointsController,
-                  onChanged: (_) => _updateDraft(),
-                  keyboardType: TextInputType.number,
-                  decoration: _decoration('Points'),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _amplitudeController,
-                  onChanged: (_) => _updateDraft(),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
+          if (_draft.mode == BodeMode.frequencySweep) ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _frequencyField(
+                    'Start',
+                    _startController,
+                    _startUnit,
+                    (value) => _startUnit = value,
                   ),
-                  decoration: _decoration('Amplitude (Vpp)'),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: TextField(
-                  controller: _offsetController,
-                  onChanged: (_) => _updateDraft(),
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _frequencyField(
+                    'Stop',
+                    _stopController,
+                    _stopUnit,
+                    (value) => _stopUnit = value,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                SizedBox(width: 110, child: _buildPointsField()),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _numberField('Amplitude (Vpp)', _amplitudeController),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _numberField(
+                    'Offset (V)',
+                    _offsetController,
                     signed: true,
                   ),
-                  decoration: _decoration('Offset (V)'),
                 ),
-              ),
-              const SizedBox(width: 8),
-              SizedBox(
-                width: 130,
-                child: TextField(
-                  controller: _settleController,
-                  onChanged: (_) => _updateDraft(),
-                  keyboardType: TextInputType.number,
-                  decoration: _decoration('Settle (ms)'),
+                const SizedBox(width: 8),
+                SizedBox(width: 130, child: _buildSettleField()),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: _buildSpacingDropdown(amplitude: false)),
+                const SizedBox(width: 8),
+                Expanded(child: _buildGeneratorChannelDropdown()),
+                const SizedBox(width: 8),
+                Expanded(child: _buildWaveformDropdown()),
+              ],
+            ),
+            const SizedBox(height: 6),
+            _buildModelLimits(),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    initialValue: _draft.vinChannel,
+                    dropdownColor: const Color(0xFF1E1E1E),
+                    decoration: _decoration('Vin channel'),
+                    items: const [
+                      DropdownMenuItem(value: 1, child: Text('CH1')),
+                      DropdownMenuItem(value: 2, child: Text('CH2')),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(
+                        () => _draft = _draft.copyWith(vinChannel: value),
+                      );
+                    },
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<BodeSpacing>(
-                  initialValue: _draft.spacing,
-                  isExpanded: true,
-                  dropdownColor: const Color(0xFF1E1E1E),
-                  decoration: _decoration('Spacing'),
-                  items: const [
-                    DropdownMenuItem(
-                      value: BodeSpacing.logarithmic,
-                      child: Text('Logarithmic'),
-                    ),
-                    DropdownMenuItem(
-                      value: BodeSpacing.linear,
-                      child: Text('Linear'),
-                    ),
-                  ],
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => _draft = _draft.copyWith(spacing: value));
-                  },
+                const SizedBox(width: 8),
+                Expanded(
+                  child: DropdownButtonFormField<int>(
+                    initialValue: _draft.voutChannel,
+                    dropdownColor: const Color(0xFF1E1E1E),
+                    decoration: _decoration('Vout channel'),
+                    items: const [
+                      DropdownMenuItem(value: 1, child: Text('CH1')),
+                      DropdownMenuItem(value: 2, child: Text('CH2')),
+                    ],
+                    onChanged: (value) {
+                      if (value == null) return;
+                      setState(
+                        () => _draft = _draft.copyWith(voutChannel: value),
+                      );
+                    },
+                  ),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(child: _buildWaveformDropdown()),
-            ],
-          ),
-          const SizedBox(height: 6),
-          _buildModelLimits(),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: DropdownButtonFormField<int>(
-                  initialValue: _draft.vinChannel,
-                  dropdownColor: const Color(0xFF1E1E1E),
-                  decoration: _decoration('Vin channel'),
-                  items: const [
-                    DropdownMenuItem(value: 1, child: Text('CH1')),
-                    DropdownMenuItem(value: 2, child: Text('CH2')),
-                  ],
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(() => _draft = _draft.copyWith(vinChannel: value));
-                  },
+                const SizedBox(width: 12),
+                const Text(
+                  'Measure phase',
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
                 ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: DropdownButtonFormField<int>(
-                  initialValue: _draft.voutChannel,
-                  dropdownColor: const Color(0xFF1E1E1E),
-                  decoration: _decoration('Vout channel'),
-                  items: const [
-                    DropdownMenuItem(value: 1, child: Text('CH1')),
-                    DropdownMenuItem(value: 2, child: Text('CH2')),
-                  ],
-                  onChanged: (value) {
-                    if (value == null) return;
-                    setState(
-                      () => _draft = _draft.copyWith(voutChannel: value),
-                    );
-                  },
+                Switch(
+                  value: _draft.measurePhase,
+                  activeThumbColor: Colors.cyanAccent,
+                  onChanged: (value) => setState(
+                    () => _draft = _draft.copyWith(measurePhase: value),
+                  ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              const Text(
-                'Measure phase',
-                style: TextStyle(color: Colors.white70, fontSize: 12),
-              ),
-              Switch(
-                value: _draft.measurePhase,
-                activeThumbColor: Colors.cyanAccent,
-                onChanged: (value) => setState(
-                  () => _draft = _draft.copyWith(measurePhase: value),
+              ],
+            ),
+          ] else ...[
+            Row(
+              children: [
+                Expanded(
+                  child: _frequencyField(
+                    'Frequency',
+                    _sweepFrequencyController,
+                    _sweepFrequencyUnit,
+                    (value) => _sweepFrequencyUnit = value,
+                  ),
                 ),
-              ),
-            ],
-          ),
+                const SizedBox(width: 8),
+                SizedBox(width: 110, child: _buildPointsField()),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: _numberField(
+                    'Amplitude Start (Vpp)',
+                    _startAmplitudeController,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _numberField(
+                    'Amplitude Stop (Vpp)',
+                    _stopAmplitudeController,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _numberField(
+                    'Offset (V)',
+                    _offsetController,
+                    signed: true,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                SizedBox(width: 130, child: _buildSettleField()),
+                const SizedBox(width: 8),
+                Expanded(child: _buildSpacingDropdown(amplitude: true)),
+                const SizedBox(width: 8),
+                Expanded(child: _buildGeneratorChannelDropdown()),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(child: _buildWaveformDropdown()),
+                const SizedBox(width: 8),
+                Expanded(child: _buildScopeInputDropdown()),
+                const SizedBox(width: 8),
+                Expanded(child: _buildVoutDisplay()),
+              ],
+            ),
+            const SizedBox(height: 6),
+            _buildModelLimits(),
+          ],
           if (validation != null) ...[
             const SizedBox(height: 6),
             Text(
@@ -718,18 +992,53 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
               style: const TextStyle(color: Colors.orangeAccent, fontSize: 12),
             ),
           ],
+          const SizedBox(height: 12),
+          _buildPurposeNote(),
         ],
       ),
     );
   }
 
+  /// Short explanation of the selected measurement method.
+  Widget _buildPurposeNote() {
+    final amplitude = _draft.mode == BodeMode.amplitudeSweep;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Icon(Icons.info_outline, size: 14, color: Colors.white38),
+        const SizedBox(width: 6),
+        Expanded(
+          child: Text(
+            amplitude
+                ? 'An amplitude sweep drives a circuit at a fixed frequency '
+                      'and varies the generator level. Use it to check gain '
+                      'linearity, find compression or clipping limits and '
+                      'verify the usable amplitude range of amplifiers and '
+                      'signal generators.'
+                : 'A Bode frequency sweep measures how a circuit responds '
+                      'across frequency: gain, bandwidth, resonance and '
+                      'phase. Use it to verify filters, amplifiers, speakers '
+                      'or control loops.',
+            key: Key(
+              amplitude ? 'bode-amplitude-sweep-purpose' : 'bode-sweep-purpose',
+            ),
+            style: const TextStyle(color: Colors.white54, fontSize: 11),
+          ),
+        ),
+      ],
+    );
+  }
+
   Widget _buildRunningState(BodeAnalysisSummary analysis) {
     final service = _service;
+    final config = _runConfig ?? _draft;
+    final amplitudeSweep = config.mode == BodeMode.amplitudeSweep;
     final last = _points.isNotEmpty ? _points.last : null;
     final progress = service == null
         ? '0 / 0'
         : '${service.completedPoints} / ${service.totalPoints}';
-    final current = service?.currentFrequencyHz;
+    final currentFrequency = service?.currentFrequencyHz;
+    final currentAmplitude = service?.currentAmplitudeVpp;
     return Row(
       children: [
         Expanded(
@@ -748,22 +1057,44 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              if (current != null)
-                Text(
-                  'Current: ${formatFrequencyHz(current)}',
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
-                ),
-              if (last != null)
-                Text(
-                  'Last: ${formatFrequencyHz(last.frequencyHz)} · '
-                  '${last.gainDb?.toStringAsFixed(2) ?? '—'} dB · '
-                  '${last.phaseDeg?.toStringAsFixed(1) ?? '—'}°',
-                  style: const TextStyle(
-                    color: Colors.white54,
-                    fontSize: 12,
-                    fontFamily: 'monospace',
+              if (amplitudeSweep) ...[
+                if (currentAmplitude != null)
+                  Text(
+                    'Current: ${formatAmplitudeVpp(currentAmplitude)} @ '
+                    '${formatFrequencyHz(currentFrequency ?? config.sweepFrequencyHz)}',
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
                   ),
-                ),
+                if (last != null)
+                  Text(
+                    'Last: ${last.amplitudeVpp == null ? '—' : formatAmplitudeVpp(last.amplitudeVpp!)} · '
+                    '${last.gainDb?.toStringAsFixed(2) ?? '—'} dB · '
+                    'Vout ${_formatVoltage(last.voutVpp)} Vpp / '
+                    '${_formatVoltage(last.voutRms)} Vrms · '
+                    'Vpp/Vrms ${last.voutVppRmsRatio?.toStringAsFixed(2) ?? '—'}',
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+              ] else ...[
+                if (currentFrequency != null)
+                  Text(
+                    'Current: ${formatFrequencyHz(currentFrequency)}',
+                    style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  ),
+                if (last != null)
+                  Text(
+                    'Last: ${formatFrequencyHz(last.frequencyHz)} · '
+                    '${last.gainDb?.toStringAsFixed(2) ?? '—'} dB · '
+                    '${last.phaseDeg?.toStringAsFixed(1) ?? '—'}°',
+                    style: const TextStyle(
+                      color: Colors.white54,
+                      fontSize: 12,
+                      fontFamily: 'monospace',
+                    ),
+                  ),
+              ],
               if (analysis.hasData) _buildAnalysisSummary(analysis),
             ],
           ),
@@ -856,9 +1187,9 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
   Widget _frequencyField(
     String label,
     TextEditingController controller,
-    bool isStart,
+    String unit,
+    ValueChanged<String> onUnitChanged,
   ) {
-    final unit = isStart ? _startUnit : _stopUnit;
     return Row(
       children: [
         Expanded(
@@ -873,6 +1204,9 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
         SizedBox(
           width: 110,
           child: DropdownButtonFormField<String>(
+            // Recreate with the active unit so the field always shows the
+            // value that belongs to the selected unit.
+            key: ValueKey('bode-unit-$label-$unit'),
             initialValue: unit,
             isExpanded: true,
             dropdownColor: const Color(0xFF1E1E1E),
@@ -884,14 +1218,8 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                 .toList(),
             onChanged: (value) {
               if (value == null) return;
-              setState(() {
-                if (isStart) {
-                  _startUnit = value;
-                } else {
-                  _stopUnit = value;
-                }
-                _updateDraft();
-              });
+              onUnitChanged(value);
+              _updateDraft();
             },
           ),
         ),
@@ -937,6 +1265,14 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
     return text;
   }
 
+  String _formatVoltage(double? value) {
+    if (value == null || !value.isFinite) return '—';
+    final abs = value.abs();
+    if (abs >= 1) return value.toStringAsFixed(3);
+    if (abs >= 0.001) return value.toStringAsFixed(4);
+    return value.toStringAsExponential(2);
+  }
+
   String _statusLabel(BodeStatus status) {
     switch (status) {
       case BodeStatus.idle:
@@ -954,6 +1290,23 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
         return 'ERROR';
     }
   }
+}
+
+/// One stacked chart of the amplitude sweep.
+class _AmplitudeSeries {
+  const _AmplitudeSeries({
+    required this.label,
+    required this.color,
+    required this.value,
+    this.ticks,
+  });
+
+  final String label;
+  final Color color;
+  final double? Function(BodePoint point) value;
+
+  /// Fixed y-axis ticks, or null to derive them from the measured values.
+  final List<double>? ticks;
 }
 
 class _BodePlotPainter extends CustomPainter {
@@ -981,6 +1334,11 @@ class _BodePlotPainter extends CustomPainter {
       Offset.zero & size,
       Paint()..color = AppColors.panelBackground,
     );
+
+    if (config.mode == BodeMode.amplitudeSweep) {
+      _paintAmplitudeCharts(canvas, size);
+      return;
+    }
 
     final chartWidth = size.width - _left - _right;
     final showPhase = config.measurePhase;
@@ -1026,6 +1384,188 @@ class _BodePlotPainter extends CustomPainter {
     }
   }
 
+  /// Draws gain, Vpp, Vrms and Vpp/Vrms as stacked charts over the generator
+  /// amplitude. All charts share the bottom amplitude axis.
+  void _paintAmplitudeCharts(Canvas canvas, Size size) {
+    final chartWidth = size.width - _left - _right;
+    const chartCount = 4;
+    final chartHeight =
+        (size.height - _top - _bottom - _gap * (chartCount - 1)) / chartCount;
+    if (chartWidth <= 0 || chartHeight <= 0) return;
+
+    final start = config.startAmplitudeVpp;
+    final stop = config.stopAmplitudeVpp;
+    final series = <_AmplitudeSeries>[
+      _AmplitudeSeries(
+        label: 'Gain (dB)',
+        color: Colors.cyanAccent,
+        value: (point) => point.gainDb,
+        ticks: _gainTicks(),
+      ),
+      _AmplitudeSeries(
+        label: 'Vout Vpp (V)',
+        color: Colors.greenAccent,
+        value: (point) => point.voutVpp,
+      ),
+      _AmplitudeSeries(
+        label: 'Vout Vrms (V)',
+        color: Colors.orangeAccent,
+        value: (point) => point.voutRms,
+      ),
+      _AmplitudeSeries(
+        label: 'Vpp/Vrms',
+        color: Colors.yellowAccent,
+        value: (point) => point.voutVppRmsRatio,
+      ),
+    ];
+
+    for (var index = 0; index < series.length; index++) {
+      final rect = Rect.fromLTWH(
+        _left,
+        _top + index * (chartHeight + _gap),
+        chartWidth,
+        chartHeight,
+      );
+      _drawAmplitudeChart(
+        canvas,
+        rect,
+        series[index],
+        start: start,
+        stop: stop,
+        showXAxis: index == series.length - 1,
+      );
+    }
+
+    if (points.every((point) => point.gainDb == null)) {
+      _drawCenteredText(
+        canvas,
+        'Waiting for sweep data',
+        center: Offset(_left + chartWidth / 2, _top + chartHeight * 0.45),
+        color: Colors.yellow,
+        fontSize: 12,
+      );
+    }
+  }
+
+  void _drawAmplitudeChart(
+    Canvas canvas,
+    Rect rect,
+    _AmplitudeSeries series, {
+    required double start,
+    required double stop,
+    required bool showXAxis,
+  }) {
+    final border = Paint()
+      ..color = AppColors.border
+      ..style = PaintingStyle.stroke;
+    canvas.drawRect(rect, Paint()..color = const Color(0xFF0A192F));
+    canvas.drawRect(rect, border);
+
+    final axisValid = config.amplitudeSpacing == BodeSpacing.logarithmic
+        ? start > 0 && stop > start
+        : start >= 0 && stop > start;
+    if (!axisValid) return;
+
+    final values = points
+        .where((point) => point.valid)
+        .map(series.value)
+        .whereType<double>()
+        .where((value) => value.isFinite)
+        .toList();
+    final ticks = series.ticks ?? _valueTicks(values);
+    final yMin = ticks.first;
+    final yMax = ticks.last;
+
+    final gridPaint = Paint()
+      ..color = Colors.white12
+      ..strokeWidth = 1;
+    final xTicks = _amplitudeTicks(start, stop);
+    for (final tick in xTicks) {
+      final x = _xFor(tick, start, stop, rect);
+      canvas.drawLine(Offset(x, rect.top), Offset(x, rect.bottom), gridPaint);
+      if (showXAxis) {
+        _drawText(
+          canvas,
+          _formatAmplitudeTick(tick),
+          Offset(x - 22, rect.bottom + 8),
+          Colors.white54,
+          10,
+        );
+      }
+    }
+    for (final tick in ticks) {
+      final y = _yFor(tick, yMin, yMax, rect);
+      canvas.drawLine(Offset(rect.left, y), Offset(rect.right, y), gridPaint);
+      _drawText(
+        canvas,
+        _formatValueTick(tick),
+        Offset(rect.left - 42, y - 6),
+        Colors.white54,
+        10,
+      );
+    }
+
+    _drawText(
+      canvas,
+      series.label,
+      Offset(rect.left, rect.top - 20),
+      Colors.white70,
+      11,
+    );
+
+    if (showXAxis) {
+      _drawCenteredText(
+        canvas,
+        'Generator amplitude (Vpp)',
+        center: Offset(rect.center.dx, rect.bottom + 32),
+        color: Colors.white70,
+        fontSize: 11,
+      );
+    }
+
+    _drawSeriesValues(
+      canvas,
+      rect,
+      start,
+      stop,
+      yMin,
+      yMax,
+      series.value,
+      series.color,
+    );
+  }
+
+  /// Y-axis ticks for a measured value series, padded around its range.
+  List<double> _valueTicks(List<double> values) {
+    var min = values.isEmpty ? 0.0 : values.reduce(math.min);
+    var max = values.isEmpty ? 1.0 : values.reduce(math.max);
+    if ((max - min).abs() < 1e-9) {
+      max = min + 1;
+    }
+    final padding = (max - min) * 0.1;
+    return _niceTicks(
+      (min - padding).floorToDouble(),
+      (max + padding).ceilToDouble(),
+    );
+  }
+
+  String _formatValueTick(double value) {
+    if (!value.isFinite) return '—';
+    final abs = value.abs();
+    var text = value.toStringAsFixed(
+      abs >= 10
+          ? 0
+          : abs >= 1
+          ? 1
+          : 2,
+    );
+    if (text.contains('.')) {
+      text = text.replaceFirst(RegExp(r'0+$'), '');
+      text = text.replaceFirst(RegExp(r'\.$'), '');
+    }
+    return text == '-0' ? '0' : text;
+  }
+
   void _drawChart(
     Canvas canvas,
     Rect rect,
@@ -1043,7 +1583,7 @@ class _BodePlotPainter extends CustomPainter {
     final stop = config.stopFrequencyHz;
     if (start <= 0 || stop <= start) return;
 
-    final frequencyTicks = _frequencyTicks(start, stop);
+    final xTicks = _frequencyTicks(start, stop);
     final gainTicks = isPhase
         ? const [-180.0, -90.0, 0.0, 90.0, 180.0]
         : _gainTicks();
@@ -1053,13 +1593,13 @@ class _BodePlotPainter extends CustomPainter {
     final gridPaint = Paint()
       ..color = Colors.white12
       ..strokeWidth = 1;
-    for (final frequency in frequencyTicks) {
-      final x = _xFor(frequency, start, stop, rect);
+    for (final tick in xTicks) {
+      final x = _xFor(tick, start, stop, rect);
       canvas.drawLine(Offset(x, rect.top), Offset(x, rect.bottom), gridPaint);
       if (showFrequencyAxis) {
         _drawText(
           canvas,
-          formatFrequencyHz(frequency),
+          formatFrequencyHz(tick),
           Offset(x - 22, rect.bottom + 8),
           Colors.white54,
           10,
@@ -1090,12 +1630,12 @@ class _BodePlotPainter extends CustomPainter {
     );
 
     if (showFrequencyAxis) {
-      _drawText(
+      _drawCenteredText(
         canvas,
         'Frequency (Hz)',
-        Offset(rect.left + rect.width / 2 - 34, rect.bottom + 26),
-        Colors.white70,
-        11,
+        center: Offset(rect.center.dx, rect.bottom + 32),
+        color: Colors.white70,
+        fontSize: 11,
       );
     }
 
@@ -1173,18 +1713,46 @@ class _BodePlotPainter extends CustomPainter {
     double yMax, {
     required bool isPhase,
   }) {
+    _drawSeriesValues(
+      canvas,
+      rect,
+      start,
+      stop,
+      yMin,
+      yMax,
+      (point) => isPhase ? point.phaseDeg : point.gainDb,
+      isPhase ? Colors.orangeAccent : Colors.cyanAccent,
+    );
+  }
+
+  void _drawSeriesValues(
+    Canvas canvas,
+    Rect rect,
+    double start,
+    double stop,
+    double yMin,
+    double yMax,
+    double? Function(BodePoint point) valueOf,
+    Color color,
+  ) {
     final linePaint = Paint()
-      ..color = isPhase ? Colors.orangeAccent : Colors.cyanAccent
+      ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.6;
-    final pointPaint = Paint()
-      ..color = isPhase ? Colors.orangeAccent : Colors.cyanAccent;
+    final pointPaint = Paint()..color = color;
 
     Path? path;
     var lastValid = false;
     for (final point in points) {
-      final value = isPhase ? point.phaseDeg : point.gainDb;
-      if (!point.valid || value == null || !value.isFinite) {
+      final value = valueOf(point);
+      final xValue = config.mode == BodeMode.amplitudeSweep
+          ? point.amplitudeVpp
+          : point.frequencyHz;
+      if (!point.valid ||
+          value == null ||
+          !value.isFinite ||
+          xValue == null ||
+          !xValue.isFinite) {
         lastValid = false;
         if (path != null) {
           canvas.drawPath(path, linePaint);
@@ -1193,7 +1761,7 @@ class _BodePlotPainter extends CustomPainter {
         continue;
       }
       final offset = Offset(
-        _xFor(point.frequencyHz, start, stop, rect),
+        _xFor(xValue, start, stop, rect),
         _yFor(value, yMin, yMax, rect),
       );
       if (!lastValid) {
@@ -1246,6 +1814,27 @@ class _BodePlotPainter extends CustomPainter {
     return ticks.isEmpty ? [min, max] : ticks;
   }
 
+  List<double> _amplitudeTicks(double start, double stop) {
+    if (config.amplitudeSpacing == BodeSpacing.logarithmic) {
+      return _frequencyTicks(start, stop);
+    }
+    final ticks = _niceTicks(
+      start,
+      stop,
+    ).where((value) => value >= start && value <= stop).toList();
+    return ticks.length < 2 ? [start, stop] : ticks;
+  }
+
+  String _formatAmplitudeTick(double value) {
+    if (!value.isFinite) return '—';
+    var text = value.toStringAsFixed(value.abs() >= 10 ? 0 : 2);
+    if (text.contains('.')) {
+      text = text.replaceFirst(RegExp(r'0+$'), '');
+      text = text.replaceFirst(RegExp(r'\.$'), '');
+    }
+    return text == '-0' ? '0' : text;
+  }
+
   List<double> _frequencyTicks(double start, double stop) {
     final ticks = <double>[];
     final firstDecade = math
@@ -1264,10 +1853,14 @@ class _BodePlotPainter extends CustomPainter {
     return ticks.isEmpty ? [start, stop] : ticks;
   }
 
-  double _xFor(double frequency, double start, double stop, Rect rect) {
-    final fraction =
-        (math.log(frequency) - math.log(start)) /
-        (math.log(stop) - math.log(start));
+  double _xFor(double value, double start, double stop, Rect rect) {
+    final logarithmic =
+        config.mode == BodeMode.frequencySweep ||
+        config.amplitudeSpacing == BodeSpacing.logarithmic;
+    final fraction = logarithmic
+        ? (math.log(value) - math.log(start)) /
+              (math.log(stop) - math.log(start))
+        : (value - start) / (stop - start);
     return rect.left + fraction.clamp(0.0, 1.0) * rect.width;
   }
 

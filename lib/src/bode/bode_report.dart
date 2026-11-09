@@ -49,7 +49,9 @@ class BodeReport {
           // ---- Headline ----
           pw.Center(
             child: pw.Text(
-              'Bode Plot Report',
+              config.mode == BodeMode.amplitudeSweep
+                  ? 'Bode Plot Report — Amplitude Sweep'
+                  : 'Bode Plot Report',
               style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
             ),
           ),
@@ -126,29 +128,33 @@ class BodeReport {
           pw.SizedBox(height: 24),
 
           // ---- Automatic Analysis ----
-          pw.Header(
-            text: 'Analysis',
-            level: 1,
-            textStyle: pw.TextStyle(
-              fontSize: 16,
-              fontWeight: pw.FontWeight.bold,
+          // The frequency-domain analysis (peak, -3 dB, bandwidth, Q factor)
+          // only applies to a frequency sweep.
+          if (config.mode == BodeMode.frequencySweep) ...[
+            pw.Header(
+              text: 'Analysis',
+              level: 1,
+              textStyle: pw.TextStyle(
+                fontSize: 16,
+                fontWeight: pw.FontWeight.bold,
+              ),
             ),
-          ),
-          pw.SizedBox(height: 12),
-          if (analysis.hasData)
-            pw.TableHelper.fromTextArray(
-              headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-              headerAlignment: pw.Alignment.centerLeft,
-              cellAlignment: pw.Alignment.centerLeft,
-              columnWidths: {
-                0: const pw.FlexColumnWidth(2),
-                1: const pw.FlexColumnWidth(3),
-              },
-              headers: ['Parameter', 'Value'],
-              data: _buildAnalysisRows(analysis),
-            )
-          else
-            pw.Text('No valid gain points for an automatic analysis.'),
+            pw.SizedBox(height: 12),
+            if (analysis.hasData)
+              pw.TableHelper.fromTextArray(
+                headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                headerAlignment: pw.Alignment.centerLeft,
+                cellAlignment: pw.Alignment.centerLeft,
+                columnWidths: {
+                  0: const pw.FlexColumnWidth(2),
+                  1: const pw.FlexColumnWidth(3),
+                },
+                headers: ['Parameter', 'Value'],
+                data: _buildAnalysisRows(analysis),
+              )
+            else
+              pw.Text('No valid gain points for an automatic analysis.'),
+          ],
         ],
       ),
     );
@@ -163,26 +169,58 @@ class BodeReport {
     String? generatorIdentity,
     SiggenFamily? generatorFamily,
   ) {
+    final amplitudeSweep = config.mode == BodeMode.amplitudeSweep;
     final rows = <List<String>>[
-      ['Start Frequency', _fmtFrequency(config.startFrequencyHz)],
-      ['Stop Frequency', _fmtFrequency(config.stopFrequencyHz)],
-      ['Points', '${config.pointCount}'],
-      [
-        'Spacing',
-        config.spacing == BodeSpacing.logarithmic ? 'Logarithmic' : 'Linear',
-      ],
-      ['Amplitude', '${_fmtNumber(config.amplitudeVpp)} Vpp'],
-      ['Offset', '${_fmtNumber(config.offsetV)} V'],
-      [
-        'Waveform',
-        config.waveform.displayNameFor(generatorFamily ?? SiggenFamily.jds6600),
-      ],
-      ['Settling Time', '${config.settling.inMilliseconds} ms'],
-      ['Phase Measurement', config.measurePhase ? 'Enabled' : 'Disabled'],
-      ['Vin Channel', 'CH${config.vinChannel}'],
-      ['Vout Channel', 'CH${config.voutChannel}'],
-      ['Generator Channel', 'CH${config.generatorChannel}'],
+      ['Sweep Type', amplitudeSweep ? 'Amplitude Sweep' : 'Frequency Sweep'],
     ];
+    if (amplitudeSweep) {
+      rows.addAll([
+        ['Frequency', _fmtFrequency(config.sweepFrequencyHz)],
+        ['Start Amplitude', '${_fmtNumber(config.startAmplitudeVpp)} Vpp'],
+        ['Stop Amplitude', '${_fmtNumber(config.stopAmplitudeVpp)} Vpp'],
+        ['Points', '${config.pointCount}'],
+        [
+          'Spacing',
+          config.amplitudeSpacing == BodeSpacing.logarithmic
+              ? 'Logarithmic'
+              : 'Linear',
+        ],
+        ['Offset', '${_fmtNumber(config.offsetV)} V'],
+        [
+          'Waveform',
+          config.waveform.displayNameFor(
+            generatorFamily ?? SiggenFamily.jds6600,
+          ),
+        ],
+        ['Settling Time', '${config.settling.inMilliseconds} ms'],
+        ['Vin Channel', 'CH${config.vinChannel}'],
+        ['Vout Channel', 'CH${config.voutChannel}'],
+        ['Generator Channel', 'CH${config.generatorChannel}'],
+      ]);
+    } else {
+      rows.addAll([
+        ['Start Frequency', _fmtFrequency(config.startFrequencyHz)],
+        ['Stop Frequency', _fmtFrequency(config.stopFrequencyHz)],
+        ['Points', '${config.pointCount}'],
+        [
+          'Spacing',
+          config.spacing == BodeSpacing.logarithmic ? 'Logarithmic' : 'Linear',
+        ],
+        ['Amplitude', '${_fmtNumber(config.amplitudeVpp)} Vpp'],
+        ['Offset', '${_fmtNumber(config.offsetV)} V'],
+        [
+          'Waveform',
+          config.waveform.displayNameFor(
+            generatorFamily ?? SiggenFamily.jds6600,
+          ),
+        ],
+        ['Settling Time', '${config.settling.inMilliseconds} ms'],
+        ['Phase Measurement', config.measurePhase ? 'Enabled' : 'Disabled'],
+        ['Vin Channel', 'CH${config.vinChannel}'],
+        ['Vout Channel', 'CH${config.voutChannel}'],
+        ['Generator Channel', 'CH${config.generatorChannel}'],
+      ]);
+    }
     if (deviceName != null && deviceName.isNotEmpty) {
       rows.add(['Oscilloscope', deviceName]);
     }
@@ -216,6 +254,46 @@ class BodeReport {
         '${_fmtValue(gains.reduce(math.min), 'dB')} to '
             '${_fmtValue(gains.reduce(math.max), 'dB')}',
       ]);
+    }
+
+    if (config.mode == BodeMode.amplitudeSweep) {
+      final voutVpp = valid
+          .map((point) => point.voutVpp)
+          .whereType<double>()
+          .where((value) => value.isFinite)
+          .toList();
+      if (voutVpp.isNotEmpty) {
+        rows.add([
+          'Vout Vpp Range',
+          '${_fmtValue(voutVpp.reduce(math.min), 'Vpp')} to '
+              '${_fmtValue(voutVpp.reduce(math.max), 'Vpp')}',
+        ]);
+      }
+      final voutRms = valid
+          .map((point) => point.voutRms)
+          .whereType<double>()
+          .where((value) => value.isFinite)
+          .toList();
+      if (voutRms.isNotEmpty) {
+        rows.add([
+          'Vout Vrms Range',
+          '${_fmtValue(voutRms.reduce(math.min), 'V')} to '
+              '${_fmtValue(voutRms.reduce(math.max), 'V')}',
+        ]);
+      }
+      final ratios = valid
+          .map((point) => point.voutVppRmsRatio)
+          .whereType<double>()
+          .where((value) => value.isFinite)
+          .toList();
+      if (ratios.isNotEmpty) {
+        rows.add([
+          'Vpp/Vrms Range',
+          '${_fmtNumber(ratios.reduce(math.min))} to '
+              '${_fmtNumber(ratios.reduce(math.max))}',
+        ]);
+      }
+      return rows;
     }
 
     if (config.measurePhase) {

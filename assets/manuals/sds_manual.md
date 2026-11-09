@@ -1871,6 +1871,7 @@ The Bode panel is not available when no generator is configured or no generator 
 | Offset | Generator DC offset; limited by the model and frequency. |
 | Settle (ms) | Extra settling time per point; the application enforces at least three periods and 800 ms and caps the value at 5 s. |
 | Spacing | Logarithmic (default) or linear frequency spacing. |
+| Generator output | Signal generator output used by the sweep: **CH1** (default) or **CH2**. Only the selected output is configured and switched on; the other output keeps its state. On the FY6900, CH2 does not offer Adj-Pulse; switching to CH2 falls back to a waveform the auxiliary output supports. |
 | Waveform | Sweep waveform (sine, square, triangle, pulse, …). |
 | Vin channel | Oscilloscope channel connected to the DUT input (default CH1). |
 | Vout channel | Oscilloscope channel connected to the DUT output (default CH2). |
@@ -1882,6 +1883,8 @@ The form shows the active model limits below the waveform field, for example:
 `Model FY6900-60M: Sine up to 60 MHz · amplitude up to 24 Vpp · offset ±12 V`
 
 **START SWEEP** is disabled while the configuration is invalid. The reason is displayed above the button, for example when the stop frequency exceeds the limit for the detected model and selected waveform.
+
+At the bottom of the form, a short note summarizes what a Bode frequency sweep is used for: it measures how a circuit responds across frequency (gain, bandwidth, resonance and phase) and helps to verify filters, amplifiers, speakers and control loops.
 
 ### 10.5 Running a Sweep
 

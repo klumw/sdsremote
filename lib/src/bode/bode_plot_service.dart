@@ -35,6 +35,7 @@ class BodePlotService extends ChangeNotifier {
   BodeConfig? _config;
   int _completedPoints = 0;
   double? _currentFrequencyHz;
+  double? _currentAmplitudeVpp;
   String? _errorMessage;
   bool _stopRequested = false;
   bool _running = false;
@@ -52,6 +53,11 @@ class BodePlotService extends ChangeNotifier {
   int get totalPoints => _config?.pointCount ?? 0;
 
   double? get currentFrequencyHz => _currentFrequencyHz;
+
+  /// Generator amplitude of the point currently being measured, in Vpp.
+  ///
+  /// Only set while an amplitude sweep is running.
+  double? get currentAmplitudeVpp => _currentAmplitudeVpp;
 
   String? get errorMessage => _errorMessage;
 
@@ -88,6 +94,7 @@ class BodePlotService extends ChangeNotifier {
     _points.clear();
     _completedPoints = 0;
     _currentFrequencyHz = null;
+    _currentAmplitudeVpp = null;
     _errorMessage = null;
     _stopRequested = false;
     _running = true;
@@ -113,12 +120,17 @@ class BodePlotService extends ChangeNotifier {
         ).error('Scope restore failed: $e');
       }
       _currentFrequencyHz = null;
+      _currentAmplitudeVpp = null;
       _running = false;
       _notify();
     }
   }
 
   Future<void> _run(BodeConfig config) async {
+    if (config.mode == BodeMode.amplitudeSweep) {
+      await _runAmplitudeSweep(config);
+      return;
+    }
     // A cancellation can arrive before the first point. Do not touch the
     // generator or the scope in that case.
     _throwIfStopped();
@@ -231,6 +243,154 @@ class BodePlotService extends ChangeNotifier {
     _status = BodeStatus.completed;
   }
 
+  /// Sweeps the generator amplitude at a fixed frequency.
+  Future<void> _runAmplitudeSweep(BodeConfig config) async {
+    _throwIfStopped();
+    final amplitudes = buildAmplitudePoints(config);
+    final generator = signalGenerator;
+    final channel = config.generatorChannel;
+    final frequency = config.sweepFrequencyHz;
+    AppLogger(agentName: 'Bode', toolName: 'run').log(
+      'Amplitude sweep: channel=$channel, waveform=${config.waveform.name}, '
+      'frequency=$frequency Hz, amplitude=${amplitudes.first}..'
+      '${amplitudes.last} Vpp, offset=${config.offsetV} V, '
+      'points=${amplitudes.length}',
+    );
+
+    // The fixed frequency, waveform and offset are configured once; only the
+    // amplitude is stepped during the sweep.
+    await generator.setWaveform(channel, config.waveform);
+    await generator.setFrequency(channel, frequency);
+    await generator.setOffset(channel, config.offsetV);
+    await generator.setAmplitude(channel, amplitudes.first);
+    await generator.setOutput(channel, true);
+    await _settle(effectiveSettling(config, frequency));
+    _throwIfStopped();
+
+    await scope.prepare(
+      vinChannel: config.vinChannel,
+      voutChannel: config.voutChannel,
+      measurePhase: false,
+    );
+    _throwIfStopped();
+    await scope.autoSet();
+    _throwIfStopped();
+
+    var autoSetCount = 0;
+    for (var index = 0; index < amplitudes.length; index++) {
+      _throwIfStopped();
+      final amplitude = amplitudes[index];
+      _currentFrequencyHz = frequency;
+      _currentAmplitudeVpp = amplitude;
+
+      if (index > 0) {
+        await generator.setAmplitude(channel, amplitude);
+        await _settle(effectiveSettling(config, frequency));
+        _throwIfStopped();
+      }
+
+      var reading = await _readStableAmplitude(config, frequency, amplitude);
+
+      if (reading.outOfRange && autoSetCount < 2) {
+        autoSetCount++;
+        AppLogger(agentName: 'Bode', toolName: 'autoSet').log(
+          'Amplitude=${formatAmplitudeVpp(amplitude)} out of range; '
+          'ASET retry $autoSetCount/2',
+        );
+        await scope.autoSet();
+        await _settle(effectiveSettling(config, frequency));
+        _throwIfStopped();
+        reading = await _readStableAmplitude(config, frequency, amplitude);
+      }
+
+      final belowThreshold = bodeBelowThresholdNote(
+        reading.vinRms,
+        reading.voutRms,
+      );
+      final suspicious = _isSuspiciousAmplitudeVin(reading, config, amplitude);
+      final gain = belowThreshold == null
+          ? bodeGainDb(reading.vinRms, reading.voutRms)
+          : null;
+      final valid = gain != null && !suspicious;
+      final point = BodePoint(
+        frequencyHz: frequency,
+        amplitudeVpp: amplitude,
+        vinRms: reading.vinRms,
+        voutRms: reading.voutRms,
+        vinVpp: reading.vinVpp,
+        voutVpp: reading.voutVpp,
+        gainDb: gain,
+        valid: valid,
+        note:
+            reading.error ??
+            belowThreshold ??
+            (suspicious
+                ? 'Unstable measurement (Vin collapsed to '
+                      '${reading.vinRms?.toStringAsFixed(4)} V at '
+                      '${formatAmplitudeVpp(amplitude)}); retried'
+                : gain == null
+                ? 'No valid gain (Vin below threshold or missing '
+                      'measurement)'
+                : null),
+      );
+      _points.add(point);
+      _completedPoints = index + 1;
+      _notify();
+    }
+
+    _status = BodeStatus.completed;
+  }
+
+  /// Reads one amplitude-sweep point and retries a collapsed input.
+  Future<BodeReading> _readStableAmplitude(
+    BodeConfig config,
+    double frequency,
+    double amplitude,
+  ) async {
+    var reading = await scope.read(
+      vinChannel: config.vinChannel,
+      voutChannel: config.voutChannel,
+      frequencyHz: frequency,
+      measurePhase: false,
+      measureVpp: true,
+      expectedVinVpp: amplitude,
+    );
+    var retries = 0;
+    while (retries < 2 &&
+        _isSuspiciousAmplitudeVin(reading, config, amplitude)) {
+      retries++;
+      AppLogger(agentName: 'Bode', toolName: 'glitch').log(
+        'Amplitude=${formatAmplitudeVpp(amplitude)} suspicious Vin='
+        '${reading.vinRms}; retry $retries/2',
+      );
+      await _settle(const Duration(milliseconds: 300));
+      _throwIfStopped();
+      reading = await scope.read(
+        vinChannel: config.vinChannel,
+        voutChannel: config.voutChannel,
+        frequencyHz: frequency,
+        measurePhase: false,
+        measureVpp: true,
+        expectedVinVpp: amplitude,
+      );
+    }
+    return reading;
+  }
+
+  /// A reading is implausible when Vin falls far below the RMS value expected
+  /// from the generator's amplitude setpoint.
+  bool _isSuspiciousAmplitudeVin(
+    BodeReading reading,
+    BodeConfig config,
+    double amplitudeVpp,
+  ) {
+    if (reading.outOfRange) return false;
+    final vin = reading.vinRms;
+    if (vin == null) return true;
+    final expected = _expectedVinRms(config, amplitudeVpp);
+    return expected != null && vin < expected * 0.1;
+  }
+
   /// Reads one point and retries when the scope returns a transiently
   /// implausible input voltage (the RMS measurements occasionally collapse
   /// to the noise floor for one acquisition).
@@ -280,20 +440,20 @@ class BodePlotService extends ChangeNotifier {
     if (referenceVin != null) {
       return vin < referenceVin * 0.25;
     }
-    final expected = _expectedVinRms(config);
+    final expected = _expectedVinRms(config, config.amplitudeVpp);
     return expected != null && vin < expected * 0.1;
   }
 
   /// Expected RMS at the scope input for the configured generator amplitude,
   /// or null for waveforms whose RMS cannot be derived from the Vpp value.
-  double? _expectedVinRms(BodeConfig config) {
+  double? _expectedVinRms(BodeConfig config, double amplitudeVpp) {
     switch (config.waveform.family) {
       case Jds6600WaveformFamily.sine:
-        return config.amplitudeVpp / (2 * math.sqrt(2));
+        return amplitudeVpp / (2 * math.sqrt(2));
       case Jds6600WaveformFamily.square:
-        return config.amplitudeVpp / 2;
+        return amplitudeVpp / 2;
       case Jds6600WaveformFamily.triangle:
-        return config.amplitudeVpp / (2 * math.sqrt(3));
+        return amplitudeVpp / (2 * math.sqrt(3));
       case Jds6600WaveformFamily.pulse:
       case Jds6600WaveformFamily.other:
       case Jds6600WaveformFamily.arbitrary:
@@ -357,6 +517,7 @@ class BodePlotService extends ChangeNotifier {
     _status = BodeStatus.idle;
     _errorMessage = null;
     _currentFrequencyHz = null;
+    _currentAmplitudeVpp = null;
     _notify();
   }
 

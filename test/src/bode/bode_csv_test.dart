@@ -68,4 +68,49 @@ void main() {
     );
     expect(csv, isNot(contains('Phase (deg)')));
   });
+
+  test('writes amplitude-sweep columns', () {
+    const config = BodeConfig(
+      mode: BodeMode.amplitudeSweep,
+      sweepFrequencyHz: 1000,
+      startAmplitudeVpp: 1,
+      stopAmplitudeVpp: 2,
+      pointCount: 2,
+      amplitudeSpacing: BodeSpacing.linear,
+    );
+    final csv = buildBodeCsv(
+      config: config,
+      points: const [
+        BodePoint(
+          frequencyHz: 1000,
+          amplitudeVpp: 1,
+          vinRms: 1,
+          voutRms: 0.5,
+          vinVpp: 2,
+          voutVpp: 1,
+          gainDb: -6.0206,
+        ),
+      ],
+      deviceName: 'scope',
+      generatorIdentity: 'gen',
+    );
+
+    expect(csv, contains('# Mode: amplitude sweep'));
+    expect(csv, contains('# Start amplitude (Vpp): 1.0'));
+    expect(csv, contains('# Stop amplitude (Vpp): 2.0'));
+    expect(
+      csv,
+      contains(
+        'Amplitude (Vpp),Vin Vpp (V),Vout Vpp (V),Vin Rms (V),'
+        'Vout Rms (V),Gain (dB),Vpp/Vrms,Valid,Note',
+      ),
+    );
+    expect(
+      csv,
+      contains(
+        '1.000000,2.000000,1.000000,1.000000,0.500000,-6.020600,2.000000,1,',
+      ),
+    );
+    expect(csv, isNot(contains('Phase (deg)')));
+  });
 }

@@ -10,6 +10,8 @@ class BodeReading {
   const BodeReading({
     this.vinRms,
     this.voutRms,
+    this.vinVpp,
+    this.voutVpp,
     this.phaseDeg,
     this.delaySeconds,
     this.phaseSource = BodePhaseSource.none,
@@ -19,6 +21,11 @@ class BodeReading {
 
   final double? vinRms;
   final double? voutRms;
+
+  /// Peak-to-peak voltages; only populated when the read requested them.
+  final double? vinVpp;
+  final double? voutVpp;
+
   final double? phaseDeg;
   final double? delaySeconds;
   final BodePhaseSource phaseSource;
@@ -49,11 +56,18 @@ abstract class BodeScope {
   });
 
   /// Measures one point. [frequencyHz] is used by the waveform fallback.
+  ///
+  /// Set [measureVpp] to also read the peak-to-peak voltages, which the
+  /// amplitude sweep records alongside the RMS values. An amplitude sweep
+  /// passes the generator setpoint as [expectedVinVpp] so the scope input is
+  /// scaled before the reading instead of clipping at higher amplitudes.
   Future<BodeReading> read({
     required int vinChannel,
     required int voutChannel,
     required double frequencyHz,
     required bool measurePhase,
+    bool measureVpp = false,
+    double? expectedVinVpp,
   });
 
   /// Re-runs the scope auto-setup (used after an out-of-range reading).

@@ -68,4 +68,31 @@ void main() {
     expect(copied.reportName, 'RC low-pass');
     expect(copied.pointCount, 5);
   });
+
+  test('generatePdf supports an amplitude sweep', () async {
+    final bytes = await BodeReport.generatePdf(
+      config: const BodeConfig(
+        mode: BodeMode.amplitudeSweep,
+        sweepFrequencyHz: 1000,
+        startAmplitudeVpp: 0.5,
+        stopAmplitudeVpp: 2,
+        pointCount: 3,
+      ),
+      points: const [
+        BodePoint(
+          frequencyHz: 1000,
+          amplitudeVpp: 0.5,
+          vinRms: 1,
+          voutRms: 0.5,
+          vinVpp: 2,
+          voutVpp: 1,
+          gainDb: -6.02,
+        ),
+      ],
+      chartImageBytes: _tinyPng,
+    );
+
+    expect(bytes, isNotEmpty);
+    expect(String.fromCharCodes(bytes.take(4)), '%PDF');
+  });
 }

@@ -14,6 +14,10 @@ class FakeBodeScope implements BodeScope {
   /// Optional per-read Vin values; consumed before [vinRms].
   final List<double> vinSequence = <double>[];
   double voutRms = 0.5;
+  double? vinVpp = 2.0;
+  double? voutVpp = 1.0;
+  int vppReadCalls = 0;
+  double? lastExpectedVinVpp;
   double? phaseDeg = -45;
   bool outOfRangeOnce = false;
   Duration readDelay = Duration.zero;
@@ -33,9 +37,13 @@ class FakeBodeScope implements BodeScope {
     required int voutChannel,
     required double frequencyHz,
     required bool measurePhase,
+    bool measureVpp = false,
+    double? expectedVinVpp,
   }) async {
     readCalls++;
     frequencies.add(frequencyHz);
+    if (measureVpp) vppReadCalls++;
+    lastExpectedVinVpp = expectedVinVpp;
     if (readDelay > Duration.zero) {
       await Future<void>.delayed(readDelay);
     }
@@ -48,6 +56,8 @@ class FakeBodeScope implements BodeScope {
     return BodeReading(
       vinRms: vin,
       voutRms: voutRms,
+      vinVpp: measureVpp ? vinVpp : null,
+      voutVpp: measureVpp ? voutVpp : null,
       phaseDeg: phase,
       delaySeconds: phase == null ? null : -phase / (360.0 * frequencyHz),
       phaseSource: phase == null ? BodePhaseSource.none : BodePhaseSource.mead,

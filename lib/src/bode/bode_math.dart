@@ -30,6 +30,49 @@ String? bodeBelowThresholdNote(double? vinRms, double? voutRms) {
   return null;
 }
 
+/// Builds the amplitude points for an amplitude sweep in Vpp.
+///
+/// Throws [ArgumentError] for invalid start/stop/count combinations; the UI
+/// should call [validateBodeConfig] first to show a friendly message.
+List<double> buildAmplitudePoints(BodeConfig config) {
+  if (config.pointCount < 2) {
+    throw ArgumentError.value(
+      config.pointCount,
+      'pointCount',
+      'Must be at least 2',
+    );
+  }
+  final start = config.startAmplitudeVpp;
+  final stop = config.stopAmplitudeVpp;
+  if (!start.isFinite || start < 0) {
+    throw ArgumentError.value(start, 'startAmplitudeVpp', 'Must be >= 0');
+  }
+  if (!stop.isFinite || stop <= start) {
+    throw ArgumentError.value(
+      stop,
+      'stopAmplitudeVpp',
+      'Must be greater than startAmplitudeVpp',
+    );
+  }
+  if (config.amplitudeSpacing == BodeSpacing.logarithmic && start <= 0) {
+    throw ArgumentError.value(
+      start,
+      'startAmplitudeVpp',
+      'Must be > 0 for logarithmic spacing',
+    );
+  }
+
+  final points = <double>[];
+  for (var index = 0; index < config.pointCount; index++) {
+    final t = index / (config.pointCount - 1);
+    final amplitude = config.amplitudeSpacing == BodeSpacing.logarithmic
+        ? start * math.pow(stop / start, t)
+        : start + (stop - start) * t;
+    points.add(amplitude.toDouble());
+  }
+  return points;
+}
+
 /// Builds the frequency points for a sweep.
 ///
 /// Throws [ArgumentError] for invalid start/stop/count combinations; the UI
@@ -93,27 +136,8 @@ double? bodeGainDb(double? vinRms, double? voutRms) {
 
 /// Returns a human-readable validation error, or null when the config is valid.
 String? validateBodeConfig(BodeConfig config, Jds6600DeviceInfo? info) {
-  final start = config.startFrequencyHz;
-  final stop = config.stopFrequencyHz;
-
-  if (!start.isFinite || start <= 0) {
-    return 'Start frequency must be greater than 0 Hz.';
-  }
-  if (!stop.isFinite || stop <= start) {
-    return 'Stop frequency must be greater than the start frequency.';
-  }
   if (config.pointCount < 2 || config.pointCount > 500) {
     return 'Point count must be between 2 and 500.';
-  }
-  if (!config.amplitudeVpp.isFinite || config.amplitudeVpp < 0) {
-    return 'Amplitude must not be negative.';
-  }
-  final limits = info?.limits ?? SiggenLimits.jds6600;
-  if (!config.offsetV.isFinite ||
-      config.offsetV < limits.minOffsetV ||
-      config.offsetV > limits.maxOffsetV) {
-    return 'Offset must be between '
-        '${limits.minOffsetV} and ${limits.maxOffsetV} V.';
   }
   if (config.settling.isNegative) {
     return 'Settling time must not be negative.';
@@ -141,6 +165,36 @@ String? validateBodeConfig(BodeConfig config, Jds6600DeviceInfo? info) {
     return 'Generator channel must be CH1 or CH2.';
   }
 
+  if (config.mode == BodeMode.amplitudeSweep) {
+    return _validateAmplitudeSweepConfig(config, info);
+  }
+  return _validateFrequencySweepConfig(config, info);
+}
+
+String? _validateFrequencySweepConfig(
+  BodeConfig config,
+  Jds6600DeviceInfo? info,
+) {
+  final start = config.startFrequencyHz;
+  final stop = config.stopFrequencyHz;
+
+  if (!start.isFinite || start <= 0) {
+    return 'Start frequency must be greater than 0 Hz.';
+  }
+  if (!stop.isFinite || stop <= start) {
+    return 'Stop frequency must be greater than the start frequency.';
+  }
+  if (!config.amplitudeVpp.isFinite || config.amplitudeVpp < 0) {
+    return 'Amplitude must not be negative.';
+  }
+  final limits = info?.limits ?? SiggenLimits.jds6600;
+  if (!config.offsetV.isFinite ||
+      config.offsetV < limits.minOffsetV ||
+      config.offsetV > limits.maxOffsetV) {
+    return 'Offset must be between '
+        '${limits.minOffsetV} and ${limits.maxOffsetV} V.';
+  }
+
   if (info != null) {
     if (start < info.limits.minFrequencyHz) {
       return 'Start frequency (${formatFrequencyHz(start)}) is below the '
@@ -159,6 +213,68 @@ String? validateBodeConfig(BodeConfig config, Jds6600DeviceInfo? info) {
         Fy6900Protocol.validateOffsetAtFrequency(info, stop, config.offsetV);
       } else {
         Jds6600Protocol.validateAmplitude(info, stop, config.amplitudeVpp);
+        Jds6600Protocol.validateOffset(config.offsetV);
+      }
+    } on Jds6600RangeException catch (e) {
+      return e.message;
+    }
+  }
+  return null;
+}
+
+String? _validateAmplitudeSweepConfig(
+  BodeConfig config,
+  Jds6600DeviceInfo? info,
+) {
+  final frequency = config.sweepFrequencyHz;
+  final start = config.startAmplitudeVpp;
+  final stop = config.stopAmplitudeVpp;
+
+  if (!frequency.isFinite || frequency <= 0) {
+    return 'Sweep frequency must be greater than 0 Hz.';
+  }
+  if (!start.isFinite || start < 0) {
+    return 'Start amplitude must not be negative.';
+  }
+  if (!stop.isFinite || stop <= start) {
+    return 'Stop amplitude must be greater than the start amplitude.';
+  }
+  if (config.amplitudeSpacing == BodeSpacing.logarithmic && start <= 0) {
+    return 'Start amplitude must be greater than 0 Vpp for logarithmic '
+        'spacing.';
+  }
+  final limits = info?.limits ?? SiggenLimits.jds6600;
+  if (!config.offsetV.isFinite ||
+      config.offsetV < limits.minOffsetV ||
+      config.offsetV > limits.maxOffsetV) {
+    return 'Offset must be between '
+        '${limits.minOffsetV} and ${limits.maxOffsetV} V.';
+  }
+
+  if (info != null) {
+    if (frequency < info.limits.minFrequencyHz) {
+      return 'Sweep frequency (${formatFrequencyHz(frequency)}) is below the '
+          '${info.modelName} minimum of '
+          '${info.limits.minFrequencyHz.toStringAsFixed(6)} Hz.';
+    }
+    final maxFrequency = info.maxFrequencyHz(config.waveform);
+    if (frequency > maxFrequency) {
+      return 'Sweep frequency (${formatFrequencyHz(frequency)}) exceeds the '
+          '${config.waveform.displayNameFor(info.family)} limit of '
+          '${formatFrequencyHz(maxFrequency)} for ${info.modelName}.';
+    }
+    try {
+      if (info.family == SiggenFamily.fy6900) {
+        Fy6900Protocol.validateAmplitude(info, frequency, start);
+        Fy6900Protocol.validateAmplitude(info, frequency, stop);
+        Fy6900Protocol.validateOffsetAtFrequency(
+          info,
+          frequency,
+          config.offsetV,
+        );
+      } else {
+        Jds6600Protocol.validateAmplitude(info, frequency, start);
+        Jds6600Protocol.validateAmplitude(info, frequency, stop);
         Jds6600Protocol.validateOffset(config.offsetV);
       }
     } on Jds6600RangeException catch (e) {
@@ -189,14 +305,15 @@ double? parseLastNumber(String raw) {
   return value;
 }
 
-/// Extracts the RMS value belonging to [channel] from a PAVA response.
+/// Extracts the value belonging to [channel] and [measurement] from a PAVA
+/// response.
 ///
 /// The response format is e.g. `C1:PAVA RMS,3.424000E-01V`. Requiring the
 /// channel and measurement in the response prevents stale or foreign
 /// responses from being interpreted as a voltage.
-double? parsePavaRms(String raw, int channel) {
+double? parsePavaValue(String raw, int channel, String measurement) {
   final match = RegExp(
-    'C$channel\\s*:\\s*PAVA\\s+RMS\\s*,?\\s*'
+    'C$channel\\s*:\\s*PAVA\\s+${RegExp.escape(measurement)}\\s*,?\\s*'
     r'([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)',
     caseSensitive: false,
   ).firstMatch(raw);
@@ -204,6 +321,10 @@ double? parsePavaRms(String raw, int channel) {
   final value = double.tryParse(match.group(1)!);
   return value != null && value.isFinite ? value : null;
 }
+
+/// Extracts the RMS value belonging to [channel] from a PAVA response.
+double? parsePavaRms(String raw, int channel) =>
+    parsePavaValue(raw, channel, 'RMS');
 
 /// Extracts the phase value from `C1-C2:MEAD? PHA` responses.
 ///
@@ -228,6 +349,12 @@ String formatFrequencyHz(double hz) {
   if (hz >= 1e6) return '${_trim(hz / 1e6)} MHz';
   if (hz >= 1e3) return '${_trim(hz / 1e3)} kHz';
   return '${_trim(hz)} Hz';
+}
+
+/// Compact amplitude label in Vpp, e.g. `1.5 Vpp`.
+String formatAmplitudeVpp(double vpp) {
+  if (!vpp.isFinite) return '—';
+  return '${_trim(vpp)} Vpp';
 }
 
 String _trim(double value) {

@@ -45,6 +45,58 @@ void main() {
     });
   });
 
+  group('amplitude points', () {
+    test('linear endpoints and midpoint', () {
+      const config = BodeConfig(
+        mode: BodeMode.amplitudeSweep,
+        startAmplitudeVpp: 1,
+        stopAmplitudeVpp: 5,
+        pointCount: 3,
+        amplitudeSpacing: BodeSpacing.linear,
+      );
+      expect(buildAmplitudePoints(config), [1, 3, 5]);
+    });
+
+    test('logarithmic endpoints and midpoint', () {
+      const config = BodeConfig(
+        mode: BodeMode.amplitudeSweep,
+        startAmplitudeVpp: 1,
+        stopAmplitudeVpp: 100,
+        pointCount: 3,
+        amplitudeSpacing: BodeSpacing.logarithmic,
+      );
+      final points = buildAmplitudePoints(config);
+      expect(points.length, 3);
+      expect(points.first, closeTo(1, 1e-9));
+      expect(points[1], closeTo(10, 1e-6));
+      expect(points.last, closeTo(100, 1e-6));
+    });
+
+    test('rejects invalid ranges', () {
+      expect(
+        () => buildAmplitudePoints(
+          const BodeConfig(
+            mode: BodeMode.amplitudeSweep,
+            startAmplitudeVpp: 5,
+            stopAmplitudeVpp: 5,
+          ),
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => buildAmplitudePoints(
+          const BodeConfig(
+            mode: BodeMode.amplitudeSweep,
+            startAmplitudeVpp: 0,
+            stopAmplitudeVpp: 5,
+            amplitudeSpacing: BodeSpacing.logarithmic,
+          ),
+        ),
+        throwsArgumentError,
+      );
+    });
+  });
+
   group('phase', () {
     test('wraps into (-180, 180]', () {
       expect(wrapPhaseDeg(0), 0);
@@ -126,6 +178,43 @@ void main() {
       expect(
         validateBodeConfig(const BodeConfig(amplitudeVpp: 25), lite),
         contains('Amplitude'),
+      );
+    });
+
+    test('validates amplitude sweeps against generator limits', () {
+      const valid = BodeConfig(
+        mode: BodeMode.amplitudeSweep,
+        sweepFrequencyHz: 1000,
+        startAmplitudeVpp: 0.1,
+        stopAmplitudeVpp: 10,
+      );
+      expect(validateBodeConfig(valid, lite), isNull);
+      expect(
+        validateBodeConfig(valid.copyWith(sweepFrequencyHz: 0), lite),
+        contains('Sweep frequency'),
+      );
+      expect(
+        validateBodeConfig(valid.copyWith(stopAmplitudeVpp: 0.05), lite),
+        contains('Stop amplitude'),
+      );
+      expect(
+        validateBodeConfig(valid.copyWith(stopAmplitudeVpp: 20.1), lite),
+        contains('Amplitude'),
+      );
+      expect(
+        validateBodeConfig(valid.copyWith(sweepFrequencyHz: 20e6), lite),
+        contains('exceeds'),
+      );
+      expect(
+        validateBodeConfig(
+          valid.copyWith(
+            startAmplitudeVpp: 0,
+            stopAmplitudeVpp: 5,
+            amplitudeSpacing: BodeSpacing.logarithmic,
+          ),
+          lite,
+        ),
+        contains('logarithmic'),
       );
     });
   });
@@ -264,6 +353,15 @@ void main() {
     expect(parseLastNumber('C1:PAVA RMS,1.234E-01V'), closeTo(0.1234, 1e-9));
     expect(parseLastNumber('C1-C2:MEAD PHA,-45.0'), -45);
     expect(parseLastNumber('***'), isNull);
+  });
+
+  test('parses PAVA peak-to-peak responses', () {
+    expect(
+      parsePavaValue('C2:PAVA PKPK,3.000000E+00V', 2, 'PKPK'),
+      closeTo(3, 1e-9),
+    );
+    expect(parsePavaValue('C1:PAVA RMS,1.234E-01V', 1, 'PKPK'), isNull);
+    expect(parsePavaRms('C1:PAVA RMS,1.234E-01V', 1), closeTo(0.1234, 1e-9));
   });
 
   test('formats frequency labels', () {

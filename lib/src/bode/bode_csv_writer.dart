@@ -12,17 +12,27 @@ String buildBodeCsv({
 }) {
   final buffer = StringBuffer();
   final timestamp = (savedAt ?? DateTime.now()).toIso8601String();
+  final amplitudeSweep = config.mode == BodeMode.amplitudeSweep;
 
   buffer.writeln('# SDS-Remote Bode Plot');
+  buffer.writeln('# Mode: ${amplitudeSweep ? 'amplitude' : 'frequency'} sweep');
   buffer.writeln('# Saved: $timestamp');
   buffer.writeln('# Scope: $deviceName');
   buffer.writeln('# Generator: $generatorIdentity');
-  buffer.writeln('# Start (Hz): ${config.startFrequencyHz}');
-  buffer.writeln('# Stop (Hz): ${config.stopFrequencyHz}');
+  if (amplitudeSweep) {
+    buffer.writeln('# Frequency (Hz): ${config.sweepFrequencyHz}');
+    buffer.writeln('# Start amplitude (Vpp): ${config.startAmplitudeVpp}');
+    buffer.writeln('# Stop amplitude (Vpp): ${config.stopAmplitudeVpp}');
+    buffer.writeln('# Spacing: ${config.amplitudeSpacing.name}');
+    buffer.writeln('# Offset (V): ${config.offsetV}');
+  } else {
+    buffer.writeln('# Start (Hz): ${config.startFrequencyHz}');
+    buffer.writeln('# Stop (Hz): ${config.stopFrequencyHz}');
+    buffer.writeln('# Spacing: ${config.spacing.name}');
+    buffer.writeln('# Amplitude (Vpp): ${config.amplitudeVpp}');
+    buffer.writeln('# Offset (V): ${config.offsetV}');
+  }
   buffer.writeln('# Points: ${config.pointCount}');
-  buffer.writeln('# Spacing: ${config.spacing.name}');
-  buffer.writeln('# Amplitude (Vpp): ${config.amplitudeVpp}');
-  buffer.writeln('# Offset (V): ${config.offsetV}');
   buffer.writeln('# Waveform: ${config.waveform.scpiMnemonic}');
   buffer.writeln('# Vin channel: CH${config.vinChannel}');
   buffer.writeln('# Vout channel: CH${config.voutChannel}');
@@ -33,12 +43,13 @@ String buildBodeCsv({
   );
 
   final columns = <String>[
-    'Frequency (Hz)',
-    'Vin Rms (V)',
-    'Vout Rms (V)',
-    'Gain (dB)',
+    if (amplitudeSweep) ...['Amplitude (Vpp)', 'Vin Vpp (V)', 'Vout Vpp (V)'],
+    if (amplitudeSweep) ...['Vin Rms (V)', 'Vout Rms (V)', 'Gain (dB)'],
+    if (amplitudeSweep) 'Vpp/Vrms',
+    if (!amplitudeSweep) ...['Frequency (Hz)', 'Vin Rms (V)', 'Vout Rms (V)'],
+    if (!amplitudeSweep) 'Gain (dB)',
   ];
-  if (config.measurePhase) {
+  if (!amplitudeSweep && config.measurePhase) {
     columns.addAll(['Phase (deg)', 'Phase Source', 'Delay (s)']);
   }
   columns.addAll(['Valid', 'Note']);
@@ -46,12 +57,23 @@ String buildBodeCsv({
 
   for (final point in points) {
     final row = <String>[
-      _number(point.frequencyHz, 6),
-      _number(point.vinRms, 6),
-      _number(point.voutRms, 6),
-      _number(point.gainDb, 6),
+      if (amplitudeSweep) ...[
+        _number(point.amplitudeVpp, 6),
+        _number(point.vinVpp, 6),
+        _number(point.voutVpp, 6),
+        _number(point.vinRms, 6),
+        _number(point.voutRms, 6),
+        _number(point.gainDb, 6),
+        _number(point.voutVppRmsRatio, 6),
+      ],
+      if (!amplitudeSweep) ...[
+        _number(point.frequencyHz, 6),
+        _number(point.vinRms, 6),
+        _number(point.voutRms, 6),
+        _number(point.gainDb, 6),
+      ],
     ];
-    if (config.measurePhase) {
+    if (!amplitudeSweep && config.measurePhase) {
       row.addAll([
         _number(point.phaseDeg, 6),
         point.phaseSource.name,
