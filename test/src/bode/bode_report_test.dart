@@ -95,4 +95,48 @@ void main() {
     expect(bytes, isNotEmpty);
     expect(String.fromCharCodes(bytes.take(4)), '%PDF');
   });
+
+  test('includes a detail table for 50 amplitude points', () async {
+    final points = <BodePoint>[
+      for (var index = 0; index < 50; index++)
+        BodePoint(
+          frequencyHz: 1000,
+          amplitudeVpp: 0.1 + index * 0.05,
+          vinVpp: 0.2 + index * 0.1,
+          voutVpp: 0.1 + index * 0.05,
+          vinRms: (0.2 + index * 0.1) / 2.828,
+          voutRms: (0.1 + index * 0.05) / 2.828,
+          gainDb: -6,
+          valid: index != 7,
+          note: index == 7
+              ? 'Vout below 5 mV, check wiring and probe attenuation'
+              : null,
+        ),
+    ];
+
+    final bytes = await BodeReport.generatePdf(
+      config: const BodeConfig(
+        mode: BodeMode.amplitudeSweep,
+        startAmplitudeVpp: 0.1,
+        stopAmplitudeVpp: 2.55,
+        pointCount: 50,
+      ),
+      points: points,
+      chartImageBytes: _tinyPng,
+    );
+
+    expect(bytes, isNotEmpty);
+    expect(String.fromCharCodes(bytes.take(4)), '%PDF');
+  });
+
+  test('includes phase details for frequency points', () async {
+    final bytes = await BodeReport.generatePdf(
+      config: const BodeConfig(measurePhase: true, pointCount: 3),
+      points: points,
+      chartImageBytes: _tinyPng,
+    );
+
+    expect(bytes, isNotEmpty);
+    expect(String.fromCharCodes(bytes.take(4)), '%PDF');
+  });
 }

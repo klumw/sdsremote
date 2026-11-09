@@ -42,6 +42,13 @@ List<double> buildAmplitudePoints(BodeConfig config) {
       'Must be at least 2',
     );
   }
+  if (config.pointCount > 50) {
+    throw ArgumentError.value(
+      config.pointCount,
+      'pointCount',
+      'Must be at most 50',
+    );
+  }
   final start = config.startAmplitudeVpp;
   final stop = config.stopAmplitudeVpp;
   if (!start.isFinite || start < 0) {
@@ -83,6 +90,13 @@ List<double> buildFrequencyPoints(BodeConfig config) {
       config.pointCount,
       'pointCount',
       'Must be at least 2',
+    );
+  }
+  if (config.pointCount > 50) {
+    throw ArgumentError.value(
+      config.pointCount,
+      'pointCount',
+      'Must be at most 50',
     );
   }
   final start = config.startFrequencyHz;
@@ -136,8 +150,8 @@ double? bodeGainDb(double? vinRms, double? voutRms) {
 
 /// Returns a human-readable validation error, or null when the config is valid.
 String? validateBodeConfig(BodeConfig config, Jds6600DeviceInfo? info) {
-  if (config.pointCount < 2 || config.pointCount > 500) {
-    return 'Point count must be between 2 and 500.';
+  if (config.pointCount < 2 || config.pointCount > 50) {
+    return 'Point count must be between 2 and 50.';
   }
   if (config.settling.isNegative) {
     return 'Settling time must not be negative.';

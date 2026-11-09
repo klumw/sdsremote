@@ -18,6 +18,19 @@ import '../signal_generator/models.dart';
 import 'bode_analysis.dart';
 import 'bode_models.dart';
 
+/// Table cell carrying its numeric value and validity so the renderer can
+/// highlight the per-column maximum and minimum.
+class _PointCell {
+  const _PointCell(this.text, this.value, {required this.valid});
+
+  final String text;
+  final double? value;
+  final bool valid;
+
+  @override
+  String toString() => text;
+}
+
 /// Generates a PDF report for a completed Bode sweep.
 class BodeReport {
   BodeReport._();
@@ -40,6 +53,7 @@ class BodeReport {
     final pdf = pw.Document();
     final chartImage = pw.MemoryImage(chartImageBytes);
     final analysis = analyzeBode(points);
+    final pointExtrema = _columnExtrema(config, points);
 
     pdf.addPage(
       pw.MultiPage(
@@ -50,7 +64,7 @@ class BodeReport {
           pw.Center(
             child: pw.Text(
               config.mode == BodeMode.amplitudeSweep
-                  ? 'Bode Plot Report — Amplitude Sweep'
+                  ? 'Bode Plot Report - Amplitude Sweep'
                   : 'Bode Plot Report',
               style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold),
             ),
@@ -127,6 +141,40 @@ class BodeReport {
           ),
           pw.SizedBox(height: 24),
 
+          // ---- Measurement Points ----
+          pw.Header(
+            text: 'Measurement Points',
+            level: 1,
+            textStyle: pw.TextStyle(
+              fontSize: 16,
+              fontWeight: pw.FontWeight.bold,
+            ),
+          ),
+          pw.SizedBox(height: 12),
+          if (points.isEmpty)
+            pw.Text('No measurement points.')
+          else
+            pw.TableHelper.fromTextArray(
+              headerStyle: pw.TextStyle(
+                fontWeight: pw.FontWeight.bold,
+                fontSize: 7,
+              ),
+              cellStyle: const pw.TextStyle(fontSize: 7),
+              headerAlignment: pw.Alignment.centerLeft,
+              cellAlignment: pw.Alignment.centerLeft,
+              cellPadding: const pw.EdgeInsets.symmetric(
+                horizontal: 2,
+                vertical: 2,
+              ),
+              defaultColumnWidth: const pw.FlexColumnWidth(1),
+              columnWidths: _pointColumnWidths(config),
+              textStyleBuilder: (column, data, rowNum) =>
+                  _pointCellStyle(column, data, pointExtrema),
+              headers: _buildPointHeaders(config),
+              data: _buildPointRows(config, points),
+            ),
+          pw.SizedBox(height: 24),
+
           // ---- Automatic Analysis ----
           // The frequency-domain analysis (peak, -3 dB, bandwidth, Q factor)
           // only applies to a frequency sweep.
@@ -160,6 +208,194 @@ class BodeReport {
     );
 
     return pdf.save();
+  }
+
+  /// Column widths of the per-point detail table.
+  static Map<int, pw.TableColumnWidth> _pointColumnWidths(BodeConfig config) {
+    final columnCount = _buildPointHeaders(config).length;
+    return {
+      0: const pw.FlexColumnWidth(0.4),
+      columnCount - 2: const pw.FlexColumnWidth(0.7),
+      columnCount - 1: const pw.FlexColumnWidth(3),
+    };
+  }
+
+  /// Column headers of the per-point detail table.
+  static List<String> _buildPointHeaders(BodeConfig config) {
+    if (config.mode == BodeMode.amplitudeSweep) {
+      return const [
+        '#',
+        'Amplitude (Vpp)',
+        'Gain (dB)',
+        'Vin Vpp (V)',
+        'Vout Vpp (V)',
+        'Vin Vrms (V)',
+        'Vout Vrms (V)',
+        'Vpp/Vrms',
+        'Valid',
+        'Note',
+      ];
+    }
+    return [
+      '#',
+      'Frequency',
+      'Vin Rms (V)',
+      'Vout Rms (V)',
+      'Gain (dB)',
+      if (config.measurePhase) 'Phase (deg)',
+      'Valid',
+      'Note',
+    ];
+  }
+
+  /// Builds one row per measurement point, including invalid points and
+  /// their diagnostic note.
+  static List<List<dynamic>> _buildPointRows(
+    BodeConfig config,
+    List<BodePoint> points,
+  ) {
+    final rows = <List<dynamic>>[];
+    for (var index = 0; index < points.length; index++) {
+      final point = points[index];
+      final valid = point.valid;
+      if (config.mode == BodeMode.amplitudeSweep) {
+        rows.add([
+          '${index + 1}',
+          _PointCell(
+            _fmtNumber(point.amplitudeVpp ?? double.nan),
+            point.amplitudeVpp,
+            valid: valid,
+          ),
+          _PointCell(
+            _fmtNumber(point.gainDb ?? double.nan),
+            point.gainDb,
+            valid: valid,
+          ),
+          _PointCell(
+            _fmtNumber(point.vinVpp ?? double.nan),
+            point.vinVpp,
+            valid: valid,
+          ),
+          _PointCell(
+            _fmtNumber(point.voutVpp ?? double.nan),
+            point.voutVpp,
+            valid: valid,
+          ),
+          _PointCell(
+            _fmtNumber(point.vinRms ?? double.nan),
+            point.vinRms,
+            valid: valid,
+          ),
+          _PointCell(
+            _fmtNumber(point.voutRms ?? double.nan),
+            point.voutRms,
+            valid: valid,
+          ),
+          _PointCell(
+            _fmtNumber(point.voutVppRmsRatio ?? double.nan),
+            point.voutVppRmsRatio,
+            valid: valid,
+          ),
+          valid ? 'yes' : 'no',
+          point.note ?? '',
+        ]);
+      } else {
+        rows.add([
+          '${index + 1}',
+          _PointCell(
+            _fmtFrequency(point.frequencyHz),
+            point.frequencyHz,
+            valid: valid,
+          ),
+          _PointCell(
+            _fmtNumber(point.vinRms ?? double.nan),
+            point.vinRms,
+            valid: valid,
+          ),
+          _PointCell(
+            _fmtNumber(point.voutRms ?? double.nan),
+            point.voutRms,
+            valid: valid,
+          ),
+          _PointCell(
+            _fmtNumber(point.gainDb ?? double.nan),
+            point.gainDb,
+            valid: valid,
+          ),
+          if (config.measurePhase)
+            _PointCell(
+              _fmtNumber(point.phaseDeg ?? double.nan),
+              point.phaseDeg,
+              valid: valid,
+            ),
+          valid ? 'yes' : 'no',
+          point.note ?? '',
+        ]);
+      }
+    }
+    return rows;
+  }
+
+  /// Minimum and maximum of every numeric point column, considering valid
+  /// points only. Invalid points stay in the table but do not define the
+  /// highlighted extrema.
+  static Map<int, (double, double)> _columnExtrema(
+    BodeConfig config,
+    List<BodePoint> points,
+  ) {
+    final values = <int, List<double>>{};
+    void add(int column, double? value) {
+      if (value == null || !value.isFinite) return;
+      values.putIfAbsent(column, () => <double>[]).add(value);
+    }
+
+    for (final point in points) {
+      if (!point.valid) continue;
+      if (config.mode == BodeMode.amplitudeSweep) {
+        add(1, point.amplitudeVpp);
+        add(2, point.gainDb);
+        add(3, point.vinVpp);
+        add(4, point.voutVpp);
+        add(5, point.vinRms);
+        add(6, point.voutRms);
+        add(7, point.voutVppRmsRatio);
+      } else {
+        add(1, point.frequencyHz);
+        add(2, point.vinRms);
+        add(3, point.voutRms);
+        add(4, point.gainDb);
+        if (config.measurePhase) add(5, point.phaseDeg);
+      }
+    }
+
+    return {
+      for (final entry in values.entries)
+        entry.key: (entry.value.reduce(math.min), entry.value.reduce(math.max)),
+    };
+  }
+
+  /// Green for a column maximum, red for a column minimum. Cells of invalid
+  /// points and columns with a single distinct value stay uncoloured.
+  static pw.TextStyle? _pointCellStyle(
+    int column,
+    dynamic data,
+    Map<int, (double, double)> extrema,
+  ) {
+    if (data is! _PointCell || !data.valid || data.value == null) return null;
+    final range = extrema[column];
+    if (range == null) return null;
+    final min = range.$1;
+    final max = range.$2;
+    if (max - min <= 1e-9) return null;
+
+    final value = data.value!;
+    if ((value - max).abs() <= 1e-9) {
+      return const pw.TextStyle(fontSize: 7, color: PdfColors.green800);
+    }
+    if ((value - min).abs() <= 1e-9) {
+      return const pw.TextStyle(fontSize: 7, color: PdfColors.red800);
+    }
+    return null;
   }
 
   /// Builds the table rows describing the sweep configuration.
@@ -309,8 +545,8 @@ class BodeReport {
       if (phases.isNotEmpty) {
         rows.add([
           'Phase Range',
-          '${_fmtValue(phases.reduce(math.min), '°')} to '
-              '${_fmtValue(phases.reduce(math.max), '°')}',
+          '${_fmtValue(phases.reduce(math.min), 'deg')} to '
+              '${_fmtValue(phases.reduce(math.max), 'deg')}',
         ]);
       }
     }

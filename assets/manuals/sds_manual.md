@@ -1866,7 +1866,7 @@ The Bode panel is not available when no generator is configured or no generator 
 |:------|:------------|
 | Report Name | Optional name (max. 150 characters) for the saved report. |
 | Start / Stop | Frequency range; choose Hz, kHz or MHz per field. |
-| Points | Number of sweep points (2–500). |
+| Points | Number of sweep points (2–50). |
 | Amplitude | Generator output in Vpp; limited by the model and frequency. |
 | Offset | Generator DC offset; limited by the model and frequency. |
 | Settle (ms) | Extra settling time per point; the application enforces at least three periods and 800 ms and caps the value at 5 s. |

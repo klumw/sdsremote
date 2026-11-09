@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sdsremote/src/bode/bode_models.dart';
@@ -207,6 +208,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byKey(const ValueKey('bode-mode')), findsOneWidget);
+    expect(find.text('Bode Plot — Frequency Sweep'), findsOneWidget);
     expect(find.text('Start'), findsOneWidget);
     expect(find.text('Amplitude (Vpp)'), findsOneWidget);
     expect(find.byKey(const Key('bode-sweep-purpose')), findsOneWidget);
@@ -219,7 +221,9 @@ void main() {
     expect(find.text('Frequency'), findsOneWidget);
     expect(find.text('Amplitude Start (Vpp)'), findsOneWidget);
     expect(find.text('Amplitude Stop (Vpp)'), findsOneWidget);
-    expect(find.text('Scope input'), findsOneWidget);
+    expect(find.text('Vin channel'), findsOneWidget);
+    expect(find.text('Vout channel'), findsOneWidget);
+    expect(find.text('Bode Plot — Amplitude Sweep'), findsOneWidget);
     expect(
       find.byKey(const ValueKey('bode-spacing-amplitude')),
       findsOneWidget,
@@ -302,6 +306,107 @@ void main() {
 
     expect(find.byKey(plotKey), findsOneWidget);
     expect(find.text('Bode Plot — Amplitude Sweep — Complete'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('amplitude chart shows a cursor tooltip and hides curves', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 1000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final generator = SignalGeneratorService(
+      transportFactory: (_) => FakeJds6600Transport(),
+      pollInterval: Duration.zero,
+    );
+    addTearDown(generator.shutdown);
+    final plotKey = GlobalKey();
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: BodePlotPanel(
+            getInstrument: () async => null,
+            signalGenerator: generator,
+            isOnline: true,
+            generatorDetected: true,
+            onClose: () {},
+            plotKey: plotKey,
+            savedConfig: const BodeConfig(
+              mode: BodeMode.amplitudeSweep,
+              sweepFrequencyHz: 1000,
+              startAmplitudeVpp: 0.5,
+              stopAmplitudeVpp: 2.5,
+              pointCount: 3,
+              amplitudeSpacing: BodeSpacing.linear,
+            ),
+            savedPoints: const [
+              BodePoint(
+                frequencyHz: 1000,
+                amplitudeVpp: 0.5,
+                vinRms: 0.18,
+                voutRms: 0.15,
+                vinVpp: 0.5,
+                voutVpp: 0.45,
+                gainDb: -1.4,
+              ),
+              BodePoint(
+                frequencyHz: 1000,
+                amplitudeVpp: 1.5,
+                vinRms: 0.54,
+                voutRms: 0.46,
+                vinVpp: 1.5,
+                voutVpp: 1.34,
+                gainDb: -1.4,
+              ),
+              BodePoint(
+                frequencyHz: 1000,
+                amplitudeVpp: 2.5,
+                vinRms: 0.9,
+                voutRms: 0.76,
+                vinVpp: 2.5,
+                voutVpp: 2.18,
+                gainDb: -1.4,
+              ),
+            ],
+            savedStatus: BodeStatus.completed,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Toggle a curve off and back on via its chip.
+    final chipFinder = find.byKey(const ValueKey('bode-chip-gain'));
+    expect(chipFinder, findsOneWidget);
+    Text chipText() => tester.widget<Text>(
+      find.descendant(of: chipFinder, matching: find.text('Gain (dB)')),
+    );
+    expect(chipText().style?.fontWeight, FontWeight.bold);
+    await tester.tap(chipFinder);
+    await tester.pump();
+    expect(chipText().style?.fontWeight, FontWeight.normal);
+
+    // Hover the plot centre; the nearest point is the 1.5 Vpp point.
+    final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await gesture.addPointer(location: Offset.zero);
+    addTearDown(gesture.removePointer);
+    await tester.pump();
+    await gesture.moveTo(tester.getCenter(find.byKey(plotKey)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Amplitude: 1.5 Vpp'), findsOneWidget);
+    expect(find.textContaining('Vout Vpp:'), findsOneWidget);
+    expect(find.textContaining('Vout Vrms:'), findsOneWidget);
+    expect(find.textContaining('Vpp/Vrms:'), findsOneWidget);
+    // The hidden gain curve is omitted from the tooltip as well.
+    expect(find.textContaining('Gain:'), findsNothing);
+
+    await gesture.moveTo(const Offset(1, 1));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Amplitude:'), findsNothing);
     expect(tester.takeException(), isNull);
   });
 

@@ -208,7 +208,7 @@ Tool<Map<String, dynamic>> _measureFrequencyResponse(
       'pointCount': audioIntegerProperty(
         'Number of sweep points.',
         minimum: 2,
-        maximum: 200,
+        maximum: 50,
       ),
       'useCurrentSettings': audioBooleanProperty(
         'Keep the current generator waveform, amplitude and offset and only '
@@ -632,7 +632,7 @@ Tool<Map<String, dynamic>> _measureBandwidth(
       'pointCount': audioIntegerProperty(
         'Number of sweep points.',
         minimum: 2,
-        maximum: 200,
+        maximum: 50,
       ),
     },
     handler: (args) async {
@@ -825,7 +825,7 @@ String? _validateSweep(double start, double stop, int points) {
     return 'The sweep needs 0 < startFrequencyHz < stopFrequencyHz.';
   }
   if (points < 2 || points > 200) {
-    return 'pointCount must be between 2 and 200.';
+    return 'pointCount must be between 2 and 50.';
   }
   return null;
 }

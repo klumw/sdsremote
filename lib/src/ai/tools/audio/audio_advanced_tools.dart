@@ -375,7 +375,7 @@ Tool<Map<String, dynamic>> _measurePhaseResponse(
       'pointCount': audioIntegerProperty(
         'Number of sweep points.',
         minimum: 2,
-        maximum: 200,
+        maximum: 50,
       ),
       'frequencyHz': audioNumberProperty(
         'Optional frequency at which to report the phase.',
@@ -457,7 +457,7 @@ Tool<Map<String, dynamic>> _measureGroupDelay(
       'pointCount': audioIntegerProperty(
         'Number of sweep points.',
         minimum: 2,
-        maximum: 200,
+        maximum: 50,
       ),
       'frequencyHz': audioNumberProperty(
         'Optional frequency at which to report the group delay.',
@@ -540,7 +540,7 @@ Tool<Map<String, dynamic>> _analyzeFrequencySweep(
       'pointCount': audioIntegerProperty(
         'Number of sweep points.',
         minimum: 2,
-        maximum: 200,
+        maximum: 50,
       ),
       'useCurrentSettings': audioBooleanProperty(
         'Keep the current generator waveform, amplitude and offset and only '
@@ -752,7 +752,7 @@ String? _validateSweep(double start, double stop, int points) {
     return 'The sweep needs 0 < startFrequencyHz < stopFrequencyHz.';
   }
   if (points < 2 || points > 200) {
-    return 'pointCount must be between 2 and 200.';
+    return 'pointCount must be between 2 and 50.';
   }
   return null;
 }

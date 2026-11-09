@@ -42,6 +42,10 @@ void main() {
         ),
         throwsArgumentError,
       );
+      expect(
+        () => buildFrequencyPoints(const BodeConfig(pointCount: 51)),
+        throwsArgumentError,
+      );
     });
   });
 
@@ -91,6 +95,12 @@ void main() {
             stopAmplitudeVpp: 5,
             amplitudeSpacing: BodeSpacing.logarithmic,
           ),
+        ),
+        throwsArgumentError,
+      );
+      expect(
+        () => buildAmplitudePoints(
+          const BodeConfig(mode: BodeMode.amplitudeSweep, pointCount: 51),
         ),
         throwsArgumentError,
       );
@@ -153,6 +163,10 @@ void main() {
       expect(
         validateBodeConfig(const BodeConfig(pointCount: 1), lite),
         contains('Point count'),
+      );
+      expect(
+        validateBodeConfig(const BodeConfig(pointCount: 51), lite),
+        contains('between 2 and 50'),
       );
       expect(
         validateBodeConfig(

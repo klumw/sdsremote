@@ -67,6 +67,10 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
   bool _lastRunning = false;
   String? _message;
   bool _messageIsError = false;
+  final Set<String> _hiddenAmplitudeLines = <String>{};
+  double? _hoverAmplitudeVpp;
+  double _hoverX = 0;
+  double _hoverY = 0;
 
   late final TextEditingController _startController;
   late final TextEditingController _stopController;
@@ -313,17 +317,49 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-                child: RepaintBoundary(
-                  key: widget.plotKey,
-                  child: CustomPaint(
-                    painter: _BodePlotPainter(
-                      points: _points,
-                      config: displayConfig,
-                      status: _status,
-                      analysis: analysis,
-                    ),
-                    child: const SizedBox.expand(),
-                  ),
+                child: LayoutBuilder(
+                  builder: (context, constraints) {
+                    final amplitudeSweep =
+                        displayConfig.mode == BodeMode.amplitudeSweep;
+                    return Stack(
+                      children: [
+                        MouseRegion(
+                          onHover: amplitudeSweep
+                              ? (event) => _onAmplitudeHover(
+                                  event.localPosition,
+                                  constraints,
+                                  displayConfig,
+                                )
+                              : null,
+                          onExit: amplitudeSweep
+                              ? (_) => _clearAmplitudeHover()
+                              : null,
+                          child: RepaintBoundary(
+                            key: widget.plotKey,
+                            child: CustomPaint(
+                              painter: _BodePlotPainter(
+                                points: _points,
+                                config: displayConfig,
+                                status: _status,
+                                analysis: analysis,
+                                hiddenLines: Set<String>.of(
+                                  _hiddenAmplitudeLines,
+                                ),
+                              ),
+                              child: const SizedBox.expand(),
+                            ),
+                          ),
+                        ),
+                        if (amplitudeSweep &&
+                            _hoverAmplitudeVpp != null &&
+                            _points.isNotEmpty)
+                          _buildAmplitudeHoverTooltip(
+                            constraints.maxWidth,
+                            constraints.maxHeight,
+                          ),
+                      ],
+                    );
+                  },
                 ),
               ),
             ),
@@ -338,7 +374,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
     final mode = (_runConfig ?? _draft).mode;
     final title = mode == BodeMode.amplitudeSweep
         ? 'Bode Plot — Amplitude Sweep'
-        : 'Bode Plot';
+        : 'Bode Plot — Frequency Sweep';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
       decoration: const BoxDecoration(
@@ -565,7 +601,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
       initialValue: _draft.vinChannel,
       isExpanded: true,
       dropdownColor: const Color(0xFF1E1E1E),
-      decoration: _decoration('Scope input'),
+      decoration: _decoration('Vin channel'),
       items: const [
         DropdownMenuItem(value: 1, child: Text('CH1')),
         DropdownMenuItem(value: 2, child: Text('CH2')),
@@ -585,7 +621,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
   /// Read-only display of the scope output channel paired with the input.
   Widget _buildVoutDisplay() {
     return InputDecorator(
-      decoration: _decoration('Vout'),
+      decoration: _decoration('Vout channel'),
       child: Text(
         'CH${_draft.voutChannel}',
         style: const TextStyle(color: Colors.white70, fontSize: 13),
@@ -1029,6 +1065,173 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
     );
   }
 
+  /// Maps the mouse position onto the amplitude axis and stores the hovered
+  /// amplitude for the cursor tooltip.
+  void _onAmplitudeHover(
+    Offset local,
+    BoxConstraints constraints,
+    BodeConfig config,
+  ) {
+    final plotWidth = constraints.maxWidth - _ampPlotLeft - _ampPlotRight;
+    final plotHeight = constraints.maxHeight - _ampPlotTop - _ampPlotBottom;
+    if (plotWidth <= 0 || plotHeight <= 0) return;
+    final inside =
+        local.dx >= _ampPlotLeft &&
+        local.dx <= _ampPlotLeft + plotWidth &&
+        local.dy >= _ampPlotTop &&
+        local.dy <= _ampPlotTop + plotHeight;
+    if (!inside) {
+      _clearAmplitudeHover();
+      return;
+    }
+
+    final fraction = ((local.dx - _ampPlotLeft) / plotWidth).clamp(0.0, 1.0);
+    final start = config.startAmplitudeVpp;
+    final stop = config.stopAmplitudeVpp;
+    final amplitude =
+        config.amplitudeSpacing == BodeSpacing.logarithmic && start > 0
+        ? start * math.pow(stop / start, fraction)
+        : start + (stop - start) * fraction;
+    setState(() {
+      _hoverAmplitudeVpp = amplitude.toDouble();
+      _hoverX = local.dx;
+      _hoverY = local.dy;
+    });
+  }
+
+  void _clearAmplitudeHover() {
+    if (_hoverAmplitudeVpp == null) return;
+    setState(() => _hoverAmplitudeVpp = null);
+  }
+
+  /// Tooltip showing the measured values of the nearest point at the cursor.
+  Widget _buildAmplitudeHoverTooltip(double width, double height) {
+    final hovered = _hoverAmplitudeVpp!;
+    BodePoint? nearest;
+    for (final point in _points) {
+      final amplitude = point.amplitudeVpp;
+      if (amplitude == null || !amplitude.isFinite) continue;
+      if (nearest == null ||
+          (amplitude - hovered).abs() <
+              (nearest.amplitudeVpp! - hovered).abs()) {
+        nearest = point;
+      }
+    }
+    if (nearest == null) return const SizedBox.shrink();
+
+    Widget row(String label, String value, Color color) =>
+        Text('$label: $value', style: TextStyle(color: color, fontSize: 11));
+
+    final rows = <Widget>[
+      Text(
+        'Amplitude: ${formatAmplitudeVpp(nearest.amplitudeVpp!)}',
+        style: const TextStyle(color: Colors.white70, fontSize: 10),
+      ),
+    ];
+    if (!_hiddenAmplitudeLines.contains('gain')) {
+      rows.add(
+        row(
+          'Gain',
+          '${nearest.gainDb?.toStringAsFixed(2) ?? '—'} dB',
+          Colors.cyanAccent,
+        ),
+      );
+    }
+    if (!_hiddenAmplitudeLines.contains('vout_vpp')) {
+      rows.add(
+        row(
+          'Vout Vpp',
+          '${_formatVoltage(nearest.voutVpp)} V',
+          Colors.greenAccent,
+        ),
+      );
+    }
+    if (!_hiddenAmplitudeLines.contains('vout_vrms')) {
+      rows.add(
+        row(
+          'Vout Vrms',
+          '${_formatVoltage(nearest.voutRms)} V',
+          Colors.orangeAccent,
+        ),
+      );
+    }
+    if (!_hiddenAmplitudeLines.contains('vpp_vrms')) {
+      rows.add(
+        row(
+          'Vpp/Vrms',
+          nearest.voutVppRmsRatio?.toStringAsFixed(2) ?? '—',
+          Colors.yellowAccent,
+        ),
+      );
+    }
+
+    const tooltipWidth = 190.0;
+    const tooltipHeight = 112.0;
+    const gap = 10.0;
+    final maxLeft = math.max(0.0, width - tooltipWidth);
+    final maxTop = math.max(0.0, height - tooltipHeight - 8);
+    final left = _hoverX >= width / 2
+        ? (_hoverX - tooltipWidth - gap).clamp(0.0, maxLeft)
+        : (_hoverX + gap).clamp(0.0, maxLeft);
+    final top = (_hoverY - tooltipHeight - 8).clamp(0.0, maxTop);
+    return Positioned(
+      left: left,
+      top: top,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: const Color(0xDD0A192F),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: const Color(0xFF475569)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: rows,
+        ),
+      ),
+    );
+  }
+
+  /// Clickable chip that hides or shows one amplitude-sweep curve.
+  Widget _amplitudeChip(String label, String id, Color color) {
+    final hidden = _hiddenAmplitudeLines.contains(id);
+    return GestureDetector(
+      key: ValueKey('bode-chip-$id'),
+      onTap: () {
+        setState(() {
+          if (hidden) {
+            _hiddenAmplitudeLines.remove(id);
+          } else {
+            _hiddenAmplitudeLines.add(id);
+          }
+        });
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: hidden
+              ? const Color(0xFF172A45).withValues(alpha: 0.3)
+              : color.withValues(alpha: 0.15),
+          borderRadius: BorderRadius.circular(4),
+          border: Border.all(
+            color: hidden
+                ? const Color(0xFF475569).withValues(alpha: 0.3)
+                : color.withValues(alpha: 0.5),
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: hidden ? FontWeight.normal : FontWeight.bold,
+            color: hidden ? Colors.white38 : Colors.white,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildRunningState(BodeAnalysisSummary analysis) {
     final service = _service;
     final config = _runConfig ?? _draft;
@@ -1094,6 +1297,23 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                       fontFamily: 'monospace',
                     ),
                   ),
+              ],
+              if (amplitudeSweep) ...[
+                const SizedBox(height: 6),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    _amplitudeChip('Gain (dB)', 'gain', Colors.cyanAccent),
+                    _amplitudeChip('Vout Vpp', 'vout_vpp', Colors.greenAccent),
+                    _amplitudeChip(
+                      'Vout Vrms',
+                      'vout_vrms',
+                      Colors.orangeAccent,
+                    ),
+                    _amplitudeChip('Vpp/Vrms', 'vpp_vrms', Colors.yellowAccent),
+                  ],
+                ),
               ],
               if (analysis.hasData) _buildAnalysisSummary(analysis),
             ],
@@ -1292,21 +1512,32 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
   }
 }
 
-/// One stacked chart of the amplitude sweep.
+/// Plot margins of the single amplitude-sweep chart. Shared with the hover
+/// mapping in the panel so the cursor position matches the painted axis.
+const double _ampPlotLeft = 75;
+const double _ampPlotRight = 75;
+const double _ampPlotTop = 34;
+const double _ampPlotBottom = 42;
+
+enum _AmplitudeAxis { voltage, ratio, gain }
+
+/// One curve of the amplitude-sweep chart.
 class _AmplitudeSeries {
   const _AmplitudeSeries({
+    required this.id,
     required this.label,
     required this.color,
     required this.value,
-    this.ticks,
+    required this.axis,
   });
+
+  /// Identifier used for hiding the curve and in the legend.
+  final String id;
 
   final String label;
   final Color color;
   final double? Function(BodePoint point) value;
-
-  /// Fixed y-axis ticks, or null to derive them from the measured values.
-  final List<double>? ticks;
+  final _AmplitudeAxis axis;
 }
 
 class _BodePlotPainter extends CustomPainter {
@@ -1315,12 +1546,14 @@ class _BodePlotPainter extends CustomPainter {
     required this.config,
     required this.status,
     required this.analysis,
+    required this.hiddenLines,
   });
 
   final List<BodePoint> points;
   final BodeConfig config;
   final BodeStatus status;
   final BodeAnalysisSummary analysis;
+  final Set<String> hiddenLines;
 
   static const double _left = 72;
   static const double _right = 20;
@@ -1336,7 +1569,7 @@ class _BodePlotPainter extends CustomPainter {
     );
 
     if (config.mode == BodeMode.amplitudeSweep) {
-      _paintAmplitudeCharts(canvas, size);
+      _paintAmplitudeChart(canvas, size);
       return;
     }
 
@@ -1384,169 +1617,314 @@ class _BodePlotPainter extends CustomPainter {
     }
   }
 
-  /// Draws gain, Vpp, Vrms and Vpp/Vrms as stacked charts over the generator
-  /// amplitude. All charts share the bottom amplitude axis.
-  void _paintAmplitudeCharts(Canvas canvas, Size size) {
-    final chartWidth = size.width - _left - _right;
-    const chartCount = 4;
-    final chartHeight =
-        (size.height - _top - _bottom - _gap * (chartCount - 1)) / chartCount;
-    if (chartWidth <= 0 || chartHeight <= 0) return;
+  /// Draws all amplitude-sweep curves in one chart, Data-Logger style.
+  ///
+  /// Voout Vpp and Vout Vrms use the left voltage axis, Vpp/Vrms the right
+  /// axis and Gain (dB) an inner-left axis. Curves whose id is in
+  /// [hiddenLines] are skipped.
+  void _paintAmplitudeChart(Canvas canvas, Size size) {
+    final plotRect = Rect.fromLTWH(
+      _ampPlotLeft,
+      _ampPlotTop,
+      size.width - _ampPlotLeft - _ampPlotRight,
+      size.height - _ampPlotTop - _ampPlotBottom,
+    );
+    if (plotRect.width <= 0 || plotRect.height <= 0) return;
 
     final start = config.startAmplitudeVpp;
     final stop = config.stopAmplitudeVpp;
+    final axisValid = config.amplitudeSpacing == BodeSpacing.logarithmic
+        ? start > 0 && stop > start
+        : start >= 0 && stop > start;
+    if (!axisValid) return;
+
     final series = <_AmplitudeSeries>[
       _AmplitudeSeries(
+        id: 'gain',
         label: 'Gain (dB)',
         color: Colors.cyanAccent,
         value: (point) => point.gainDb,
-        ticks: _gainTicks(),
+        axis: _AmplitudeAxis.gain,
       ),
       _AmplitudeSeries(
-        label: 'Vout Vpp (V)',
+        id: 'vout_vpp',
+        label: 'Vout Vpp',
         color: Colors.greenAccent,
         value: (point) => point.voutVpp,
+        axis: _AmplitudeAxis.voltage,
       ),
       _AmplitudeSeries(
-        label: 'Vout Vrms (V)',
+        id: 'vout_vrms',
+        label: 'Vout Vrms',
         color: Colors.orangeAccent,
         value: (point) => point.voutRms,
+        axis: _AmplitudeAxis.voltage,
       ),
       _AmplitudeSeries(
+        id: 'vpp_vrms',
         label: 'Vpp/Vrms',
         color: Colors.yellowAccent,
         value: (point) => point.voutVppRmsRatio,
+        axis: _AmplitudeAxis.ratio,
       ),
     ];
 
-    for (var index = 0; index < series.length; index++) {
-      final rect = Rect.fromLTWH(
-        _left,
-        _top + index * (chartHeight + _gap),
-        chartWidth,
-        chartHeight,
-      );
-      _drawAmplitudeChart(
-        canvas,
-        rect,
-        series[index],
-        start: start,
-        stop: stop,
-        showXAxis: index == series.length - 1,
+    final voltageValues = points
+        .where((point) => point.valid)
+        .expand((point) => [point.voutVpp, point.voutRms])
+        .whereType<double>()
+        .where((value) => value.isFinite)
+        .toList();
+    final ratioValues = points
+        .where((point) => point.valid)
+        .map((point) => point.voutVppRmsRatio)
+        .whereType<double>()
+        .where((value) => value.isFinite)
+        .toList();
+    final gainValues = points
+        .where((point) => point.valid)
+        .map((point) => point.gainDb)
+        .whereType<double>()
+        .where((value) => value.isFinite)
+        .toList();
+
+    final voltageRange = _amplitudeAxisRange(voltageValues, minSpan: 0.1);
+    final ratioRange = _amplitudeAxisRange(ratioValues, minSpan: 1.0);
+    final gainRange = _amplitudeAxisRange(gainValues, minSpan: 2.0);
+    final voltageTicks = _ticksForRange(voltageRange);
+    final ratioTicks = _ticksForRange(ratioRange);
+    final gainTicks = _ticksForRange(gainRange);
+
+    canvas.drawRect(plotRect, Paint()..color = const Color(0xFF0A192F));
+    final gridPaint = Paint()
+      ..color = Colors.white12
+      ..strokeWidth = 1;
+    // Horizontal grid follows the left voltage axis.
+    for (final tick in voltageTicks) {
+      final y = _yFor(tick, voltageRange.$1, voltageRange.$2, plotRect);
+      canvas.drawLine(
+        Offset(plotRect.left, y),
+        Offset(plotRect.right, y),
+        gridPaint,
       );
     }
+    // Vertical grid and labels follow the shared amplitude axis.
+    for (final tick in _amplitudeTicks(start, stop)) {
+      final x = _xFor(tick, start, stop, plotRect);
+      canvas.drawLine(
+        Offset(x, plotRect.top),
+        Offset(x, plotRect.bottom),
+        gridPaint,
+      );
+      _drawText(
+        canvas,
+        _formatAmplitudeTick(tick),
+        Offset(x - 22, plotRect.bottom + 8),
+        Colors.white54,
+        10,
+      );
+    }
+
+    for (final entry in series) {
+      if (hiddenLines.contains(entry.id)) continue;
+      final range = switch (entry.axis) {
+        _AmplitudeAxis.voltage => voltageRange,
+        _AmplitudeAxis.ratio => ratioRange,
+        _AmplitudeAxis.gain => gainRange,
+      };
+      _drawSeriesValues(
+        canvas,
+        plotRect,
+        start,
+        stop,
+        range.$1,
+        range.$2,
+        entry.value,
+        entry.color,
+      );
+    }
+
+    // Left voltage axis labels.
+    for (final tick in voltageTicks) {
+      final y = _yFor(tick, voltageRange.$1, voltageRange.$2, plotRect);
+      _drawTextRightAligned(
+        canvas,
+        _formatValueTick(tick),
+        Offset(plotRect.left - 4, y - 6),
+        Colors.white54,
+        10,
+      );
+    }
+    // Right Vpp/Vrms axis labels.
+    for (final tick in ratioTicks) {
+      final y = _yFor(tick, ratioRange.$1, ratioRange.$2, plotRect);
+      _drawText(
+        canvas,
+        _formatValueTick(tick),
+        Offset(plotRect.right + 4, y - 6),
+        Colors.white54,
+        10,
+      );
+    }
+    // Inner-left gain axis labels.
+    for (final tick in gainTicks) {
+      final y = _yFor(tick, gainRange.$1, gainRange.$2, plotRect);
+      _drawText(
+        canvas,
+        '${_formatDbTick(tick)}dB',
+        Offset(plotRect.left + 4, y - 6),
+        Colors.cyanAccent.withValues(alpha: 0.8),
+        10,
+      );
+    }
+
+    // Axis titles.
+    _drawText(
+      canvas,
+      'Voltage (V)',
+      Offset(4, plotRect.center.dy - 6),
+      Colors.white70,
+      10,
+    );
+    _drawTextRightAligned(
+      canvas,
+      'Vpp/Vrms',
+      Offset(size.width - 4, plotRect.center.dy - 6),
+      Colors.white70,
+      10,
+    );
+    _drawCenteredText(
+      canvas,
+      'Generator amplitude (Vpp)',
+      center: Offset(plotRect.center.dx, plotRect.bottom + 32),
+      color: Colors.white70,
+      fontSize: 11,
+    );
+
+    _drawAmplitudeLegend(canvas, plotRect, series);
+
+    final border = Paint()
+      ..color = AppColors.border
+      ..style = PaintingStyle.stroke;
+    canvas.drawRect(plotRect, border);
 
     if (points.every((point) => point.gainDb == null)) {
       _drawCenteredText(
         canvas,
         'Waiting for sweep data',
-        center: Offset(_left + chartWidth / 2, _top + chartHeight * 0.45),
+        center: plotRect.center,
         color: Colors.yellow,
         fontSize: 12,
       );
     }
   }
 
-  void _drawAmplitudeChart(
-    Canvas canvas,
-    Rect rect,
-    _AmplitudeSeries series, {
-    required double start,
-    required double stop,
-    required bool showXAxis,
+  /// Pads the measured values into a usable axis range.
+  (double, double) _amplitudeAxisRange(
+    List<double> values, {
+    required double minSpan,
   }) {
-    final border = Paint()
-      ..color = AppColors.border
-      ..style = PaintingStyle.stroke;
-    canvas.drawRect(rect, Paint()..color = const Color(0xFF0A192F));
-    canvas.drawRect(rect, border);
-
-    final axisValid = config.amplitudeSpacing == BodeSpacing.logarithmic
-        ? start > 0 && stop > start
-        : start >= 0 && stop > start;
-    if (!axisValid) return;
-
-    final values = points
-        .where((point) => point.valid)
-        .map(series.value)
-        .whereType<double>()
-        .where((value) => value.isFinite)
-        .toList();
-    final ticks = series.ticks ?? _valueTicks(values);
-    final yMin = ticks.first;
-    final yMax = ticks.last;
-
-    final gridPaint = Paint()
-      ..color = Colors.white12
-      ..strokeWidth = 1;
-    final xTicks = _amplitudeTicks(start, stop);
-    for (final tick in xTicks) {
-      final x = _xFor(tick, start, stop, rect);
-      canvas.drawLine(Offset(x, rect.top), Offset(x, rect.bottom), gridPaint);
-      if (showXAxis) {
-        _drawText(
-          canvas,
-          _formatAmplitudeTick(tick),
-          Offset(x - 22, rect.bottom + 8),
-          Colors.white54,
-          10,
-        );
-      }
-    }
-    for (final tick in ticks) {
-      final y = _yFor(tick, yMin, yMax, rect);
-      canvas.drawLine(Offset(rect.left, y), Offset(rect.right, y), gridPaint);
-      _drawText(
-        canvas,
-        _formatValueTick(tick),
-        Offset(rect.left - 42, y - 6),
-        Colors.white54,
-        10,
-      );
-    }
-
-    _drawText(
-      canvas,
-      series.label,
-      Offset(rect.left, rect.top - 20),
-      Colors.white70,
-      11,
-    );
-
-    if (showXAxis) {
-      _drawCenteredText(
-        canvas,
-        'Generator amplitude (Vpp)',
-        center: Offset(rect.center.dx, rect.bottom + 32),
-        color: Colors.white70,
-        fontSize: 11,
-      );
-    }
-
-    _drawSeriesValues(
-      canvas,
-      rect,
-      start,
-      stop,
-      yMin,
-      yMax,
-      series.value,
-      series.color,
-    );
-  }
-
-  /// Y-axis ticks for a measured value series, padded around its range.
-  List<double> _valueTicks(List<double> values) {
     var min = values.isEmpty ? 0.0 : values.reduce(math.min);
     var max = values.isEmpty ? 1.0 : values.reduce(math.max);
-    if ((max - min).abs() < 1e-9) {
-      max = min + 1;
+    min = math.min(min, 0);
+    max = math.max(max, 0);
+    if (max - min < minSpan) {
+      final center = (min + max) / 2;
+      min = center - minSpan / 2;
+      max = center + minSpan / 2;
     }
-    final padding = (max - min) * 0.1;
-    return _niceTicks(
-      (min - padding).floorToDouble(),
-      (max + padding).ceilToDouble(),
+    final padding = (max - min) * 0.2;
+    if (min >= 0) return (0.0, max + padding);
+    return (min - padding, max + padding);
+  }
+
+  List<double> _ticksForRange((double, double) range) {
+    final ticks = _niceTicks(range.$1, range.$2)
+        .where((value) => value >= range.$1 - 1e-9 && value <= range.$2 + 1e-9)
+        .toList();
+    return ticks.length < 2 ? [range.$1, range.$2] : ticks;
+  }
+
+  String _formatDbTick(double value) {
+    if (value == 0) return '0';
+    final abs = value.abs();
+    if (abs >= 100) return value.toStringAsFixed(0);
+    if (abs >= 1) return value.toStringAsFixed(1);
+    return value.toStringAsFixed(2);
+  }
+
+  void _drawAmplitudeLegend(
+    Canvas canvas,
+    Rect plotRect,
+    List<_AmplitudeSeries> series,
+  ) {
+    const itemHeight = 16.0;
+    const padding = 8.0;
+    const width = 120.0;
+    final height = series.length * itemHeight + padding * 2;
+    final legendRect = Rect.fromLTWH(
+      plotRect.right - width - 8,
+      plotRect.top + 8,
+      width,
+      height,
     );
+    final radius = RRect.fromRectAndRadius(
+      legendRect,
+      const Radius.circular(4),
+    );
+    canvas.drawRRect(radius, Paint()..color = const Color(0xB00A192F));
+    canvas.drawRRect(
+      radius,
+      Paint()
+        ..color = AppColors.border.withValues(alpha: 0.5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.5,
+    );
+
+    for (var index = 0; index < series.length; index++) {
+      final entry = series[index];
+      final hidden = hiddenLines.contains(entry.id);
+      final y =
+          legendRect.top + padding + index * itemHeight + itemHeight / 2 - 1;
+      canvas.drawLine(
+        Offset(legendRect.left + 8, y),
+        Offset(legendRect.left + 28, y),
+        Paint()
+          ..color = hidden ? entry.color.withValues(alpha: 0.25) : entry.color
+          ..strokeWidth = 2,
+      );
+      final painter = TextPainter(
+        text: TextSpan(
+          text: entry.label,
+          style: TextStyle(
+            color: hidden ? Colors.white30 : Colors.white70,
+            fontSize: 10,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      painter.paint(
+        canvas,
+        Offset(legendRect.left + 34, y - painter.height / 2),
+      );
+    }
+  }
+
+  void _drawTextRightAligned(
+    Canvas canvas,
+    String text,
+    Offset rightTop,
+    Color color,
+    double fontSize,
+  ) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(color: color, fontSize: fontSize),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    painter.paint(canvas, Offset(rightTop.dx - painter.width, rightTop.dy));
   }
 
   String _formatValueTick(double value) {
@@ -1912,6 +2290,8 @@ class _BodePlotPainter extends CustomPainter {
         !identical(oldDelegate.points, points) ||
         oldDelegate.config != config ||
         oldDelegate.status != status ||
+        oldDelegate.hiddenLines.length != hiddenLines.length ||
+        !oldDelegate.hiddenLines.containsAll(hiddenLines) ||
         oldDelegate.analysis.peakFrequencyHz != analysis.peakFrequencyHz ||
         oldDelegate.analysis.peakGainDb != analysis.peakGainDb ||
         oldDelegate.analysis.minus3DbFrequencyHz !=
