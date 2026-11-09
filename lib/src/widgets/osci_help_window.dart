@@ -225,12 +225,12 @@ class _HelpWindowState extends State<HelpWindow>
   @override
   void initState() {
     super.initState();
-    // Deliberately slow, S-curve motion: the panel slides in from the right
-    // edge and glides back out the same way.
+    // S-curve motion: the panel slides in from the right edge and glides back
+    // out the same way. Halved from 2000 ms / 1600 ms to double the speed.
     _helpChatAnimation = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2000),
-      reverseDuration: const Duration(milliseconds: 1600),
+      duration: const Duration(milliseconds: 1000),
+      reverseDuration: const Duration(milliseconds: 800),
     );
     _helpSlideAnimation =
         Tween<Offset>(begin: const Offset(1, 0), end: Offset.zero).animate(

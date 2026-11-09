@@ -3739,7 +3739,13 @@ class _OsciHomePageState extends State<OsciHomePage>
     }
   }
 
-  Future<void> _acquireWaveform() async {
+  /// Acquires a new waveform and updates the analysis view.
+  ///
+  /// [keepPanels] keeps the currently open panel (for example the main AI
+  /// chat) instead of switching to the waveform view. Background refreshes
+  /// triggered by an AI scope command use it so the acquisition never
+  /// navigates the user away from the conversation.
+  Future<void> _acquireWaveform({bool keepPanels = false}) async {
     if (_timelapseRunning) return;
     // Stop the Data Logger immediately when switching away from it
     _stopDataLoggerIfRunning();
@@ -3751,8 +3757,10 @@ class _OsciHomePageState extends State<OsciHomePage>
 
     setState(() {
       _isAcquiringWaveform = true;
-      _activePanel = ActivePanel.none;
-      _previousPanel = ActivePanel.none;
+      if (!keepPanels) {
+        _activePanel = ActivePanel.none;
+        _previousPanel = ActivePanel.none;
+      }
       // Clear the previous capture immediately: while the new acquisition is
       // in flight the chart and measurement cards must not keep showing the
       // old trace. The device parameters stay so the grid and axes remain.
@@ -4219,7 +4227,9 @@ class _OsciHomePageState extends State<OsciHomePage>
       return {'error': 'The oscilloscope is offline.'};
     }
     final generation = _acquisitionGeneration;
-    await _acquireWaveform();
+    // An AI-triggered refresh (for example the automatic refresh after ASET)
+    // updates the data but must not close the panel the user is working in.
+    await _acquireWaveform(keepPanels: true);
     if (_acquisitionGeneration == generation) {
       return {
         'error':
