@@ -3,6 +3,15 @@ import 'package:flutter/material.dart';
 import '../calculator/calculator_shortcut.dart';
 import '../signal_generator/signal_generator_shortcut.dart';
 
+/// Fixed width of the settings panel, shared with the centering code.
+const double settingsPanelWidth = 520;
+
+/// Approximate height used to center the settings panel.
+///
+/// The rendered height follows the content; this value only positions the
+/// panel and matches the two-column layout closely enough for centering.
+const double settingsPanelApproximateHeight = 700;
+
 /// Callbacks for the settings panel to communicate with the parent state.
 class SettingsPanelCallbacks {
   final void Function(
@@ -151,7 +160,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
         elevation: 20,
         color: Colors.transparent,
         child: Container(
-          width: 400,
+          key: const ValueKey('settings-panel'),
+          width: settingsPanelWidth,
           decoration: BoxDecoration(
             color: const Color(0xFF1E1E1E).withValues(alpha: 0.95),
             borderRadius: BorderRadius.circular(16),
@@ -228,28 +238,71 @@ class _SettingsPanelState extends State<SettingsPanel> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        _buildConnectionModeDropdown(),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: _buildConnectionModeDropdown()),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: ExcludeFocus(
+                                excluding: _isUsb,
+                                child: Visibility(
+                                  key: const ValueKey('ip-address-visibility'),
+                                  visible: !_isUsb,
+                                  maintainSize: true,
+                                  maintainAnimation: true,
+                                  maintainState: true,
+                                  child: _buildSettingsField(
+                                    _ipController,
+                                    'Oscilloscope IP Address',
+                                    enabled: !_isUsb,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 16),
-                        if (!_isUsb) ...[
-                          _buildSettingsField(
-                            _ipController,
-                            'Oscilloscope IP Address',
-                          ),
-                          const SizedBox(height: 16),
-                        ],
-                        _buildSignalGeneratorDropdown(),
-                        const SizedBox(height: 16),
-                        _buildSignalGeneratorShortcutDropdown(),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: _buildSignalGeneratorDropdown()),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: ExcludeFocus(
+                                excluding: _signalGenerator == 'none',
+                                child: Visibility(
+                                  key: const ValueKey(
+                                    'signal-generator-window-visibility',
+                                  ),
+                                  visible: _signalGenerator != 'none',
+                                  maintainSize: true,
+                                  maintainAnimation: true,
+                                  maintainState: true,
+                                  child:
+                                      _buildSignalGeneratorShortcutDropdown(),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                         const SizedBox(height: 16),
                         _buildCalculatorShortcutDropdown(),
                         const SizedBox(height: 16),
-                        _buildProviderDropdown(),
-                        const SizedBox(height: 16),
-                        _buildSettingsField(
-                          _aiApiTokenController,
-                          'AI API Token',
-                          hint: 'Your Provider API token',
-                          obscureText: true,
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: _buildProviderDropdown()),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: _buildSettingsField(
+                                _aiApiTokenController,
+                                'AI API Token',
+                                hint: 'Your Provider API token',
+                                obscureText: true,
+                              ),
+                            ),
+                          ],
                         ),
                         const SizedBox(height: 16),
                         _buildSettingsField(
@@ -260,40 +313,55 @@ class _SettingsPanelState extends State<SettingsPanel> {
                         const SizedBox(height: 16),
                         Row(
                           children: [
-                            const Expanded(
-                              child: Text(
-                                'Save csv data',
-                                textAlign: TextAlign.end,
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 13,
-                                ),
+                            Expanded(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  const Flexible(
+                                    child: Text(
+                                      'Save csv data',
+                                      textAlign: TextAlign.end,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                  Switch(
+                                    value: widget.saveWithParams,
+                                    onChanged: widget.onSaveWithParamsChanged,
+                                    activeThumbColor: Colors.cyanAccent,
+                                  ),
+                                ],
                               ),
                             ),
-                            Switch(
-                              value: widget.saveWithParams,
-                              onChanged: widget.onSaveWithParamsChanged,
-                              activeThumbColor: Colors.cyanAccent,
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 8),
-                        Row(
-                          children: [
-                            const Expanded(
-                              child: Text(
-                                'Ask for filename on save',
-                                textAlign: TextAlign.end,
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 13,
-                                ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  const Flexible(
+                                    child: Text(
+                                      'Ask for filename on save',
+                                      textAlign: TextAlign.end,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(
+                                        color: Colors.white70,
+                                        fontSize: 13,
+                                      ),
+                                    ),
+                                  ),
+                                  Switch(
+                                    value: widget.askForFilenamePrefix,
+                                    onChanged:
+                                        widget.onAskForFilenamePrefixChanged,
+                                    activeThumbColor: Colors.cyanAccent,
+                                  ),
+                                ],
                               ),
-                            ),
-                            Switch(
-                              value: widget.askForFilenamePrefix,
-                              onChanged: widget.onAskForFilenamePrefixChanged,
-                              activeThumbColor: Colors.cyanAccent,
                             ),
                           ],
                         ),
@@ -334,6 +402,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   Widget _buildProviderDropdown() {
     return DropdownButtonFormField<String>(
       initialValue: _selectedProvider,
+      isExpanded: true,
       decoration: InputDecoration(
         labelText: 'AI Provider',
         floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -366,6 +435,7 @@ class _SettingsPanelState extends State<SettingsPanel> {
   Widget _buildConnectionModeDropdown() {
     return DropdownButtonFormField<String>(
       initialValue: _isUsb ? 'USB' : 'Network',
+      isExpanded: true,
       decoration: const InputDecoration(
         labelText: 'Oscilloscope Connection Mode',
         floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -396,6 +466,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
       children: [
         const Text(
           'Signal Generator Window',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: Colors.white,
             fontSize: 14,
@@ -444,6 +516,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
       children: [
         const Text(
           'Calculator',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: Colors.white,
             fontSize: 14,
@@ -492,10 +566,12 @@ class _SettingsPanelState extends State<SettingsPanel> {
     String? hint,
     TextInputType? keyboardType,
     bool obscureText = false,
+    bool enabled = true,
   }) {
     return TextField(
       controller: controller,
       obscureText: obscureText,
+      enabled: enabled,
       decoration: InputDecoration(
         labelText: label,
         floatingLabelBehavior: FloatingLabelBehavior.always,
@@ -524,6 +600,8 @@ class _SettingsPanelState extends State<SettingsPanel> {
       children: [
         const Text(
           'Signal Generator',
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
           style: TextStyle(
             color: Colors.white,
             fontSize: 14,

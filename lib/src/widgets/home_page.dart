@@ -5773,9 +5773,9 @@ class _OsciHomePageState extends State<OsciHomePage>
   Future<void> _calculateAndSetCenterPosition() async {
     try {
       final windowSize = await windowManager.getSize();
-      final panelWidth = 400.0;
+      final panelWidth = settingsPanelWidth;
       // Approximate height including the signal-generator section.
-      final panelHeight = 780.0;
+      final panelHeight = settingsPanelApproximateHeight;
 
       final centerX = ((windowSize.width - panelWidth) / 2)
           .clamp(20.0, 1e9)
