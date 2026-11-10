@@ -7,6 +7,8 @@
 #define MyAppPublisher "W.Klum"
 #define MyAppURL "https://github.com/klumw/sdsremote"
 #define MyAppExeName "sdsremote.exe"
+; Root of the SDS-Remote source checkout on this build machine.
+#define ProjectDir "Y:\sdsremote"
 
 [Setup]
 ; NOTE: The value of AppId uniquely identifies this application. Do not use the same AppId value in installers for other applications.
@@ -30,13 +32,13 @@ ArchitecturesAllowed=x64compatible
 ; the 64-bit view of the registry.
 ArchitecturesInstallIn64BitMode=x64compatible
 DisableProgramGroupPage=yes
-LicenseFile=F:\programming\flutter\sdsremote\LICENSE
+LicenseFile={#ProjectDir}\LICENSE
 ; Uncomment the following line to run in non administrative install mode (install for current user only).
 ;PrivilegesRequired=lowest
 PrivilegesRequiredOverridesAllowed=dialog
-OutputDir=F:\programming\flutter\sdsremote\build\windows\x64\runner
+OutputDir={#ProjectDir}\build\windows\x64\runner
 OutputBaseFilename=sdsremote
-SetupIconFile=F:\programming\flutter\sdsremote\windows\runner\resources\app_icon.ico
+SetupIconFile={#ProjectDir}\windows\runner\resources\app_icon.ico
 SolidCompression=yes
 WizardStyle=modern dynamic
 
@@ -51,7 +53,7 @@ Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{
 ; desktop_multi_window_plugin.dll) must sit next to sdsremote.exe, and the
 ; data folder must be shipped as well. Listing files individually caused
 ; desktop_multi_window_plugin.dll to be missing from the installer.
-Source: "F:\programming\flutter\sdsremote\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#ProjectDir}\build\windows\x64\runner\Release\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; NOTE: Don't use "Flags: ignoreversion" on any shared system files
 
 [Icons]
