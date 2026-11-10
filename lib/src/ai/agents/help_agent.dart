@@ -35,7 +35,7 @@ class HelpAgent {
   /// [readLog] is primarily useful for tests; production code reads the
   /// application log through the default [AppLogger] reader.
   HelpAgent({
-    String model = 'deepseek:deepseek-v4-flash',
+    String model = 'deepseek:deepseek-flash',
     required String manual,
     HelpLogReader? readLog,
   }) : _agent = Agent(

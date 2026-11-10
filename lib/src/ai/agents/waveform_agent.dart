@@ -96,7 +96,7 @@ class WaveformAgent {
   List<String> get toolNames => <String>[for (final tool in _tools) tool.name];
 
   WaveformAgent({
-    String model = 'deepseek:deepseek-v4-flash',
+    String model = 'deepseek:deepseek-flash',
     WaveformSummaryProvider? readWaveformSummary,
     SpectrumSummaryProvider? readSpectrumSummary,
     WaveformAcquisitionProvider? acquireWaveform,

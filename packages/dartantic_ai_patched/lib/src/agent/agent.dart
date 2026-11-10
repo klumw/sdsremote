@@ -847,7 +847,7 @@ class Agent {
   static Provider _createDeepSeekProvider() => OpenAIProvider(
     name: 'deepseek',
     displayName: 'DeepSeek',
-    defaultModelNames: {ModelKind.chat: 'deepseek-v4-flash'},
+    defaultModelNames: {ModelKind.chat: 'deepseek-flash'},
     baseUrl: Uri.parse('https://api.deepseek.com'),
     apiKeyName: 'DEEPSEEK_API_KEY',
   );

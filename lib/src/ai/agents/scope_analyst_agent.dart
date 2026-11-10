@@ -34,7 +34,7 @@ import 'systemprompts.dart';
 /// SCPI queries and, after the Waveform Agent grants autonomous permission,
 /// change scope settings as needed for the measurement.
 class ScopeAnalystAgent {
-  static const String defaultModel = 'deepseek:deepseek-v4-flash';
+  static const String defaultModel = 'deepseek:deepseek-flash';
 
   /// Enough budget for summary, acquisition, spectrum, classification,
   /// features, fault-profile read, fault analysis, calculations and the final

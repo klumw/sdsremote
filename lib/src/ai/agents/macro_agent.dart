@@ -74,7 +74,7 @@ class MacroAgent {
   /// [macroFileName] is optional and only used to report the loaded file name
   /// in the `read_macro` result.
   MacroAgent({
-    String model = 'deepseek:deepseek-v4-flash',
+    String model = 'deepseek:deepseek-flash',
     required MacroReader readMacro,
     required MacroWriter writeMacro,
     String? Function()? macroFileName,

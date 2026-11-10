@@ -28,7 +28,7 @@ import 'systemprompts.dart';
 /// through `submit_digital_analysis`; the Waveform Agent presents it to the
 /// user.
 class DigitalAgent {
-  static const String defaultModel = 'deepseek:deepseek-v4-flash';
+  static const String defaultModel = 'deepseek:deepseek-flash';
 
   /// Enough budget for summary, features, spectrum, classification, logic
   /// reference, fault-profile read, fault analysis, an optional acquisition

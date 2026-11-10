@@ -16,7 +16,7 @@ import 'systemprompts.dart';
 /// The agent is stateless between calls: every extraction starts with a fresh
 /// system prompt and does not retain the previous specification text.
 class SpecAnalystAgent {
-  static const String defaultModel = 'deepseek:deepseek-v4-flash';
+  static const String defaultModel = 'deepseek:deepseek-flash';
 
   /// Two calls allow the model to correct a submission rejected by the tool.
   static const int defaultMaxToolCalls = 2;

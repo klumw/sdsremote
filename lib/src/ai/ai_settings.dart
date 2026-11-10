@@ -17,7 +17,7 @@ class AiSettings {
   final String apiToken;
 
   /// Full model string in `provider:model` form, e.g.
-  /// `deepseek:deepseek-v4-flash`.
+  /// `deepseek:deepseek-flash`.
   final String model;
 
   const AiSettings({

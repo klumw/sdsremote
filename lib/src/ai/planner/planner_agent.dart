@@ -88,7 +88,7 @@ class PlannerAgent {
        _catalog = catalog;
 
   /// Default model of the planner.
-  static const String defaultModel = 'deepseek:deepseek-v4-flash';
+  static const String defaultModel = 'deepseek:deepseek-flash';
 
   /// Default internal call limit of the `plan_measurement` tool.
   static const int defaultMaxToolCalls = 6;

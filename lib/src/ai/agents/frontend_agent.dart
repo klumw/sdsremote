@@ -114,7 +114,7 @@ class FrontendAgent {
   /// Note: [maxToolCalls] (frontend-level) has been removed — the sub-agents'
   /// limits are sufficient. The frontend agent streams all responses as-is.
   factory FrontendAgent({
-    String model = 'deepseek:deepseek-v4-flash',
+    String model = 'deepseek:deepseek-flash',
     String? systemPrompt,
     String? vxi11Host,
     String knowledgebasePath = 'assets/devices/qa/siglent_sds1000xe_qa.md',

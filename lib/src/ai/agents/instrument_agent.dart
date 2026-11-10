@@ -120,7 +120,7 @@ class InstrumentAgent with MaxToolCallsHandler {
   /// The [maxToolCalls] parameter limits the number of tool calls per
   /// user input. Defaults to [defaultMaxToolCalls] (3).
   factory InstrumentAgent({
-    String model = 'deepseek:deepseek-v4-flash',
+    String model = 'deepseek:deepseek-flash',
     String? systemPrompt,
     String? vxi11Host,
     List<Tool>? tools,

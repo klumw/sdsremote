@@ -52,7 +52,7 @@ class AiChatService {
   void configure({
     required String apiKey,
     required String apiToken,
-    String model = 'deepseek:deepseek-v4-flash',
+    String model = 'deepseek:deepseek-flash',
     String? vxi11Host,
     String? instrumentModel,
     DeviceAgentContext? instrumentDeviceContext,

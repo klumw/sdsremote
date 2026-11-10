@@ -40,7 +40,7 @@ class ControlPanelAgent {
   /// [readOscilloscopeStatus] supplies the live connection and model state for
   /// the `read_oscilloscope_status` tool.
   ControlPanelAgent({
-    String model = 'deepseek:deepseek-v4-flash',
+    String model = 'deepseek:deepseek-flash',
     String? vxi11Host,
     DeviceAgentContext? instrumentDeviceContext,
     MacroOscilloscopeStatusReader? readOscilloscopeStatus,

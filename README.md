@@ -183,7 +183,7 @@ Follow the instructions for your target platform.
 ### 3.3 USB support (experimental) ⚠️
 
 In general, a network connection to the oscilloscope is more reliable than a USB connection. USB data-transfer rates are also limited.
-Don't use a USB-Hub to connect your Oscilloscope or Signal Generator.
+Don't use USB-Hubs to connect your Oscilloscope or Signal Generator, always use a direct connection.
 
 #### 3.3.1 USB support on Windows
 
@@ -287,20 +287,6 @@ Run the unit and widget tests from the project root:
 flutter test
 ```
 
-The AI search-accuracy evaluation in `test/ai_search_accuracy_test.dart` makes real API calls: one search-agent call and one grader call per test case. The LLM under test is configured in the test itself (currently `edenai:mistral-code-agent-latest`, which also powers its knowledge-base search sub-agent). The grader LLM is currently `deepseek:deepseek-v4-flash`.
-
-You must export API keys for both providers. Run the test from the project root so that the relative paths to `test/ai_test_data.json` and `docs/knowledgebase.md` resolve correctly:
-
-```bash
-export EDENAI_API_KEY="..."
-export DEEPSEEK_API_KEY="sk-..."
-flutter test -r expanded test/ai_search_accuracy_test.dart
-```
-
-The `-r expanded` reporter displays the score and reasoning for each test case. A full run evaluates 20 cases and may take several minutes. The average results are printed and written to `test/ai_search_accuracy_results.json`.
-
----
-
 ## 4. AI Configuration
 
 The AI chat feature supports the following providers:
@@ -317,7 +303,7 @@ The AI chat feature supports the following providers:
 
 ### Model names
 
-The application does not ship a fixed model catalog. The built-in agents use `deepseek-v4-flash` as their default DeepSeek model. Enter that identifier in the **LLM Model** field for the default configuration.
+The application does not ship a fixed model catalog. The built-in agents use `deepseek-flash` as their default DeepSeek model. Enter that identifier in the **LLM Model** field for the default configuration.
 
 For other providers, use the exact model identifier from the provider's current documentation. The application passes the entered name to the selected provider.
 

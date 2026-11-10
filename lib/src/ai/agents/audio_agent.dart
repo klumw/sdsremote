@@ -23,7 +23,7 @@ import 'systemprompts.dart';
 /// sweep tools share a single hardware run; the Waveform Agent clears the
 /// cache at the start of every request.
 class AudioAgent {
-  static const String defaultModel = 'deepseek:deepseek-v4-flash';
+  static const String defaultModel = 'deepseek:deepseek-flash';
 
   /// Enough budget for several audio tools, instrument queries, an optional
   /// acquisition and the final submission.

@@ -52,7 +52,7 @@ class CalculatorAgent {
   List<ChatMessage> _history;
 
   CalculatorAgent({
-    String model = 'deepseek:deepseek-v4-flash',
+    String model = 'deepseek:deepseek-flash',
     required CalculatorAgentContext context,
     required CalculatorService calculator,
     int? Function(Map<String, dynamic> result)? onToolResult,
