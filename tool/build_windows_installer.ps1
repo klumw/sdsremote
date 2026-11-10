@@ -12,6 +12,8 @@
       5. Adds the Visual C++ runtime DLLs to the bundle.
       6. Publishes the bundle to the project's build output directory.
       7. Compiles windows\runner\resources\sdsremote.iss with Inno Setup.
+      8. Copies the installer to Downloads as sdsremote_<version>.exe and
+         writes a matching SHA-256 checksum file next to it.
 
     A local scratch directory is used because the project drive (Y:) is a
     VirtIO-FS share that does not support the symlinks/junctions required by
@@ -120,8 +122,22 @@ function Get-InnoCompiler {
     return $null
 }
 
-function Install-InnoSetup {
-    $version = '6.7.3'
+function Get-ProjectVersion {
+    param([Parameter(Mandatory)][string]$PubspecPath)
+
+    # pubspec.yaml is the single source of truth for the app version.
+    $match = [regex]::Match((Get-Content -LiteralPath $PubspecPath -Raw), '(?m)^version:[ \t]*(?<version>\S+)[ \t]*$')
+    if (-not $match.Success) {
+        throw "No 'version:' entry found in $PubspecPath"
+    }
+    $version = $match.Groups['version'].Value.Trim()
+    if ($version -notmatch '^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.\-+]+)?$') {
+        throw "Unexpected project version '$version' in $PubspecPath"
+    }
+    return $version
+}
+
+function Install-InnoSetup {    $version = '6.7.3'
     $url = "https://github.com/jrsoftware/issrc/releases/download/is-6_7_3/innosetup-$version.exe"
     $expectedHash = '9C73C3BAE7ED48D44112A0F48E66742C00090BDB5BEF71D9D3C056C66E97B732'
     $download = Join-Path $env:TEMP "innosetup-$version.exe"
@@ -197,6 +213,13 @@ $issPath = Join-Path $ProjectRoot 'windows\runner\resources\sdsremote.iss'
 if (-not (Test-Path -LiteralPath $issPath)) {
     throw "Inno Setup script not found: $issPath"
 }
+
+$projectVersion = Get-ProjectVersion -PubspecPath (Join-Path $ProjectRoot 'pubspec.yaml')
+$issVersion = [regex]::Match((Get-Content -LiteralPath $issPath -Raw), '(?m)^#define[ \t]+MyAppVersion[ \t]+"(?<version>[^"]+)"').Groups['version'].Value
+if ($issVersion -and $issVersion -ne $projectVersion) {
+    Write-Warning "sdsremote.iss declares version $issVersion, but pubspec.yaml says $projectVersion; the installer metadata keeps $issVersion."
+}
+Write-Host "Version : $projectVersion"
 
 Write-Step 'Checking prerequisites'
 $flutterCommand = Get-Command flutter -ErrorAction SilentlyContinue
@@ -409,6 +432,7 @@ $hash = (Get-FileHash -LiteralPath $installer -Algorithm SHA256).Hash
 Write-Host ''
 Write-Host 'Build completed successfully.' -ForegroundColor Green
 Write-Host "Installer : $installer"
+Write-Host "Version   : $projectVersion"
 Write-Host "Size      : $([math]::Round($installerItem.Length / 1MB, 2)) MB"
 Write-Host "SHA-256   : $hash"
 Write-Host "Scratch   : $ScratchRoot"
@@ -416,9 +440,24 @@ Write-Host "Scratch   : $ScratchRoot"
 Write-Step 'Copying installer to Downloads'
 $downloadsDirectory = Join-Path $env:USERPROFILE 'Downloads'
 New-Item -ItemType Directory -Path $downloadsDirectory -Force | Out-Null
-$downloadedInstaller = Join-Path $downloadsDirectory 'sdsremote-setup.exe'
+
+$downloadName = "sdsremote_$projectVersion"
+$downloadedInstaller = Join-Path $downloadsDirectory "$downloadName.exe"
 Copy-Item -LiteralPath $installer -Destination $downloadedInstaller -Force
+
+# Hash the copy, not the build output: this checks the file that is handed out.
+$downloadedHash = (Get-FileHash -LiteralPath $downloadedInstaller -Algorithm SHA256).Hash
+if ($downloadedHash -ne $hash) {
+    throw "SHA-256 of the copied installer ($downloadedHash) does not match the built installer ($hash)."
+}
+
+# sha256sum-compatible checksum file next to the installer.
+$checksumFile = Join-Path $downloadsDirectory "$downloadName.exe.sha256"
+Set-Content -LiteralPath $checksumFile -Value "$downloadedHash  $downloadName.exe" -Encoding ASCII
+
 Write-Host "Copied    : $downloadedInstaller"
+Write-Host "SHA-256   : $downloadedHash"
+Write-Host "Checksum  : $checksumFile"
 
 Write-Step 'Starting installer from Downloads'
 $setupProcess = Start-Process -FilePath $downloadedInstaller -WorkingDirectory $downloadsDirectory -PassThru

@@ -15,8 +15,10 @@ Pipeline:
      detected from the exact locked version in the local pub cache (pub.dev
      score tags only as a fallback), the runtime dependency graph from
      `dart pub deps --json`, deployment scopes (dev/test-only packages are
-     included with scope=excluded) and Flutter SDK / Dart SDK / engine
-     components.
+     included with scope=excluded), Flutter SDK / Dart SDK / engine
+     components and the native libraries that Flutter plugins compile or
+     download into the release bundle (whisper.cpp/ggml, libserialport,
+     pdfium).
   3. The document is validated against the CycloneDX JSON schema (--validate)
      and a .sha256 sidecar is written next to it.
 """
@@ -36,12 +38,13 @@ import urllib.request
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from urllib.parse import quote, unquote
 
 import yaml
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 GENERATOR_NAME = "sdsremote-sbom-generator"
-GENERATOR_VERSION = "1.0.0"
+GENERATOR_VERSION = "1.1.0"
 CACHE_HOST = "https://pub.dev"
 
 # Packages that belong to the Flutter SDK rather than to a pub package.
@@ -51,6 +54,71 @@ SDK_PACKAGE_MAP = {
     "flutter_web_plugins": "flutter-sdk",
     "sky_engine": "flutter-engine",
 }
+
+# Flutter plugins compile or download native libraries that never appear in
+# pubspec.lock. Each entry names the plugin package that bundles the library,
+# the file in that package which records the upstream version, and the files
+# the release bundle ships. Versions are read from the exact locked package in
+# the pub cache, so a plugin update cannot silently desynchronise the SBOM.
+NATIVE_LIBRARY_COMPONENTS = [
+    {
+        "name": "whisper.cpp",
+        "bundler": "whisper_ggml",
+        "version_files": ("linux/CMakeLists.txt", "windows/CMakeLists.txt"),
+        "version_re": r'WHISPER_VERSION="([^"]+)"',
+        "purl": "pkg:github/ggml-org/whisper.cpp@v{version}",
+        "licenses": ["MIT"],
+        "license_source": "whisper.cpp LICENSE (MIT) in the whisper_ggml source tree",
+        "vcs": "https://github.com/ggml-org/whisper.cpp",
+        "website": "https://github.com/ggml-org/whisper.cpp",
+        "bundle_files": ("libwhisper_ggml.so", "whisper_ggml.dll"),
+        "depends_on": ("ggml",),
+        "description": "Speech-recognition engine vendored in whisper_ggml and compiled into the plugin.",
+    },
+    {
+        "name": "ggml",
+        "bundler": "whisper_ggml",
+        "version_files": ("linux/CMakeLists.txt", "windows/CMakeLists.txt"),
+        "version_re": r'GGML_VERSION="([^"]+)"',
+        "purl": "pkg:generic/ggml@{version}",
+        "licenses": ["MIT"],
+        "license_source": "whisper.cpp LICENSE (MIT); ggml is part of the vendored whisper.cpp tree",
+        "vcs": "https://github.com/ggml-org/ggml",
+        "website": "https://github.com/ggml-org/ggml",
+        "bundle_files": ("libwhisper_ggml.so", "whisper_ggml.dll"),
+        "depends_on": (),
+        "description": "Tensor library vendored in whisper.cpp and linked into the same plugin library.",
+    },
+    {
+        "name": "libserialport",
+        "bundler": "flutter_libserialport",
+        "version_files": ("third_party/libserialport/libserialport.h",),
+        "version_re": r'SP_PACKAGE_VERSION_STRING\s+"([^"]+)"',
+        "purl": "pkg:github/sigrokproject/libserialport@{version}",
+        "licenses": ["LGPL-3.0-or-later"],
+        "license_source": "COPYING (LGPL-3.0) and the LGPL-3.0-or-later header in libserialport.h",
+        "vcs": "https://github.com/sigrokproject/libserialport",
+        "website": "https://sigrok.org/wiki/Libserialport",
+        "bundle_files": ("libserialport.so", "serialport.dll"),
+        "depends_on": (),
+        "description": "Serial-port C library compiled and bundled by flutter_libserialport.",
+    },
+    {
+        "name": "pdfium",
+        "bundler": "pdfium_dart",
+        "version_files": ("hook/build.dart",),
+        "version_re": r"_pdfiumRelease\s*=\s*'([^']+)'",
+        "decode_version": True,
+        "purl": "pkg:generic/pdfium@{version}",
+        "licenses": ["BSD-3-Clause"],
+        "license_source": "upstream PDFium licence (BSD-3-Clause)",
+        "vcs": "https://pdfium.googlesource.com/pdfium",
+        "website": "https://pdfium.googlesource.com/pdfium/",
+        "bundle_files": ("libpdfium.so", "pdfium.dll", "libpdfium.dylib"),
+        "depends_on": (),
+        "description": "Prebuilt PDFium library downloaded by pdfium_dart from pdfium-binaries.",
+    },
+]
 
 PUB_LICENSE_SLUGS = {
     "mit": "MIT",
@@ -173,6 +241,18 @@ def pub_dev_license(name: str, timeout: float = 10.0) -> list[str]:
 def hosted_cache_dir(name: str, version: str) -> Path:
     cache = Path(os.environ.get("PUB_CACHE", Path.home() / ".pub-cache"))
     return cache / "hosted" / "pub.dev" / f"{name}-{version}"
+
+
+def _read_text(path: Path) -> str:
+    try:
+        return path.read_text(errors="ignore")
+    except OSError:
+        return ""
+
+
+def _match_group(pattern: str, text: str) -> str | None:
+    match = re.search(pattern, text)
+    return match.group(1) if match else None
 
 
 def run(cmd: list[str], cwd: Path | None = None) -> str:
@@ -449,6 +529,85 @@ def main() -> int:
         if dep_name in lock:
             comp["scope"] = "required" if dep_name in runtime else "excluded"
 
+    # --- bundled native libraries ----------------------------------------
+    # pubspec.lock and syft stop at the Dart package boundary; libraries that
+    # Flutter plugins compile or download are read from the plugin sources in
+    # the pub cache so the SBOM also lists whisper.cpp, ggml, libserialport
+    # and pdfium.
+    native_children: dict[str, list[str]] = {}
+    native_refs: list[str] = []
+    native_name_refs: dict[str, str] = {}
+    native_specs: list[dict] = []
+
+    for spec in NATIVE_LIBRARY_COMPONENTS:
+        bundler = spec["bundler"]
+        if bundler not in lock:
+            continue
+        bundler_version = str(lock[bundler]["version"])
+        package_dir = hosted_cache_dir(bundler, bundler_version)
+        native_version = None
+        source_file = spec["version_files"][0]
+        for rel_path in spec["version_files"]:
+            native_version = _match_group(spec["version_re"], _read_text(package_dir / rel_path))
+            if native_version:
+                source_file = rel_path
+                break
+        if native_version and spec.get("decode_version"):
+            native_version = unquote(native_version)
+        if not native_version:
+            native_version = "unknown"
+            print(f"warning: cannot read the {spec['name']} version from "
+                  f"{bundler}-{bundler_version}/{source_file}; using 'unknown'",
+                  file=sys.stderr)
+        ref = spec["purl"].format(version=quote(native_version, safe=""))
+        component = {
+            "bom-ref": ref,
+            "type": "library",
+            "name": spec["name"],
+            "version": native_version,
+            "purl": ref,
+            "scope": "required" if bundler in runtime else "excluded",
+            "description": spec["description"],
+            "properties": [
+                {"name": "sdsremote:native:foundBy",
+                 "value": "generate_sbom.py (plugin source inspection)"},
+                {"name": "sdsremote:native:bundledBy",
+                 "value": f"{bundler}@{bundler_version}"},
+                {"name": "sdsremote:native:versionSource",
+                 "value": f"{bundler}-{bundler_version}/{source_file}"},
+                {"name": "sdsremote:native:bundleFiles",
+                 "value": ", ".join(spec["bundle_files"])},
+                {"name": "sdsremote:license:source", "value": spec["license_source"]},
+            ],
+        }
+        licenses = licenses_field(spec["licenses"])
+        if licenses:
+            component["licenses"] = licenses
+        external = []
+        if spec.get("vcs"):
+            external.append({"type": "vcs", "url": spec["vcs"]})
+        if spec.get("website"):
+            external.append({"type": "website", "url": spec["website"]})
+        if external:
+            component["externalReferences"] = external
+        components[ref] = component
+        native_refs.append(ref)
+        native_name_refs[spec["name"]] = ref
+        native_specs.append(spec)
+        parent_ref = bom_ref_for(bundler, bundler_version)
+        native_children.setdefault(parent_ref, []).append(ref)
+
+    # Native-to-native edges (whisper.cpp ships ggml).
+    for spec in native_specs:
+        parent_ref = native_name_refs[spec["name"]]
+        for child_name in spec["depends_on"]:
+            child_ref = native_name_refs.get(child_name)
+            if child_ref and child_ref not in native_children.get(parent_ref, []):
+                native_children.setdefault(parent_ref, []).append(child_ref)
+
+    native_summary = (", ".join(f"{spec['name']} ({spec['bundler']})" for spec in native_specs)
+                      or "none detected")
+
     # --- dependency graph -------------------------------------------------
     dependencies = []
     root_ref = purl(name, version)
@@ -470,9 +629,14 @@ def main() -> int:
             child_ref = ref_for(child)
             if child_ref and child_ref != ref and child_ref not in children:
                 children.append(child_ref)
+        for child_ref in native_children.get(ref, []):
+            if child_ref not in children:
+                children.append(child_ref)
         dependencies.append({"ref": ref, "dependsOn": children})
     for ref in sdk_refs.values():
         dependencies.append({"ref": ref, "dependsOn": []})
+    for ref in native_refs:
+        dependencies.append({"ref": ref, "dependsOn": native_children.get(ref, [])})
 
     # --- document ---------------------------------------------------------
     supplier = {"name": git_name} if git_name else None
@@ -529,7 +693,11 @@ def main() -> int:
             {"name": "sdsremote:license:method",
              "value": "SPDX ids detected from the primary LICENSE/COPYING files of the exact locked versions in "
                       "the pub cache (third-party notice files such as LICENSE-other.md excluded); pub.dev score "
-                      "tags only as fallback (they describe the latest version)"},
+                      "tags only as fallback (they describe the latest version); bundled native libraries use "
+                      "the upstream project licence recorded in sdsremote:license:source"},
+            {"name": "sdsremote:sbom:nativeComponents",
+             "value": "Native libraries bundled by Flutter plugins are read from the plugin sources in the pub "
+                      f"cache: {native_summary}"},
         ],
     }
     if git_name:
@@ -565,6 +733,8 @@ def main() -> int:
     sdk_entries = sum(1 for p in lock.values() if p["source"] == "sdk")
     print(f"SBOM:        {out}")
     print(f"Components:  {len(components)} ({required} required, {excluded} dev-only/excluded, {licensed} with licence)")
+    if native_specs:
+        print(f"Native libs: {len(native_specs)} ({native_summary})")
     print(f"Lock pkgs:   {len(lock)} ({len(lock) - sdk_entries} direct+transitive, "
           f"{sdk_entries} SDK entries folded into Flutter components)")
     print(f"SHA-256:     {checksum}")
