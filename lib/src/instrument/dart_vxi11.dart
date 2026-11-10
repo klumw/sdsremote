@@ -3,7 +3,9 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:usbtmc_dart/usbtmc_dart.dart';
+import '../core/async_mutex.dart';
 import '../core/logger.dart';
+import 'scpi_transaction_lock.dart';
 
 /// Invoked when the shared USB connection has been invalidated because a
 /// transfer failed fatally or the device disappeared.
@@ -112,22 +114,6 @@ class XdrBuffer {
   }
 }
 
-/// Serialises asynchronous operations. Used to keep all RPC traffic on one
-/// socket ordered: `Socket.flush()` binds the IOSink, so overlapping writes
-/// throw `Bad state: StreamSink is bound to a stream`.
-class _AsyncMutex {
-  Future<void> _last = Future<void>.value();
-
-  Future<T> protect<T>(Future<T> Function() criticalSection) {
-    final completer = Completer<void>();
-    final next = _last.then((_) => criticalSection()).whenComplete(() {
-      if (!completer.isCompleted) completer.complete();
-    });
-    _last = completer.future;
-    return next;
-  }
-}
-
 /// ONC-RPC client over TCP with Record Marking framing (RFC 1057).
 ///
 /// Record Marking send: prepend a 4-byte big-endian header where
@@ -138,7 +124,10 @@ class _AsyncMutex {
 /// Concatenate all fragments.
 class RpcClient {
   final Socket _socket;
-  final _AsyncMutex _callLock = _AsyncMutex();
+
+  /// Serialises RPC calls on one socket: `Socket.flush()` binds the IOSink,
+  /// so overlapping writes throw `Bad state: StreamSink is bound to a stream`.
+  final AsyncMutex _callLock = AsyncMutex();
 
   // Buffer for incoming bytes from the socket stream.
   final List<int> _buffer = [];
@@ -437,7 +426,11 @@ class Vxi11Instrument {
   int? _linkId;
   String _lastError = '';
   int _xidCounter = 1;
-  final _AsyncMutex _opLock = _AsyncMutex();
+
+  /// Serialises complete SCPI transactions with every other instrument that
+  /// drives the same oscilloscope (see [ScpiTransactionLock]).
+  AsyncMutex get _opLock =>
+      ScpiTransactionLock.forConnection(usb: isUsbMode, host: _host);
 
   Vxi11Instrument(String host, {String name = 'inst0', String sourceLabel = ''})
     : _host = host,
@@ -471,70 +464,78 @@ class Vxi11Instrument {
     }
   }
 
-  /// Opens portmapper + VXI-11 connections and creates a link.
+  /// Opens the shared USB connection; called by [open] under [_opLock].
+  Future<int> _openUsb(String src) async {
+    AppLogger().log('USB: ${src}Opening connection via USBTMC...');
+
+    // A fatal transfer error may still be tearing down the old handle.
+    // Wait for that to finish so we never claim or write on a handle that
+    // is being closed.
+    final pendingInvalidation = _usbInvalidationInFlight;
+    if (pendingInvalidation != null) {
+      await pendingInvalidation;
+    }
+
+    // Use a shared singleton USB connection: only one UsbtmcContext/Device
+    // per process.  Subsequent open() calls reuse the existing connection,
+    // preventing LIBUSB_ERROR_BUSY from concurrent open attempts.
+    if (_sharedUsbDevice != null) {
+      _usbRefCount++;
+      _ownsUsbShare = true;
+      AppLogger().log(
+        'USB: Reusing shared USB connection (refcount=$_usbRefCount)',
+      );
+      return 0;
+    }
+
+    UsbtmcContext? context;
+    try {
+      final visaAddress = await detectLiveVisaAddress();
+      if (visaAddress == null) {
+        throw StateError(
+          'No active USBTMC device detected. Please check physical connection.',
+        );
+      }
+      AppLogger().log('USB: Auto-detected device: $visaAddress');
+
+      context = UsbtmcContext();
+      await context.init();
+      _sharedUsbContext = context;
+
+      final device = await context.newDevice(visaAddress);
+      _sharedUsbDevice = device;
+      _usbRefCount = 1;
+      _ownsUsbShare = true;
+      return 0;
+    } catch (e) {
+      AppLogger().error('USB: Failed to connect via USBTMC: $e');
+      // Tear down only what THIS attempt built up.
+      //
+      // The previous version closed whatever context happened to be in
+      // _sharedUsbContext — which, when two opens raced, was the *other*
+      // caller's live connection. Closing it called libusb_exit() on a
+      // context that still had a claimed device handle, leaving the app
+      // waiting on a connection that would never produce a result.
+      if (context != null) {
+        if (identical(_sharedUsbContext, context)) _sharedUsbContext = null;
+        try {
+          await context.close();
+        } catch (_) {}
+      }
+      rethrow;
+    }
+  }
+
+  /// Opens the USB or VXI-11 connection and creates a VXI-11 link.
   Future<int> open({double timeoutSeconds = 10.0}) async {
     _timeoutMs = (timeoutSeconds * 1000).round();
     final src = _sourceLabel.isNotEmpty ? '[$_sourceLabel] ' : '';
 
     if (isUsbMode) {
-      AppLogger().log('USB: ${src}Opening connection via USBTMC...');
-
-      // A fatal transfer error may still be tearing down the old handle.
-      // Wait for that to finish so we never claim or write on a handle that
-      // is being closed.
-      final pendingInvalidation = _usbInvalidationInFlight;
-      if (pendingInvalidation != null) {
-        await pendingInvalidation;
-      }
-
-      // Use a shared singleton USB connection: only one UsbtmcContext/Device
-      // per process.  Subsequent open() calls reuse the existing connection,
-      // preventing LIBUSB_ERROR_BUSY from concurrent open attempts.
-      if (_sharedUsbDevice != null) {
-        _usbRefCount++;
-        _ownsUsbShare = true;
-        AppLogger().log(
-          'USB: Reusing shared USB connection (refcount=$_usbRefCount)',
-        );
-        return 0;
-      }
-
-      UsbtmcContext? context;
-      try {
-        final visaAddress = await detectLiveVisaAddress();
-        if (visaAddress == null) {
-          throw StateError(
-            'No active USBTMC device detected. Please check physical connection.',
-          );
-        }
-        AppLogger().log('USB: Auto-detected device: $visaAddress');
-
-        context = UsbtmcContext();
-        await context.init();
-        _sharedUsbContext = context;
-
-        final device = await context.newDevice(visaAddress);
-        _sharedUsbDevice = device;
-        _usbRefCount = 1;
-        _ownsUsbShare = true;
-        return 0;
-      } catch (e) {
-        AppLogger().error('USB: Failed to connect via USBTMC: $e');
-        // Tear down only what THIS attempt built up.
-        //
-        // The previous version closed whatever context happened to be in
-        // _sharedUsbContext — which, when two opens raced, was the *other*
-        // caller's live connection. Closing it called libusb_exit() on a
-        // context that still had a claimed device handle, leaving the app
-        // waiting on a connection that would never produce a result.
-        if (context != null) {
-          if (identical(_sharedUsbContext, context)) _sharedUsbContext = null;
-          try {
-            await context.close();
-          } catch (_) {}
-        }
-        rethrow;
-      }
+      // Serialise the open with every other transaction on the shared USB
+      // device: two concurrent opens would both see no shared device and
+      // race on claiming the interface (LIBUSB_ERROR_BUSY).
+      return _opLock.protect(() => _openUsb(src));
     }
 
     AppLogger().log('VXI-11: ${src}Opening connection to $_host');

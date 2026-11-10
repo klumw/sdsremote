@@ -183,6 +183,7 @@ Follow the instructions for your target platform.
 ### 3.3 USB support (experimental) ⚠️
 
 In general, a network connection to the oscilloscope is more reliable than a USB connection. USB data-transfer rates are also limited.
+Don't use a USB-Hub to connect your Oscilloscope or Signal Generator.
 
 #### 3.3.1 USB support on Windows
 

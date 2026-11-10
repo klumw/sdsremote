@@ -531,8 +531,9 @@ class MacroEvaluator {
       }
       await _drainEchoes(target.instrument);
     }
-    await target.instrument.writeString(command);
-    final raw = await target.instrument.readString();
+    // One atomic transaction: another instrument instance (for example an AI
+    // tool) must not send a command between the write and the read.
+    final raw = await target.instrument.queryString(command);
     return _cleanQueryResponse(raw, command);
   }
 

@@ -137,8 +137,14 @@ Tool<Map<String, dynamic>> createVxi11Tool({
             };
 
           case 'query':
-            await instrument.writeString(command);
-            final response = await instrument.readString(maxLen: 4096);
+            // One atomic transaction: no other instrument instance can send
+            // a command between the write and the read. Splitting them lets
+            // another instance steal the response, after which the USBTMC
+            // b-tag sequence desynchronises.
+            final response = await instrument.queryString(
+              command,
+              maxLen: 4096,
+            );
             result = {
               'success': true,
               'operation': 'query',

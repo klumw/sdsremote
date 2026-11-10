@@ -29,7 +29,8 @@
 [CmdletBinding()]
 param(
     [string]$ProjectRoot = '',
-    [string]$ScratchRoot = 'C:\build\sdsremote-build'
+    [string]$ScratchRoot = 'C:\build\sdsremote-build',
+    [string]$LibusbDll = ''
 )
 
 Set-StrictMode -Version Latest
@@ -338,6 +339,41 @@ if ($crtFiles.Count -eq 0) {
 $crtFiles | Copy-Item -Destination $releaseDirectory -Force
 Write-Host "Runtime DLLs: $($crtFiles.Count) from $crtDirectory"
 
+Write-Step 'Bundling libusb for USB support'
+# libusb is loaded at runtime by the pure-Dart usbtmc package via
+# DynamicLibrary.open('libusb-1.0.dll'), so it only has to sit next to
+# sdsremote.exe. The x64 build from the VS2025/MS64-hotplug directory of the
+# official libusb release is required.
+if ([string]::IsNullOrWhiteSpace($LibusbDll)) {
+    $libusbCandidates = @(
+        (Join-Path $ProjectRoot 'third_party\libusb\libusb-1.0.dll')
+    ) + @(Get-ChildItem -Path (Join-Path $env:USERPROFILE 'Downloads') -Recurse -Depth 3 `
+            -Filter 'libusb-1.0.dll' -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.FullName -match 'MS64-hotplug' } |
+        Sort-Object LastWriteTime -Descending |
+        Select-Object -ExpandProperty FullName)
+    $foundLibusb = $libusbCandidates |
+        Where-Object { $_ -and (Test-Path -LiteralPath $_) } |
+        Select-Object -First 1
+} else {
+    $foundLibusb = $LibusbDll
+}
+
+if (-not $foundLibusb) {
+    Write-Warning 'libusb-1.0.dll (x64) was not found; the bundle will lack USB support. Pass -LibusbDll <path> to set it explicitly.'
+} else {
+    $libusbBytes = [IO.File]::ReadAllBytes($foundLibusb)
+    $libusbPeOffset = [BitConverter]::ToInt32($libusbBytes, 0x3C)
+    $libusbMachine = [BitConverter]::ToUInt16($libusbBytes, $libusbPeOffset + 4)
+    if ($libusbMachine -ne 0x8664) {
+        throw ("libusb DLL is not x64 (PE machine 0x{0:X4}): {1}" -f $libusbMachine, $foundLibusb)
+    }
+    $libusbTarget = Join-Path $releaseDirectory 'libusb-1.0.dll'
+    Copy-Item -LiteralPath $foundLibusb -Destination $libusbTarget -Force
+    Write-Host "libusb DLL: $libusbTarget"
+    Write-Host "Source    : $foundLibusb"
+}
+
 Write-Step 'Publishing release bundle'
 $targetRelease = Join-Path $ProjectRoot 'build\windows\x64\runner\Release'
 $targetRunner = Split-Path -Parent $targetRelease
@@ -376,3 +412,14 @@ Write-Host "Installer : $installer"
 Write-Host "Size      : $([math]::Round($installerItem.Length / 1MB, 2)) MB"
 Write-Host "SHA-256   : $hash"
 Write-Host "Scratch   : $ScratchRoot"
+
+Write-Step 'Copying installer to Downloads'
+$downloadsDirectory = Join-Path $env:USERPROFILE 'Downloads'
+New-Item -ItemType Directory -Path $downloadsDirectory -Force | Out-Null
+$downloadedInstaller = Join-Path $downloadsDirectory 'sdsremote-setup.exe'
+Copy-Item -LiteralPath $installer -Destination $downloadedInstaller -Force
+Write-Host "Copied    : $downloadedInstaller"
+
+Write-Step 'Starting installer from Downloads'
+$setupProcess = Start-Process -FilePath $downloadedInstaller -WorkingDirectory $downloadsDirectory -PassThru
+Write-Host "Started   : $downloadedInstaller (PID $($setupProcess.Id))"
