@@ -77,6 +77,15 @@ class CalculatorController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Removes a displayed error without touching the expression, history or
+  /// keypad modifiers.
+  void clearError() {
+    final outcome = lastOutcome;
+    if (outcome == null || outcome.ok) return;
+    lastOutcome = null;
+    notifyListeners();
+  }
+
   void refresh() => notifyListeners();
 
   CalcOutcome evaluate(String expression) {

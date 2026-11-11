@@ -836,6 +836,7 @@ class CalculatorProgramView extends StatelessWidget {
     required this.editor,
     required this.focusNode,
     required this.onRun,
+    required this.onClear,
     required this.onSave,
     required this.onInsertUnit,
     required this.onLoad,
@@ -848,6 +849,7 @@ class CalculatorProgramView extends StatelessWidget {
   final ProgramEditorController editor;
   final FocusNode focusNode;
   final VoidCallback onRun;
+  final VoidCallback onClear;
   final VoidCallback onSave;
   final VoidCallback onInsertUnit;
   final ValueChanged<CalcProgram> onLoad;
@@ -868,21 +870,14 @@ class CalculatorProgramView extends StatelessWidget {
                 padding: const EdgeInsets.fromLTRB(10, 10, 10, 4),
                 child: Row(
                   children: [
-                    const Expanded(
-                      child: Text(
-                        'PROGRAM',
-                        style: TextStyle(
-                          color: Colors.white54,
-                          fontSize: 11,
-                          letterSpacing: 1.1,
-                          fontWeight: FontWeight.bold,
-                        ),
+                    const Text(
+                      'PROGRAM',
+                      style: TextStyle(
+                        color: Colors.white54,
+                        fontSize: 11,
+                        letterSpacing: 1.1,
+                        fontWeight: FontWeight.bold,
                       ),
-                    ),
-                    TextButton.icon(
-                      onPressed: onRun,
-                      icon: const Icon(Icons.play_arrow, size: 18),
-                      label: const Text('Run'),
                     ),
                     IconButton(
                       tooltip: 'Insert unit or Greek symbol',
@@ -895,6 +890,17 @@ class CalculatorProgramView extends StatelessWidget {
                         ),
                       ),
                       onPressed: onInsertUnit,
+                    ),
+                    const Spacer(),
+                    TextButton.icon(
+                      onPressed: onClear,
+                      icon: const Icon(Icons.clear, size: 18),
+                      label: const Text('Clear'),
+                    ),
+                    TextButton.icon(
+                      onPressed: onRun,
+                      icon: const Icon(Icons.play_arrow, size: 18),
+                      label: const Text('Run'),
                     ),
                     IconButton(
                       tooltip: 'Save program',
@@ -926,7 +932,7 @@ class CalculatorProgramView extends StatelessWidget {
                     TextButton.icon(
                       onPressed: onImportWorkspace,
                       icon: const Icon(Icons.upload, size: 16),
-                      label: const Text('Import'),
+                      label: const Text('Import workspace'),
                     ),
                   ],
                 ),

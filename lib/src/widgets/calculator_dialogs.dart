@@ -1,6 +1,8 @@
 /// Modal dialogs of the engineering calculator window.
 library;
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -10,6 +12,7 @@ import '../calculator/calc_format.dart';
 import '../calculator/calc_formulas.dart';
 import '../calculator/calc_units.dart';
 import '../calculator/calc_value.dart';
+import '../calculator/calc_workspace_store.dart';
 import '../calculator/calculator_controller.dart';
 import 'sensor_calibration_dialog.dart';
 
@@ -1075,79 +1078,397 @@ Future<void> showSaveProgramDialog(
   }
 }
 
-Future<void> showImportWorkspaceDialog(
+/// Shows the named-workspace export dialog and returns the saved path.
+Future<String?> showExportWorkspaceDialog(
   BuildContext context,
-  CalculatorController controller,
-) async {
-  final content = TextEditingController();
-  final error = ValueNotifier<String?>(null);
-  try {
-    await showDialog<void>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Import workspace'),
-        content: SizedBox(
-          width: 520,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Paste a workspace JSON document. This replaces variables, '
-                'functions, history, favorites and programs.',
-                style: TextStyle(color: Colors.white54, fontSize: 11),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: content,
-                minLines: 8,
-                maxLines: 14,
-                style: const TextStyle(fontFamily: 'monospace', fontSize: 11),
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: '{ "version": 1, ... }',
-                ),
-              ),
-              ValueListenableBuilder<String?>(
-                valueListenable: error,
-                builder: (context, value, _) => value == null
-                    ? const SizedBox.shrink()
-                    : Padding(
-                        padding: const EdgeInsets.only(top: 6),
-                        child: Text(
-                          value,
-                          style: const TextStyle(
-                            color: Colors.redAccent,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () {
-              try {
-                controller.session.importWorkspace(content.text);
-                controller.refresh();
-                Navigator.of(context).pop();
-              } on Object catch (exception) {
-                error.value = 'Import failed: $exception';
-              }
-            },
-            child: const Text('Import'),
-          ),
+  CalculatorController controller, {
+  CalcWorkspaceStore? store,
+}) {
+  return showDialog<String>(
+    context: context,
+    builder: (context) => _ExportWorkspaceDialog(
+      controller: controller,
+      store: store ?? CalcWorkspaceStore(),
+    ),
+  );
+}
+
+class _ExportWorkspaceDialog extends StatefulWidget {
+  const _ExportWorkspaceDialog({required this.controller, required this.store});
+
+  final CalculatorController controller;
+  final CalcWorkspaceStore store;
+
+  @override
+  State<_ExportWorkspaceDialog> createState() => _ExportWorkspaceDialogState();
+}
+
+class _ExportWorkspaceDialogState extends State<_ExportWorkspaceDialog> {
+  final _name = TextEditingController();
+  String? _error;
+  bool _busy = false;
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  Future<void> _export() async {
+    if (_busy) return;
+    setState(() => _error = null);
+
+    final String name;
+    try {
+      name = CalcWorkspaceStore.normalizeName(_name.text);
+    } on FormatException catch (error) {
+      setState(() => _error = error.message);
+      return;
+    }
+
+    final bool exists;
+    try {
+      exists = await widget.store.exists(name);
+    } on Object catch (error) {
+      setState(() => _error = 'Export failed: $error');
+      return;
+    }
+    if (!mounted) return;
+    if (exists) {
+      final overwrite = await showConfirmDialog(
+        context,
+        title: 'Overwrite workspace?',
+        message: 'A workspace named "$name" already exists. Overwrite it?',
+        confirmLabel: 'Overwrite',
+      );
+      if (!overwrite || !mounted) return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      final file = await widget.store.write(
+        name,
+        widget.controller.session.exportWorkspace(),
+      );
+      if (mounted) Navigator.of(context).pop(file.path);
+    } on Object catch (error) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = 'Export failed: $error';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.save_alt, color: Colors.cyanAccent),
+          SizedBox(width: 8),
+          Text('Export workspace'),
         ],
       ),
+      content: SizedBox(
+        width: 460,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Save the current workspace as a named snapshot. The default '
+              'workspace is saved automatically and cannot be used as a name.',
+              style: TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: _name,
+              autofocus: true,
+              enabled: !_busy,
+              decoration: const InputDecoration(
+                labelText: 'Workspace name',
+                hintText: 'e.g. power-supply-design',
+                border: OutlineInputBorder(),
+              ),
+              onSubmitted: (_) => _export(),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Saved as <name>.json in the calculator folder.',
+              style: TextStyle(color: Colors.white38, fontSize: 10),
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _busy ? null : _export,
+          child: const Text('Export'),
+        ),
+      ],
     );
-  } finally {
-    content.dispose();
-    error.dispose();
+  }
+}
+
+/// Shows the workspace import dialog.
+Future<void> showImportWorkspaceDialog(
+  BuildContext context,
+  CalculatorController controller, {
+  CalcWorkspaceStore? store,
+}) {
+  return showDialog<void>(
+    context: context,
+    builder: (context) => _ImportWorkspaceDialog(
+      controller: controller,
+      store: store ?? CalcWorkspaceStore(),
+    ),
+  );
+}
+
+class _ImportWorkspaceDialog extends StatefulWidget {
+  const _ImportWorkspaceDialog({required this.controller, required this.store});
+
+  final CalculatorController controller;
+  final CalcWorkspaceStore store;
+
+  @override
+  State<_ImportWorkspaceDialog> createState() => _ImportWorkspaceDialogState();
+}
+
+class _ImportWorkspaceDialogState extends State<_ImportWorkspaceDialog> {
+  /// Selection key for the automatically saved default workspace.
+  static const String _defaultSelection = 'default://workspace';
+
+  final List<CalcWorkspaceFile> _files = [];
+  String _selected = _defaultSelection;
+  String _defaultSubtitle = 'Automatically saved workspace (workspace.json)';
+  String? _error;
+  bool _loading = true;
+  bool _busy = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_reload());
+  }
+
+  Future<void> _reload() async {
+    try {
+      final files = await widget.store.list();
+      final modified = await widget.store.defaultModified();
+      if (!mounted) return;
+      setState(() {
+        _files
+          ..clear()
+          ..addAll(files);
+        _defaultSubtitle = modified != null
+            ? 'Automatically saved workspace (workspace.json) · '
+                  '${_formatModified(modified)}'
+            : 'Automatically saved workspace (not created yet)';
+        _loading = false;
+      });
+    } on Object catch (error) {
+      if (mounted) {
+        setState(() {
+          _loading = false;
+          _error = 'Loading workspaces failed: $error';
+        });
+      }
+    }
+  }
+
+  static String _formatModified(DateTime value) {
+    final local = value.toLocal();
+    String two(int number) => number.toString().padLeft(2, '0');
+    return '${local.year}-${two(local.month)}-${two(local.day)} '
+        '${two(local.hour)}:${two(local.minute)}';
+  }
+
+  CalcWorkspaceFile? get _selectedFile {
+    if (_selected == _defaultSelection) return null;
+    for (final file in _files) {
+      if (file.file.path == _selected) return file;
+    }
+    return null;
+  }
+
+  Future<void> _delete(CalcWorkspaceFile workspace) async {
+    final confirmed = await showConfirmDialog(
+      context,
+      title: 'Delete workspace?',
+      message: 'Delete "${workspace.name}"? This cannot be undone.',
+      confirmLabel: 'Delete',
+    );
+    if (!confirmed || !mounted) return;
+    try {
+      await widget.store.delete(workspace);
+      if (!mounted) return;
+      setState(() {
+        _files.removeWhere((file) => file.file.path == workspace.file.path);
+        if (_selected == workspace.file.path) _selected = _defaultSelection;
+      });
+    } on Object catch (error) {
+      if (mounted) setState(() => _error = 'Delete failed: $error');
+    }
+  }
+
+  Future<void> _import() async {
+    if (_busy) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
+    try {
+      final selected = _selectedFile;
+      final String? text;
+      if (selected == null) {
+        text = await widget.store.readDefault();
+      } else {
+        text = await widget.store.read(selected.file);
+      }
+      if (text == null) {
+        if (mounted) {
+          setState(() {
+            _busy = false;
+            _error = 'The default workspace has not been created yet.';
+          });
+        }
+        return;
+      }
+      widget.controller.session.importWorkspace(text);
+      widget.controller.refresh();
+      if (mounted) Navigator.of(context).pop();
+    } on Object catch (error) {
+      if (mounted) {
+        setState(() {
+          _busy = false;
+          _error = 'Import failed: $error';
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Row(
+        children: [
+          Icon(Icons.upload, color: Colors.cyanAccent),
+          SizedBox(width: 8),
+          Text('Import workspace'),
+        ],
+      ),
+      content: SizedBox(
+        width: 560,
+        height: 400,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Load a workspace snapshot. This replaces variables, functions, '
+              'history, favorites, programs and settings.',
+              style: TextStyle(color: Colors.white54, fontSize: 11),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : RadioGroup<String>(
+                      groupValue: _selected,
+                      onChanged: (value) {
+                        if (value != null) setState(() => _selected = value);
+                      },
+                      child: ListView(
+                        children: [
+                          RadioListTile<String>(
+                            value: _defaultSelection,
+                            dense: true,
+                            activeColor: Colors.cyanAccent,
+                            title: const Text('Default workspace'),
+                            subtitle: Text(
+                              _defaultSubtitle,
+                              style: const TextStyle(
+                                color: Colors.white54,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ),
+                          const Divider(height: 1, color: AppColors.border),
+                          if (_files.isEmpty)
+                            const Padding(
+                              padding: EdgeInsets.all(16),
+                              child: Text(
+                                'No named workspaces yet.',
+                                style: TextStyle(
+                                  color: Colors.white38,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            )
+                          else
+                            for (final workspace in _files)
+                              RadioListTile<String>(
+                                value: workspace.file.path,
+                                dense: true,
+                                activeColor: Colors.cyanAccent,
+                                title: Text(workspace.name),
+                                subtitle: Text(
+                                  'Last modified '
+                                  '${_formatModified(workspace.modified)}',
+                                  style: const TextStyle(
+                                    color: Colors.white54,
+                                    fontSize: 11,
+                                  ),
+                                ),
+                                secondary: IconButton(
+                                  tooltip: 'Delete workspace',
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    size: 18,
+                                  ),
+                                  onPressed: () => _delete(workspace),
+                                ),
+                              ),
+                        ],
+                      ),
+                    ),
+            ),
+            if (_error != null)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  _error!,
+                  style: const TextStyle(color: Colors.redAccent, fontSize: 12),
+                ),
+              ),
+          ],
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _busy ? null : () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: _loading || _busy ? null : _import,
+          child: const Text('Import'),
+        ),
+      ],
+    );
   }
 }
 

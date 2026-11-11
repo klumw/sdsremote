@@ -1960,6 +1960,7 @@ The large line shows the result, for example `20 V`.
 The line below shows the normalized expression, stored or used variables and the physical dimension when applicable.
 
 The small icons above the expression field provide undo, redo, previous/next calculation, paste and copy result.
+Deleting the complete expression removes a displayed error message.
 
 The top keypad row controls the operating modes:
 
@@ -2147,12 +2148,14 @@ vin * r2 / (r1 + r2)
 
 The result is `3.8367346939 V`.
 
-The **Ω** button in the program header opens the unit picker and inserts the selected unit or Greek symbol at the caret.
+The **Ω** button next to the **PROGRAM** label opens the unit picker and inserts the selected unit or Greek symbol at the caret.
+**Clear** (left of **Run**) empties the program editor.
 **Save** stores the program under a name; the saved-program list provides **Load** and **Delete**.
 
 The editor has a line-number gutter.
 When **Run** fails, the error message in the main display names the 1-based line and column, for example `Line 2, column 5`.
 The failing line number turns red and the faulty token gets a wavy red underline; editing clears the underline.
+Deleting the complete program (or pressing **Clear**) also removes the error message from the display.
 
 Programs support these control forms:
 
@@ -2216,13 +2219,26 @@ Every successful evaluation records its expression, normalized form, result, uni
 
 The arrow icons above the expression field move through previous and next calculations.
 The history can also be exported as CSV, JSON or a Markdown report.
-The **Programs** tab exports and imports the complete workspace as JSON.
+The **Programs** tab exports named workspace snapshots and imports them again.
+
+**Export workspace** asks for a name and saves the complete workspace as `<name>.json` in the calculator directory.
+The name `workspace` is reserved for the automatic default workspace; invalid file-name characters are rejected.
+If a named workspace already exists, the export asks before it is overwritten.
+
+**Import** lists the automatically saved **Default workspace** and all named workspace files.
+Select an entry and click **Import workspace** to replace the current workspace.
+Named workspaces can be deleted from the same dialog; a confirmation is required.
 
 The workspace contains variables, functions, settings, history, favorites and programs.
-It is stored in `calculator/workspace.json` in the application working directory:
+The default workspace is saved automatically to `calculator/workspace.json` in the application working directory and loaded at startup:
 
 * Linux: `~/.local/share/sdsremote/calculator/workspace.json`
 * Windows: `%LocalAppData%\sdsremote\calculator\workspace.json`
+
+Named workspaces are stored next to it:
+
+* Linux: `~/.local/share/sdsremote/calculator/<name>.json`
+* Windows: `%LocalAppData%\sdsremote\calculator\<name>.json`
 
 ### 11.8 AI Assistant
 

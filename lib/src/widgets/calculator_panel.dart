@@ -59,6 +59,7 @@ class _CalculatorPanelState extends State<CalculatorPanel>
     _chatController.addListener(_onControllerChanged);
     _lastProgramText = _program.text;
     _program.addListener(_onProgramChanged);
+    _expression.addListener(_onExpressionChanged);
     _tabs = TabController(length: 4, vsync: this);
     unawaited(_controller.initialize());
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -75,6 +76,7 @@ class _CalculatorPanelState extends State<CalculatorPanel>
     _chatController.removeListener(_onControllerChanged);
     _chatController.dispose();
     _tabs.dispose();
+    _expression.removeListener(_onExpressionChanged);
     _expression.dispose();
     _program.removeListener(_onProgramChanged);
     _program.dispose();
@@ -88,10 +90,26 @@ class _CalculatorPanelState extends State<CalculatorPanel>
     if (mounted) setState(() {});
   }
 
+  void _onExpressionChanged() {
+    final outcome = _controller.lastOutcome;
+    if (outcome == null || outcome.ok || !identical(outcome, _programOutcome)) {
+      return;
+    }
+    _programOutcome = null;
+    _programErrorMessage = null;
+    _controller.clearError();
+  }
+
   void _onProgramChanged() {
     if (_program.text == _lastProgramText) return;
     _lastProgramText = _program.text;
     _program.clearError();
+    if (_program.text.isEmpty &&
+        identical(_controller.lastOutcome, _programOutcome)) {
+      _programOutcome = null;
+      _programErrorMessage = null;
+      _controller.clearError();
+    }
   }
 
   CalculatorAgentContext get _aiContext => CalculatorAgentContext(
@@ -354,8 +372,12 @@ class _CalculatorPanelState extends State<CalculatorPanel>
               contentPadding: EdgeInsets.symmetric(vertical: 4),
             ),
             onSubmitted: (_) => _evaluate(),
-            onChanged: (_) {
+            onChanged: (value) {
               if (_historyCursor != -1) setState(() => _historyCursor = -1);
+              if (value.isEmpty &&
+                  !identical(_controller.lastOutcome, _programOutcome)) {
+                _controller.clearError();
+              }
             },
           ),
           if (error != null)
@@ -663,6 +685,7 @@ class _CalculatorPanelState extends State<CalculatorPanel>
                   editor: _program,
                   focusNode: _programFocus,
                   onRun: _runProgram,
+                  onClear: _clearProgram,
                   onSave: _saveProgram,
                   onInsertUnit: _insertProgramUnit,
                   onLoad: _loadProgram,
@@ -937,6 +960,20 @@ class _CalculatorPanelState extends State<CalculatorPanel>
     _insert(text);
   }
 
+  void _clearProgram() {
+    if (_program.text.isEmpty && _programOutcome == null) return;
+    final showedProgramOutcome = identical(
+      _controller.lastOutcome,
+      _programOutcome,
+    );
+    _program.clear();
+    _program.clearError();
+    _programOutcome = null;
+    _programErrorMessage = null;
+    if (showedProgramOutcome) _controller.clearResult();
+    _programFocus.requestFocus();
+  }
+
   void _runProgram() {
     final original = _program.text;
     final source = original.trim();
@@ -1041,13 +1078,12 @@ class _CalculatorPanelState extends State<CalculatorPanel>
   }
 
   void _exportWorkspace() {
-    unawaited(
-      _writeExport(
-        _controller.session.exportWorkspace(),
-        'calculator_workspace',
-        'json',
-      ),
-    );
+    unawaited(_exportWorkspaceWithDialog());
+  }
+
+  Future<void> _exportWorkspaceWithDialog() async {
+    final path = await showExportWorkspaceDialog(context, _controller);
+    if (path != null && mounted) _snack('Saved $path');
   }
 
   void _importWorkspace() {
