@@ -1208,21 +1208,37 @@ class PhysicalControlPanel extends StatelessWidget {
   ///
   /// Uses the same compact pill style as the automatic screen capture toggle:
   /// a clock icon plus an action label, tinted green while a run is active.
+  ///
+  /// While the periodic screen capture is enabled the button is disabled:
+  /// auto capture must be switched off before a timelapse can be started. A
+  /// running timelapse can always be stopped.
   Widget _buildTimelapseButton() {
     final bool running = timelapseRunning;
-    final bool disabled = onTimelapsePressed == null;
+    // Auto capture and a timelapse never run at the same time; the periodic
+    // capture has to be switched off explicitly first.
+    final bool autoCaptureBlocks = autoCaptureEnabled && !running;
+    final bool disabled = autoCaptureBlocks || onTimelapsePressed == null;
     final Color accent = disabled
         ? Colors.white24
         : (running ? const Color(0xFF22C55E) : const Color(0xFF94A3B8));
 
+    final String tooltip;
+    if (running) {
+      tooltip = 'Stop timelapse';
+    } else if (autoCaptureBlocks) {
+      tooltip = 'Disable automatic screen capture first';
+    } else if (!isOnline) {
+      tooltip = 'Timelapse (device offline)';
+    } else {
+      tooltip = 'Timelapse';
+    }
+
     return Tooltip(
-      message: running
-          ? 'Stop timelapse'
-          : (isOnline ? 'Timelapse' : 'Timelapse (device offline)'),
+      message: tooltip,
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          onTap: onTimelapsePressed,
+          onTap: disabled ? null : onTimelapsePressed,
           borderRadius: BorderRadius.circular(4),
           child: Ink(
             height: 30,

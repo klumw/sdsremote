@@ -1,6 +1,6 @@
 # SDS-Remote – Version 0.4.0 available
 
-Version 0.4.0 is now available. This release introduces several new features for Time-Domain and Frequency analysis and enhanced AI-assisted operation.
+Version 0.4.0 marks the transition from a remote oscilloscope control tool to a complete measurement and analysis environment, adding spectrum, fault and digital analysis, an engineering calculator, and significantly more AI automation.
 
 **SDS-Remote** is a remote-control interface and help center for Siglent SDS1000X-E series oscilloscopes. It provides a modern graphical user interface for instrument control, waveform acquisition, screen capture, data logging, and interaction through an integrated AI-powered chat interface. SDS-Remote runs on **Linux** and **Windows**.
 
