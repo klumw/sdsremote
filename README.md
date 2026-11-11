@@ -287,31 +287,9 @@ Run the unit and widget tests from the project root:
 flutter test
 ```
 
-## 4. AI Configuration
-
-The AI chat feature supports the following providers:
-
-- DeepSeek
-- OpenAI
-- Anthropic
-- Google
-- Mistral
-- Cohere
-- EdenAI
-- OpenRouter
-- xAI
-
-### Model names
-
-The application does not ship a fixed model catalog. The built-in agents use `deepseek-flash` as their default DeepSeek model. Enter that identifier in the **LLM Model** field for the default configuration.
-
-For other providers, use the exact model identifier from the provider's current documentation. The application passes the entered name to the selected provider.
-
-> **Warning:** The AI subsystem may produce inaccurate information or incorrect operating instructions. Use AI-generated information at your own risk, and verify AI-generated instructions before applying them to your equipment.
-
 ---
 
-## 5. License and Feedback
+## 4. License and Feedback
 
 ### License
 
