@@ -24,6 +24,11 @@ class DeviceParametersPanel extends StatefulWidget {
   final ValueChanged<double>? onZoomFactorChanged;
   final bool refVisible;
   final String? refLabel; // "REF" when a reference is loaded
+
+  /// Subtle hint shown in the reference section, e.g. when the loaded file
+  /// has no timing metadata and cannot be compared with the current settings.
+  final String? referenceTimingNote;
+
   final VoidCallback? onLoadReference;
   final ValueChanged<bool>? onRefToggled;
   final bool refMoving; // "Move Reference" mode armed
@@ -57,6 +62,7 @@ class DeviceParametersPanel extends StatefulWidget {
     this.onZoomFactorChanged,
     this.refVisible = false,
     this.refLabel,
+    this.referenceTimingNote,
     this.onLoadReference,
     this.onRefToggled,
     this.refMoving = false,
@@ -409,6 +415,9 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
             icon: Icons.restart_alt,
             label: 'Reset Offset',
             onTap: refOffset.isZero ? null : widget.onRefReset,
+            // Highlight the action while a manual alignment offset is active,
+            // so the reset is easy to spot.
+            accentColor: refOffset.isZero ? null : Colors.orangeAccent,
           ),
           const SizedBox(height: 8),
         ],
@@ -434,6 +443,17 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
           label: 'Load Reference',
           onTap: widget.onLoadReference,
         ),
+        if (widget.referenceTimingNote != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            widget.referenceTimingNote!,
+            style: const TextStyle(
+              color: Colors.white38,
+              fontSize: 10,
+              height: 1.3,
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -473,13 +493,18 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
       _paramRow(label, value == null ? '—' : _fmtSi(value, 'V'));
 
   /// A full-width row that acts as a button, used for the panel's actions.
-  /// A null [onTap] greys the row out instead of hiding it.
+  /// A null [onTap] greys the row out instead of hiding it. [accentColor]
+  /// overrides the icon and label colour, for example while an offset is
+  /// active and the reset action needs attention.
   Widget _buildActionRow({
     required IconData icon,
     required String label,
     VoidCallback? onTap,
+    Color? accentColor,
   }) {
     final enabled = onTap != null;
+    final Color contentColor =
+        accentColor ?? (enabled ? Colors.white70 : Colors.white38);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
@@ -498,14 +523,15 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
               Icon(
                 icon,
                 size: 16,
-                color: Colors.white.withAlpha(enabled ? 180 : 60),
+                color:
+                    accentColor ?? Colors.white.withAlpha(enabled ? 180 : 60),
               ),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
                   label,
                   style: TextStyle(
-                    color: enabled ? Colors.white70 : Colors.white38,
+                    color: contentColor,
                     fontSize: 13,
                     fontWeight: FontWeight.bold,
                   ),

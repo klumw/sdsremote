@@ -4904,7 +4904,7 @@ to 100 s/div.
 Use this mode for slow voltage variations, temperature measurements and
 other low-frequency signals.
 
-## How To: Prevent Multiple Trigger Events, Trigger Holdoff, Stable Display
+## How To: Prevent Multiple Trigger Events, Trigger Holdoff (Trigger Delay), Stable Display
 
 Press `Setup` to enter the TRIGGER configuration menu.
 

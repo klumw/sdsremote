@@ -75,6 +75,21 @@ class WaveformMeasurementPanel extends StatefulWidget {
   /// Measurements keyed by channel (`'ch1'` … `'ch4'`).
   final Map<String, WaveformMeasurements> measurements;
 
+  /// Measurements of the loaded reference waveform, if any.
+  ///
+  /// Rendered as an extra `REF` card after the channel cards so the standard
+  /// and PWM metrics of a reference loaded from a CSV file (or taken from the
+  /// current acquisition) are visible as well.
+  final WaveformMeasurements? referenceMeasurement;
+
+  /// V/div of the loaded reference, restored from the CSV metadata. Null
+  /// shows a dash in the REF card.
+  final double? referenceVdivVolts;
+
+  /// Offset of the loaded reference, restored from the CSV metadata. Null
+  /// shows a dash in the REF card.
+  final double? referenceOffsetVolts;
+
   /// Statistics over the stored acquisition history, keyed by channel.
   final Map<String, WaveformChannelStatistics> statistics;
 
@@ -115,6 +130,9 @@ class WaveformMeasurementPanel extends StatefulWidget {
   const WaveformMeasurementPanel({
     super.key,
     required this.measurements,
+    this.referenceMeasurement,
+    this.referenceVdivVolts,
+    this.referenceOffsetVolts,
     this.statistics = const {},
     this.deviceParams,
     this.historyCount = 0,
@@ -355,7 +373,7 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
   }
 
   Widget _buildChannelCards() {
-    if (widget.measurements.isEmpty) {
+    if (widget.measurements.isEmpty && widget.referenceMeasurement == null) {
       return const Center(
         child: Text(
           'No measurements available',
@@ -398,6 +416,8 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
                   _buildChannelCard(entry.key, entry.value),
                   const SizedBox(width: 10),
                 ],
+                if (widget.referenceMeasurement != null)
+                  _buildChannelCard('ref', widget.referenceMeasurement!),
               ],
             ),
           ),
@@ -498,7 +518,17 @@ class _WaveformMeasurementPanelState extends State<WaveformMeasurementPanel> {
 
   /// V/div and offset of [channel], rendered in the same style as the
   /// measurement values.
+  ///
+  /// The reference card uses its own stored vertical settings (restored from
+  /// the CSV metadata) and falls back to a dash when the file did not carry
+  /// them, so its parameter rows stay aligned with the channel cards.
   List<(String, String)> _channelSettingMetrics(String channel) {
+    if (channel == 'ref') {
+      return [
+        ('V/div', _formatVoltage(widget.referenceVdivVolts)),
+        ('Offset', _formatVoltage(widget.referenceOffsetVolts)),
+      ];
+    }
     final vdiv = widget.deviceParams?.vdivFor(channel);
     if (vdiv == null) return const [];
     return [

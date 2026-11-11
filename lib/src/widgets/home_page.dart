@@ -41,6 +41,7 @@ import '../waveform/waveform_csv_writer.dart';
 import '../data_logger/data_logger_csv_writer.dart';
 import '../waveform/waveform_models.dart';
 import '../waveform/waveform_compare.dart';
+import '../waveform/reference_timing.dart';
 import '../waveform/waveform_mask.dart';
 import '../waveform/waveform_measurements.dart';
 import '../waveform/waveform_history.dart';
@@ -58,6 +59,7 @@ import '../waveform/analysis/waveform_fault_models.dart';
 import '../waveform/analysis/waveform_fault_profile_store.dart';
 import 'waveform_export_dialog.dart';
 import 'waveform_measurement_panel.dart';
+import 'reference_timing_banner.dart';
 import 'waveform_analysis_view.dart';
 import 'ripple_noise_dialog.dart';
 import 'timelapse_dialog.dart';
@@ -343,6 +345,25 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// Cached geometry of the loaded reference, used by the mask slider ranges.
   double _referenceVppCache = 0;
   double _referenceDurationCache = 0;
+
+  /// Measurements of the loaded reference waveform, shown as its own `REF`
+  /// card in the measurement panel. Null until a reference is loaded.
+  WaveformMeasurements? _refMeasurements;
+
+  /// Timing metadata of the loaded reference file (timebase, trigger delay,
+  /// sample rate). Null when the file has no export comment header; "Use
+  /// Current as Reference" fills it from the settings at copy time.
+  WaveformCsvMetadata? _refMetadata;
+
+  /// Signature of the reference timing warning the user dismissed. A warning
+  /// with different content (or a newly loaded reference) is shown again.
+  String? _dismissedReferenceTimingWarning;
+
+  /// Vertical settings of the loaded reference, restored from the selected
+  /// channel's `# CHn V/div` / `# CHn Offset` CSV comments. Null when the file
+  /// did not carry them.
+  double? _refVdivVolts;
+  double? _refOffsetVolts;
 
   DeviceParams? _deviceParams;
   bool _waveformAcquired = false;
@@ -877,6 +898,7 @@ class _OsciHomePageState extends State<OsciHomePage>
                             onZoomFactorChanged: _onZoomFactorChanged,
                             refVisible: _refVisible,
                             refLabel: _refFileName != null ? 'REF' : null,
+                            referenceTimingNote: _referenceTimingNote,
                             onLoadReference: _loadReferenceWaveform,
                             onRefToggled: _onRefToggled,
                             refMoving: _refMoving,
@@ -1266,6 +1288,13 @@ class _OsciHomePageState extends State<OsciHomePage>
   }
 
   Widget _buildWaveformAnalysisView() {
+    final timingMismatches = _referenceTimingMismatches();
+    final timingWarningSignature = timingMismatches.isEmpty
+        ? null
+        : _referenceTimingWarningSignature(timingMismatches);
+    final showTimingWarning =
+        timingWarningSignature != null &&
+        timingWarningSignature != _dismissedReferenceTimingWarning;
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
       child: Column(
@@ -1299,13 +1328,38 @@ class _OsciHomePageState extends State<OsciHomePage>
                               left: _waveformMarkerGutterWidth,
                               right: _waveformZeroMarkerGutterWidth,
                             ),
-                            child: _buildWaveformView(),
+                            // The timing warning floats over the bottom edge of
+                            // the chart so showing or hiding it never changes
+                            // the chart height.
+                            child: Stack(
+                              children: [
+                                _buildWaveformView(),
+                                if (showTimingWarning)
+                                  Positioned(
+                                    left: 8,
+                                    right: 8,
+                                    bottom: 8,
+                                    child: ReferenceTimingBanner(
+                                      mismatches: timingMismatches,
+                                      onDismiss: () => setState(
+                                        () => _dismissedReferenceTimingWarning =
+                                            timingWarningSignature,
+                                      ),
+                                    ),
+                                  ),
+                              ],
+                            ),
                           ),
                         ),
                       ),
                       const SizedBox(height: 8),
                       WaveformMeasurementPanel(
                         measurements: _currentMeasurements(),
+                        referenceMeasurement: _refVisible
+                            ? _refMeasurements
+                            : null,
+                        referenceVdivVolts: _refVdivVolts,
+                        referenceOffsetVolts: _refOffsetVolts,
                         statistics: _measurementStatistics(),
                         deviceParams: _deviceParams,
                         historyCount: _measurementHistoryCount(),
@@ -4495,12 +4549,54 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   double _referenceDurationSeconds() => _referenceDurationCache;
 
-  /// Recomputes the cached reference geometry after a reference change.
+  /// Timing settings in which the loaded reference differs from the current
+  /// instrument settings. Empty when the reference has no timing metadata or
+  /// all values match.
+  List<ReferenceTimingMismatch> _referenceTimingMismatches() {
+    final metadata = _refMetadata;
+    final params = _deviceParams;
+    if (metadata == null || params == null || _refWaveform == null) {
+      return const [];
+    }
+    return compareReferenceTiming(
+      reference: metadata,
+      currentTimebase: params.timebase,
+      currentTriggerDelay: params.trdl,
+      currentSampleRate: params.sampleRate,
+    );
+  }
+
+  /// Stable signature of one reference timing warning, used to keep a
+  /// dismissed banner hidden until the warning content changes.
+  String _referenceTimingWarningSignature(
+    List<ReferenceTimingMismatch> mismatches,
+  ) => mismatches
+      .map(
+        (mismatch) =>
+            '${mismatch.field.name}:'
+            '${mismatch.referenceValue}:${mismatch.currentValue}',
+      )
+      .join('|');
+
+  /// Hint shown in the reference section when the loaded file carries no
+  /// timing metadata, so a comparison is impossible.
+  String? get _referenceTimingNote {
+    if (_refWaveform == null || _refMetadata?.hasTiming == true) return null;
+    return 'Timing metadata is missing in this reference file. Timebase, '
+        'trigger delay and sample rate cannot be compared.';
+  }
+
+  /// Recomputes the cached reference geometry and measurements after a
+  /// reference change.
   void _cacheReferenceGeometry() {
     final points = _refWaveform?.points;
     if (points == null || points.isEmpty) {
       _referenceVppCache = 0;
       _referenceDurationCache = 0;
+      _refMeasurements = null;
+      _refMetadata = null;
+      _refVdivVolts = null;
+      _refOffsetVolts = null;
       return;
     }
     var min = double.infinity;
@@ -4513,6 +4609,10 @@ class _OsciHomePageState extends State<OsciHomePage>
     _referenceDurationCache = points.length < 2
         ? 0
         : points.last.$1 - points.first.$1;
+    // The reference is measured exactly as loaded. The manual alignment
+    // offset only moves the drawn trace and does not change its shape, so it
+    // is deliberately not applied here.
+    _refMeasurements = measureWaveform(channel: 'ref', points: points);
   }
 
   void _onDiffToggled(bool visible) {
@@ -4840,12 +4940,25 @@ class _OsciHomePageState extends State<OsciHomePage>
     if (channel == null || !mounted) return;
 
     final points = channels[channel]!.points;
+    final params = _deviceParams;
     setState(() {
       _refWaveform = WaveformData(points: points);
       _refVisible = true;
       _refFileName = '${channel.toUpperCase()} (current)';
       _refChannelOrigin = channel;
       _refOffset = const ReferenceOffset();
+      // The copy carries the settings the current acquisition was made with,
+      // so a warning only appears after the user changes one of them.
+      _refMetadata = params == null
+          ? null
+          : WaveformCsvMetadata(
+              timebaseSecondsPerDiv: params.timebase,
+              triggerDelaySeconds: params.trdl,
+              sampleRateHz: params.sampleRate,
+            );
+      _refVdivVolts = params?.vdivFor(channel);
+      _refOffsetVolts = params?.voffsetFor(channel);
+      _dismissedReferenceTimingWarning = null;
       _cacheReferenceGeometry();
     });
     _recomputeReferenceAnalysis();
@@ -7890,16 +8003,11 @@ class _OsciHomePageState extends State<OsciHomePage>
       return null;
     }
 
-    final files =
-        dir
-            .listSync()
-            .whereType<File>()
-            .where((f) => f.path.endsWith('.csv'))
-            .toList()
-          ..sort(
-            (a, b) =>
-                a.uri.pathSegments.last.compareTo(b.uri.pathSegments.last),
-          );
+    final files = dir
+        .listSync()
+        .whereType<File>()
+        .where((f) => f.path.endsWith('.csv'))
+        .toList();
 
     if (files.isEmpty) {
       _showInfoSnackBar('No waveform CSV files found.');
@@ -7979,12 +8087,17 @@ class _OsciHomePageState extends State<OsciHomePage>
 
       final (liveFirstTime, _) = _waveformTimeBounds();
       final alignedPoints = _alignReferencePoints(points, liveFirstTime);
+      final channelSettings = csv.metadata?.channels[channel];
 
       setState(() {
         _refWaveform = WaveformData(points: alignedPoints);
         _refVisible = true;
         _refFileName = file.uri.pathSegments.last;
         _refChannelOrigin = channel;
+        _refMetadata = csv.metadata;
+        _refVdivVolts = channelSettings?.vdivVolts;
+        _refOffsetVolts = channelSettings?.offsetVolts;
+        _dismissedReferenceTimingWarning = null;
         // The load aligns the reference itself, so an offset from a previous
         // reference would be meaningless for this one.
         _refOffset = const ReferenceOffset();
