@@ -23,9 +23,12 @@ Tool<Map<String, dynamic>> createWaveformSummaryTool({
         'Returns the automatic time-domain measurements of the waveform '
         'currently displayed in the main window: active channels with Vpp, '
         'RMS, frequency, duty, rise/fall, overshoot and notes, the device '
-        'parameters (timebase, sample rate, V/div and offset), and the '
-        'reference comparison and mask-test result when available. Use it '
-        'when the user asks why a signal looks the way it does or asks for '
+        'parameters (timebase, sample rate, V/div and offset), the reference '
+        'comparison and mask-test result when available, and — when a '
+        'reference waveform is loaded — its file name, source channel, '
+        'visibility, V/div, offset, timing metadata, own measurements and any '
+        'timing settings that differ from the current instrument. Use it when '
+        'the user asks why a signal looks the way it does or asks for '
         'measurement values. Returns an error if no waveform is displayed.',
     inputSchema: Schema.fromMap({
       'type': 'object',

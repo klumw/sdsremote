@@ -4309,7 +4309,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   Map<String, dynamic>? _waveformSummaryForAi() {
     if (!_waveformAcquired) return null;
     final measurements = _currentMeasurements();
-    if (measurements.isEmpty) return null;
+    if (measurements.isEmpty && _refWaveform == null) return null;
 
     final params = _deviceParams;
     final comparison = _comparison;
@@ -4328,6 +4328,32 @@ class _OsciHomePageState extends State<OsciHomePage>
           'timebaseSecondsPerDiv': params.timebase,
           'triggerDelaySeconds': params.trdl,
           'sampleRatePerSecond': params.sampleRate,
+        },
+      if (_refWaveform != null)
+        'reference': {
+          'fileName': _refFileName,
+          'sourceChannel': _refChannelOrigin,
+          'visible': _refVisible,
+          'verticalScaleVoltsPerDiv': _refVdivVolts,
+          'offsetVolts': _refOffsetVolts,
+          'timebaseSecondsPerDiv': _refMetadata?.timebaseSecondsPerDiv,
+          'triggerDelaySeconds': _refMetadata?.triggerDelaySeconds,
+          'sampleRatePerSecond': _refMetadata?.sampleRateHz,
+          'settingsDifferFromCurrent': [
+            for (final mismatch in _referenceTimingMismatches())
+              {
+                'setting': mismatch.field.name,
+                'referenceValue': mismatch.referenceValue,
+                'currentValue': mismatch.currentValue,
+              },
+          ],
+          if (_refMeasurements != null)
+            'measurements': _measurementSummaryForAi(
+              _refMeasurements!,
+              params,
+              verticalScaleVoltsPerDiv: _refVdivVolts,
+              offsetVolts: _refOffsetVolts,
+            ),
         },
       if (comparison != null)
         'referenceComparison': {
@@ -4459,10 +4485,13 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// Serializes one channel's measurements for [_waveformSummaryForAi].
   Map<String, dynamic> _measurementSummaryForAi(
     WaveformMeasurements measurement,
-    DeviceParams? params,
-  ) => {
-    'verticalScaleVoltsPerDiv': params?.vdivFor(measurement.channel),
-    'offsetVolts': params?.voffsetFor(measurement.channel),
+    DeviceParams? params, {
+    double? verticalScaleVoltsPerDiv,
+    double? offsetVolts,
+  }) => {
+    'verticalScaleVoltsPerDiv':
+        verticalScaleVoltsPerDiv ?? params?.vdivFor(measurement.channel),
+    'offsetVolts': offsetVolts ?? params?.voffsetFor(measurement.channel),
     'vMaxVolts': measurement.vMax,
     'vMinVolts': measurement.vMin,
     'vppVolts': measurement.vPp,
