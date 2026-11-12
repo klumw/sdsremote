@@ -1274,53 +1274,92 @@ class _HelpWindowState extends State<HelpWindow>
   Widget _buildContents() {
     return Container(
       key: const ValueKey('help-contents'),
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+      // Rounds the corners of the black 3D edge added below.
+      clipBehavior: Clip.antiAlias,
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.04),
         borderRadius: BorderRadius.circular(6),
         border: Border.all(color: Colors.cyanAccent.withValues(alpha: 0.3)),
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Stack(
         children: [
-          const Text(
-            'Contents',
-            style: TextStyle(
-              color: Colors.cyanAccent,
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Contents',
+                  style: TextStyle(
+                    color: Colors.cyanAccent,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    // Spread the chapters over up to three columns. Fill each column
+                    // from top to bottom before moving to the next one, so chapter 2
+                    // appears directly under chapter 1 instead of beside it.
+                    const spacing = 24.0;
+                    final maxColumns = (constraints.maxWidth / 300)
+                        .floor()
+                        .clamp(1, 3)
+                        .toInt();
+                    final columns = chaptersByColumn(_chapters, maxColumns);
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        for (
+                          var column = 0;
+                          column < columns.length;
+                          column++
+                        ) ...[
+                          if (column > 0) const SizedBox(width: spacing),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                for (final chapter in columns[column])
+                                  _buildContentsEntry(chapter),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    );
+                  },
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 6),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              // Spread the chapters over up to three columns. Fill each column
-              // from top to bottom before moving to the next one, so chapter 2
-              // appears directly under chapter 1 instead of beside it.
-              const spacing = 24.0;
-              final maxColumns = (constraints.maxWidth / 300)
-                  .floor()
-                  .clamp(1, 3)
-                  .toInt();
-              final columns = chaptersByColumn(_chapters, maxColumns);
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  for (var column = 0; column < columns.length; column++) ...[
-                    if (column > 0) const SizedBox(width: spacing),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          for (final chapter in columns[column])
-                            _buildContentsEntry(chapter),
-                        ],
-                      ),
+          // Black 3D edge on the left, mirroring the black line above the
+          // box: a solid black line followed by a faint highlight and a
+          // soft shadow, so the box also reads as raised on that side.
+          Positioned(
+            left: 0,
+            top: 0,
+            bottom: 0,
+            child: IgnorePointer(
+              child: Container(
+                width: 2,
+                decoration: BoxDecoration(
+                  border: const Border(
+                    left: BorderSide(color: Colors.black, width: 1),
+                    right: BorderSide(color: Colors.white10, width: 1),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.95),
+                      blurRadius: 6,
+                      spreadRadius: 2,
+                      offset: const Offset(3, 0),
                     ),
                   ],
-                ],
-              );
-            },
+                ),
+              ),
+            ),
           ),
         ],
       ),
