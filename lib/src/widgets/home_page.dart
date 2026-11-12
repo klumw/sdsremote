@@ -16,6 +16,7 @@ import 'package:image/image.dart' as img;
 import '../app/app_config.dart';
 import '../app/app_theme.dart';
 import '../app/app_preferences.dart';
+import '../app/screen_settings.dart';
 import '../app/window_state.dart';
 import '../waveform/cursor_geometry.dart';
 import 'animated_sync_icon.dart';
@@ -86,6 +87,7 @@ import 'osci_chat_window.dart';
 import 'osci_help_window.dart';
 import 'osci_news_notification.dart';
 import 'osci_device_params_panel.dart';
+import 'display_adjust_panel.dart';
 import 'osci_settings_panel.dart';
 import 'osci_profiles_panel.dart';
 import 'waveform_ai_panel.dart';
@@ -242,6 +244,19 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   /// Time the current [_screenDump] was captured, shown in the PDF report.
   DateTime? _screenDumpCapturedAt;
+
+  /// Brightness and contrast applied to the displayed screenshot and live
+  /// frame. Persisted in `preferences/screen.json`.
+  ScreenSettings _screenSettings = ScreenSettings.defaults;
+
+  /// Whether the floating display adjustment panel is open.
+  bool _showDisplayAdjust = false;
+
+  /// Top-left position of the display adjustment panel.
+  Offset _displayAdjustOffset = Offset.zero;
+
+  /// Settings active when the panel was opened; Cancel restores them.
+  ScreenSettings? _displayAdjustOriginal;
 
   // Live screen (VNC) — four-channel instruments connected over IP only.
   //
@@ -942,6 +957,17 @@ class _OsciHomePageState extends State<OsciHomePage>
             ],
           ),
           if (_showSettings) _buildSettingsPanel(),
+          if (_showDisplayAdjust) ...[
+            // Clicking outside the floating panel cancels the adjustment.
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _cancelDisplayAdjust,
+                onSecondaryTap: _cancelDisplayAdjust,
+              ),
+            ),
+            _buildDisplayAdjustPanel(),
+          ],
         ],
       ),
     );
@@ -1640,6 +1666,8 @@ class _OsciHomePageState extends State<OsciHomePage>
       liveAvailable: _vncReachable,
       onLiveChanged: _setVncLiveEnabled,
       liveScreen: _liveScreenImage,
+      screenSettings: _screenSettings,
+      onDisplaySettingsRequested: _openDisplayAdjustPanel,
       aiSettings: _aiSettings,
       chatController: _controlPanelChatController,
       vxi11Host: _ipAddress,
@@ -3309,6 +3337,62 @@ class _OsciHomePageState extends State<OsciHomePage>
         setState(() => _askForFilenamePrefix = v);
         await AppPreferences.setBool('ask_for_filename_prefix', v);
       },
+    );
+  }
+
+  /// Opens the floating display adjustment panel at [globalPosition].
+  void _openDisplayAdjustPanel(Offset globalPosition) {
+    setState(() {
+      _displayAdjustOriginal = _screenSettings;
+      _displayAdjustOffset = _clampDisplayAdjustOffset(globalPosition);
+      _showDisplayAdjust = true;
+    });
+  }
+
+  /// Restores the settings that were active when the panel was opened.
+  void _cancelDisplayAdjust() {
+    setState(() {
+      final original = _displayAdjustOriginal;
+      if (original != null) _screenSettings = original;
+      _showDisplayAdjust = false;
+      _displayAdjustOriginal = null;
+    });
+  }
+
+  /// Applies the values selected in the panel and persists them.
+  void _saveDisplayAdjust(ScreenSettings settings) {
+    setState(() {
+      _screenSettings = settings;
+      _showDisplayAdjust = false;
+      _displayAdjustOriginal = null;
+    });
+    unawaited(ScreenSettingsStore.save(settings));
+  }
+
+  /// Keeps the floating panel inside the window.
+  Offset _clampDisplayAdjustOffset(Offset position) {
+    final size = MediaQuery.sizeOf(context);
+    const margin = 8.0;
+    final maxX = size.width - displayAdjustPanelWidth - margin;
+    final maxY = size.height - displayAdjustPanelApproximateHeight - margin;
+    return Offset(
+      position.dx.clamp(margin, maxX < margin ? margin : maxX).toDouble(),
+      position.dy.clamp(margin, maxY < margin ? margin : maxY).toDouble(),
+    );
+  }
+
+  Widget _buildDisplayAdjustPanel() {
+    return DisplayAdjustPanel(
+      offset: _displayAdjustOffset,
+      settings: _screenSettings,
+      onChanged: (settings) => setState(() => _screenSettings = settings),
+      onSave: _saveDisplayAdjust,
+      onCancel: _cancelDisplayAdjust,
+      onDrag: (delta) => setState(
+        () => _displayAdjustOffset = _clampDisplayAdjustOffset(
+          _displayAdjustOffset + delta,
+        ),
+      ),
     );
   }
 
@@ -5823,6 +5907,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     );
     final signalGenerator = await AppPreferences.getString('siggen_device');
     final sigGenPort = await AppPreferences.getString('siggen_port');
+    final screenSettings = await ScreenSettingsStore.load();
     setState(() {
       _ipAddress = ip ?? '192.168.1.100';
       _isUsb = isUsb ?? false;
@@ -5837,6 +5922,7 @@ class _OsciHomePageState extends State<OsciHomePage>
           ? signalGenerator!
           : 'none';
       _sigGenPort = sigGenPort;
+      _screenSettings = screenSettings;
     });
     await _loadSpectrumSettings();
   }

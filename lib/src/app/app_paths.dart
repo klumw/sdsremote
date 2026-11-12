@@ -120,6 +120,13 @@ class AppPaths {
     '${defaultSaveDirectory.path}${_sep}preferences${_sep}fault_analysis_profile.json',
   );
 
+  /// `<app working dir>/preferences/screen.json`
+  ///
+  /// Brightness and contrast applied to the Control Panel screenshot and the
+  /// live VNC stream.
+  static File get screenSettingsFile =>
+      File('${defaultSaveDirectory.path}${_sep}preferences${_sep}screen.json');
+
   // ---------------------------------------------------------------------------
   // Convenience: ensure-and-get
   // ---------------------------------------------------------------------------

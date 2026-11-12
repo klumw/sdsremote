@@ -1022,27 +1022,33 @@ class _HelpWindowState extends State<HelpWindow>
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Text(
-                              'SDS-Remote Help',
-                              style: TextStyle(
-                                color: Colors.cyanAccent,
-                                fontSize: 22,
-                                fontWeight: FontWeight.bold,
+                        Flexible(
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Flexible(
+                                child: Text(
+                                  'SDS-Remote 0.4.0 - Help',
+                                  overflow: TextOverflow.ellipsis,
+                                  softWrap: false,
+                                  style: TextStyle(
+                                    color: Colors.cyanAccent,
+                                    fontSize: 22,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
                               ),
-                            ),
-                            if (_isRenderingChunks) ...[
-                              const SizedBox(width: 10),
-                              // Keeps the busy feedback visible and
-                              // animating while the manual's chunks fill in.
-                              const AnimatedSyncIcon(
-                                size: 16,
-                                color: Colors.cyanAccent,
-                              ),
+                              if (_isRenderingChunks) ...[
+                                const SizedBox(width: 10),
+                                // Keeps the busy feedback visible and
+                                // animating while the manual's chunks fill in.
+                                const AnimatedSyncIcon(
+                                  size: 16,
+                                  color: Colors.cyanAccent,
+                                ),
+                              ],
                             ],
-                          ],
+                          ),
                         ),
                         _buildSearchBar(),
                       ],

@@ -8,6 +8,7 @@ import 'osci_knob_widgets.dart';
 import '../ai/ai_settings.dart';
 import '../ai/control_panel_chat_controller.dart';
 import '../app/app_config.dart' show KnobId, autoSetupButtonLabel;
+import '../app/screen_settings.dart';
 import '../devices/device_agent_context.dart';
 import '../voice/voice_input_service.dart';
 import 'control_panel_chat_overlay.dart';
@@ -15,6 +16,12 @@ import 'control_panel_chat_overlay.dart';
 /// A widget that renders a physical oscilloscope control panel overlay
 /// on top of a screen dump image.
 class PhysicalControlPanel extends StatelessWidget {
+  /// Fixed brightness offset added to the live VNC frame.
+  ///
+  /// The instrument's VNC stream is darker than a screen dump, so the offset
+  /// keeps both views visually equal under the default settings.
+  static const double vncLiveBrightnessBoost = 0.20;
+
   final bool isOnline;
   final bool isProcessingEvent;
   final Uint8List screenDump;
@@ -70,6 +77,14 @@ class PhysicalControlPanel extends StatelessWidget {
   /// Latest VNC frame shown while [liveEnabled] is true.
   final ui.Image? liveScreen;
 
+  /// Brightness and contrast applied to the displayed screenshot and live
+  /// frame.
+  final ScreenSettings screenSettings;
+
+  /// Called when the screenshot is right-clicked; receives the global
+  /// position of the secondary tap.
+  final ValueChanged<Offset>? onDisplaySettingsRequested;
+
   /// AI provider/token/model settings for the Control Panel assistant.
   ///
   /// Null when the AI is not configured; the AI button is then disabled.
@@ -117,6 +132,8 @@ class PhysicalControlPanel extends StatelessWidget {
     this.liveAvailable = true,
     this.onLiveChanged,
     this.liveScreen,
+    this.screenSettings = ScreenSettings.defaults,
+    this.onDisplaySettingsRequested,
     this.aiSettings,
     this.chatController,
     this.vxi11Host,
@@ -145,25 +162,22 @@ class PhysicalControlPanel extends StatelessWidget {
                   child: Row(
                     children: [
                       Expanded(
-                        child: Container(
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: const Color(0xFF475569),
-                              width: 2.0,
-                            ),
-                          ),
-                          child: liveEnabled && liveScreen != null
-                              ? RawImage(
-                                  image: liveScreen,
-                                  fit: BoxFit.contain,
-                                  filterQuality: FilterQuality.high,
-                                )
-                              : Image.memory(
-                                  screenDump,
-                                  fit: BoxFit.contain,
-                                  filterQuality: FilterQuality.high,
-                                  gaplessPlayback: true,
+                        child: GestureDetector(
+                          behavior: HitTestBehavior.opaque,
+                          onSecondaryTapDown: onDisplaySettingsRequested == null
+                              ? null
+                              : (details) => onDisplaySettingsRequested!(
+                                  details.globalPosition,
                                 ),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              border: Border.all(
+                                color: const Color(0xFF475569),
+                                width: 2.0,
+                              ),
+                            ),
+                            child: _buildScreenImage(),
+                          ),
                         ),
                       ),
                     ],
@@ -573,6 +587,40 @@ class PhysicalControlPanel extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  /// Renders the live VNC frame or the last screen dump.
+  ///
+  /// The display brightness and contrast are applied with a GPU color matrix,
+  /// so slider changes take effect without re-encoding the image. Neutral
+  /// settings skip the filter layer entirely.
+  Widget _buildScreenImage() {
+    final bool live = liveEnabled && liveScreen != null;
+    final Widget image = live
+        ? RawImage(
+            image: liveScreen,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
+          )
+        : Image.memory(
+            screenDump,
+            fit: BoxFit.contain,
+            filterQuality: FilterQuality.high,
+            gaplessPlayback: true,
+          );
+    // The VNC stream is darker than a screen dump, so the live view gets a
+    // fixed brightness offset on top of the shared display settings.
+    final settings = live
+        ? ScreenSettings(
+            brightness: screenSettings.brightness + vncLiveBrightnessBoost,
+            contrast: screenSettings.contrast,
+          ).clamped()
+        : screenSettings;
+    if (settings.isNeutral) return image;
+    return ColorFiltered(
+      colorFilter: ColorFilter.matrix(settings.toColorMatrix()),
+      child: image,
     );
   }
 

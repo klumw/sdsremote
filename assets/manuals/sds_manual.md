@@ -1667,6 +1667,20 @@ The live screen is not available over USB connections or on two-channel models.
 
 The **Timelapse** button (clock icon) sits in the bottom bar of the Control Sidebar, next to the automatic screen capture toggle, and starts or stops a timelapse run (see [8.11 Timelapse](#811-timelapse)).
 
+#### Brightness and Contrast
+
+Right-click the displayed screen — the captured image or the live screen — to open the **Display Adjust** panel.
+The panel contains two sliders that only affect the display in SDS-Remote; the oscilloscope itself and saved reports are not changed:
+
+| Slider | Range | Default |
+|:-------|:------|:--------|
+| **Brightness** | −100 % to +100 % | 0 % |
+| **Contrast** | 50 % to 200 % | 100 % |
+
+The screen updates immediately while a slider is moved.
+**Save** stores the settings in `screen.json` in the `preferences/` subdirectory of the application working directory (see [12. Application Directory](#12-application-directory)) and applies them the next time SDS-Remote starts.
+**Cancel**, the close button, the Escape key or a click outside the panel restores the values that were active when the panel was opened. **Reset** returns both sliders to their defaults. Drag the panel header to reposition it.
+
 ### 9.2 Control Sidebar
 
 The right side of the panel contains the virtual controls, organized into functional groups.  
