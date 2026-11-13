@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 
@@ -84,6 +83,7 @@ import '../core/logger.dart';
 import '../devices/device_agent_context.dart';
 import '../devices/device_profile_models.dart';
 import '../devices/device_profile_store.dart';
+import '../devices/profile_controller.dart';
 import '../devices/flutter_device_asset_source.dart';
 import 'osci_physical_panel.dart';
 import 'osci_chat_window.dart';
@@ -326,10 +326,8 @@ class _OsciHomePageState extends State<OsciHomePage>
   Timer? _pingTimer;
 
   // Profiles
-  List<ProfileInfo> _profileFiles = [];
-
-  /// True while a profile is uploaded and applied on the instrument.
-  bool _isProfileLoading = false;
+  /// Owns the device setup profile files and their upload state.
+  late final ProfileController _profileController;
 
   // Macro Recorder
   List<MacroInfo> _macroFiles = [];
@@ -641,6 +639,18 @@ class _OsciHomePageState extends State<OsciHomePage>
       },
     );
     _dataLoggerSession = DataLoggerSessionController(
+      onChanged: () {
+        if (mounted) _setState(() {});
+      },
+    );
+    _profileController = ProfileController(
+      getInstrument: _getInstrument,
+      isUsb: () => _isUsb,
+      isMacroRecording: () => _isMacroRecording,
+      appendMacroLine: (line) => _currentMacroContent += line,
+      onScheduleRefresh: _scheduleRefresh,
+      showInfo: _showInfoSnackBar,
+      showError: _showErrorSnackBar,
       onChanged: () {
         if (mounted) _setState(() {});
       },

@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../devices/profile_info.dart';
 import 'animated_sync_icon.dart';
 
-class ProfileInfo {
-  final String fileName;
-  final DateTime lastModified;
-
-  ProfileInfo({required this.fileName, required this.lastModified});
-}
+export '../devices/profile_info.dart' show ProfileInfo;
 
 class ProfilesPanel extends StatefulWidget {
   final List<ProfileInfo> profileFiles;
