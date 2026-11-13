@@ -3,6 +3,64 @@ part of 'home_page.dart';
 // Stage A extraction from home_page.dart. Do not add imports here.
 
 extension _HomeAcquisition on _OsciHomePageState {
+  bool get _isAcquiring => _acquisitionController.isAcquiring;
+  set _isAcquiring(bool value) => _acquisitionController.isAcquiring = value;
+
+  bool get _isAcquiringWaveform => _acquisitionController.isAcquiringWaveform;
+  set _isAcquiringWaveform(bool value) =>
+      _acquisitionController.isAcquiringWaveform = value;
+
+  Uint8List? get _screenDump => _acquisitionController.screenDump;
+  set _screenDump(Uint8List? value) =>
+      _acquisitionController.screenDump = value;
+
+  DateTime? get _screenDumpCapturedAt =>
+      _acquisitionController.screenDumpCapturedAt;
+  set _screenDumpCapturedAt(DateTime? value) =>
+      _acquisitionController.screenDumpCapturedAt = value;
+
+  WaveformData? get _waveformCh1 => _acquisitionController.ch1;
+  set _waveformCh1(WaveformData? value) => _acquisitionController.ch1 = value;
+
+  WaveformData? get _waveformCh2 => _acquisitionController.ch2;
+  set _waveformCh2(WaveformData? value) => _acquisitionController.ch2 = value;
+
+  WaveformData? get _waveformCh3 => _acquisitionController.ch3;
+  set _waveformCh3(WaveformData? value) => _acquisitionController.ch3 = value;
+
+  WaveformData? get _waveformCh4 => _acquisitionController.ch4;
+  set _waveformCh4(WaveformData? value) => _acquisitionController.ch4 = value;
+
+  WaveformRawData? get _lastRawData => _acquisitionController.lastRawData;
+  set _lastRawData(WaveformRawData? value) =>
+      _acquisitionController.lastRawData = value;
+
+  set _measurementsCh1(WaveformMeasurements? value) =>
+      _acquisitionController.measurementsCh1 = value;
+
+  set _measurementsCh2(WaveformMeasurements? value) =>
+      _acquisitionController.measurementsCh2 = value;
+
+  set _measurementsCh3(WaveformMeasurements? value) =>
+      _acquisitionController.measurementsCh3 = value;
+
+  set _measurementsCh4(WaveformMeasurements? value) =>
+      _acquisitionController.measurementsCh4 = value;
+
+  List<WaveformMeasurements> get _measurementHistoryCh1 =>
+      _acquisitionController.historyCh1;
+  List<WaveformMeasurements> get _measurementHistoryCh2 =>
+      _acquisitionController.historyCh2;
+  List<WaveformMeasurements> get _measurementHistoryCh3 =>
+      _acquisitionController.historyCh3;
+  List<WaveformMeasurements> get _measurementHistoryCh4 =>
+      _acquisitionController.historyCh4;
+
+  int get _acquisitionGeneration =>
+      _acquisitionController.acquisitionGeneration;
+  set _acquisitionGeneration(int value) =>
+      _acquisitionController.acquisitionGeneration = value;
+
   Future<void> _acquireScreenDump({bool keepPanels = false}) async {
     if (_isAcquiring || _isAcquiringWaveform || _timelapseRunning) return;
 
@@ -209,77 +267,18 @@ extension _HomeAcquisition on _OsciHomePageState {
   }
 
   /// Measures every acquired raw channel before display decimation.
-  ///
-  /// Channels that were not acquired, or whose vertical settings are
-  /// missing, yield `null`.
   (
     WaveformMeasurements?,
     WaveformMeasurements?,
     WaveformMeasurements?,
     WaveformMeasurements?,
   )
-  _measureRawChannels(WaveformRawData raw) {
-    /// Effective interval between the transferred samples of a channel.
-    ///
-    /// With WFSU sparsing the record contains only every `sparsing`-th
-    /// acquisition sample, so the spacing is `sparsing / sampleRate`. This
-    /// mirrors `WaveformConverter.computeTimeAxis` and avoids stretching a
-    /// short sparsed record over the 14-division display window, which would
-    /// scale every measured frequency down by the sparsing factor.
-    double? sampleIntervalFor(int rawLength) {
-      if (rawLength < 2) return null;
-      return raw.effectiveSampleRate > 0 ? 1 / raw.effectiveSampleRate : null;
-    }
-
-    WaveformMeasurements? measure(
-      String channel,
-      Uint8List? data,
-      double? vdiv,
-      double? voffset,
-    ) {
-      if (data == null || vdiv == null || voffset == null || data.isEmpty) {
-        return null;
-      }
-      return measureRawChannel(
-        channel: channel,
-        rawData: data,
-        vdiv: vdiv,
-        voffset: voffset,
-        sampleRate: raw.effectiveSampleRate,
-        sampleIntervalSeconds: sampleIntervalFor(data.length),
-      );
-    }
-
-    return (
-      measure('ch1', raw.ch1Raw, raw.vdivCh1, raw.voffsetCh1),
-      measure('ch2', raw.ch2Raw, raw.vdivCh2, raw.voffsetCh2),
-      measure('ch3', raw.ch3Raw, raw.vdivCh3, raw.voffsetCh3),
-      measure('ch4', raw.ch4Raw, raw.vdivCh4, raw.voffsetCh4),
-    );
-  }
+  _measureRawChannels(WaveformRawData raw) =>
+      _acquisitionController.measureRawChannels(raw);
 
   /// Writes the latest waveform measurements to the debug log.
-  ///
-  /// The values are consumed by the measurement panel in the next phase; the
-  /// debug entry keeps the computation observable in the meantime.
-  void _logWaveformMeasurements() {
-    for (final measurement in [
-      _measurementsCh1,
-      _measurementsCh2,
-      _measurementsCh3,
-      _measurementsCh4,
-    ]) {
-      if (measurement == null) continue;
-      AppLogger().debug(
-        'Measurements ${measurement.channel}: '
-        'Vpp=${measurement.vPp}, '
-        'frequency=${measurement.frequencyHz}, '
-        'duty=${measurement.dutyPercent}, '
-        'samples=${measurement.sampleCount}, '
-        'notes=${measurement.notes}',
-      );
-    }
-  }
+  void _logWaveformMeasurements() =>
+      _acquisitionController.logWaveformMeasurements();
 
   /// Appends the current measurements to the bounded per-channel history.
   void _recordMeasurementHistory(
@@ -290,42 +289,15 @@ extension _HomeAcquisition on _OsciHomePageState {
       WaveformMeasurements?,
     )
     measurements,
-  ) {
-    void add(List<WaveformMeasurements> history, WaveformMeasurements? value) {
-      if (value == null) return;
-      history.add(value);
-      if (history.length > _OsciHomePageState._measurementHistoryLimit) {
-        history.removeAt(0);
-      }
-    }
-
-    add(_measurementHistoryCh1, measurements.$1);
-    add(_measurementHistoryCh2, measurements.$2);
-    add(_measurementHistoryCh3, measurements.$3);
-    add(_measurementHistoryCh4, measurements.$4);
-  }
+  ) => _acquisitionController.recordMeasurementHistory(measurements);
 
   /// Measurements of the channels currently enabled for display.
-  Map<String, WaveformMeasurements> _currentMeasurements() {
-    final measurements = <String, WaveformMeasurements>{};
-    void add(String channel, bool enabled, WaveformMeasurements? value) {
-      if (enabled && value != null) measurements[channel] = value;
-    }
-
-    add('ch1', _ch1Enabled, _measurementsCh1);
-    add('ch2', _ch2Enabled, _measurementsCh2);
-    add('ch3', _numChannels >= 4 && _ch3Enabled, _measurementsCh3);
-    add('ch4', _numChannels >= 4 && _ch4Enabled, _measurementsCh4);
-    return measurements;
-  }
+  Map<String, WaveformMeasurements> _currentMeasurements() =>
+      _acquisitionController.currentMeasurements();
 
   /// All acquired measurements, regardless of the display channel toggles.
-  Map<String, WaveformMeasurements> _acquiredMeasurements() => {
-    'ch1': ?_measurementsCh1,
-    'ch2': ?_measurementsCh2,
-    'ch3': ?_measurementsCh3,
-    'ch4': ?_measurementsCh4,
-  };
+  Map<String, WaveformMeasurements> _acquiredMeasurements() =>
+      _acquisitionController.acquiredMeasurements;
 
   /// Serializes one channel's measurements for [_waveformSummaryForAi].
   Map<String, dynamic> _measurementSummaryForAi(
@@ -333,93 +305,32 @@ extension _HomeAcquisition on _OsciHomePageState {
     DeviceParams? params, {
     double? verticalScaleVoltsPerDiv,
     double? offsetVolts,
-  }) => {
-    'verticalScaleVoltsPerDiv':
-        verticalScaleVoltsPerDiv ?? params?.vdivFor(measurement.channel),
-    'offsetVolts': offsetVolts ?? params?.voffsetFor(measurement.channel),
-    'vMaxVolts': measurement.vMax,
-    'vMinVolts': measurement.vMin,
-    'vppVolts': measurement.vPp,
-    'meanVolts': measurement.vMean,
-    'rmsVolts': measurement.vRms,
-    'topVolts': measurement.vTop,
-    'baseVolts': measurement.vBase,
-    'frequencyHz': measurement.frequencyHz,
-    'periodSeconds': measurement.periodSeconds,
-    'dutyPercent': measurement.dutyPercent,
-    'pulseWidthSeconds': measurement.pulseWidthSeconds,
-    'riseTimeSeconds': measurement.riseTimeSeconds,
-    'fallTimeSeconds': measurement.fallTimeSeconds,
-    'overshootPercent': measurement.overshootPercent,
-    'undershootPercent': measurement.undershootPercent,
-    'risingEdgeCount': measurement.risingEdgeCount,
-    'fallingEdgeCount': measurement.fallingEdgeCount,
-    'sampleCount': measurement.sampleCount,
-    'sampleIntervalSeconds': measurement.sampleIntervalSeconds,
-    'notes': measurement.notes,
-  };
+  }) => _acquisitionController.measurementSummaryForAi(
+    measurement,
+    params,
+    verticalScaleVoltsPerDiv: verticalScaleVoltsPerDiv,
+    offsetVolts: offsetVolts,
+  );
 
   /// Statistics over the stored measurement history.
-  ///
-  /// Channels with only one stored acquisition are omitted: a standard
-  /// deviation needs at least two runs.
-  Map<String, WaveformChannelStatistics> _measurementStatistics() {
-    final statistics = <String, WaveformChannelStatistics>{};
-    void add(String channel, List<WaveformMeasurements> history) {
-      if (history.length > 1) {
-        statistics[channel] = measureChannelStatistics(history);
-      }
-    }
-
-    add('ch1', _measurementHistoryCh1);
-    add('ch2', _measurementHistoryCh2);
-    add('ch3', _measurementHistoryCh3);
-    add('ch4', _measurementHistoryCh4);
-    return statistics;
-  }
+  Map<String, WaveformChannelStatistics> _measurementStatistics() =>
+      _acquisitionController.measurementStatistics();
 
   /// Longest stored history across all channels.
-  int _measurementHistoryCount() {
-    var count = 0;
-    for (final history in [
-      _measurementHistoryCh1,
-      _measurementHistoryCh2,
-      _measurementHistoryCh3,
-      _measurementHistoryCh4,
-    ]) {
-      if (history.length > count) count = history.length;
-    }
-    return count;
-  }
+  int _measurementHistoryCount() =>
+      _acquisitionController.measurementHistoryCount;
 
   /// Enabled live channels that can serve as a reference.
-  Map<String, WaveformData> _enabledLiveChannels() {
-    final channels = <String, WaveformData>{};
-    void add(String channel, bool enabled, WaveformData? data) {
-      if (enabled && data != null && data.points.isNotEmpty) {
-        channels[channel] = data;
-      }
-    }
+  Map<String, WaveformData> _enabledLiveChannels() =>
+      _acquisitionController.enabledLiveChannels();
 
-    add('ch1', _ch1Enabled, _waveformCh1);
-    add('ch2', _ch2Enabled, _waveformCh2);
-    add('ch3', _numChannels >= 4 && _ch3Enabled, _waveformCh3);
-    add('ch4', _numChannels >= 4 && _ch4Enabled, _waveformCh4);
-    return channels;
-  }
-
-  bool _hasCurrentWaveform() => _enabledLiveChannels().isNotEmpty;
+  bool _hasCurrentWaveform() => _acquisitionController.hasCurrentWaveform;
 
   /// Clears the Waveform AI acquisition history and the per-channel
   /// measurement history used by the statistics line.
   void _clearMeasurementHistory() {
     _waveformHistory.clear();
     if (!mounted) return;
-    _setState(() {
-      _measurementHistoryCh1.clear();
-      _measurementHistoryCh2.clear();
-      _measurementHistoryCh3.clear();
-      _measurementHistoryCh4.clear();
-    });
+    _setState(() => _acquisitionController.clearHistory());
   }
 }

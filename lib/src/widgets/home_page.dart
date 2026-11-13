@@ -35,6 +35,7 @@ import '../instrument/live_screen_controller.dart';
 import '../spectrum/spectrum_controller.dart';
 import '../spectrum/spectrum_models.dart';
 import '../waveform/waveform_acquisition.dart';
+import '../waveform/waveform_acquisition_controller.dart';
 import '../waveform/waveform_converter.dart';
 import '../waveform/waveform_processing.dart';
 import '../waveform/waveform_csv_parser.dart';
@@ -239,14 +240,10 @@ class _OsciHomePageState extends State<OsciHomePage>
   String _llmModel = '';
 
   // Acquisition
-  bool _isAcquiring = false;
-  bool _isAcquiringWaveform = false;
+  /// Owns the acquisition state, derived measurements, and history.
+  late final WaveformAcquisitionController _acquisitionController;
   SdsNotification? _latestNews;
   bool _hasUnreadUpdate = false;
-  Uint8List? _screenDump;
-
-  /// Time the current [_screenDump] was captured, shown in the PDF report.
-  DateTime? _screenDumpCapturedAt;
 
   /// Brightness and contrast applied to the displayed screenshot and live
   /// frame. Persisted in `preferences/screen.json`.
@@ -265,14 +262,6 @@ class _OsciHomePageState extends State<OsciHomePage>
   //
   /// Owns the live session, its availability probe, and the last frame.
   late final LiveScreenController _liveScreenController;
-  WaveformData? _waveformCh1;
-  WaveformData? _waveformCh2;
-  WaveformData? _waveformCh3;
-  WaveformData? _waveformCh4;
-
-  /// Raw samples of the last acquisition, retained for the spectrum analysis
-  /// and the PDF report. Invalidated by a new acquisition.
-  WaveformRawData? _lastRawData;
 
   /// Spectrum view state.
   _WaveformViewMode _waveformViewMode = _WaveformViewMode.time;
@@ -284,25 +273,6 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   /// Last four acquisitions for the Waveform AI's history and comparison.
   final WaveformHistoryStore _waveformHistory = WaveformHistoryStore();
-
-  /// Incremented after every successful acquisition so the AI acquisition
-  /// tool can distinguish success from a handled failure.
-  int _acquisitionGeneration = 0;
-
-  /// Time-domain measurements of the last acquisition, computed from the raw
-  /// samples before the display decimation.
-  WaveformMeasurements? _measurementsCh1;
-  WaveformMeasurements? _measurementsCh2;
-  WaveformMeasurements? _measurementsCh3;
-  WaveformMeasurements? _measurementsCh4;
-
-  /// Bounded measurement history per channel, used for the statistics line
-  /// in the measurement panel.
-  static const int _measurementHistoryLimit = 20;
-  final List<WaveformMeasurements> _measurementHistoryCh1 = [];
-  final List<WaveformMeasurements> _measurementHistoryCh2 = [];
-  final List<WaveformMeasurements> _measurementHistoryCh3 = [];
-  final List<WaveformMeasurements> _measurementHistoryCh4 = [];
 
   /// Difference trace and deviation metrics against the loaded reference.
   bool _diffVisible = false;
@@ -661,6 +631,15 @@ class _OsciHomePageState extends State<OsciHomePage>
       onChanged: () {
         if (mounted) _setState(() {});
       },
+    );
+    _acquisitionController = WaveformAcquisitionController(
+      isChannelEnabled: (channel) => switch (channel) {
+        1 => _ch1Enabled,
+        2 => _ch2Enabled,
+        3 => _ch3Enabled,
+        _ => _ch4Enabled,
+      },
+      channelCount: () => _numChannels,
     );
     _voiceInputService = VoiceInputService();
     _aiChatVoice = VoiceInputBinding(
