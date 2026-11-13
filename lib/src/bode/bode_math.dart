@@ -24,6 +24,18 @@ const double bodeMinPlotVoltageRms = 0.005;
 /// output channel runs on a finer V/div than the input.
 const double bodeMinAmplitudeSweepVpp = 1.0;
 
+/// Smallest generator amplitude that may start an amplitude sweep.
+///
+/// The measured input can still be below [bodeMinAmplitudeSweepVpp]; such
+/// points then carry no gain but stay in the sweep.
+const double bodeMinAmplitudeStartVpp = 0.1;
+
+/// Smallest generator amplitude allowed for a frequency sweep.
+///
+/// Below 1 Vpp the measured transfer function is dominated by the scope's
+/// noise floor; the configuration is rejected with an error instead.
+const double bodeMinFrequencySweepAmplitudeVpp = 1.0;
+
 /// Returns a note when Vin or Vout is below [bodeMinPlotVoltageRms], or null
 /// when both channels carry a usable voltage.
 ///
@@ -73,11 +85,11 @@ List<double> buildAmplitudePoints(BodeConfig config) {
   }
   final start = config.startAmplitudeVpp;
   final stop = config.stopAmplitudeVpp;
-  if (!start.isFinite || start < bodeMinAmplitudeSweepVpp) {
+  if (!start.isFinite || start < bodeMinAmplitudeStartVpp) {
     throw ArgumentError.value(
       start,
       'startAmplitudeVpp',
-      'Must be at least ${formatAmplitudeVpp(bodeMinAmplitudeSweepVpp)}',
+      'Must be at least ${formatAmplitudeVpp(bodeMinAmplitudeStartVpp)}',
     );
   }
   if (!stop.isFinite || stop <= start) {
@@ -247,8 +259,10 @@ String? _validateFrequencySweepConfig(
   if (!stop.isFinite || stop <= start) {
     return 'Stop frequency must be greater than the start frequency.';
   }
-  if (!config.amplitudeVpp.isFinite || config.amplitudeVpp < 0) {
-    return 'Amplitude must not be negative.';
+  if (!config.amplitudeVpp.isFinite ||
+      config.amplitudeVpp < bodeMinFrequencySweepAmplitudeVpp) {
+    return 'Amplitude must be at least '
+        '${formatAmplitudeVpp(bodeMinFrequencySweepAmplitudeVpp)}.';
   }
   final limits = info?.limits ?? SiggenLimits.jds6600;
   if (!config.offsetV.isFinite ||
@@ -296,9 +310,9 @@ String? _validateAmplitudeSweepConfig(
   if (!frequency.isFinite || frequency <= 0) {
     return 'Sweep frequency must be greater than 0 Hz.';
   }
-  if (!start.isFinite || start < bodeMinAmplitudeSweepVpp) {
+  if (!start.isFinite || start < bodeMinAmplitudeStartVpp) {
     return 'Start amplitude must be at least '
-        '${formatAmplitudeVpp(bodeMinAmplitudeSweepVpp)}.';
+        '${formatAmplitudeVpp(bodeMinAmplitudeStartVpp)}.';
   }
   if (!stop.isFinite || stop <= start) {
     return 'Stop amplitude must be greater than the start amplitude.';

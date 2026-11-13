@@ -406,6 +406,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Amplitude: 1.5 Vpp'), findsOneWidget);
+    expect(find.textContaining('Vin Vpp:'), findsOneWidget);
     expect(find.textContaining('Vout Vpp:'), findsOneWidget);
     expect(find.textContaining('Vout Vrms:'), findsOneWidget);
     expect(find.textContaining('Vpp/Vrms:'), findsOneWidget);

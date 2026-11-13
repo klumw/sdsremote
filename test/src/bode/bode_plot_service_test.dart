@@ -173,6 +173,32 @@ void main() {
     expect(service.points.first.note, contains('Vout below 1 Vpp'));
   });
 
+  test('amplitude sweep invalidates a point without Vpp values', () async {
+    scope.vinRms = 1.0;
+    scope.voutRms = 0.5;
+    scope.vinVpp = 2.0;
+    scope.voutVpp = null;
+
+    await service.start(
+      const BodeConfig(
+        mode: BodeMode.amplitudeSweep,
+        sweepFrequencyHz: 1000,
+        startAmplitudeVpp: 1,
+        stopAmplitudeVpp: 2,
+        pointCount: 2,
+        amplitudeSpacing: BodeSpacing.linear,
+      ),
+    );
+
+    expect(service.points, hasLength(2));
+    expect(service.points.every((point) => point.gainDb == null), isTrue);
+    expect(service.points.every((point) => !point.valid), isTrue);
+    expect(
+      service.points.first.note,
+      contains('Peak-to-peak measurement missing'),
+    );
+  });
+
   test(
     'amplitude sweep predicts the output level for the next point',
     () async {

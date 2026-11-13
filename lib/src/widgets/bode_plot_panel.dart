@@ -835,7 +835,13 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
             Row(
               children: [
                 Expanded(
-                  child: _numberField('Amplitude (Vpp)', _amplitudeController),
+                  child: _numberField(
+                    'Amplitude (Vpp)',
+                    _amplitudeController,
+                    helper:
+                        'Min. '
+                        '${formatAmplitudeVpp(bodeMinFrequencySweepAmplitudeVpp)}',
+                  ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -938,7 +944,8 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                   child: _numberField(
                     'Amplitude Start (Vpp)',
                     _startAmplitudeController,
-                    helper: 'Min. 1 Vpp',
+                    helper:
+                        'Min. ${formatAmplitudeVpp(bodeMinAmplitudeStartVpp)}',
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -1147,16 +1154,29 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
         style: const TextStyle(color: Colors.white70, fontSize: 10),
       ),
     ];
-    if (!_hiddenAmplitudeLines.contains('gain')) {
+    if (!_hiddenAmplitudeLines.contains('gain') && nearest.gainDb != null) {
       rows.add(
         row(
           'Gain',
-          '${nearest.gainDb?.toStringAsFixed(2) ?? '—'} dB',
+          '${nearest.gainDb!.toStringAsFixed(2)} dB',
           Colors.cyanAccent,
         ),
       );
     }
-    if (!_hiddenAmplitudeLines.contains('vout_vpp')) {
+    if (!_hiddenAmplitudeLines.contains('vin_vpp') &&
+        nearest.vinVpp != null &&
+        nearest.vinVpp! >= bodeMinAmplitudeSweepVpp) {
+      rows.add(
+        row(
+          'Vin Vpp',
+          '${_formatVoltage(nearest.vinVpp)} V',
+          Colors.lightBlueAccent,
+        ),
+      );
+    }
+    if (!_hiddenAmplitudeLines.contains('vout_vpp') &&
+        nearest.voutVpp != null &&
+        nearest.voutVpp! >= bodeMinAmplitudeSweepVpp) {
       rows.add(
         row(
           'Vout Vpp',
@@ -1185,7 +1205,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
     }
 
     const tooltipWidth = 190.0;
-    const tooltipHeight = 112.0;
+    const tooltipHeight = 130.0;
     return _positionHoverTooltip(
       areaWidth: width,
       areaHeight: height,
@@ -1456,6 +1476,11 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                   runSpacing: 4,
                   children: [
                     _amplitudeChip('Gain (dB)', 'gain', Colors.cyanAccent),
+                    _amplitudeChip(
+                      'Vin Vpp',
+                      'vin_vpp',
+                      Colors.lightBlueAccent,
+                    ),
                     _amplitudeChip('Vout Vpp', 'vout_vpp', Colors.greenAccent),
                     _amplitudeChip(
                       'Vout Vrms',
@@ -1690,6 +1715,7 @@ class _AmplitudeSeries {
     required this.color,
     required this.value,
     required this.axis,
+    this.minValue,
   });
 
   /// Identifier used for hiding the curve and in the legend.
@@ -1699,6 +1725,9 @@ class _AmplitudeSeries {
   final Color color;
   final double? Function(BodePoint point) value;
   final _AmplitudeAxis axis;
+
+  /// Lowest value drawn for this curve; smaller values are skipped.
+  final double? minValue;
 }
 
 class _BodePlotPainter extends CustomPainter {
@@ -1808,11 +1837,20 @@ class _BodePlotPainter extends CustomPainter {
         axis: _AmplitudeAxis.gain,
       ),
       _AmplitudeSeries(
+        id: 'vin_vpp',
+        label: 'Vin Vpp',
+        color: Colors.lightBlueAccent,
+        value: (point) => point.vinVpp,
+        axis: _AmplitudeAxis.voltage,
+        minValue: bodeMinAmplitudeSweepVpp,
+      ),
+      _AmplitudeSeries(
         id: 'vout_vpp',
         label: 'Vout Vpp',
         color: Colors.greenAccent,
         value: (point) => point.voutVpp,
         axis: _AmplitudeAxis.voltage,
+        minValue: bodeMinAmplitudeSweepVpp,
       ),
       _AmplitudeSeries(
         id: 'vout_vrms',
@@ -1830,14 +1868,15 @@ class _BodePlotPainter extends CustomPainter {
       ),
     ];
 
+    // Measurement curves are drawn wherever a measured value exists, even
+    // when no gain could be calculated. Only the gain axis is limited to
+    // valid points.
     final voltageValues = points
-        .where((point) => point.valid)
-        .expand((point) => [point.voutVpp, point.voutRms])
+        .expand((point) => [point.vinVpp, point.voutVpp, point.voutRms])
         .whereType<double>()
         .where((value) => value.isFinite)
         .toList();
     final ratioValues = points
-        .where((point) => point.valid)
         .map((point) => point.voutVppRmsRatio)
         .whereType<double>()
         .where((value) => value.isFinite)
@@ -1902,6 +1941,8 @@ class _BodePlotPainter extends CustomPainter {
         range.$2,
         entry.value,
         entry.color,
+        requireValid: entry.id == 'gain',
+        minValue: entry.minValue,
       );
     }
 
@@ -1969,7 +2010,14 @@ class _BodePlotPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
     canvas.drawRect(plotRect, border);
 
-    if (points.every((point) => point.gainDb == null)) {
+    final hasData = points.any(
+      (point) =>
+          point.gainDb != null ||
+          point.vinVpp != null ||
+          point.voutVpp != null ||
+          point.voutRms != null,
+    );
+    if (!hasData) {
       _drawCenteredText(
         canvas,
         'Waiting for sweep data',
@@ -2272,8 +2320,10 @@ class _BodePlotPainter extends CustomPainter {
     double yMin,
     double yMax,
     double? Function(BodePoint point) valueOf,
-    Color color,
-  ) {
+    Color color, {
+    bool requireValid = false,
+    double? minValue,
+  }) {
     final linePaint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
@@ -2287,9 +2337,10 @@ class _BodePlotPainter extends CustomPainter {
       final xValue = config.mode == BodeMode.amplitudeSweep
           ? point.amplitudeVpp
           : point.frequencyHz;
-      if (!point.valid ||
+      if ((requireValid && !point.valid) ||
           value == null ||
           !value.isFinite ||
+          (minValue != null && value < minValue) ||
           xValue == null ||
           !xValue.isFinite) {
         lastValid = false;

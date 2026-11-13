@@ -76,6 +76,19 @@ void main() {
       expect(points.last, closeTo(100, 1e-6));
     });
 
+    test('accepts the minimum start amplitude', () {
+      final points = buildAmplitudePoints(
+        const BodeConfig(
+          mode: BodeMode.amplitudeSweep,
+          startAmplitudeVpp: 0.1,
+          stopAmplitudeVpp: 1,
+          pointCount: 2,
+          amplitudeSpacing: BodeSpacing.linear,
+        ),
+      );
+      expect(points, [0.1, 1.0]);
+    });
+
     test('rejects invalid ranges', () {
       expect(
         () => buildAmplitudePoints(
@@ -193,6 +206,10 @@ void main() {
         validateBodeConfig(const BodeConfig(amplitudeVpp: 25), lite),
         contains('Amplitude'),
       );
+      expect(
+        validateBodeConfig(const BodeConfig(amplitudeVpp: 0.5), lite),
+        contains('at least 1 Vpp'),
+      );
     });
 
     test('validates amplitude sweeps against generator limits', () {
@@ -220,8 +237,12 @@ void main() {
         contains('exceeds'),
       );
       expect(
-        validateBodeConfig(valid.copyWith(startAmplitudeVpp: 0.5), lite),
-        contains('at least 1 Vpp'),
+        validateBodeConfig(valid.copyWith(startAmplitudeVpp: 0.1), lite),
+        isNull,
+      );
+      expect(
+        validateBodeConfig(valid.copyWith(startAmplitudeVpp: 0.05), lite),
+        contains('at least 0.1 Vpp'),
       );
       expect(
         validateBodeConfig(
@@ -232,7 +253,7 @@ void main() {
           ),
           lite,
         ),
-        contains('at least 1 Vpp'),
+        contains('at least 0.1 Vpp'),
       );
     });
   });

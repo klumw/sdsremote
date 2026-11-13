@@ -430,12 +430,11 @@ class BodePlotService extends ChangeNotifier {
       // inflated by the noise peaks of a channel's V/div, so a through
       // connection measures the same gain at every amplitude even though the
       // input and output channels run on different scales.
-      final effectiveVinVpp = measuredVinUsable ? correctedVinVpp : amplitude;
-      final effectiveVoutVpp =
-          reading.voutVpp ??
-          (reading.voutRms == null
-              ? null
-              : reading.voutRms! * 2 * math.sqrt(2));
+      // Store measured values only. The generator setpoint is not a
+      // measurement; points without a Vpp value stay empty in the table and
+      // are skipped by the corresponding chart curve.
+      final effectiveVinVpp = correctedVinVpp;
+      final effectiveVoutVpp = reading.voutVpp;
       final expectedVinRms = _expectedVinRms(config, amplitude);
       final effectiveVinRms = measuredVinUsable
           ? reading.vinRms
@@ -453,6 +452,11 @@ class BodePlotService extends ChangeNotifier {
         correctedVinVpp,
         effectiveVoutVpp,
       );
+      // All curves at an amplitude x position share one point. If the
+      // measured peak-to-peak values are missing, the Vpp curve would fall
+      // back to a sine-shaped estimate while the other curves still draw;
+      // invalidate the whole point so no curve shows a partial value there.
+      final completeVpp = reading.vinVpp != null && reading.voutVpp != null;
       final suspicious =
           measuredVinUsable &&
           _isSuspiciousAmplitudeVin(reading, config, amplitude);
@@ -462,6 +466,7 @@ class BodePlotService extends ChangeNotifier {
       // at the start of the sweep.
       final gain =
           measuredVinUsable &&
+              completeVpp &&
               belowThreshold == null &&
               belowAmplitudeSweepMinimum == null
           ? bodeGainDb(effectiveVinRms, effectiveVoutRms)
@@ -480,7 +485,9 @@ class BodePlotService extends ChangeNotifier {
             reading.error ??
             belowThreshold ??
             belowAmplitudeSweepMinimum ??
-            (!measuredVinUsable && reading.vinRms != null
+            (!completeVpp
+                ? 'Peak-to-peak measurement missing; point not drawn'
+                : !measuredVinUsable && reading.vinRms != null
                 ? 'Vin below the fixed input scale resolution; no gain '
                       'recorded'
                 : suspicious
