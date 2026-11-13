@@ -410,6 +410,67 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'frequency chart shows a cursor tooltip with gain and frequency',
+    (tester) async {
+      tester.view.physicalSize = const Size(1400, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      final generator = SignalGeneratorService(
+        transportFactory: (_) => FakeJds6600Transport(),
+        pollInterval: Duration.zero,
+      );
+      addTearDown(generator.shutdown);
+      final plotKey = GlobalKey();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: BodePlotPanel(
+              getInstrument: () async => null,
+              signalGenerator: generator,
+              isOnline: true,
+              generatorDetected: true,
+              onClose: () {},
+              plotKey: plotKey,
+              savedConfig: const BodeConfig(
+                startFrequencyHz: 100,
+                stopFrequencyHz: 10000,
+                pointCount: 3,
+              ),
+              savedPoints: const [
+                BodePoint(frequencyHz: 100, gainDb: -3),
+                BodePoint(frequencyHz: 1000, gainDb: 0),
+                BodePoint(frequencyHz: 10000, gainDb: -6),
+              ],
+              savedStatus: BodeStatus.completed,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await gesture.addPointer(location: Offset.zero);
+      addTearDown(gesture.removePointer);
+      await tester.pump();
+      await gesture.moveTo(tester.getCenter(find.byKey(plotKey)));
+      await tester.pumpAndSettle();
+
+      // The plot centre is the log midpoint of 100 Hz … 10 kHz, i.e. 1 kHz.
+      expect(find.text('Frequency: 1 kHz'), findsOneWidget);
+      expect(find.text('Gain: 0.00 dB'), findsOneWidget);
+      expect(find.textContaining('Phase:'), findsNothing);
+
+      await gesture.moveTo(const Offset(1, 1));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Frequency:'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('Bode panel dismisses the error message', (tester) async {
     tester.view.physicalSize = const Size(1400, 1000);
     tester.view.devicePixelRatio = 1.0;

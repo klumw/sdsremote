@@ -214,6 +214,11 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
       (_ch4FreqEnabled ? 1 : 0) +
       (_gainDbEnabled ? 1 : 0);
 
+  /// Measurement parameters currently enabled in the form.
+  List<DataLoggerParameter> get _selectedParameters => dataLoggerParameters
+      .where((parameter) => parameter.isEnabled(_buildConfig()))
+      .toList();
+
   /// Maximum number of measurement parameters that can be selected.
   static const int _maxSelected = 5;
 
@@ -654,6 +659,7 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
           ),
           const SizedBox(height: 8),
           Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               // Gain (dB) is a cross-channel measurement: the RMS voltage on
               // CH2 (signal) divided by the RMS voltage on CH1 (reference).
@@ -667,33 +673,49 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
                   _emitConfig();
                 }),
               ),
-              const Spacer(),
-              // Expected number of samples for the selected duration and
-              // interval, right-aligned on the same row as the Gain toggle.
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 12,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF172A45).withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: _axisColor),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
+              const SizedBox(width: 8),
+              // The alarm-rule toggle and the data-point estimate share this
+              // row, right-aligned; the alarm editor opens directly below it.
+              Expanded(
+                child: Wrap(
+                  alignment: WrapAlignment.end,
+                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 8,
+                  runSpacing: 8,
                   children: [
-                    const Text(
-                      'Total data points:',
-                      style: TextStyle(color: Colors.white70, fontSize: 13),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      '~$totalPoints',
-                      style: const TextStyle(
-                        color: Colors.cyanAccent,
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
+                    if (_selectedCount > 0) _buildAlarmToggle(),
+                    // Expected number of samples for the selected duration
+                    // and interval.
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF172A45).withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: _axisColor),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'Total data points:',
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            '~$totalPoints',
+                            style: const TextStyle(
+                              color: Colors.cyanAccent,
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -701,11 +723,9 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
               ),
             ],
           ),
+          // ---- Alarm Rules (expanded editor) ----
+          _buildAlarmRulesEditor(),
           const SizedBox(height: 16),
-
-          // ---- Alarm Rules ----
-          _buildAlarmSection(),
-          if (_selectedCount > 0) const SizedBox(height: 16),
 
           // ---- Sampling Interval ----
           _buildSectionTitle('Sampling Interval'),
@@ -1185,16 +1205,12 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
     );
   }
 
-  /// Alarm-rule editor for the currently selected parameters.
+  /// Alarm-rule toggle placed in the Gain (dB) row.
   ///
   /// The rule list starts collapsed and only opens when the "Alarm Rules"
-  /// button is activated. Bounds are optional; an empty field removes that
-  /// bound. Values equal to a bound are still considered inside the range.
-  Widget _buildAlarmSection() {
-    final config = _buildConfig();
-    final selected = dataLoggerParameters
-        .where((parameter) => parameter.isEnabled(config))
-        .toList();
+  /// button is activated.
+  Widget _buildAlarmToggle() {
+    final selected = _selectedParameters;
     if (selected.isEmpty) return const SizedBox.shrink();
 
     final configuredRules = selected
@@ -1202,69 +1218,77 @@ class _DataLoggerDialogState extends State<DataLoggerDialog> {
         .length;
     final accent = Colors.orangeAccent;
 
+    return OutlinedButton(
+      onPressed: () {
+        setState(() {
+          _alarmRulesExpanded = !_alarmRulesExpanded;
+        });
+      },
+      style: OutlinedButton.styleFrom(
+        backgroundColor: _alarmRulesExpanded
+            ? accent.withValues(alpha: 0.1)
+            : const Color(0xFF172A45).withValues(alpha: 0.3),
+        side: BorderSide(
+          color: _alarmRulesExpanded
+              ? accent.withValues(alpha: 0.6)
+              : _axisColor,
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            _alarmRulesExpanded ? Icons.expand_less : Icons.expand_more,
+            size: 16,
+            color: accent,
+          ),
+          const SizedBox(width: 6),
+          const Text(
+            'Alarm Rules',
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 12,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          if (configuredRules > 0) ...[
+            const SizedBox(width: 6),
+            Text(
+              '$configuredRules active',
+              style: TextStyle(
+                color: accent,
+                fontSize: 11,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// Expanded alarm-rule editor shown below the Gain (dB) row.
+  ///
+  /// Bounds are optional; an empty field removes that bound. Values equal to
+  /// a bound are still considered inside the range.
+  Widget _buildAlarmRulesEditor() {
+    if (!_alarmRulesExpanded) return const SizedBox.shrink();
+    final selected = _selectedParameters;
+    if (selected.isEmpty) return const SizedBox.shrink();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        OutlinedButton.icon(
-          onPressed: () {
-            setState(() {
-              _alarmRulesExpanded = !_alarmRulesExpanded;
-            });
-          },
-          icon: Icon(
-            _alarmRulesExpanded ? Icons.expand_less : Icons.expand_more,
-            size: 18,
-            color: accent,
-          ),
-          label: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text(
-                'Alarm Rules',
-                style: TextStyle(
-                  color: Colors.white70,
-                  fontSize: 12,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              if (configuredRules > 0) ...[
-                const SizedBox(width: 8),
-                Text(
-                  '$configuredRules active',
-                  style: TextStyle(
-                    color: accent,
-                    fontSize: 11,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ],
-          ),
-          style: OutlinedButton.styleFrom(
-            backgroundColor: _alarmRulesExpanded
-                ? accent.withValues(alpha: 0.1)
-                : const Color(0xFF172A45).withValues(alpha: 0.3),
-            side: BorderSide(
-              color: _alarmRulesExpanded
-                  ? accent.withValues(alpha: 0.6)
-                  : _axisColor,
-            ),
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
-            ),
-          ),
+        const SizedBox(height: 8),
+        const Text(
+          'Optional thresholds per selected parameter. An empty field means '
+          'no bound; values equal to a bound are still inside the range.',
+          style: TextStyle(color: Colors.white38, fontSize: 10),
         ),
-        if (_alarmRulesExpanded) ...[
-          const SizedBox(height: 4),
-          const Text(
-            'Optional thresholds per selected parameter. An empty field means '
-            'no bound; values equal to a bound are still inside the range.',
-            style: TextStyle(color: Colors.white38, fontSize: 10),
-          ),
-          const SizedBox(height: 6),
-          for (final parameter in selected) _buildAlarmRuleRow(parameter),
-        ],
+        const SizedBox(height: 6),
+        for (final parameter in selected) _buildAlarmRuleRow(parameter),
       ],
     );
   }

@@ -69,6 +69,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
   bool _messageIsError = false;
   final Set<String> _hiddenAmplitudeLines = <String>{};
   double? _hoverAmplitudeVpp;
+  double? _hoverFrequencyHz;
   double _hoverX = 0;
   double _hoverY = 0;
 
@@ -330,10 +331,14 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                                   constraints,
                                   displayConfig,
                                 )
-                              : null,
+                              : (event) => _onFrequencyHover(
+                                  event.localPosition,
+                                  constraints,
+                                  displayConfig,
+                                ),
                           onExit: amplitudeSweep
                               ? (_) => _clearAmplitudeHover()
-                              : null,
+                              : (_) => _clearFrequencyHover(),
                           child: RepaintBoundary(
                             key: widget.plotKey,
                             child: CustomPaint(
@@ -354,6 +359,14 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                             _hoverAmplitudeVpp != null &&
                             _points.isNotEmpty)
                           _buildAmplitudeHoverTooltip(
+                            constraints.maxWidth,
+                            constraints.maxHeight,
+                          ),
+                        if (!amplitudeSweep &&
+                            _hoverFrequencyHz != null &&
+                            _points.isNotEmpty)
+                          _buildFrequencyHoverTooltip(
+                            displayConfig,
                             constraints.maxWidth,
                             constraints.maxHeight,
                           ),
@@ -1167,16 +1180,11 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
 
     const tooltipWidth = 190.0;
     const tooltipHeight = 112.0;
-    const gap = 10.0;
-    final maxLeft = math.max(0.0, width - tooltipWidth);
-    final maxTop = math.max(0.0, height - tooltipHeight - 8);
-    final left = _hoverX >= width / 2
-        ? (_hoverX - tooltipWidth - gap).clamp(0.0, maxLeft)
-        : (_hoverX + gap).clamp(0.0, maxLeft);
-    final top = (_hoverY - tooltipHeight - 8).clamp(0.0, maxTop);
-    return Positioned(
-      left: left,
-      top: top,
+    return _positionHoverTooltip(
+      areaWidth: width,
+      areaHeight: height,
+      tooltipWidth: tooltipWidth,
+      tooltipHeight: tooltipHeight,
       child: Container(
         padding: const EdgeInsets.all(8),
         decoration: BoxDecoration(
@@ -1191,6 +1199,143 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
         ),
       ),
     );
+  }
+
+  /// Maps the mouse position on the frequency-sweep charts onto a frequency
+  /// and stores it for the cursor tooltip.
+  void _onFrequencyHover(
+    Offset local,
+    BoxConstraints constraints,
+    BodeConfig config,
+  ) {
+    final plotWidth = constraints.maxWidth - _freqPlotLeft - _freqPlotRight;
+    final showPhase = config.measurePhase;
+    final plotHeight = showPhase
+        ? (constraints.maxHeight -
+                  _freqPlotTop -
+                  _freqPlotBottom -
+                  _freqPlotGap) /
+              2
+        : constraints.maxHeight - _freqPlotTop - _freqPlotBottom;
+    if (plotWidth <= 0 || plotHeight <= 0) return;
+
+    final magnitudeRect = Rect.fromLTWH(
+      _freqPlotLeft,
+      _freqPlotTop,
+      plotWidth,
+      plotHeight,
+    );
+    final phaseRect = Rect.fromLTWH(
+      _freqPlotLeft,
+      _freqPlotTop + plotHeight + _freqPlotGap,
+      plotWidth,
+      plotHeight,
+    );
+    final inside =
+        magnitudeRect.contains(local) ||
+        (showPhase && phaseRect.contains(local));
+    if (!inside) {
+      _clearFrequencyHover();
+      return;
+    }
+
+    final start = config.startFrequencyHz;
+    final stop = config.stopFrequencyHz;
+    if (start <= 0 || stop <= start) return;
+    final fraction = ((local.dx - _freqPlotLeft) / plotWidth).clamp(0.0, 1.0);
+    final frequency = start * math.pow(stop / start, fraction);
+    setState(() {
+      _hoverFrequencyHz = frequency.toDouble();
+      _hoverX = local.dx;
+      _hoverY = local.dy;
+    });
+  }
+
+  void _clearFrequencyHover() {
+    if (_hoverFrequencyHz == null) return;
+    setState(() => _hoverFrequencyHz = null);
+  }
+
+  /// Tooltip showing the values of the nearest sweep point at the cursor.
+  Widget _buildFrequencyHoverTooltip(
+    BodeConfig config,
+    double width,
+    double height,
+  ) {
+    final hovered = _hoverFrequencyHz!;
+    BodePoint? nearest;
+    for (final point in _points) {
+      if (point.frequencyHz <= 0 || !point.frequencyHz.isFinite) continue;
+      // The x-axis is logarithmic, so "nearest" is the closest point on the
+      // log-frequency axis.
+      if (nearest == null ||
+          (math.log(point.frequencyHz) - math.log(hovered)).abs() <
+              (math.log(nearest.frequencyHz) - math.log(hovered)).abs()) {
+        nearest = point;
+      }
+    }
+    if (nearest == null) return const SizedBox.shrink();
+
+    Widget row(String label, String value, Color color) =>
+        Text('$label: $value', style: TextStyle(color: color, fontSize: 11));
+
+    final rows = <Widget>[
+      Text(
+        'Frequency: ${formatFrequencyHz(nearest.frequencyHz)}',
+        style: const TextStyle(color: Colors.white70, fontSize: 10),
+      ),
+      row(
+        'Gain',
+        '${nearest.gainDb?.toStringAsFixed(2) ?? '—'} dB',
+        Colors.cyanAccent,
+      ),
+    ];
+    final phase = nearest.phaseDeg;
+    if (config.measurePhase && phase != null && phase.isFinite) {
+      rows.add(
+        row('Phase', '${phase.toStringAsFixed(1)}°', Colors.orangeAccent),
+      );
+    }
+
+    const tooltipWidth = 170.0;
+    final tooltipHeight = 16.0 + rows.length * 15.0;
+    return _positionHoverTooltip(
+      areaWidth: width,
+      areaHeight: height,
+      tooltipWidth: tooltipWidth,
+      tooltipHeight: tooltipHeight,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: const Color(0xDD0A192F),
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: const Color(0xFF475569)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: rows,
+        ),
+      ),
+    );
+  }
+
+  /// Places a hover tooltip next to the cursor, clamped to the plot area.
+  Positioned _positionHoverTooltip({
+    required double areaWidth,
+    required double areaHeight,
+    required double tooltipWidth,
+    required double tooltipHeight,
+    required Widget child,
+  }) {
+    const gap = 10.0;
+    final maxLeft = math.max(0.0, areaWidth - tooltipWidth);
+    final maxTop = math.max(0.0, areaHeight - tooltipHeight - 8);
+    final left = _hoverX >= areaWidth / 2
+        ? (_hoverX - tooltipWidth - gap).clamp(0.0, maxLeft)
+        : (_hoverX + gap).clamp(0.0, maxLeft);
+    final top = (_hoverY - tooltipHeight - 8).clamp(0.0, maxTop);
+    return Positioned(left: left, top: top, child: child);
   }
 
   /// Clickable chip that hides or shows one amplitude-sweep curve.
@@ -1519,6 +1664,14 @@ const double _ampPlotRight = 75;
 const double _ampPlotTop = 34;
 const double _ampPlotBottom = 42;
 
+/// Plot margins of the frequency-sweep charts. Shared with the hover mapping
+/// in the panel so the cursor position matches the painted axis.
+const double _freqPlotLeft = 72;
+const double _freqPlotRight = 20;
+const double _freqPlotTop = 34;
+const double _freqPlotBottom = 42;
+const double _freqPlotGap = 44;
+
 enum _AmplitudeAxis { voltage, ratio, gain }
 
 /// One curve of the amplitude-sweep chart.
@@ -1555,11 +1708,11 @@ class _BodePlotPainter extends CustomPainter {
   final BodeAnalysisSummary analysis;
   final Set<String> hiddenLines;
 
-  static const double _left = 72;
-  static const double _right = 20;
-  static const double _top = 34;
-  static const double _bottom = 42;
-  static const double _gap = 44;
+  static const double _left = _freqPlotLeft;
+  static const double _right = _freqPlotRight;
+  static const double _top = _freqPlotTop;
+  static const double _bottom = _freqPlotBottom;
+  static const double _gap = _freqPlotGap;
 
   @override
   void paint(Canvas canvas, Size size) {
