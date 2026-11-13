@@ -198,6 +198,23 @@ bool hasEnoughFftPeriods(WaveformMeasurements measurement) {
   return measurement.periodCount >= minFftPeriodsOnScreen;
 }
 
+/// Minimum peak-to-peak signal voltage for a useful spectrum.
+///
+/// Below this level the spectrum is dominated by the instrument's
+/// quantisation and noise floor, so the channel is left out of the spectrum
+/// computation entirely.
+const double minSpectrumSignalVpp = 0.1;
+
+/// Whether [measurement] reaches [minSpectrumSignalVpp].
+///
+/// A missing measurement or a measurement without a peak-to-peak value is
+/// treated as sufficient, so the spectrum still appears when only partial
+/// metadata is available.
+bool hasEnoughSpectrumSignalLevel(WaveformMeasurements? measurement) {
+  final double? vpp = measurement?.vPp;
+  return vpp == null || vpp >= minSpectrumSignalVpp;
+}
+
 /// Formats a timebase with an SI prefix for banner display.
 String formatTimebase(double seconds) {
   if (seconds >= 1) return '${_trim(seconds)} s/div';

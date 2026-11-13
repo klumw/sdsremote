@@ -255,6 +255,10 @@ enum SpectrumChannelIssue {
 
   /// The signal shows too few complete periods for a stable FFT.
   tooFewPeriods,
+
+  /// The signal's peak-to-peak voltage is below the minimum for a useful
+  /// spectrum (`minSpectrumSignalVpp`, 100 mVpp).
+  signalTooSmall,
 }
 
 /// A channel that is part of the acquisition but has no spectrum view.

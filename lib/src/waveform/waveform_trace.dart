@@ -124,30 +124,44 @@ class WaveformTrace {
       yAt: yAt,
     );
 
-    // The interpolated vertices are smoothed over a few pixels: the 8 bit
-    // quantisation of the oscilloscope turns a slowly changing signal into
-    // stair steps several pixels wide, and a straight line through those steps
-    // looks jittery. The moving average reconstructs the smooth signal behind
-    // them, but only while the trace stays continuous: the window is filled
-    // outwards from each vertex and stops at any single jump larger than a few
-    // ADC steps. Stair steps (one step each) are averaged away, a square wave
-    // flank - a single jump of several divisions - is never crossed, so it
-    // keeps its position and stays vertical.
-    // The smoothing window adapts to the signal period: a fast sine with a
-    // few dozen pixels per period needs a short window or its tops flatten
-    // into plateaus, while a slow sine (hundreds of pixels per period) needs
-    // a wider window to remove the visible ADC stair steps.
+    // The interpolated vertices are reconstructed by a weighted quadratic fit
+    // (see [WaveformInterpolation.smooth]): the 8 bit quantisation of the
+    // oscilloscope turns a slowly changing signal into stair steps, and a
+    // straight line through them looks jittery. The fit reconstructs the
+    // smooth signal behind them, but only while the trace stays continuous:
+    // the window is filled outwards from each vertex and stops at any single
+    // jump larger than a few ADC steps. Stair steps (one step each) are
+    // reconstructed away, a square wave flank - a single jump of several
+    // divisions - is never crossed, so it keeps its position and stays
+    // vertical.
+    // The window adapts to both the signal period and the ADC quantisation.
+    // A fast sine with a few dozen pixels per period needs a short window or
+    // its tops flatten into plateaus, while a slow sine (hundreds of pixels
+    // per period) needs a wider window to remove the visible ADC stair steps.
+    // The vertical zoom scales the ADC step on screen: at high zoom one code
+    // is many pixels tall, and a window shorter than a few of those steps
+    // leaves the staircase visible as a ripple. The period caps the window so
+    // peaks keep their shape.
     final double periodPx = _estimatePeriodPx(raw);
-    final double smoothingWidthPx = periodPx > 0
+    final double adcStepPx = (vdiv / 25.0) / visibleVRange * size.height;
+    final double periodWidthPx = periodPx > 0
         ? (periodPx * 0.08).clamp(4.0, 18.0)
         : 4.0;
-    // A wider window also needs a higher step limit for slow signals;
-    // otherwise a two- or three-code quantisation transition stops the
-    // window and leaves a visible discontinuity. Square-wave flanks are an
-    // order of magnitude larger and are still never crossed.
-    final double smoothingMaxSteps = periodPx > 100 ? 6.0 : 2.0;
-    // One step of the instrument's 8 bit ADC, expressed in pixels.
-    final double adcStepPx = (vdiv / 25.0) / visibleVRange * size.height;
+    final double quantisationWidthPx = adcStepPx * 4.0;
+    final double maxWidthPx = periodPx > 0
+        ? math.max(periodWidthPx, periodPx * 0.2)
+        : math.max(periodWidthPx, 40.0);
+    final double smoothingWidthPx = math.min(
+      math.max(periodWidthPx, quantisationWidthPx),
+      maxWidthPx,
+    );
+    // A wider window also needs a higher step limit; a two- or three-code
+    // quantisation transition (and the ADC noise of adjacent columns) must
+    // not stop the window and leave a visible discontinuity. Four codes are
+    // covered even on fast signals, while a real edge - a square wave flank
+    // of several divisions, dozens of codes in one step - is an order of
+    // magnitude larger and is still never crossed.
+    final double smoothingMaxSteps = periodPx > 100 ? 6.0 : 4.0;
     final Float64List smoothed = WaveformInterpolation.smooth(
       raw,
       smoothingWidth: smoothingWidthPx,
@@ -259,16 +273,16 @@ WaveformRaster _withHorizontalOffsetHandling({
   );
 
   // The interpolated centre of every column. It picks one point inside the
-  // column, which is why a horizontally jittered edge makes it jump.
+  // column, which is why a horizontally jittered edge makes it jump. The
+  // detection uses this raw line, not the reconstructed one: the
+  // reconstruction deliberately follows the samples, so it would hide the
+  // very jumps this detector looks for.
   final displayByColumn = Float64List(columns);
-  final rawByColumn = Float64List(columns);
   displayByColumn.fillRange(0, columns, double.nan);
-  rawByColumn.fillRange(0, columns, double.nan);
   for (var i = 0; i + 1 < raw.length; i += 2) {
     final int c = raw[i].floor();
     if (c < 0 || c >= columns) continue;
-    if (!rawByColumn[c].isFinite) rawByColumn[c] = raw[i + 1];
-    if (!displayByColumn[c].isFinite) displayByColumn[c] = smoothed[i + 1];
+    if (!displayByColumn[c].isFinite) displayByColumn[c] = raw[i + 1];
   }
 
   // A residual beyond one and three quarter ADC steps cannot be explained by
@@ -393,7 +407,7 @@ WaveformRaster _withHorizontalOffsetHandling({
       final int lo = math.max(0, c - 1);
       final int hi = math.min(columns - 1, c + 1);
       for (var k = lo; k <= hi; k++) {
-        final double value = rawByColumn[k];
+        final double value = displayByColumn[k];
         if (!value.isFinite) continue;
         if (value < top) top = value;
         if (value > bottom) bottom = value;

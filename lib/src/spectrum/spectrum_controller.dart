@@ -85,9 +85,14 @@ class SpectrumController extends ChangeNotifier {
           ? _settings.leadingSamplesToSkip
           : 0;
       if (bytes.length - skip < minSpectrumSamples) continue;
-      hasUsableSamples = true;
 
       final measurement = measurements[entry.key];
+      // A signal below the level threshold is excluded from the spectrum, so
+      // it must not keep the spectrum tab enabled either.
+      if (measurement != null && !hasEnoughSpectrumSignalLevel(measurement)) {
+        continue;
+      }
+      hasUsableSamples = true;
       if (measurement == null) return true;
       sawMeasurement = true;
       if (hasEnoughFftPeriods(measurement)) return true;
@@ -135,6 +140,15 @@ class SpectrumController extends ChangeNotifier {
         return;
       }
       final measurement = measurements['ch$number'];
+      if (measurement != null && !hasEnoughSpectrumSignalLevel(measurement)) {
+        notices.add(
+          SpectrumChannelNotice(
+            channel: 'ch$number',
+            issue: SpectrumChannelIssue.signalTooSmall,
+          ),
+        );
+        return;
+      }
       if (measurement != null && !hasEnoughFftPeriods(measurement)) {
         notices.add(
           SpectrumChannelNotice(
@@ -295,6 +309,9 @@ class SpectrumController extends ChangeNotifier {
     ) {
       if (bytes == null || bytes.isEmpty || vdiv == null || vdiv <= 0) return;
       final measurement = measurements['ch$number'];
+      if (measurement != null && !hasEnoughSpectrumSignalLevel(measurement)) {
+        return;
+      }
       if (measurement != null && !hasEnoughFftPeriods(measurement)) {
         return;
       }

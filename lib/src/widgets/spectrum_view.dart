@@ -7,7 +7,8 @@ import '../app/app_theme.dart';
 import '../spectrum/spectrum_models.dart';
 import '../spectrum/spectrum_viewport.dart';
 import '../spectrum/windows.dart';
-import '../waveform/clock_detection.dart' show fftTargetPeriodsOnScreen;
+import '../waveform/clock_detection.dart'
+    show fftTargetPeriodsOnScreen, minSpectrumSignalVpp;
 import '../waveform/waveform_models.dart' show waveformChannelColor;
 import 'spectrum_painter.dart';
 
@@ -251,6 +252,9 @@ class _SpectrumViewState extends State<SpectrumView> {
       'no spectrum view available (record too short).',
     SpectrumChannelIssue.tooFewPeriods =>
       'no spectrum view available (too few signal periods).',
+    SpectrumChannelIssue.signalTooSmall =>
+      'no spectrum view available (signal below '
+          '${(minSpectrumSignalVpp * 1000).round()} mVpp).',
   };
 
   String _noticeHint(SpectrumChannelIssue issue) => switch (issue) {
@@ -261,6 +265,9 @@ class _SpectrumViewState extends State<SpectrumView> {
     SpectrumChannelIssue.tooFewPeriods =>
       'Lower the timebase so at least $fftTargetPeriodsOnScreen periods are '
           'visible, then acquire again.',
+    SpectrumChannelIssue.signalTooSmall =>
+      'Use a larger signal or add amplification (at least '
+          '${(minSpectrumSignalVpp * 1000).round()} mVpp).',
   };
 
   Widget _buildControls(

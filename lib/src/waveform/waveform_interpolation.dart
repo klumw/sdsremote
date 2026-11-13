@@ -213,29 +213,35 @@ class WaveformInterpolation {
     return out;
   }
 
-  /// Smooths the y values of a resampled trace with a moving average.
+  /// Reconstructs the smooth signal behind a quantised trace.
   ///
-  /// The x positions stay untouched, only the amplitude is averaged over the
-  /// neighbouring vertices. [smoothingWidth] is given in *pixels*, so the
+  /// The x positions stay untouched, only the y values are reconstructed from
+  /// the neighbouring vertices. [smoothingWidth] is given in *pixels*, so the
   /// trace is smoothed over the same amount of signal at every zoom level and
   /// the effect fades out on its own where the vertices are further apart than
   /// that width - a zoomed-in view keeps showing the samples as they are.
   ///
-  /// Averaging is what removes the stair steps of a dense record: the 8 bit
-  /// quantisation of the ADC turns a slow signal into plateaus a few pixels
-  /// wide, and a straight line through them looks jittery. A moving average
-  /// over a couple of plateaus reconstructs the smooth signal behind them -
-  /// with an all-positive kernel, so it never invents overshoot.
+  /// The 8 bit quantisation of the ADC turns a slowly changing signal into
+  /// horizontal plateaus joined by short steps. A plain moving average hides
+  /// part of that staircase but leaves a slope corner at every plateau
+  /// boundary, and those corners read as a small ripple on the rendered
+  /// trace - the stronger the vertical zoom, the more the ADC steps grow and
+  /// the more the box filter lags behind them. This method instead fits a
+  /// weighted quadratic to the vertices around every column and evaluates the
+  /// fit at the column itself. The parabola follows the signal's curvature, so
+  /// the plateaus are replaced by the smooth curve running through them and no
+  /// box-filter corners remain. A straight line is reproduced exactly, so clean
+  /// slopes and ramps keep their shape.
   ///
   /// [maxStep] is how large a single jump between two neighbouring vertices may
   /// be (in y pixels) for the trace to count as continuous there. The window is
-  /// filled outwards from the sample being smoothed and stops at the first
+  /// filled outwards from the vertex being reconstructed and stops at the first
   /// larger jump, so a signal edge - a square wave flank, several divisions in
-  /// one step - is never averaged across and keeps its position, while a smooth
+  /// one step - is never fitted across and keeps its position, while a smooth
   /// slope, made of many small steps one ADC step at a time, is followed and
-  /// averaged over the full width. Without the limit the average would run
-  /// through such a flank and shift the plateaus next to it. The default
-  /// [double.infinity] averages the whole window.
+  /// reconstructed over the full width. Without the limit the fit would run
+  /// through such a flank and round it off. The default [double.infinity]
+  /// fits the whole window.
   static Float64List smooth(
     Float64List trace, {
     double smoothingWidth = 10.0,
@@ -246,29 +252,77 @@ class WaveformInterpolation {
 
     final double spacing = (trace[(n - 1) * 2] - trace[0]) / (n - 1);
     if (spacing <= 0) return trace;
-    final int half = (smoothingWidth / spacing).round() ~/ 2;
-    if (half < 1) return trace;
+    final double radius = smoothingWidth / 2;
+    if (radius < spacing) return trace;
 
+    final double inverseRadius = 1.0 / radius;
     final out = Float64List(n * 2);
     for (int i = 0; i < n; i++) {
+      final double xi = trace[i * 2];
+      final double yi = trace[i * 2 + 1];
+
+      // Grow the window outwards while the trace is continuous and the
+      // vertices stay inside the radius; a real edge stops the walk.
       int lo = i;
       while (lo > 0 &&
-          lo > i - half &&
+          xi - trace[(lo - 1) * 2] <= radius &&
           (trace[lo * 2 + 1] - trace[(lo - 1) * 2 + 1]).abs() <= maxStep) {
         lo--;
       }
       int hi = i;
       while (hi < n - 1 &&
-          hi < i + half &&
+          trace[(hi + 1) * 2] - xi <= radius &&
           (trace[(hi + 1) * 2 + 1] - trace[hi * 2 + 1]).abs() <= maxStep) {
         hi++;
       }
-      double sum = 0;
+
+      // Weighted moments of the quadratic y(u) = a + b*u + c*u^2 with
+      // u = (x - xi) / radius. The searched value at the vertex is `a`.
+      // A tapered weight (biweight) is smooth to the window edge, so the
+      // reconstruction has no corner where the window ends.
+      double s0 = 0;
+      double s1 = 0;
+      double s2 = 0;
+      double s3 = 0;
+      double s4 = 0;
+      double t0 = 0;
+      double t1 = 0;
+      double t2 = 0;
       for (int k = lo; k <= hi; k++) {
-        sum += trace[k * 2 + 1];
+        final double u = (trace[k * 2] - xi) * inverseRadius;
+        final double u2 = u * u;
+        final double taper = 1.0 - u2;
+        final double w = taper * taper;
+        final double y = trace[k * 2 + 1];
+        s0 += w;
+        s1 += w * u;
+        s2 += w * u2;
+        s3 += w * u2 * u;
+        s4 += w * u2 * u2;
+        t0 += w * y;
+        t1 += w * u * y;
+        t2 += w * u2 * y;
       }
-      out[i * 2] = trace[i * 2];
-      out[i * 2 + 1] = sum / (hi - lo + 1);
+
+      // Cramer's rule for the symmetric normal equations. With fewer than
+      // five vertices the quadratic is not determined; the weighted mean of
+      // the window is the safe fallback (and equals the vertex itself when
+      // the window collapsed to a single vertex).
+      final double det =
+          s0 * (s2 * s4 - s3 * s3) -
+          s1 * (s1 * s4 - s3 * s2) +
+          s2 * (s1 * s3 - s2 * s2);
+      final bool solvable = hi - lo >= 4 && det.abs() > 1e-12 * s0 * s2 * s4;
+      if (solvable) {
+        final double detA =
+            t0 * (s2 * s4 - s3 * s3) -
+            s1 * (t1 * s4 - s3 * t2) +
+            s2 * (t1 * s3 - s2 * t2);
+        out[i * 2 + 1] = detA / det;
+      } else {
+        out[i * 2 + 1] = s0 > 0 ? t0 / s0 : yi;
+      }
+      out[i * 2] = xi;
     }
     return out;
   }
