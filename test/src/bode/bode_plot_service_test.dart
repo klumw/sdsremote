@@ -67,7 +67,7 @@ void main() {
       const BodeConfig(
         mode: BodeMode.amplitudeSweep,
         sweepFrequencyHz: 1000,
-        startAmplitudeVpp: 0.5,
+        startAmplitudeVpp: 1,
         stopAmplitudeVpp: 2,
         pointCount: 3,
         amplitudeSpacing: BodeSpacing.linear,
@@ -76,7 +76,7 @@ void main() {
 
     expect(service.status, BodeStatus.completed);
     expect(service.points.length, 3);
-    expect(service.points.map((point) => point.amplitudeVpp), [0.5, 1.25, 2.0]);
+    expect(service.points.map((point) => point.amplitudeVpp), [1.0, 1.5, 2.0]);
     expect(service.points.every((point) => point.frequencyHz == 1000), isTrue);
     expect(
       service.points.every((point) => (point.gainDb! - -6.0206).abs() < 1e-3),
@@ -90,12 +90,108 @@ void main() {
     expect(scope.prepareCalls, 1);
     expect(scope.autoSetCalls, 1);
     expect(scope.restoreCalls, 1);
-    expect(transport.sentCommands, contains(':w25=500.'));
-    expect(transport.sentCommands, contains(':w25=1250.'));
+    expect(transport.sentCommands, contains(':w25=1000.'));
+    expect(transport.sentCommands, contains(':w25=1500.'));
     expect(transport.sentCommands, contains(':w25=2000.'));
     expect(generator.outputs.ch1, isFalse);
     expect(generator.outputs.ch2, isFalse);
   });
+
+  test('amplitude gain ignores asymmetric peak-to-peak noise', () async {
+    // Both channels carry the same signal, as in a through connection. The
+    // input channel's fixed coarse scale inflates its PKPK reading, the
+    // output channel's fine scale does not; the RMS values stay equal.
+    scope.vinRms = 1.0;
+    scope.voutRms = 1.0;
+    scope.vinVpp = 2.4;
+    scope.voutVpp = 2.0;
+
+    await service.start(
+      const BodeConfig(
+        mode: BodeMode.amplitudeSweep,
+        sweepFrequencyHz: 1000,
+        startAmplitudeVpp: 1,
+        stopAmplitudeVpp: 2,
+        pointCount: 2,
+        amplitudeSpacing: BodeSpacing.linear,
+      ),
+    );
+
+    expect(service.status, BodeStatus.completed);
+    for (final point in service.points) {
+      expect(point.gainDb, closeTo(0, 1e-9));
+    }
+  });
+
+  test('amplitude sweep leaves points below 1 Vpp empty', () async {
+    scope.vinRms = 0.3;
+    scope.voutRms = 0.3;
+    scope.vinVpp = 0.8;
+    scope.voutVpp = 2.0;
+
+    await service.start(
+      const BodeConfig(
+        mode: BodeMode.amplitudeSweep,
+        sweepFrequencyHz: 1000,
+        startAmplitudeVpp: 1,
+        stopAmplitudeVpp: 2,
+        pointCount: 2,
+        amplitudeSpacing: BodeSpacing.linear,
+      ),
+    );
+
+    expect(service.points, hasLength(2));
+    expect(service.points.every((point) => point.gainDb == null), isTrue);
+    expect(service.points.every((point) => !point.valid), isTrue);
+    expect(
+      service.points.every(
+        (point) => point.note?.contains('Vin below 1 Vpp') ?? false,
+      ),
+      isTrue,
+    );
+  });
+
+  test('amplitude sweep flags a Vout below 1 Vpp', () async {
+    scope.vinRms = 1.0;
+    scope.voutRms = 0.3;
+    scope.vinVpp = 2.0;
+    scope.voutVpp = 0.8;
+
+    await service.start(
+      const BodeConfig(
+        mode: BodeMode.amplitudeSweep,
+        sweepFrequencyHz: 1000,
+        startAmplitudeVpp: 1,
+        stopAmplitudeVpp: 2,
+        pointCount: 2,
+        amplitudeSpacing: BodeSpacing.linear,
+      ),
+    );
+
+    expect(service.points, hasLength(2));
+    expect(service.points.every((point) => point.gainDb == null), isTrue);
+    expect(service.points.first.note, contains('Vout below 1 Vpp'));
+  });
+
+  test(
+    'amplitude sweep predicts the output level for the next point',
+    () async {
+      await service.start(
+        const BodeConfig(
+          mode: BodeMode.amplitudeSweep,
+          sweepFrequencyHz: 1000,
+          startAmplitudeVpp: 1,
+          stopAmplitudeVpp: 2,
+          pointCount: 3,
+          amplitudeSpacing: BodeSpacing.linear,
+        ),
+      );
+
+      // The last point (2 Vpp) follows the 1.5 Vpp point whose Vout is 1 V:
+      // 1 V * 2 / 1.5 = 1.333 Vpp.
+      expect(scope.lastExpectedVoutVpp, closeTo(4 / 3, 1e-9));
+    },
+  );
 
   test('rejects an invalid amplitude sweep before touching devices', () async {
     await service.start(

@@ -16,6 +16,14 @@ const double bodeMinVinRms = 0.001;
 /// Below this RMS voltage on either channel no measurement point is plotted.
 const double bodeMinPlotVoltageRms = 0.005;
 
+/// Smallest peak-to-peak voltage on either channel that yields an
+/// amplitude-sweep gain point.
+///
+/// Below 1 Vpp the measured levels are too close to the fixed input scale's
+/// noise and quantisation floor for a stable ratio, especially when the
+/// output channel runs on a finer V/div than the input.
+const double bodeMinAmplitudeSweepVpp = 1.0;
+
 /// Returns a note when Vin or Vout is below [bodeMinPlotVoltageRms], or null
 /// when both channels carry a usable voltage.
 ///
@@ -27,6 +35,20 @@ String? bodeBelowThresholdNote(double? vinRms, double? voutRms) {
   if (vinLow && voutLow) return 'Vin and Vout below 5 mV';
   if (vinLow) return 'Vin below 5 mV';
   if (voutLow) return 'Vout below 5 mV';
+  return null;
+}
+
+/// Returns a note when an amplitude-sweep point's Vin or Vout is below
+/// [bodeMinAmplitudeSweepVpp], or null when both clear the limit.
+///
+/// Such a point carries no gain. Missing values are handled as invalid
+/// measurements elsewhere and do not produce this note.
+String? bodeBelowAmplitudeSweepVppNote(double? vinVpp, double? voutVpp) {
+  final vinLow = vinVpp != null && vinVpp < bodeMinAmplitudeSweepVpp;
+  final voutLow = voutVpp != null && voutVpp < bodeMinAmplitudeSweepVpp;
+  if (vinLow && voutLow) return 'Vin and Vout below 1 Vpp';
+  if (vinLow) return 'Vin below 1 Vpp';
+  if (voutLow) return 'Vout below 1 Vpp';
   return null;
 }
 
@@ -51,21 +73,18 @@ List<double> buildAmplitudePoints(BodeConfig config) {
   }
   final start = config.startAmplitudeVpp;
   final stop = config.stopAmplitudeVpp;
-  if (!start.isFinite || start < 0) {
-    throw ArgumentError.value(start, 'startAmplitudeVpp', 'Must be >= 0');
+  if (!start.isFinite || start < bodeMinAmplitudeSweepVpp) {
+    throw ArgumentError.value(
+      start,
+      'startAmplitudeVpp',
+      'Must be at least ${formatAmplitudeVpp(bodeMinAmplitudeSweepVpp)}',
+    );
   }
   if (!stop.isFinite || stop <= start) {
     throw ArgumentError.value(
       stop,
       'stopAmplitudeVpp',
       'Must be greater than startAmplitudeVpp',
-    );
-  }
-  if (config.amplitudeSpacing == BodeSpacing.logarithmic && start <= 0) {
-    throw ArgumentError.value(
-      start,
-      'startAmplitudeVpp',
-      'Must be > 0 for logarithmic spacing',
     );
   }
 
@@ -78,6 +97,36 @@ List<double> buildAmplitudePoints(BodeConfig config) {
     points.add(amplitude.toDouble());
   }
   return points;
+}
+
+/// Smallest 1-2-5 V/div step that keeps [maxVpp] within about five
+/// divisions.
+///
+/// An amplitude sweep keeps the input channel on this fixed scale. Changing
+/// the scale per point is avoided because the SDS1104X-E can freeze the input
+/// channel on a SCPI V/div write during an active drive.
+double amplitudeSweepVdiv(double maxVpp) {
+  final value = maxVpp / 5.0;
+  if (!value.isFinite || value <= 0) return 0.0005;
+  final exponent = (math.log(value) / math.ln10).floor();
+  final magnitude = math.pow(10, exponent).toDouble();
+  for (final step in const [1.0, 2.0, 5.0, 10.0]) {
+    final candidate = step * magnitude;
+    if (candidate >= value) return candidate.clamp(0.0005, 10.0).toDouble();
+  }
+  return 10.0;
+}
+
+/// Removes an additive peak-to-peak noise floor from a measured Vpp value.
+///
+/// Peak-detect measurements extend both signal peaks by the one-sided noise
+/// peak, so a small sine reads a constant amount too high. The measured noise
+/// peak-to-peak covers both sides; half of it is the bias added to the
+/// signal's peak-to-peak value.
+double noiseCorrectedVpp(double measuredVpp, double? noiseVpp) {
+  if (!measuredVpp.isFinite) return measuredVpp;
+  if (noiseVpp == null || noiseVpp <= 0) return measuredVpp;
+  return math.max(measuredVpp - noiseVpp / 2, 0);
 }
 
 /// Builds the frequency points for a sweep.
@@ -247,15 +296,12 @@ String? _validateAmplitudeSweepConfig(
   if (!frequency.isFinite || frequency <= 0) {
     return 'Sweep frequency must be greater than 0 Hz.';
   }
-  if (!start.isFinite || start < 0) {
-    return 'Start amplitude must not be negative.';
+  if (!start.isFinite || start < bodeMinAmplitudeSweepVpp) {
+    return 'Start amplitude must be at least '
+        '${formatAmplitudeVpp(bodeMinAmplitudeSweepVpp)}.';
   }
   if (!stop.isFinite || stop <= start) {
     return 'Stop amplitude must be greater than the start amplitude.';
-  }
-  if (config.amplitudeSpacing == BodeSpacing.logarithmic && start <= 0) {
-    return 'Start amplitude must be greater than 0 Vpp for logarithmic '
-        'spacing.';
   }
   final limits = info?.limits ?? SiggenLimits.jds6600;
   if (!config.offsetV.isFinite ||

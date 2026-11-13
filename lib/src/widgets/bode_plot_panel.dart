@@ -561,6 +561,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
     String label,
     TextEditingController controller, {
     bool signed = false,
+    String? helper,
   }) {
     return TextField(
       controller: controller,
@@ -569,7 +570,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
         decimal: true,
         signed: signed,
       ),
-      decoration: _decoration(label),
+      decoration: _decoration(label, helper: helper),
     );
   }
 
@@ -927,13 +928,17 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                 SizedBox(width: 110, child: _buildPointsField()),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Row(
+              // The start field carries a helper line, so top-align the
+              // fields instead of centring the shorter ones.
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(
                   child: _numberField(
                     'Amplitude Start (Vpp)',
                     _startAmplitudeController,
+                    helper: 'Min. 1 Vpp',
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -953,7 +958,8 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            // Extra room below the start field's helper line.
+            const SizedBox(height: 16),
             Row(
               children: [
                 SizedBox(width: 130, child: _buildSettleField()),
@@ -963,7 +969,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                 Expanded(child: _buildGeneratorChannelDropdown()),
               ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Row(
               children: [
                 Expanded(child: _buildWaveformDropdown()),
@@ -973,7 +979,7 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
                 Expanded(child: _buildVoutDisplay()),
               ],
             ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 10),
             _buildModelLimits(),
           ],
           if (validation != null) ...[
@@ -1592,10 +1598,12 @@ class _BodePlotPanelState extends State<BodePlotPanel> {
     );
   }
 
-  InputDecoration _decoration(String label) {
+  InputDecoration _decoration(String label, {String? helper}) {
     return InputDecoration(
       labelText: label,
       labelStyle: const TextStyle(color: Colors.white54, fontSize: 12),
+      helperText: helper,
+      helperStyle: const TextStyle(color: Colors.white38, fontSize: 10),
       enabledBorder: const OutlineInputBorder(
         borderSide: BorderSide(color: Colors.white24),
       ),

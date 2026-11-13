@@ -224,6 +224,14 @@ void main() {
     expect(find.text('Vin channel'), findsOneWidget);
     expect(find.text('Vout channel'), findsOneWidget);
     expect(find.text('Bode Plot — Amplitude Sweep'), findsOneWidget);
+
+    // The start field has a helper line below it; the row must top-align the
+    // fields so the labels and input boxes stay on one line.
+    final startLabel = tester.getTopLeft(find.text('Amplitude Start (Vpp)')).dy;
+    final stopLabel = tester.getTopLeft(find.text('Amplitude Stop (Vpp)')).dy;
+    final offsetLabel = tester.getTopLeft(find.text('Offset (V)')).dy;
+    expect(stopLabel, closeTo(startLabel, 0.5));
+    expect(offsetLabel, closeTo(startLabel, 0.5));
     expect(
       find.byKey(const ValueKey('bode-spacing-amplitude')),
       findsOneWidget,

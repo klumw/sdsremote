@@ -18,6 +18,7 @@ class FakeBodeScope implements BodeScope {
   double? voutVpp = 1.0;
   int vppReadCalls = 0;
   double? lastExpectedVinVpp;
+  double? lastExpectedVoutVpp;
   double? phaseDeg = -45;
   bool outOfRangeOnce = false;
   Duration readDelay = Duration.zero;
@@ -39,11 +40,13 @@ class FakeBodeScope implements BodeScope {
     required bool measurePhase,
     bool measureVpp = false,
     double? expectedVinVpp,
+    double? expectedVoutVpp,
   }) async {
     readCalls++;
     frequencies.add(frequencyHz);
     if (measureVpp) vppReadCalls++;
     lastExpectedVinVpp = expectedVinVpp;
+    lastExpectedVoutVpp = expectedVoutVpp;
     if (readDelay > Duration.zero) {
       await Future<void>.delayed(readDelay);
     }

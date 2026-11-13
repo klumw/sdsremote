@@ -59,8 +59,9 @@ abstract class BodeScope {
   ///
   /// Set [measureVpp] to also read the peak-to-peak voltages, which the
   /// amplitude sweep records alongside the RMS values. An amplitude sweep
-  /// passes the generator setpoint as [expectedVinVpp] so the scope input is
-  /// scaled before the reading instead of clipping at higher amplitudes.
+  /// passes the generator setpoint as [expectedVinVpp] and the output level
+  /// predicted from the previous point as [expectedVoutVpp] so both channels
+  /// are scaled before the reading instead of clipping.
   Future<BodeReading> read({
     required int vinChannel,
     required int voutChannel,
@@ -68,6 +69,7 @@ abstract class BodeScope {
     required bool measurePhase,
     bool measureVpp = false,
     double? expectedVinVpp,
+    double? expectedVoutVpp,
   });
 
   /// Re-runs the scope auto-setup (used after an out-of-range reading).

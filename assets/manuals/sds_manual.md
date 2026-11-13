@@ -1904,6 +1904,8 @@ At the bottom of the form, a short note summarizes what a Bode frequency sweep i
 During the sweep, generator detection is paused and the Signal Generator Window cannot change settings.  
 Points with no usable measurement (Vin/Vout below 5 mV RMS, out-of-range values or an unstable input) are retried and, if they remain invalid, left out of the plot instead of appearing as spikes.
 
+**Amplitude sweep note:** Depending on the oscilloscope model and firmware, an amplitude sweep may be faulty. Check the measured input values in the plot and in the report.
+
 ### 10.6 Reading the Results
 
 * The **gain plot** shows `20 · log10(Vout / Vin)` in dB.

@@ -199,7 +199,7 @@ void main() {
       const valid = BodeConfig(
         mode: BodeMode.amplitudeSweep,
         sweepFrequencyHz: 1000,
-        startAmplitudeVpp: 0.1,
+        startAmplitudeVpp: 1,
         stopAmplitudeVpp: 10,
       );
       expect(validateBodeConfig(valid, lite), isNull);
@@ -220,6 +220,10 @@ void main() {
         contains('exceeds'),
       );
       expect(
+        validateBodeConfig(valid.copyWith(startAmplitudeVpp: 0.5), lite),
+        contains('at least 1 Vpp'),
+      );
+      expect(
         validateBodeConfig(
           valid.copyWith(
             startAmplitudeVpp: 0,
@@ -228,7 +232,7 @@ void main() {
           ),
           lite,
         ),
-        contains('logarithmic'),
+        contains('at least 1 Vpp'),
       );
     });
   });
@@ -382,5 +386,40 @@ void main() {
     expect(formatFrequencyHz(100), '100 Hz');
     expect(formatFrequencyHz(1000), '1 kHz');
     expect(formatFrequencyHz(1.5e6), '1.5 MHz');
+  });
+
+  group('noiseCorrectedVpp', () {
+    test('subtracts half the measured noise peak-to-peak value', () {
+      expect(noiseCorrectedVpp(0.56, 0.20), closeTo(0.46, 1e-9));
+      expect(noiseCorrectedVpp(4.48, 0.20), closeTo(4.38, 1e-9));
+    });
+
+    test('never returns a negative amplitude', () {
+      expect(noiseCorrectedVpp(0.1, 0.3), 0);
+    });
+
+    test('keeps the value when no noise floor is known', () {
+      expect(noiseCorrectedVpp(1.2, null), 1.2);
+      expect(noiseCorrectedVpp(1.2, 0), 1.2);
+    });
+  });
+
+  group('bodeBelowAmplitudeSweepVppNote', () {
+    test('flags each channel below 1 Vpp', () {
+      expect(bodeBelowAmplitudeSweepVppNote(2, 2), isNull);
+      expect(bodeBelowAmplitudeSweepVppNote(1, 1), isNull);
+      expect(bodeBelowAmplitudeSweepVppNote(0.5, 2), 'Vin below 1 Vpp');
+      expect(bodeBelowAmplitudeSweepVppNote(2, 0.5), 'Vout below 1 Vpp');
+      expect(
+        bodeBelowAmplitudeSweepVppNote(0.5, 0.2),
+        'Vin and Vout below 1 Vpp',
+      );
+    });
+
+    test('does not flag missing values', () {
+      expect(bodeBelowAmplitudeSweepVppNote(null, 2), isNull);
+      expect(bodeBelowAmplitudeSweepVppNote(2, null), isNull);
+      expect(bodeBelowAmplitudeSweepVppNote(null, null), isNull);
+    });
   });
 }

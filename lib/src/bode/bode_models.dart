@@ -31,7 +31,7 @@ class BodeConfig {
     this.spacing = BodeSpacing.logarithmic,
     this.amplitudeSpacing = BodeSpacing.linear,
     this.amplitudeVpp = 1,
-    this.startAmplitudeVpp = 0.1,
+    this.startAmplitudeVpp = 1,
     this.stopAmplitudeVpp = 10,
     this.offsetV = 0,
     this.waveform = Jds6600Waveform.sine,
