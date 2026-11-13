@@ -113,7 +113,10 @@ extension _HomeWaveformView on _OsciHomePageState {
                         statistics: _measurementStatistics(),
                         deviceParams: _deviceParams,
                         historyCount: _measurementHistoryCount(),
-                        maskAvailable: _refWaveform != null,
+                        // The mask is derived from the reference; without a
+                        // visible reference there is nothing to compare and
+                        // the mask bar at the bottom is hidden as well.
+                        maskAvailable: _refVisible && _refWaveform != null,
                         referenceVppVolts: _referenceVpp(),
                         referenceDurationSeconds: _referenceDurationSeconds(),
                         maskSettings: _maskSettings,
