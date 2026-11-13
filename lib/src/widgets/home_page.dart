@@ -96,7 +96,7 @@ import 'osci_profiles_panel.dart';
 import 'waveform_ai_panel.dart';
 import '../data_logger/data_logger_models.dart';
 import 'data_logger_panel.dart';
-import '../data_logger/data_logger_service.dart';
+import '../data_logger/data_logger_session_controller.dart';
 import '../data_logger/data_logger_report.dart';
 import '../calculator/calculator_shortcut.dart';
 import '../calculator/calculator_window_launcher.dart';
@@ -451,7 +451,8 @@ class _OsciHomePageState extends State<OsciHomePage>
   int _lastVoiceErrorCount = 0;
 
   // Data Logger
-  bool _dlIsRunning = false;
+  /// Owns the Data Logger session state and saved plot data.
+  late final DataLoggerSessionController _dataLoggerSession;
 
   // Keys
 
@@ -471,13 +472,6 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// view shown when the macro panel was last left. Reopening the panel
   /// restores exactly that view.
   bool _lastMacroPanelWasEditor = false;
-
-  // Saved Data Logger state for panel reopen
-  List<DataLoggerPoint>? _savedDlPoints;
-  DataLoggerConfig? _savedDlConfig;
-  DataLoggerStatus? _savedDlStatus;
-  Set<String>? _savedDlHiddenLines;
-  DataLoggerService? _dlService;
 
   bool _isPinging = false;
 
@@ -642,6 +636,11 @@ class _OsciHomePageState extends State<OsciHomePage>
       readDetector: () => _sigGenDetector,
       isGeneratorDetected: () => _sigGenDetected,
       isPanelOpen: () => _sigGenWindowCoordinator.isOpen,
+      onChanged: () {
+        if (mounted) _setState(() {});
+      },
+    );
+    _dataLoggerSession = DataLoggerSessionController(
       onChanged: () {
         if (mounted) _setState(() {});
       },

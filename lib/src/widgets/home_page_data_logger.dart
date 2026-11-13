@@ -3,6 +3,16 @@ part of 'home_page.dart';
 // Stage A extraction from home_page.dart. Do not add imports here.
 
 extension _HomeDataLogger on _OsciHomePageState {
+  bool get _dlIsRunning => _dataLoggerSession.isRunning;
+
+  List<DataLoggerPoint>? get _savedDlPoints => _dataLoggerSession.savedPoints;
+
+  DataLoggerConfig? get _savedDlConfig => _dataLoggerSession.savedConfig;
+
+  DataLoggerStatus? get _savedDlStatus => _dataLoggerSession.savedStatus;
+
+  Set<String>? get _savedDlHiddenLines => _dataLoggerSession.savedHiddenLines;
+
   /// Builds the rotating arrows icon for the Data Logger toolbar button.
   Widget _buildDlButtonIcon() {
     return AnimatedSyncIcon(
@@ -23,27 +33,13 @@ extension _HomeDataLogger on _OsciHomePageState {
       savedStatus: _savedDlStatus,
       savedHiddenLines: _savedDlHiddenLines,
       onServiceCreated: (service) {
-        _dlService = service;
+        _dataLoggerSession.service = service;
       },
-      onSaveState: (points, config, status, hiddenLines) {
-        _savedDlPoints = points;
-        _savedDlConfig = config;
-        _savedDlStatus = status;
-        _savedDlHiddenLines = hiddenLines;
-      },
-      onRecordingFinished: (points, config) {
-        _savedDlPoints = points;
-        _savedDlConfig = config;
-        _savedDlStatus = DataLoggerStatus.stopped;
-        if (mounted) _setState(() {});
-      },
-      onRunningChanged: (running) {
-        _dlIsRunning = running;
-        if (mounted) _setState(() {});
-      },
+      onSaveState: _dataLoggerSession.saveState,
+      onRecordingFinished: _dataLoggerSession.recordingFinished,
+      onRunningChanged: _dataLoggerSession.setRunning,
       onClose: () {
-        _dlIsRunning = false;
-        if (mounted) _setState(() {});
+        _dataLoggerSession.close();
         _togglePanel(ActivePanel.dataLogger);
       },
     );
@@ -53,8 +49,7 @@ extension _HomeDataLogger on _OsciHomePageState {
   /// and the background SCPI service. Safe to call when logger is not running.
   void _stopDataLoggerIfRunning() {
     if (_activePanel == ActivePanel.dataLogger) {
-      _dlIsRunning = false;
-      _dlService?.stop();
+      _dataLoggerSession.stop();
     }
   }
 
