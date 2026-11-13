@@ -78,6 +78,7 @@ import '../audio/vxi11_frequency_series_scope.dart';
 import '../ai/tools/digital_frequency_series_tool.dart';
 import '../ai/tools/digital_measurement_tools.dart';
 import '../ai/tools/signal_generator_tool.dart';
+import '../ai/waveform_ai_controller.dart';
 import '../ai/waveform_chat_controller.dart';
 import '../core/logger.dart';
 import '../devices/device_agent_context.dart';
@@ -433,7 +434,12 @@ class _OsciHomePageState extends State<OsciHomePage>
       WaveformAnalysisService();
   final WaveformFaultProfileStore _waveformFaultProfileStore =
       const WaveformFaultProfileStore();
-  bool _showWaveformAi = false;
+
+  /// Owns the Waveform AI assistant's open state and provider wiring.
+  late final WaveformAiController _waveformAiController;
+
+  /// Whether the Waveform AI assistant panel is open.
+  bool get _showWaveformAi => _waveformAiController.isOpen;
 
   // Assistant voice input
   /// Owns the microphone and the whisper transcriber shared by the AI
@@ -600,6 +606,37 @@ class _OsciHomePageState extends State<OsciHomePage>
       deviceParams: () => _deviceParams,
       acquiredMeasurements: _acquiredMeasurements,
       triggerSourceChannel: () => _triggerSourceChannel,
+    );
+    _waveformAiController = WaveformAiController(
+      chatController: _waveformChatController,
+      readSettings: () => _aiSettings,
+      stopVoiceInput: () => unawaited(_voiceInputService.stop()),
+      onChanged: () {
+        if (mounted) _setState(() {});
+      },
+      readVxi11Host: () => _ipAddress,
+      instrumentDeviceContext: () => _sdsDeviceContext,
+      readWaveformSummary: _waveformSummaryForAi,
+      readSpectrumSummary: _spectrumSummaryForAi,
+      acquireWaveform: _acquireWaveformForAi,
+      readWaveformHistory: _waveformHistoryForAi,
+      classifyWaveform: _classifyWaveformForAi,
+      compareWaveformToReferences: _compareWaveformToReferencesForAi,
+      readWaveformFeatures: _waveformFeaturesForAi,
+      compareWaveforms: _compareWaveformsForAi,
+      generateReferenceWaveform: _generateWaveformReferenceForAi,
+      analyzeWaveformFaults: _analyzeWaveformFaultsForAi,
+      manageFaultProfile: _manageFaultAnalysisProfileForAi,
+      createWaveformReport: _createWaveformReportForAi,
+      clearMeasurementHistory: _clearMeasurementHistory,
+      readSignalGeneratorStatus: _readSignalGeneratorStatusForAi,
+      applySignalGenerator: _applySignalGeneratorForAi,
+      controlSignalGenerator: _controlSignalGeneratorForAi,
+      audioAnalysisContext: _audioAnalysisContextForAi,
+      audioSweep: _audioSweepForAi,
+      audioFrequencySeries: _audioFrequencySeriesForAi,
+      digitalMeasurement: _digitalMeasurementForAi,
+      digitalFrequencySeries: _digitalFrequencySeriesForAi,
     );
     _voiceInputService = VoiceInputService();
     _aiChatVoice = VoiceInputBinding(

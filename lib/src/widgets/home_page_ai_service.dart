@@ -72,49 +72,12 @@ extension _HomeAiService on _OsciHomePageState {
   // Waveform AI assistant
   // =========================================================================
 
-  void _toggleWaveformAi() {
-    final open = !_showWaveformAi;
-    if (!open) unawaited(_voiceInputService.stop());
-    _setState(() => _showWaveformAi = open);
-    _waveformChatController.setOpen(open);
-  }
+  void _toggleWaveformAi() => _waveformAiController.toggle();
 
-  void _closeWaveformAi() {
-    if (!_showWaveformAi) return;
-    unawaited(_voiceInputService.stop());
-    _setState(() => _showWaveformAi = false);
-    _waveformChatController.setOpen(false);
-  }
+  void _closeWaveformAi() => _waveformAiController.close();
 
   /// Configures the Waveform AI assistant from the current AI settings.
-  void _configureWaveformAi() {
-    _waveformChatController.configure(
-      _aiSettings,
-      readWaveformSummary: _waveformSummaryForAi,
-      readSpectrumSummary: _spectrumSummaryForAi,
-      acquireWaveform: _acquireWaveformForAi,
-      readWaveformHistory: _waveformHistoryForAi,
-      classifyWaveform: _classifyWaveformForAi,
-      compareWaveformToReferences: _compareWaveformToReferencesForAi,
-      readWaveformFeatures: _waveformFeaturesForAi,
-      compareWaveforms: _compareWaveformsForAi,
-      generateReferenceWaveform: _generateWaveformReferenceForAi,
-      analyzeWaveformFaults: _analyzeWaveformFaultsForAi,
-      manageFaultProfile: _manageFaultAnalysisProfileForAi,
-      createWaveformReport: _createWaveformReportForAi,
-      clearMeasurementHistory: _clearMeasurementHistory,
-      vxi11Host: _ipAddress,
-      instrumentDeviceContext: _sdsDeviceContext,
-      readSignalGeneratorStatus: _readSignalGeneratorStatusForAi,
-      applySignalGenerator: _applySignalGeneratorForAi,
-      controlSignalGenerator: _controlSignalGeneratorForAi,
-      audioAnalysisContext: _audioAnalysisContextForAi,
-      audioSweep: _audioSweepForAi,
-      audioFrequencySeries: _audioFrequencySeriesForAi,
-      digitalMeasurement: _digitalMeasurementForAi,
-      digitalFrequencySeries: _digitalFrequencySeriesForAi,
-    );
-  }
+  void _configureWaveformAi() => _waveformAiController.configure();
 
   /// Returns authorized command definitions and knowledge for the Macro
   /// Editor's dynamic command-reference tool.
