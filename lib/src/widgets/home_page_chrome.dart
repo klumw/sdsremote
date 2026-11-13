@@ -91,7 +91,7 @@ extension _HomeChrome on _OsciHomePageState {
     // leaving the macro recorder.
     if (_activePanel == ActivePanel.macroRecorder &&
         panel != ActivePanel.macroRecorder) {
-      unawaited(_stopMacroDebugSession());
+      unawaited(_macroDebugController.stop());
     }
     _setState(() {
       if (_activePanel == panel) {

@@ -14,77 +14,37 @@ extension _HomeMacroRecorder on _OsciHomePageState {
         voiceInput: _voiceInputService,
         layout: _macroEditorLayout,
         isPlaying: _isMacroPlaying,
-        hasDebugSession: _macroDebugSession != null,
-        isDebugPaused: _macroDebugSession?.paused ?? false,
-        isDebugRunning:
-            _macroDebugSession != null &&
-            !(_macroDebugSession?.paused ?? false),
-        debugStatus: _macroDebugStatus,
-        debugCurrentLine: _macroDebugCurrentLine,
-        debugVariables: _macroDebugVariables,
+        hasDebugSession: _macroDebugController.hasSession,
+        isDebugPaused: _macroDebugController.isPaused,
+        isDebugRunning: _macroDebugController.isRunning,
+        debugStatus: _macroDebugController.status,
+        debugCurrentLine: _macroDebugController.currentLine,
+        debugVariables: _macroDebugController.variables,
         printController: _macroPrintController,
-        breakpoints: _macroBreakpoints,
-        inactiveBreakpoints: _macroInactiveBreakpoints,
-        onBreakpointsChanged: (breakpoints) {
-          _setState(() {
-            final added = breakpoints.difference(_macroBreakpoints);
-            _macroBreakpoints = breakpoints;
-            // A newly created breakpoint is always active; removed lines no
-            // longer belong to the inactive set.
-            _macroInactiveBreakpoints.removeAll(added);
-            _macroInactiveBreakpoints.removeWhere(
-              (line) => !breakpoints.contains(line),
-            );
-          });
-        },
-        onDeleteBreakpoint: (line) {
-          _setState(() {
-            _macroBreakpoints.remove(line);
-            _macroInactiveBreakpoints.remove(line);
-          });
-        },
-        onSetBreakpointEnabled: (line, enabled) {
-          _setState(() {
-            if (enabled) {
-              _macroInactiveBreakpoints.remove(line);
-            } else {
-              _macroInactiveBreakpoints.add(line);
-            }
-          });
-        },
-        onSetAllBreakpointsEnabled: (enabled) {
-          _setState(() {
-            if (enabled) {
-              _macroInactiveBreakpoints.clear();
-            } else {
-              _macroInactiveBreakpoints = Set<int>.of(_macroBreakpoints);
-            }
-          });
-        },
-        onDeleteAllBreakpoints: () {
-          _setState(() {
-            _macroBreakpoints.clear();
-            _macroInactiveBreakpoints.clear();
-          });
-        },
-        onPlay: _onMacroEditorPlay,
-        onStep: _onMacroEditorStep,
-        onContinue: _onMacroEditorContinue,
+        breakpoints: _macroDebugController.breakpoints,
+        inactiveBreakpoints: _macroDebugController.inactiveBreakpoints,
+        onBreakpointsChanged: _macroDebugController.updateBreakpoints,
+        onDeleteBreakpoint: _macroDebugController.deleteBreakpoint,
+        onSetBreakpointEnabled: _macroDebugController.setBreakpointEnabled,
+        onSetAllBreakpointsEnabled:
+            _macroDebugController.setAllBreakpointsEnabled,
+        onDeleteAllBreakpoints: _macroDebugController.deleteAllBreakpoints,
+        onPlay: _macroDebugController.onPlay,
+        onStep: _macroDebugController.onStep,
+        onContinue: _macroDebugController.onContinue,
         onStop: _onMacroStop,
         errorMessage: _macroHadPlaybackError ? _macroStatusMessage : null,
         onContentChanged: (content) {
           _currentMacroContent = content;
           // Editing invalidates a paused debug session because its AST no
           // longer matches the editor content.
-          if (_macroDebugSession != null) {
-            unawaited(_stopMacroDebugSession(status: 'Stopped (macro edited)'));
+          if (_macroDebugController.hasSession) {
+            unawaited(
+              _macroDebugController.stop(status: 'Stopped (macro edited)'),
+            );
           }
           // Line numbers and variable values are stale after an edit.
-          final hadDebugState =
-              _macroDebugCurrentLine != null || _macroDebugVariables.isNotEmpty;
-          _macroDebugCurrentLine = null;
-          _macroDebugVariables = <String, String>{};
-          if (hadDebugState) _setState(() {});
+          _macroDebugController.clearCursor();
           // When a loaded file is edited, enable the Save button.
           if (_loadedMacroFileName != null && !_isMacroModified) {
             _setState(() => _isMacroModified = true);
@@ -92,7 +52,7 @@ extension _HomeMacroRecorder on _OsciHomePageState {
         },
         onSave: _currentMacroContent.trim().isNotEmpty ? _onMacroSave : null,
         onClose: () {
-          unawaited(_stopMacroDebugSession());
+          unawaited(_macroDebugController.stop());
           _setState(() {
             _showMacroEditor = false;
           });
@@ -148,12 +108,8 @@ extension _HomeMacroRecorder on _OsciHomePageState {
   }
 
   void _onMacroStart() {
-    unawaited(_stopMacroDebugSession());
-    _macroDebugStatus = null;
-    _macroBreakpoints = <int>{};
-    _macroInactiveBreakpoints = <int>{};
-    _macroDebugCurrentLine = null;
-    _macroDebugVariables = <String, String>{};
+    unawaited(_macroDebugController.stop());
+    _macroDebugController.reset();
     _macroPrintController.clear();
     _setState(() {
       _macroStatus = null;
@@ -184,7 +140,7 @@ extension _HomeMacroRecorder on _OsciHomePageState {
     if (_isMacroPlaying) {
       _macroPlaybackCancelled = true;
     }
-    unawaited(_stopMacroDebugSession());
+    unawaited(_macroDebugController.stop());
     if (_isMacroRecording) {
       onScpiCommandSent = null;
       _setState(() {
@@ -288,13 +244,13 @@ extension _HomeMacroRecorder on _OsciHomePageState {
   /// Shows an error snackbar and logs the error.
   /// Also sets [_macroHadPlaybackError] if called during active playback.
   void _showMacroError(String message) {
-    if (_isMacroPlaying || _macroDebugSession != null) {
+    if (_isMacroPlaying || _macroDebugController.hasSession) {
       _macroHadPlaybackError = true;
       _macroStatus = 0; // show error icon immediately
     }
     _macroStatusMessage = message;
-    if (_macroDebugSession != null) {
-      _macroDebugStatus = 'Error';
+    if (_macroDebugController.hasSession) {
+      _macroDebugController.markError();
     }
     AppLogger().error('Macro error: $message');
     if (mounted) {
@@ -305,9 +261,7 @@ extension _HomeMacroRecorder on _OsciHomePageState {
 
   void _onMacroPlay() {
     AppLogger().log('Macro play requested');
-    _macroDebugStatus = null;
-    _macroDebugCurrentLine = null;
-    _macroDebugVariables = <String, String>{};
+    _macroDebugController.clearStatus();
     _setState(() => _macroStatus = null);
     _macroPlaybackCancelled = false;
     _setState(() => _isMacroPlaying = true);
@@ -317,9 +271,7 @@ extension _HomeMacroRecorder on _OsciHomePageState {
   }
 
   void _onMacroEdit() {
-    _macroDebugStatus = null;
-    _macroDebugCurrentLine = null;
-    _macroDebugVariables = <String, String>{};
+    _macroDebugController.clearStatus();
     _setState(() {
       _macroStatus = null;
       _macroStatusMessage = null;
@@ -417,12 +369,8 @@ extension _HomeMacroRecorder on _OsciHomePageState {
       final file = File('${dir.path}/$fileName');
       if (!await file.exists()) throw Exception('Macro file not found');
       final content = await file.readAsString();
-      unawaited(_stopMacroDebugSession());
-      _macroDebugStatus = null;
-      _macroBreakpoints = <int>{};
-      _macroInactiveBreakpoints = <int>{};
-      _macroDebugCurrentLine = null;
-      _macroDebugVariables = <String, String>{};
+      unawaited(_macroDebugController.stop());
+      _macroDebugController.reset();
       _macroPrintController.clear();
       _setState(() {
         _macroStatus = null;

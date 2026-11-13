@@ -122,8 +122,7 @@ import 'bode_plot_panel.dart';
 import '../app/app_paths.dart';
 import '../macro/macro_recorder_models.dart';
 import '../macro/macro_print_controller.dart';
-import '../macro/macro_ast.dart';
-import '../macro/macro_debug.dart';
+import '../macro/macro_debug_controller.dart';
 import 'macro_recorder_panel.dart';
 import 'macro_editor_panel.dart';
 import '../macro/macro_evaluator.dart';
@@ -142,7 +141,6 @@ part 'home_page_chrome.dart';
 part 'home_page_chat.dart';
 part 'home_page_profiles.dart';
 part 'home_page_macro_recorder.dart';
-part 'home_page_macro_debug.dart';
 part 'home_page_data_logger.dart';
 part 'home_page_settings.dart';
 part 'home_page_connection.dart';
@@ -483,27 +481,8 @@ class _OsciHomePageState extends State<OsciHomePage>
   final ControlPanelChatController _controlPanelChatController =
       ControlPanelChatController();
 
-  /// Active step-by-step debug session, if any.
-  _MacroDebugSession? _macroDebugSession;
-
-  /// Status text shown in the Macro Editor's debug bar.
-  String? _macroDebugStatus;
-
-  /// Guards against overlapping Step clicks while a session is being started.
-  bool _macroDebugStepPending = false;
-
-  /// Breakpoints set in the Macro Editor (1-based source lines).
-  Set<int> _macroBreakpoints = <int>{};
-
-  /// Breakpoints that are currently disabled. Disabled breakpoints stay
-  /// visible in the gutter but do not pause the debugger.
-  Set<int> _macroInactiveBreakpoints = <int>{};
-
-  /// Source line of the statement currently highlighted in the editor.
-  int? _macroDebugCurrentLine;
-
-  /// Variables shown in the debug watch panel.
-  Map<String, String> _macroDebugVariables = <String, String>{};
+  /// Owns the Macro Editor's step-by-step debug session and breakpoints.
+  late final MacroDebugController _macroDebugController;
 
   // Macro playback
   Vxi11Instrument? _playbackInstrument;
@@ -642,6 +621,10 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// directly; routing through this wrapper keeps `flutter analyze` clean.
   void _setState(VoidCallback fn) => setState(fn);
 
+  void _onMacroDebugChanged() {
+    if (mounted) _setState(() {});
+  }
+
   // =========================================================================
   // Lifecycle
   // =========================================================================
@@ -649,6 +632,25 @@ class _OsciHomePageState extends State<OsciHomePage>
   @override
   void initState() {
     super.initState();
+    _macroDebugController = MacroDebugController(
+      readSource: () => _currentMacroContent,
+      beforeStart: () {
+        _macroHadPlaybackError = false;
+        _macroStatus = null;
+        _macroStatusMessage = null;
+        _macroPrintController.clear();
+      },
+      markPlaybackError: () {
+        _macroHadPlaybackError = true;
+        _macroStatus = 0;
+      },
+      hasPlaybackError: () => _macroHadPlaybackError,
+      onError: _showMacroError,
+      onPrint: _macroPrintController.add,
+      connectSignalGenerator: _connectMacroSignalGenerator,
+      isMacroPlaying: () => _isMacroPlaying,
+    );
+    _macroDebugController.addListener(_onMacroDebugChanged);
     _voiceInputService = VoiceInputService();
     _aiChatVoice = VoiceInputBinding(
       ownerId: 'ai_chat',
@@ -662,7 +664,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     // The macro agent can inspect the same runtime output the editor shows:
     // the debug variables and the print() output of the current run.
     _macroChatController.attachMacroOutput(
-      readVariables: () => _macroDebugVariables,
+      readVariables: () => _macroDebugController.variables,
       readPrintOutput: () => _macroPrintController.messages,
     );
     _controlPanelChatController.attachOscilloscopeStatus(
@@ -702,9 +704,8 @@ class _OsciHomePageState extends State<OsciHomePage>
     // Cancel a paused/running debug session without calling setState during
     // dispose. Its run future closes the instrument and ignores the cleared
     // session.
-    final debugSession = _macroDebugSession;
-    _macroDebugSession = null;
-    debugSession?.cancel();
+    _macroDebugController.removeListener(_onMacroDebugChanged);
+    _macroDebugController.dispose();
     _disposeSigGenWindowSupport();
     _calculatorWindowLauncher?.dispose();
     _calculatorWindowLauncher = null;
