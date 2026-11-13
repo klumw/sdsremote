@@ -3,84 +3,101 @@ part of 'home_page.dart';
 // Stage A extraction from home_page.dart. Do not add imports here.
 
 extension _HomeReference on _OsciHomePageState {
-  /// Live waveform belonging to the loaded reference channel.
-  WaveformData? _liveWaveformForReference() => switch (_refChannelOrigin) {
-    'ch1' => _waveformCh1,
-    'ch2' => _waveformCh2,
-    'ch3' => _waveformCh3,
-    'ch4' => _waveformCh4,
-    _ => null,
-  };
+  WaveformData? get _refWaveform => _referenceController.refWaveform;
+  set _refWaveform(WaveformData? value) =>
+      _referenceController.refWaveform = value;
 
-  double _referenceVpp() => _referenceVppCache;
+  bool get _refVisible => _referenceController.refVisible;
+  set _refVisible(bool value) => _referenceController.refVisible = value;
 
-  double _referenceDurationSeconds() => _referenceDurationCache;
+  String? get _refFileName => _referenceController.refFileName;
+  set _refFileName(String? value) => _referenceController.refFileName = value;
+
+  String? get _refChannelOrigin => _referenceController.refChannelOrigin;
+  set _refChannelOrigin(String? value) =>
+      _referenceController.refChannelOrigin = value;
+
+  WaveformCsvMetadata? get _refMetadata => _referenceController.refMetadata;
+  set _refMetadata(WaveformCsvMetadata? value) =>
+      _referenceController.refMetadata = value;
+
+  double? get _refVdivVolts => _referenceController.refVdivVolts;
+  set _refVdivVolts(double? value) => _referenceController.refVdivVolts = value;
+
+  double? get _refOffsetVolts => _referenceController.refOffsetVolts;
+  set _refOffsetVolts(double? value) =>
+      _referenceController.refOffsetVolts = value;
+
+  ReferenceOffset get _refOffset => _referenceController.refOffset;
+  set _refOffset(ReferenceOffset value) =>
+      _referenceController.refOffset = value;
+
+  bool get _refMoving => _referenceController.refMoving;
+  set _refMoving(bool value) => _referenceController.refMoving = value;
+
+  bool get _draggingRef => _referenceController.draggingRef;
+  set _draggingRef(bool value) => _referenceController.draggingRef = value;
+
+  ReferenceOffset get _refDragAnchor => _referenceController.refDragAnchor;
+  set _refDragAnchor(ReferenceOffset value) =>
+      _referenceController.refDragAnchor = value;
+
+  Offset get _refDragOriginPx => _referenceController.refDragOriginPx;
+  set _refDragOriginPx(Offset value) =>
+      _referenceController.refDragOriginPx = value;
+
+  String? get _dismissedReferenceTimingWarning =>
+      _referenceController.dismissedReferenceTimingWarning;
+  set _dismissedReferenceTimingWarning(String? value) =>
+      _referenceController.dismissedReferenceTimingWarning = value;
+
+  WaveformMeasurements? get _refMeasurements =>
+      _referenceController.refMeasurements;
+
+  bool get _diffVisible => _referenceController.diffVisible;
+  set _diffVisible(bool value) => _referenceController.diffVisible = value;
+
+  WaveformData? get _diffTrace => _referenceController.diffTrace;
+  set _diffTrace(WaveformData? value) => _referenceController.diffTrace = value;
+
+  ComparisonMetrics? get _comparison => _referenceController.comparison;
+  set _comparison(ComparisonMetrics? value) =>
+      _referenceController.comparison = value;
+
+  MaskSettings get _maskSettings => _referenceController.maskSettings;
+  set _maskSettings(MaskSettings value) =>
+      _referenceController.maskSettings = value;
+
+  MaskBand? get _maskBand => _referenceController.maskBand;
+  set _maskBand(MaskBand? value) => _referenceController.maskBand = value;
+
+  MaskResult? get _maskResult => _referenceController.maskResult;
+  set _maskResult(MaskResult? value) => _referenceController.maskResult = value;
+
+  double _referenceVpp() => _referenceController.referenceVpp;
+
+  double _referenceDurationSeconds() =>
+      _referenceController.referenceDurationSeconds;
 
   /// Timing settings in which the loaded reference differs from the current
   /// instrument settings. Empty when the reference has no timing metadata or
   /// all values match.
-  List<ReferenceTimingMismatch> _referenceTimingMismatches() {
-    final metadata = _refMetadata;
-    final params = _deviceParams;
-    if (metadata == null || params == null || _refWaveform == null) {
-      return const [];
-    }
-    return compareReferenceTiming(
-      reference: metadata,
-      currentTimebase: params.timebase,
-      currentTriggerDelay: params.trdl,
-      currentSampleRate: params.sampleRate,
-    );
-  }
+  List<ReferenceTimingMismatch> _referenceTimingMismatches() =>
+      _referenceController.timingMismatches();
 
   /// Stable signature of one reference timing warning, used to keep a
   /// dismissed banner hidden until the warning content changes.
   String _referenceTimingWarningSignature(
     List<ReferenceTimingMismatch> mismatches,
-  ) => mismatches
-      .map(
-        (mismatch) =>
-            '${mismatch.field.name}:'
-            '${mismatch.referenceValue}:${mismatch.currentValue}',
-      )
-      .join('|');
+  ) => _referenceController.timingWarningSignature(mismatches);
 
   /// Hint shown in the reference section when the loaded file carries no
   /// timing metadata, so a comparison is impossible.
-  String? get _referenceTimingNote {
-    if (_refWaveform == null || _refMetadata?.hasTiming == true) return null;
-    return 'Timing metadata is missing in this reference file. Timebase, '
-        'trigger delay and sample rate cannot be compared.';
-  }
+  String? get _referenceTimingNote => _referenceController.timingNote;
 
   /// Recomputes the cached reference geometry and measurements after a
   /// reference change.
-  void _cacheReferenceGeometry() {
-    final points = _refWaveform?.points;
-    if (points == null || points.isEmpty) {
-      _referenceVppCache = 0;
-      _referenceDurationCache = 0;
-      _refMeasurements = null;
-      _refMetadata = null;
-      _refVdivVolts = null;
-      _refOffsetVolts = null;
-      return;
-    }
-    var min = double.infinity;
-    var max = -double.infinity;
-    for (final (_, voltage) in points) {
-      if (voltage < min) min = voltage;
-      if (voltage > max) max = voltage;
-    }
-    _referenceVppCache = max - min;
-    _referenceDurationCache = points.length < 2
-        ? 0
-        : points.last.$1 - points.first.$1;
-    // The reference is measured exactly as loaded. The manual alignment
-    // offset only moves the drawn trace and does not change its shape, so it
-    // is deliberately not applied here.
-    _refMeasurements = measureWaveform(channel: 'ref', points: points);
-  }
+  void _cacheReferenceGeometry() => _referenceController.cacheGeometry();
 
   void _onDiffToggled(bool visible) {
     _setState(() => _diffVisible = visible);
@@ -93,24 +110,11 @@ extension _HomeReference on _OsciHomePageState {
   }
 
   /// Measurement of the trigger source channel, or null when unavailable.
-  WaveformMeasurements? get _triggerSourceMeasurement {
-    final channel = _triggerSourceChannel;
-    if (channel == null) return null;
-    return _acquiredMeasurements()[channel];
-  }
+  WaveformMeasurements? get _triggerSourceMeasurement =>
+      _referenceController.triggerSourceMeasurement;
 
   /// Period of the trigger source signal, or null when it cannot be measured.
-  double? _triggerSourcePeriod() {
-    final measurement = _triggerSourceMeasurement;
-    if (measurement == null) return null;
-    final period = measurement.periodSeconds;
-    if (period != null && period.isFinite && period > 0) return period;
-    final frequency = measurement.frequencyHz;
-    if (frequency != null && frequency.isFinite && frequency > 0) {
-      return 1 / frequency;
-    }
-    return null;
-  }
+  double? _triggerSourcePeriod() => _referenceController.triggerSourcePeriod();
 
   /// Copies the current waveform of an enabled channel into the reference.
   Future<void> _useCurrentWaveformAsReference() async {
@@ -171,73 +175,14 @@ extension _HomeReference on _OsciHomePageState {
   /// mask settings change. The result only covers the live points that the
   /// (shifted) reference actually spans.
   void _recomputeReferenceAnalysis() {
-    final params = _deviceParams;
-    final reference = _refWaveform;
-    final live = _liveWaveformForReference();
-
-    if (params == null ||
-        reference == null ||
-        reference.points.isEmpty ||
-        live == null ||
-        live.points.isEmpty) {
-      if (_diffTrace != null ||
-          _comparison != null ||
-          _maskBand != null ||
-          _maskResult != null) {
-        _setState(() {
-          _diffTrace = null;
-          _comparison = null;
-          _maskBand = null;
-          _maskResult = null;
-        });
+    if (!_referenceController.hasAnalysisInputs) {
+      if (_referenceController.hasAnalysisResults) {
+        _setState(() => _referenceController.clearAnalysis());
       }
       return;
     }
-
-    final referenceVdiv = params.vdivFor(_refChannelOrigin) ?? 1.0;
-    final trace = differenceTrace(
-      live: live.points,
-      reference: reference.points,
-      offset: _refOffset,
-      timebase: params.timebase,
-      referenceVdiv: referenceVdiv,
-    );
-    final comparison = comparisonMetrics(
-      live: live.points,
-      reference: reference.points,
-      offset: _refOffset,
-      timebase: params.timebase,
-      referenceVdiv: referenceVdiv,
-    );
-
-    MaskBand? band;
-    MaskResult? result;
-    if (_maskSettings.enabled) {
-      final shifted = shiftReference(
-        reference.points,
-        offset: _refOffset,
-        timebase: params.timebase,
-        referenceVdiv: referenceVdiv,
-      );
-      final toleranceVolts = _maskSettings.usePercent
-          ? _referenceVpp() * _maskSettings.toleranceValue / 100
-          : _maskSettings.toleranceValue;
-      band = buildMaskBand(
-        shifted,
-        toleranceVolts: toleranceVolts,
-        toleranceTime: _maskSettings.timeToleranceSeconds > 0
-            ? _maskSettings.timeToleranceSeconds
-            : null,
-      );
-      result = evaluateMask(live.points, band);
-    }
-
-    _setState(() {
-      _diffTrace = WaveformData(points: trace);
-      _comparison = comparison;
-      _maskBand = band;
-      _maskResult = result;
-    });
+    _referenceController.computeAnalysis();
+    _setState(() {});
   }
 
   void _onRefToggled(bool visible) {

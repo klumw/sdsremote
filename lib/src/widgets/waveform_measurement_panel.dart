@@ -6,24 +6,7 @@ import '../waveform/waveform_mask.dart';
 import '../waveform/waveform_measurements.dart';
 import '../waveform/waveform_models.dart';
 
-/// Settings of the software mask test as edited in the measurement panel.
-///
-/// [toleranceValue] is a percentage of the reference Vpp when [usePercent] is
-/// true, otherwise a voltage in volts. A [timeToleranceSeconds] of zero
-/// disables the horizontal tolerance.
-typedef MaskSettings = ({
-  bool enabled,
-  bool usePercent,
-  double toleranceValue,
-  double timeToleranceSeconds,
-});
-
-const MaskSettings defaultMaskSettings = (
-  enabled: false,
-  usePercent: true,
-  toleranceValue: 5,
-  timeToleranceSeconds: 0,
-);
+export '../waveform/waveform_mask.dart' show MaskSettings, defaultMaskSettings;
 
 /// Short offline explanations for the measurement labels shown in the cards.
 const Map<String, String> measurementExplanations = {

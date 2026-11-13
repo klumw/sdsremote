@@ -7,6 +7,25 @@ library;
 
 import 'dart:collection';
 
+/// Settings of the software mask test as edited in the measurement panel.
+///
+/// [toleranceValue] is a percentage of the reference Vpp when [usePercent] is
+/// true, otherwise a voltage in volts. A [timeToleranceSeconds] of zero
+/// disables the horizontal tolerance.
+typedef MaskSettings = ({
+  bool enabled,
+  bool usePercent,
+  double toleranceValue,
+  double timeToleranceSeconds,
+});
+
+const MaskSettings defaultMaskSettings = (
+  enabled: false,
+  usePercent: true,
+  toleranceValue: 5,
+  timeToleranceSeconds: 0,
+);
+
 /// Voltage band around a reference trace.
 ///
 /// [times], [low] and [high] are parallel lists sorted by time. The band

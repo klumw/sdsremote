@@ -43,6 +43,7 @@ import '../waveform/waveform_csv_writer.dart';
 import '../data_logger/data_logger_csv_writer.dart';
 import '../waveform/waveform_models.dart';
 import '../waveform/waveform_compare.dart';
+import '../waveform/reference_waveform_controller.dart';
 import '../waveform/reference_timing.dart';
 import '../waveform/waveform_mask.dart';
 import '../waveform/waveform_measurements.dart';
@@ -274,68 +275,15 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// Last four acquisitions for the Waveform AI's history and comparison.
   final WaveformHistoryStore _waveformHistory = WaveformHistoryStore();
 
-  /// Difference trace and deviation metrics against the loaded reference.
-  bool _diffVisible = false;
-  WaveformData? _diffTrace;
-  ComparisonMetrics? _comparison;
-
-  /// Software mask test state.
-  MaskSettings _maskSettings = defaultMaskSettings;
-  MaskBand? _maskBand;
-  MaskResult? _maskResult;
+  /// Owns the loaded reference waveform and the difference/mask analysis.
+  late final ReferenceWaveformController _referenceController;
 
   /// Channel used as the oscilloscope trigger source (`'ch1'`…`'ch4'`), or
   /// null when the trigger source is not an analog channel.
   String? _triggerSourceChannel;
 
-  /// Cached geometry of the loaded reference, used by the mask slider ranges.
-  double _referenceVppCache = 0;
-  double _referenceDurationCache = 0;
-
-  /// Measurements of the loaded reference waveform, shown as its own `REF`
-  /// card in the measurement panel. Null until a reference is loaded.
-  WaveformMeasurements? _refMeasurements;
-
-  /// Timing metadata of the loaded reference file (timebase, trigger delay,
-  /// sample rate). Null when the file has no export comment header; "Use
-  /// Current as Reference" fills it from the settings at copy time.
-  WaveformCsvMetadata? _refMetadata;
-
-  /// Signature of the reference timing warning the user dismissed. A warning
-  /// with different content (or a newly loaded reference) is shown again.
-  String? _dismissedReferenceTimingWarning;
-
-  /// Vertical settings of the loaded reference, restored from the selected
-  /// channel's `# CHn V/div` / `# CHn Offset` CSV comments. Null when the file
-  /// did not carry them.
-  double? _refVdivVolts;
-  double? _refOffsetVolts;
-
   DeviceParams? _deviceParams;
   bool _waveformAcquired = false;
-
-  // Reference waveform
-  WaveformData? _refWaveform;
-  bool _refVisible = false;
-  String? _refFileName;
-  String? _refChannelOrigin; // 'ch1' … 'ch4'
-
-  /// Manual alignment of the reference against the live trace. Kept next to
-  /// [_refWaveform] instead of being added to its points, so it can be reset
-  /// and read out, and so dragging never rewrites the loaded data.
-  ReferenceOffset _refOffset = const ReferenceOffset();
-
-  /// Whether "Move Reference" is armed: while it is, a drag in the plot moves
-  /// the reference instead of a cursor.
-  bool _refMoving = false;
-  bool _draggingRef = false;
-
-  /// Offset and pointer position at the start of the current drag. Each
-  /// update recomputes the offset from these rather than accumulating pointer
-  /// deltas, so snapping and clamping cannot make the trace drift away from
-  /// the pointer.
-  ReferenceOffset _refDragAnchor = const ReferenceOffset();
-  Offset _refDragOriginPx = Offset.zero;
 
   /// The reference may be moved by at most half of the visible graticule —
   /// seven divisions horizontally, four vertically — so it can never be
@@ -640,6 +588,18 @@ class _OsciHomePageState extends State<OsciHomePage>
         _ => _ch4Enabled,
       },
       channelCount: () => _numChannels,
+    );
+    _referenceController = ReferenceWaveformController(
+      liveWaveformForChannel: (channel) => switch (channel) {
+        'ch1' => _waveformCh1,
+        'ch2' => _waveformCh2,
+        'ch3' => _waveformCh3,
+        'ch4' => _waveformCh4,
+        _ => null,
+      },
+      deviceParams: () => _deviceParams,
+      acquiredMeasurements: _acquiredMeasurements,
+      triggerSourceChannel: () => _triggerSourceChannel,
     );
     _voiceInputService = VoiceInputService();
     _aiChatVoice = VoiceInputBinding(
