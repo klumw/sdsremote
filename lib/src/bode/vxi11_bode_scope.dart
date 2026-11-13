@@ -51,6 +51,15 @@ class Vxi11BodeScope implements BodeScope {
   double? _vinVdiv;
   double? _voutVdiv;
 
+  /// Last measured DC level of the input channel at the scope input.
+  ///
+  /// Used to keep predictive V/div changes inside the vertical position
+  /// range when the generator carries a DC offset.
+  double? _lastVinMean;
+
+  /// Last measured DC level of the output channel at the scope input.
+  double? _lastVoutMean;
+
   /// Whether the next input-scale preparation keeps the scale ASET chose.
   ///
   /// ASET has just fitted both channels to the current signal. Re-applying a
@@ -81,6 +90,8 @@ class Vxi11BodeScope implements BodeScope {
     _vinChannel = vinChannel;
     _voutChannel = voutChannel;
     _measurePhase = measurePhase;
+    _lastVinMean = null;
+    _lastVoutMean = null;
 
     _originalTriggerMode = _modeFromResponse(await _query('TRMD?'));
     _changedTriggerMode =
@@ -232,6 +243,8 @@ class Vxi11BodeScope implements BodeScope {
     final vout = parsePavaAcRms(voutRaw, voutChannel);
     final vinMean = parsePavaMean(vinMeanRaw, vinChannel);
     final voutMean = parsePavaMean(voutMeanRaw, voutChannel);
+    _lastVinMean = vinMean;
+    _lastVoutMean = voutMean;
     final vinVpp = vinVppRaw == null
         ? null
         : parsePavaValue(vinVppRaw, vinChannel, 'PKPK');
@@ -494,7 +507,8 @@ class Vxi11BodeScope implements BodeScope {
   /// the SDS1104X-E freezes the input channel on SCPI V/div writes at large
   /// scales (MAX and MIN collapse to a constant rail, PKPK reads 0 and the
   /// trace disappears), while turning the vertical knob always leaves the
-  /// channel usable.
+  /// channel usable. The scale is clamped so an already measured DC offset
+  /// stays within the vertical position range.
   Future<void> _prepareVinVdiv(double scopeVpp) async {
     if (lockInputScale) return;
     if (_instrument == null || scopeVpp <= 0) return;
@@ -514,7 +528,9 @@ class Vxi11BodeScope implements BodeScope {
     final divisions = scopeVpp / current;
     if (divisions >= 1.0 && divisions <= 7.0) return;
 
-    final target = _niceVdiv(scopeVpp / 3.0).clamp(0.0005, 10.0).toDouble();
+    var target = _niceVdiv(scopeVpp / 3.0).clamp(0.0005, 10.0).toDouble();
+    final minimum = minimumVdivForOffset(_lastVinMean ?? 0);
+    if (target < minimum) target = minimum;
     if ((target - current).abs() / current < 0.2) return;
     await _changeVinVdiv(target);
   }
@@ -527,7 +543,8 @@ class Vxi11BodeScope implements BodeScope {
   /// (about five divisions). Scaling before the reading keeps the output
   /// channel between one and five divisions instead of relying on the
   /// post-reading range check, which cannot distinguish a clipped reading
-  /// from a correct one.
+  /// from a correct one. The scale is clamped so a DC offset measured at the
+  /// previous point stays within the vertical position range.
   Future<void> _prepareVoutVdiv(double scopeVpp) async {
     if (_instrument == null || scopeVpp <= 0) return;
     var current = _voutVdiv;
@@ -540,7 +557,9 @@ class Vxi11BodeScope implements BodeScope {
     final divisions = scopeVpp / current;
     if (divisions >= 1.0 && divisions <= 5.0) return;
 
-    final target = _niceVdiv(scopeVpp / 3.0).clamp(0.0005, 10.0).toDouble();
+    var target = _niceVdiv(scopeVpp / 3.0).clamp(0.0005, 10.0).toDouble();
+    final minimum = minimumVdivForOffset(_lastVoutMean ?? 0);
+    if (target < minimum) target = minimum;
     if ((target - current).abs() / current < 0.2) return;
     try {
       await _write('C$_voutChannel:VDIV ${target}V');
@@ -599,12 +618,56 @@ class Vxi11BodeScope implements BodeScope {
     var current = _vinVdiv ?? await _queryDouble('C$_vinChannel:VDIV?');
     if (current == null || current <= 0) current = 1.0;
     final target = vdiv.clamp(0.0005, 10.0).toDouble();
-    final path = _vdDivPath(current, target);
+    var path = _vdDivPath(current, target);
     if (path.isEmpty) {
       _vinVdiv = current;
       return;
     }
 
+    await _applyVinVdivPath(path);
+    // Only check the channel when the current signal is visible at the new
+    // scale; a signal below its resolution legitimately reads 0 and must not
+    // trigger an unnecessary ASET (which would pick a very fine scale).
+    final canVerify =
+        verifyVpp == null || (target > 0 && verifyVpp / target >= 0.5);
+    var vpp = canVerify ? await _queryDouble('C$_vinChannel:PAVA? PKPK') : null;
+    if (vpp != null && vpp <= 0) {
+      AppLogger(agentName: 'Bode', toolName: 'range').warning(
+        'Input channel did not survive the initial V/div write; using ASET',
+      );
+      await autoSet();
+      // ASET fits the scale to the first amplitude, which is too fine for
+      // the rest of an amplitude sweep. Retry the scale path once: the
+      // channel freeze is usually a one-time event.
+      final recovered = _vinVdiv ?? await _queryDouble('C$_vinChannel:VDIV?');
+      if (recovered != null && recovered > 0) {
+        path = _vdDivPath(recovered, target);
+        if (path.isNotEmpty) {
+          await _applyVinVdivPath(path);
+          vpp = canVerify
+              ? await _queryDouble('C$_vinChannel:PAVA? PKPK')
+              : null;
+          if (vpp != null && vpp <= 0) {
+            AppLogger(
+              agentName: 'Bode',
+              toolName: 'range',
+            ).warning('Input scale retry failed; keeping the ASET scale');
+          }
+        }
+      }
+    }
+    _vinVdiv = await _queryDouble('C$_vinChannel:VDIV?') ?? target;
+    AppLogger(agentName: 'Bode', toolName: 'range').log(
+      'Input scale locked at ${_vinVdiv?.toStringAsFixed(4)} V/div '
+      '(target ${target.toStringAsFixed(4)})',
+    );
+  }
+
+  /// Steps the input V/div through [path] with the generator drive paused.
+  ///
+  /// A SCPI V/div write during an active drive can freeze the input channel
+  /// on the SDS1104X-E (see [pauseSignal]).
+  Future<void> _applyVinVdivPath(List<double> path) async {
     final pause = pauseSignal;
     try {
       if (pause != null) {
@@ -622,25 +685,6 @@ class Vxi11BodeScope implements BodeScope {
         await Future<void>.delayed(const Duration(milliseconds: 1200));
       }
     }
-    // Only check the channel when the current signal is visible at the new
-    // scale; a signal below its resolution legitimately reads 0 and must not
-    // trigger an unnecessary ASET (which would pick a very fine scale).
-    final canVerify =
-        verifyVpp == null || (target > 0 && verifyVpp / target >= 0.5);
-    final vpp = canVerify
-        ? await _queryDouble('C$_vinChannel:PAVA? PKPK')
-        : null;
-    if (vpp != null && vpp <= 0) {
-      AppLogger(agentName: 'Bode', toolName: 'range').warning(
-        'Input channel did not survive the initial V/div write; using ASET',
-      );
-      await autoSet();
-    }
-    _vinVdiv = await _queryDouble('C$_vinChannel:VDIV?') ?? target;
-    AppLogger(agentName: 'Bode', toolName: 'range').log(
-      'Input scale locked at ${_vinVdiv?.toStringAsFixed(4)} V/div '
-      '(target ${target.toStringAsFixed(4)})',
-    );
   }
 
   /// 1-2-5 V/div values between [from] and [to], target included.

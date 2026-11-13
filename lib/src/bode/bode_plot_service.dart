@@ -312,7 +312,14 @@ class BodePlotService extends ChangeNotifier {
     // resolution are marked invalid instead of recording a distorted gain.
     final bodeScope = scope;
     final maxVpp = amplitudes.last;
-    final fixedVdiv = amplitudeSweepVdiv(maxVpp);
+    // The fixed input scale must also leave room for the generator's DC
+    // offset. A scale chosen from the AC amplitude alone can be too fine for
+    // the vertical position control, which would push the input trace
+    // off-screen for the whole sweep.
+    final fixedVdiv = math.max(
+      amplitudeSweepVdiv(maxVpp),
+      minimumVdivForOffset(config.offsetV),
+    );
     _fixedInputVdiv = fixedVdiv;
     if (bodeScope is Vxi11BodeScope) {
       await bodeScope.lockInputScaleFor(fixedVdiv, verifyVpp: amplitudes.first);
