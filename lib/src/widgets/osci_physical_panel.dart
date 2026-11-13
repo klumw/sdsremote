@@ -342,6 +342,7 @@ class PhysicalControlPanel extends StatelessWidget {
                                                       )
                                                     : null,
                                                 showCounter: false,
+                                                invertArrows: true,
                                                 onTap: onKnobTapped != null
                                                     ? () => onKnobTapped!(
                                                         KnobId.horizontalTime,
@@ -725,6 +726,7 @@ class PhysicalControlPanel extends StatelessWidget {
     ValueChanged<double>? onChanged,
     bool showCounter = true,
     VoidCallback? onTap,
+    bool invertArrows = false,
   }) {
     final bool isDisabled = _inputLocked || !enabled;
     return KnobWithDisplay(
@@ -733,6 +735,7 @@ class PhysicalControlPanel extends StatelessWidget {
       onChanged: isDisabled ? null : onChanged,
       showCounter: showCounter,
       onTap: isDisabled ? null : onTap,
+      invertArrowDirection: invertArrows,
     );
   }
 
@@ -849,6 +852,7 @@ class PhysicalControlPanel extends StatelessWidget {
               70,
               enabled: true,
               showCounter: false,
+              invertArrows: true,
               onChanged: onKnobChanged != null
                   ? (v) => onKnobChanged!(
                       ch == 'CH1' ? KnobId.ch1Voltage : KnobId.ch2Voltage,
@@ -983,6 +987,7 @@ class PhysicalControlPanel extends StatelessWidget {
         _buildKnob(
           70,
           showCounter: false,
+          invertArrows: true,
           onChanged: onKnobChanged != null
               ? (v) => onKnobChanged!(_voltageKnobFor(_activeChannel), v)
               : null,

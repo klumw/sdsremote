@@ -14,6 +14,10 @@ class KnobWithDisplay extends StatefulWidget {
   final bool showCounter;
   final VoidCallback? onTap;
 
+  /// Swaps the arrow-button steps. Scale knobs on the oscilloscope count a
+  /// positive front-panel step as a decrease, so their arrows are inverted.
+  final bool invertArrowDirection;
+
   const KnobWithDisplay({
     super.key,
     required this.size,
@@ -22,6 +26,7 @@ class KnobWithDisplay extends StatefulWidget {
     this.onChanged,
     this.showCounter = true,
     this.onTap,
+    this.invertArrowDirection = false,
   });
 
   @override
@@ -50,22 +55,91 @@ class _KnobWithDisplayState extends State<KnobWithDisplay> {
   Widget build(BuildContext context) {
     return Material(
       color: Colors.transparent,
-      child: Stack(
-        children: [
-          // Content (visual only)
-          AbsorbPointer(
-            absorbing: !widget.enabled,
-            child: Opacity(
-              opacity: widget.enabled ? 1.0 : 0.5,
-              child: Column(
+      child: AbsorbPointer(
+        absorbing: !widget.enabled,
+        child: Opacity(
+          opacity: widget.enabled ? 1.0 : 0.5,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  RotaryKnob(
-                    value: _currentValue,
-                    size: widget.size,
-                    knobColor: const Color(0xFF475569),
-                    trackColor: const Color(0xFF1E293B),
-                    indicatorColor: Colors.blueAccent,
+                  // The knob itself with the pan/tap gesture layer.
+                  SizedBox(
+                    width: widget.size,
+                    height: widget.size,
+                    child: Stack(
+                      children: [
+                        // Content (visual only)
+                        RotaryKnob(
+                          value: _currentValue,
+                          size: widget.size,
+                          knobColor: const Color(0xFF475569),
+                          trackColor: const Color(0xFF1E293B),
+                          indicatorColor: Colors.blueAccent,
+                        ),
+                        // Gesture handling layer (Listener for pan, InkWell
+                        // for tap). It only covers the knob so the arrow
+                        // buttons next to it stay tappable.
+                        Positioned.fill(
+                          child: Material(
+                            color: Colors.transparent,
+                            child: Listener(
+                              behavior: HitTestBehavior.translucent,
+                              onPointerDown: (details) {
+                                if (!widget.enabled) return;
+                                _lastAngle = _getAngle(details.localPosition);
+                                _isPanning = true;
+                              },
+                              onPointerMove: (details) {
+                                if (!_isPanning) return;
+                                if (!widget.enabled) return;
+
+                                double currentAngle = _getAngle(
+                                  details.localPosition,
+                                );
+                                double delta = currentAngle - _lastAngle;
+
+                                // Correct for wrap around
+                                if (delta > pi) delta -= 2 * pi;
+                                if (delta < -pi) delta += 2 * pi;
+
+                                // Sensivity adjustment: Increased by 40%
+                                double newValue =
+                                    _currentValue + (delta / (2 * pi)) * 1.4;
+                                setState(() {
+                                  _currentValue = newValue;
+                                });
+                                widget.onChanged?.call(newValue);
+
+                                _lastAngle = currentAngle;
+                              },
+                              onPointerUp: (_) {
+                                _isPanning = false;
+                              },
+                              onPointerCancel: (_) {
+                                _isPanning = false;
+                              },
+                              child: InkWell(
+                                onTap: widget.onTap,
+                                borderRadius: BorderRadius.circular(
+                                  widget.size / 2,
+                                ),
+                                splashColor: Colors.blueAccent.withValues(
+                                  alpha: 0.3,
+                                ),
+                                highlightColor: Colors.blueAccent.withValues(
+                                  alpha: 0.1,
+                                ),
+                                child: Container(),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                   if (widget.showCounter) const SizedBox(height: 6),
                   if (widget.showCounter)
@@ -104,58 +178,71 @@ class _KnobWithDisplayState extends State<KnobWithDisplay> {
                     ),
                 ],
               ),
-            ),
-          ),
-          // Gesture handling layer (Listener for pan, InkWell for tap)
-          Positioned.fill(
-            child: Material(
-              color: Colors.transparent,
-              child: Listener(
-                behavior: HitTestBehavior.translucent,
-                onPointerDown: (details) {
-                  if (!widget.enabled) return;
-                  _lastAngle = _getAngle(details.localPosition);
-                  _isPanning = true;
-                },
-                onPointerMove: (details) {
-                  if (!_isPanning) return;
-                  if (!widget.enabled) return;
-
-                  double currentAngle = _getAngle(details.localPosition);
-                  double delta = currentAngle - _lastAngle;
-
-                  // Correct for wrap around
-                  if (delta > pi) delta -= 2 * pi;
-                  if (delta < -pi) delta += 2 * pi;
-
-                  // Sensivity adjustment: Increased by 40%
-                  double newValue = _currentValue + (delta / (2 * pi)) * 1.4;
-                  setState(() {
-                    _currentValue = newValue;
-                  });
-                  widget.onChanged?.call(newValue);
-
-                  _lastAngle = currentAngle;
-                },
-                onPointerUp: (_) {
-                  _isPanning = false;
-                },
-                onPointerCancel: (_) {
-                  _isPanning = false;
-                },
-                child: InkWell(
-                  onTap: widget.onTap,
-                  borderRadius: BorderRadius.circular(widget.size / 2),
-                  splashColor: Colors.blueAccent.withValues(alpha: 0.3),
-                  highlightColor: Colors.blueAccent.withValues(alpha: 0.1),
-                  child: Container(),
+              const SizedBox(width: 2),
+              // Alternative step input next to the knob.
+              Padding(
+                padding: EdgeInsets.only(top: _arrowTopPadding),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    _buildArrowButton(
+                      Icons.keyboard_arrow_up,
+                      widget.invertArrowDirection ? -1 : 1,
+                    ),
+                    const SizedBox(height: 2),
+                    _buildArrowButton(
+                      Icons.keyboard_arrow_down,
+                      widget.invertArrowDirection ? 1 : -1,
+                    ),
+                  ],
                 ),
               ),
-            ),
+            ],
           ),
-        ],
+        ),
       ),
     );
+  }
+
+  static const double _arrowButtonSize = 18;
+  static const double _arrowColumnHeight = _arrowButtonSize * 2 + 2;
+
+  /// Centers the arrow column on the knob, not on the counter below it.
+  double get _arrowTopPadding {
+    final padding = (widget.size - _arrowColumnHeight) / 2;
+    return padding > 0 ? padding : 0;
+  }
+
+  /// Arrow button that advances the knob by one step in [direction].
+  Widget _buildArrowButton(IconData icon, double direction) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: widget.enabled ? () => _step(direction) : null,
+        borderRadius: BorderRadius.circular(4),
+        child: Container(
+          width: _arrowButtonSize,
+          height: _arrowButtonSize,
+          decoration: BoxDecoration(
+            color: const Color(0xFF1B2631),
+            borderRadius: BorderRadius.circular(4),
+            border: Border.all(color: const Color(0xFF475569)),
+          ),
+          child: Icon(icon, size: 15, color: Colors.blueAccent),
+        ),
+      ),
+    );
+  }
+
+  /// Advances the knob value by one arrow step and reports it.
+  ///
+  /// Consumers only use the direction of the reported value, so a small
+  /// normalized step maps to exactly one front-panel command.
+  void _step(double direction) {
+    const step = 0.01;
+    final newValue = _currentValue + direction * step;
+    setState(() => _currentValue = newValue);
+    widget.onChanged?.call(newValue);
   }
 }
 
