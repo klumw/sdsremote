@@ -3,6 +3,15 @@ part of 'home_page.dart';
 // Stage A extraction from home_page.dart. Do not add imports here.
 
 extension _HomeChildWindows on _OsciHomePageState {
+  bool get _bodeIsRunning => _bodeSessionController.isRunning;
+  set _bodeIsRunning(bool value) => _bodeSessionController.isRunning = value;
+
+  BodePlotService? get _bodeService => _bodeSessionController.service;
+
+  List<BodePoint>? get _savedBodePoints => _bodeSessionController.savedPoints;
+  BodeConfig? get _savedBodeConfig => _bodeSessionController.savedConfig;
+  BodeStatus? get _savedBodeStatus => _bodeSessionController.savedStatus;
+
   void _configureSigGenDetection() {
     final device = _signalGenerator;
     final supported = device == 'jds6600' || device == 'fy6900';
@@ -151,15 +160,7 @@ extension _HomeChildWindows on _OsciHomePageState {
     }
   }
 
-  void _stopBodeIfRunning() {
-    if (_bodeIsRunning) {
-      unawaited(_bodeService?.stop());
-      _bodeIsRunning = false;
-    }
-    _sigGenDetector?.setPaused(false);
-    if (!_sigGenDetected) _sigGenDetector?.start();
-    _sigGenService?.setPanelActive(_sigGenWindowCoordinator.isOpen);
-  }
+  void _stopBodeIfRunning() => _bodeSessionController.stop();
 
   Widget _buildBodePlotWindow() {
     final service = _sigGenService;
@@ -178,22 +179,11 @@ extension _HomeChildWindows on _OsciHomePageState {
       generatorDetected: _sigGenDetected,
       plotKey: _bodePlotKey,
       onClose: () => _togglePanel(ActivePanel.bode),
-      onRunningChanged: (running) {
-        _bodeIsRunning = running;
-        _sigGenDetector?.setPaused(running);
-        _sigGenService?.setPanelActive(
-          _sigGenWindowCoordinator.isOpen && !running,
-        );
-        if (mounted) _setState(() {});
-      },
+      onRunningChanged: _bodeSessionController.setRunning,
       onServiceCreated: (bodeService) {
-        _bodeService = bodeService;
+        _bodeSessionController.service = bodeService;
       },
-      onSaveState: (points, config, status) {
-        _savedBodePoints = points;
-        _savedBodeConfig = config;
-        _savedBodeStatus = status;
-      },
+      onSaveState: _bodeSessionController.saveState,
       savedPoints: _savedBodePoints,
       savedConfig: _savedBodeConfig,
       savedStatus: _savedBodeStatus,

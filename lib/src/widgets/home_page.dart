@@ -104,6 +104,7 @@ import '../calculator/calculator_window_protocol.dart';
 import '../bode/bode_csv_writer.dart';
 import '../bode/bode_models.dart';
 import '../bode/bode_plot_service.dart';
+import '../bode/bode_session_controller.dart';
 import '../bode/bode_report.dart';
 import '../bode/vxi11_bode_scope.dart';
 import '../signal_generator/fy6900_driver.dart';
@@ -204,11 +205,9 @@ class _OsciHomePageState extends State<OsciHomePage>
   SignalGeneratorDetector? _sigGenDetector;
   bool _sigGenDetected = false;
   String? _sigGenPort;
-  bool _bodeIsRunning = false;
-  BodePlotService? _bodeService;
-  List<BodePoint>? _savedBodePoints;
-  BodeConfig? _savedBodeConfig;
-  BodeStatus? _savedBodeStatus;
+
+  /// Owns the Bode sweep session state and saved plot data.
+  late final BodeSessionController _bodeSessionController;
 
   // Signal generator selection (Settings → Signal Generator).
   String _signalGenerator = 'none';
@@ -637,6 +636,15 @@ class _OsciHomePageState extends State<OsciHomePage>
       audioFrequencySeries: _audioFrequencySeriesForAi,
       digitalMeasurement: _digitalMeasurementForAi,
       digitalFrequencySeries: _digitalFrequencySeriesForAi,
+    );
+    _bodeSessionController = BodeSessionController(
+      readSignalGenerator: () => _sigGenService,
+      readDetector: () => _sigGenDetector,
+      isGeneratorDetected: () => _sigGenDetected,
+      isPanelOpen: () => _sigGenWindowCoordinator.isOpen,
+      onChanged: () {
+        if (mounted) _setState(() {});
+      },
     );
     _voiceInputService = VoiceInputService();
     _aiChatVoice = VoiceInputBinding(
