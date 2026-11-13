@@ -33,7 +33,7 @@ import '../instrument/scpi_parser.dart';
 import '../instrument/live_screen_controller.dart';
 import '../spectrum/spectrum_controller.dart';
 import '../spectrum/spectrum_models.dart';
-import '../waveform/waveform_acquisition.dart';
+import '../waveform/acquisition_orchestrator.dart';
 import '../waveform/waveform_acquisition_controller.dart';
 import '../waveform/waveform_converter.dart';
 import '../waveform/waveform_processing.dart';
@@ -242,6 +242,9 @@ class _OsciHomePageState extends State<OsciHomePage>
   // Acquisition
   /// Owns the acquisition state, derived measurements, and history.
   late final WaveformAcquisitionController _acquisitionController;
+
+  /// Drives the screen-dump and waveform acquisition flows.
+  late final AcquisitionOrchestrator _acquisitionOrchestrator;
   SdsNotification? _latestNews;
   bool _hasUnreadUpdate = false;
 
@@ -657,6 +660,50 @@ class _OsciHomePageState extends State<OsciHomePage>
       onChanged: () {
         if (mounted) _setState(() {});
       },
+    );
+    _acquisitionOrchestrator = AcquisitionOrchestrator(
+      acquisition: _acquisitionController,
+      spectrum: _spectrumController,
+      reference: _referenceController,
+      getInstrument: _getInstrument,
+      closeInstrument: _closeInstrument,
+      host: () => _ipAddress,
+      channelCount: () => _numChannels,
+      isChannelEnabled: (channel) => switch (channel) {
+        1 => _ch1Enabled,
+        2 => _ch2Enabled,
+        3 => _ch3Enabled,
+        _ => _ch4Enabled,
+      },
+      isTimelapseRunning: () => _timelapseRunning,
+      isDataLoggerPanelActive: () => _activePanel == ActivePanel.dataLogger,
+      isMounted: () => mounted,
+      resetPanels: () {
+        _activePanel = ActivePanel.none;
+        _previousPanel = ActivePanel.none;
+      },
+      stopDataLogger: _stopDataLoggerIfRunning,
+      stopBode: _stopBodeIfRunning,
+      stopAutoCapture: _stopAutoCapture,
+      stopLive: () {
+        _restoreLiveOnPanelReturn = false;
+        _stopVncLive(fetchScreen: false, restoreAutoCapture: false);
+        _clearVncAvailability();
+      },
+      refreshLive: _refreshVncAndRestoreLive,
+      setOnline: (online) => _isOnline = online,
+      setDeviceParams: (params) => _deviceParams = params,
+      setWaveformAcquired: (acquired) => _waveformAcquired = acquired,
+      setTriggerSourceChannel: (channel) => _triggerSourceChannel = channel,
+      isSpectrumView: () =>
+          _effectiveWaveformViewMode == _WaveformViewMode.spectrum,
+      hasEnoughSpectrumData: () => _spectrumController.hasEnoughData,
+      resetViewMode: () => _waveformViewMode = _WaveformViewMode.time,
+      resetZoom: () => _zoomState = const ZoomState(),
+      recordWaveformHistory: _recordWaveformHistory,
+      recomputeReferenceAnalysis: _recomputeReferenceAnalysis,
+      showError: _showErrorSnackBar,
+      notify: () => _setState(() {}),
     );
     _voiceInputService = VoiceInputService();
     _aiChatVoice = VoiceInputBinding(

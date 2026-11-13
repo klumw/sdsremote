@@ -58,21 +58,16 @@ extension _HomeReference on _OsciHomePageState {
   set _diffVisible(bool value) => _referenceController.diffVisible = value;
 
   WaveformData? get _diffTrace => _referenceController.diffTrace;
-  set _diffTrace(WaveformData? value) => _referenceController.diffTrace = value;
 
   ComparisonMetrics? get _comparison => _referenceController.comparison;
-  set _comparison(ComparisonMetrics? value) =>
-      _referenceController.comparison = value;
 
   MaskSettings get _maskSettings => _referenceController.maskSettings;
   set _maskSettings(MaskSettings value) =>
       _referenceController.maskSettings = value;
 
   MaskBand? get _maskBand => _referenceController.maskBand;
-  set _maskBand(MaskBand? value) => _referenceController.maskBand = value;
 
   MaskResult? get _maskResult => _referenceController.maskResult;
-  set _maskResult(MaskResult? value) => _referenceController.maskResult = value;
 
   double _referenceVpp() => _referenceController.referenceVpp;
 
