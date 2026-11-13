@@ -3,9 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:isolate';
 
-import 'dart:ui'
-    as ui
-    show Image, ImageByteFormat, PixelFormat, decodeImageFromPixels;
+import 'dart:ui' as ui show Image, ImageByteFormat;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
@@ -33,7 +31,7 @@ import 'package:window_manager/window_manager.dart';
 import '../instrument/dart_vxi11.dart';
 import '../instrument/screen_report.dart';
 import '../instrument/scpi_parser.dart';
-import '../instrument/vnc_screen_service.dart';
+import '../instrument/live_screen_controller.dart';
 import '../spectrum/spectrum_analysis.dart';
 import '../spectrum/spectrum_models.dart';
 import '../spectrum/windows.dart';
@@ -266,29 +264,8 @@ class _OsciHomePageState extends State<OsciHomePage>
 
   // Live screen (VNC) — four-channel instruments connected over IP only.
   //
-  // [_vncReachable] mirrors whether the instrument's VNC server answered the
-  // last probe; the Live toggle is only offered while it does. When a live
-  // session fails, [_vncCrashed] keeps the toggle visible but disabled until
-  // a later probe succeeds again.
-  bool _vncReachable = false;
-  bool _vncCrashed = false;
-  bool _vncLive = false;
-  bool _vncProbing = false;
-  bool _autoCaptureBeforeLive = false;
-  DateTime _lastVncProbe = DateTime.fromMillisecondsSinceEpoch(0);
-  VncScreenService? _vncService;
-  ui.Image? _liveScreenImage;
-
-  /// Time the current [_liveScreenImage] frame was received.
-  DateTime? _liveScreenCapturedAt;
-
-  /// Incremented whenever a live session starts or ends, so a frame that is
-  /// still being decoded cannot be applied to a newer session.
-  int _vncSessionId = 0;
-
-  /// Remembers that the live screen was active when the Control Panel was
-  /// left, so it can be switched on again when the panel is shown again.
-  bool _restoreLiveOnPanelReturn = false;
+  /// Owns the live session, its availability probe, and the last frame.
+  late final LiveScreenController _liveScreenController;
   WaveformData? _waveformCh1;
   WaveformData? _waveformCh2;
   WaveformData? _waveformCh3;
@@ -518,10 +495,6 @@ class _OsciHomePageState extends State<OsciHomePage>
   Completer<void>? _timelapseStop;
   ScaffoldFeatureController<SnackBar, SnackBarClosedReason>? _timelapseSnackBar;
 
-  /// Minimum delay between two VNC reachability probes. The probe runs on the
-  /// 5 s ping tick and only while the Control Panel is visible.
-  static const Duration _vncProbeInterval = Duration(seconds: 10);
-
   /// Width of the Waveform AI panel; twice the 300 px Device Parameters panel.
   static const double _waveformAiPanelWidth = 600;
 
@@ -660,6 +633,31 @@ class _OsciHomePageState extends State<OsciHomePage>
         if (mounted) _setState(() {});
       },
     );
+    _liveScreenController = LiveScreenController(
+      readHost: () => _ipAddress,
+      couldUseVnc: () => !_isUsb && _isOnline && _numChannels >= 4,
+      isControlPanelVisible: () =>
+          _activePanel == ActivePanel.none &&
+          !_waveformAcquired &&
+          _screenDump != null,
+      isOnline: () => _isOnline,
+      isAcquiring: () => _isAcquiring,
+      isAcquiringWaveform: () => _isAcquiringWaveform,
+      isProcessingEvent: () => _isProcessingEvent,
+      isAutoCaptureEnabled: () => _autoCaptureEnabled,
+      stopAutoCapture: _stopAutoCapture,
+      setAutoCaptureEnabled: _setAutoCaptureEnabled,
+      clearRefreshTimer: () {
+        _refreshTimer?.cancel();
+        _refreshPending = false;
+      },
+      acquireScreenDump: ({bool keepPanels = false}) =>
+          _acquireScreenDump(keepPanels: keepPanels),
+      showInfo: _showInfoSnackBar,
+      onChanged: () {
+        if (mounted) _setState(() {});
+      },
+    );
     _voiceInputService = VoiceInputService();
     _aiChatVoice = VoiceInputBinding(
       ownerId: 'ai_chat',
@@ -722,12 +720,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     _pingTimer?.cancel();
     _refreshTimer?.cancel();
     _autoCaptureTimer?.cancel();
-    _vncLive = false;
-    _vncSessionId++;
-    _vncService?.stop();
-    _vncService = null;
-    _liveScreenImage?.dispose();
-    _liveScreenImage = null;
+    _liveScreenController.dispose();
     _closeInstrument();
     _sigGenDetector?.dispose();
     _sigGenDetector = null;
