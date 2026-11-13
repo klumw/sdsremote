@@ -409,64 +409,17 @@ extension _HomeSaveExport on _OsciHomePageState {
     final chartKey = _effectiveWaveformViewMode == _WaveformViewMode.spectrum
         ? _spectrumKey
         : _waveformKey;
-    final boundary =
-        chartKey.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-    if (boundary == null) throw Exception('Waveform not rendered yet');
-
-    final uiImage = await boundary.toImage(pixelRatio: 2.0);
-    final byteData = await uiImage.toByteData(
-      format: ui.ImageByteFormat.rawRgba,
-    );
-    if (byteData == null) {
-      throw Exception('Failed to capture waveform image');
-    }
-    final image = img.Image.fromBytes(
-      width: uiImage.width,
-      height: uiImage.height,
-      bytes: byteData.buffer,
-      numChannels: 4,
-    );
-
-    SpectrumResult? spectrum;
-    try {
-      spectrum = await _spectrumForReport();
-    } catch (e) {
-      AppLogger().warning('Spectrum computation for the report failed: $e');
-    }
-
-    final pdfBytes = await WaveformReport.generatePdf(
-      chartImageBytes: img.encodePng(image),
+    return _reportExportController.writeWaveformReportPdf(
+      chartKey: chartKey,
       params: params,
       measurements: _acquiredMeasurements(),
+      readSpectrum: _spectrumForReport,
       comparison: _comparison,
       maskResult: _maskSettings.enabled ? _maskResult : null,
-      spectrum: spectrum,
       agentAnalysis: agentAnalysis,
       reportName: reportName,
       deviceName: _deviceName ?? _ipAddress,
     );
-
-    final reportDir = await AppPaths.getOrCreateWaveformReportsDir();
-    final reportFile = await AppPaths.getUniqueFilePath(
-      reportDir,
-      _reportBaseName(reportName),
-      'pdf',
-    );
-    await reportFile.writeAsBytes(pdfBytes);
-    return (fileName: reportFile.uri.pathSegments.last, path: reportFile.path);
-  }
-
-  /// Returns a safe file-name prefix for the waveform report.
-  static String _reportBaseName(String? reportName) {
-    final trimmed = reportName?.trim() ?? '';
-    if (trimmed.isEmpty) return 'waveform_report';
-    final safe = trimmed
-        .replaceAll(RegExp(r'[\\/:*?"<>|]'), '_')
-        .replaceAll(RegExp(r'\s+'), '_')
-        .replaceAll(RegExp(r'_+'), '_')
-        .replaceAll(RegExp(r'^_+|_+$'), '');
-    if (safe.isEmpty) return 'waveform_report';
-    return safe.length > 80 ? safe.substring(0, 80) : safe;
   }
 
   /// Acquired waveform channels with their display points.
@@ -493,61 +446,15 @@ extension _HomeSaveExport on _OsciHomePageState {
 
   Future<void> _performWaveformExport(WaveformExportRequest request) async {
     try {
-      if (request.format == WaveformExportFormat.clipboard) {
-        await Clipboard.setData(
-          ClipboardData(text: buildClipboardText(_acquiredMeasurements())),
-        );
-        _showInfoSnackBar('Measurements copied to the clipboard.');
-        return;
-      }
-
-      final channels = _acquiredWaveformChannels();
-      final String extension;
-      Uint8List? bytes;
-      String? text;
-      switch (request.format) {
-        case WaveformExportFormat.ltspicePwl:
-          final points = channels[request.channel]?.points ?? const [];
-          text = buildLtspicePwl(points, wrap: request.wrapPwl);
-          extension = 'txt';
-          break;
-        case WaveformExportFormat.wav:
-          final points = channels[request.channel]?.points ?? const [];
-          bytes = buildWav(points, sampleRate: _waveformPointRate(points));
-          extension = 'wav';
-          break;
-        case WaveformExportFormat.vcd:
-          text = buildVcd({
-            for (final entry in channels.entries) entry.key: entry.value.points,
-          }, thresholdVolts: request.thresholdVolts);
-          extension = 'vcd';
-          break;
-        case WaveformExportFormat.clipboard:
-          throw StateError('clipboard export is handled above');
-      }
-
-      final dir = await AppPaths.getOrCreateWaveformExportsDir();
-      final base = request.fileName.trim().isEmpty
-          ? 'waveform_export'
-          : request.fileName.trim();
-      final file = await AppPaths.getUniqueFilePath(dir, base, extension);
-      if (bytes != null) {
-        await file.writeAsBytes(bytes);
-      } else {
-        await file.writeAsString(text ?? '');
-      }
-      if (mounted) _showInfoSnackBar('Saved ${file.uri.pathSegments.last}');
+      await _reportExportController.performWaveformExport(
+        request: request,
+        channels: _acquiredWaveformChannels(),
+        measurements: _acquiredMeasurements(),
+        defaultSampleRate: _deviceParams?.sampleRate ?? 1000,
+        showInfo: _showInfoSnackBar,
+      );
     } catch (e) {
       _showErrorSnackBar('Export failed: $e');
     }
-  }
-
-  /// Effective sample rate of the displayed points (1 / first interval).
-  double _waveformPointRate(List<(double, double)> points) {
-    if (points.length >= 2) {
-      final dt = points[1].$1 - points[0].$1;
-      if (dt.isFinite && dt > 0) return 1 / dt;
-    }
-    return _deviceParams?.sampleRate ?? 1000;
   }
 }

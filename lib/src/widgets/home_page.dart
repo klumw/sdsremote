@@ -48,8 +48,7 @@ import '../waveform/waveform_mask.dart';
 import '../waveform/waveform_measurements.dart';
 import '../waveform/waveform_history.dart';
 import '../waveform/waveform_painter.dart';
-import '../waveform/waveform_export.dart';
-import '../waveform/waveform_report.dart';
+import '../waveform/report_export_controller.dart';
 import '../waveform/waveform_view_transform.dart';
 import '../waveform/ripple_noise.dart';
 import '../waveform/clock_detection.dart';
@@ -271,6 +270,10 @@ class _OsciHomePageState extends State<OsciHomePage>
   late final SpectrumController _spectrumController;
 
   final GlobalKey _spectrumKey = GlobalKey();
+
+  /// Performs waveform report/export file operations.
+  final ReportExportController _reportExportController =
+      ReportExportController();
 
   /// Last four acquisitions for the Waveform AI's history and comparison.
   final WaveformHistoryStore _waveformHistory = WaveformHistoryStore();

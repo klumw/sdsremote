@@ -2,31 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../waveform/waveform_export.dart';
 
-/// User selection made in [WaveformExportDialog].
-class WaveformExportRequest {
-  final WaveformExportFormat format;
-
-  /// Selected channel for PWL/WAV; ignored for VCD (all channels) and
-  /// clipboard.
-  final String channel;
-
-  /// Digital threshold for VCD export.
-  final double thresholdVolts;
-
-  /// Whether the PWL pairs are wrapped in `PWL(...)`.
-  final bool wrapPwl;
-
-  /// Base file name without extension.
-  final String fileName;
-
-  const WaveformExportRequest({
-    required this.format,
-    required this.channel,
-    required this.thresholdVolts,
-    required this.wrapPwl,
-    required this.fileName,
-  });
-}
+export '../waveform/waveform_export.dart' show WaveformExportRequest;
 
 /// Dialog for exporting the current waveform in an external format.
 class WaveformExportDialog extends StatefulWidget {

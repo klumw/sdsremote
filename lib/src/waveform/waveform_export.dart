@@ -12,6 +12,32 @@ import 'waveform_measurements.dart';
 /// Supported waveform export targets.
 enum WaveformExportFormat { ltspicePwl, wav, vcd, clipboard }
 
+/// User selection made in the waveform export dialog.
+class WaveformExportRequest {
+  final WaveformExportFormat format;
+
+  /// Selected channel for PWL/WAV; ignored for VCD (all channels) and
+  /// clipboard.
+  final String channel;
+
+  /// Digital threshold for VCD export.
+  final double thresholdVolts;
+
+  /// Whether the PWL pairs are wrapped in `PWL(...)`.
+  final bool wrapPwl;
+
+  /// Base file name without extension.
+  final String fileName;
+
+  const WaveformExportRequest({
+    required this.format,
+    required this.channel,
+    required this.thresholdVolts,
+    required this.wrapPwl,
+    required this.fileName,
+  });
+}
+
 /// Builds an LTspice PWL source.
 ///
 /// Each line contains `time value`; with [wrap] the pairs are emitted as one
