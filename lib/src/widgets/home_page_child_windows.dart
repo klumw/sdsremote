@@ -7,7 +7,7 @@ extension _HomeChildWindows on _OsciHomePageState {
     final device = _signalGenerator;
     final supported = device == 'jds6600' || device == 'fy6900';
     if (!supported) {
-      _disposeSigGenWindowSupport(closeWindow: true);
+      _sigGenWindowCoordinator.disposeSupport(closeWindow: true);
       _sigGenDetector?.dispose();
       _sigGenDetector = null;
       _sigGenDetected = false;
@@ -25,7 +25,7 @@ extension _HomeChildWindows on _OsciHomePageState {
 
     // Rebuild the service when the selected generator family changes.
     if (_sigGenService != null && _sigGenDeviceType != device) {
-      _disposeSigGenWindowSupport(closeWindow: true);
+      _sigGenWindowCoordinator.disposeSupport(closeWindow: true);
       _sigGenDetector?.dispose();
       _sigGenDetector = null;
       _sigGenDetected = false;
@@ -50,7 +50,7 @@ extension _HomeChildWindows on _OsciHomePageState {
       _sigGenService = service;
       _sigGenDeviceType = device;
     }
-    _ensureSigGenWindowSupport();
+    _sigGenWindowCoordinator.ensureSupport();
     if (_sigGenDetector == null) {
       _sigGenDetector = SignalGeneratorDetector(
         service: _sigGenService!,
@@ -90,8 +90,8 @@ extension _HomeChildWindows on _OsciHomePageState {
     // the generator has been unplugged (detector reports it as no longer
     // present), even though canOpen() is false.
     if (!_sigGenDetected) return false;
-    _ensureSigGenWindowSupport();
-    unawaited(_sigGenWindowLauncher?.openOrFocus());
+    _sigGenWindowCoordinator.ensureSupport();
+    unawaited(_sigGenWindowCoordinator.openOrFocus());
     return true;
   }
 
@@ -151,86 +151,6 @@ extension _HomeChildWindows on _OsciHomePageState {
     }
   }
 
-  /// Creates the window bridge lazily for the current generator service.
-  void _ensureSigGenWindowSupport() {
-    final service = _sigGenService;
-    if (service == null) return;
-
-    _sigGenWindowHost ??= SigGenWindowHost(
-      service: service,
-      sink: _SigGenWindowSink(_pushSigGenWindowState),
-      canMutate: () => !_bodeIsRunning && !_isMacroPlaying,
-    );
-
-    _sigGenWindowServer ??= SigGenWindowServer(
-      handler: (method, arguments) async {
-        final host = _sigGenWindowHost;
-        if (host == null) {
-          return SigGenCommandResult.failure(
-            const SigGenWindowState(),
-            'Signal generator is not configured',
-            errorType: 'disconnected',
-          );
-        }
-        return host.handleCommand(method, arguments);
-      },
-    );
-    unawaited(
-      _sigGenWindowServer!.register().catchError((Object error) {
-        AppLogger(
-          agentName: 'SigGen',
-          toolName: 'window',
-        ).error('Signal generator bridge registration failed: $error');
-      }),
-    );
-
-    _sigGenWindowLauncher ??= SigGenWindowLauncher(
-      backend: const WindowControllerBackend(),
-      canOpen: () =>
-          (_signalGenerator == 'jds6600' || _signalGenerator == 'fy6900') &&
-          _sigGenDetected &&
-          !_isMacroPlaying,
-      onOpenChanged: _onSigGenWindowOpenChanged,
-    );
-  }
-
-  /// Tears down the bridge when the generator configuration changes.
-  void _disposeSigGenWindowSupport({bool closeWindow = false}) {
-    final launcher = _sigGenWindowLauncher;
-    _sigGenWindowLauncher = null;
-    if (launcher != null) {
-      if (closeWindow) unawaited(launcher.close());
-      launcher.dispose();
-    }
-    _sigGenWindowHost?.deactivate();
-    _sigGenWindowHost?.dispose();
-    _sigGenWindowHost = null;
-    _sigGenWindowOpen = false;
-    _sigGenService?.setPanelActive(false);
-  }
-
-  void _onSigGenWindowOpenChanged(bool open) {
-    _sigGenWindowOpen = open;
-    _sigGenService?.setPanelActive(open && !_bodeIsRunning);
-    final host = _sigGenWindowHost;
-    if (open) {
-      host?.activate();
-    } else {
-      host?.deactivate();
-    }
-    if (mounted) _setState(() {});
-  }
-
-  Future<void> _pushSigGenWindowState(SigGenWindowState state) async {
-    final launcher = _sigGenWindowLauncher;
-    if (launcher == null || !_sigGenWindowOpen) return;
-    try {
-      await launcher.pushState(state);
-    } catch (_) {
-      // The child window may have closed between the list and the push.
-    }
-  }
-
   void _stopBodeIfRunning() {
     if (_bodeIsRunning) {
       unawaited(_bodeService?.stop());
@@ -238,7 +158,7 @@ extension _HomeChildWindows on _OsciHomePageState {
     }
     _sigGenDetector?.setPaused(false);
     if (!_sigGenDetected) _sigGenDetector?.start();
-    _sigGenService?.setPanelActive(_sigGenWindowOpen);
+    _sigGenService?.setPanelActive(_sigGenWindowCoordinator.isOpen);
   }
 
   Widget _buildBodePlotWindow() {
@@ -261,7 +181,9 @@ extension _HomeChildWindows on _OsciHomePageState {
       onRunningChanged: (running) {
         _bodeIsRunning = running;
         _sigGenDetector?.setPaused(running);
-        _sigGenService?.setPanelActive(_sigGenWindowOpen && !running);
+        _sigGenService?.setPanelActive(
+          _sigGenWindowCoordinator.isOpen && !running,
+        );
         if (mounted) _setState(() {});
       },
       onServiceCreated: (bodeService) {
@@ -277,14 +199,4 @@ extension _HomeChildWindows on _OsciHomePageState {
       savedStatus: _savedBodeStatus,
     );
   }
-}
-
-/// Adapter that lets [SigGenWindowHost] push snapshots into the launcher.
-class _SigGenWindowSink implements SigGenWindowEventSink {
-  _SigGenWindowSink(this._push);
-
-  final Future<void> Function(SigGenWindowState) _push;
-
-  @override
-  Future<void> pushState(SigGenWindowState state) => _push(state);
 }

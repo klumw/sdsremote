@@ -114,10 +114,8 @@ import '../signal_generator/models.dart';
 import '../signal_generator/signal_generator_detector.dart';
 import '../signal_generator/signal_generator_service.dart';
 import '../signal_generator/signal_generator_shortcut.dart';
-import '../signal_generator/siggen_window_host.dart';
+import '../signal_generator/siggen_window_coordinator.dart';
 import '../signal_generator/siggen_window_launcher.dart';
-import '../signal_generator/siggen_window_protocol.dart';
-import '../signal_generator/siggen_window_server.dart';
 import 'bode_plot_panel.dart';
 import '../app/app_paths.dart';
 import '../macro/macro_recorder_models.dart';
@@ -228,12 +226,11 @@ class _OsciHomePageState extends State<OsciHomePage>
   String? _sigGenDeviceType;
 
   // Signal generator OS window (configurable, default Ctrl+J).
-  SigGenWindowHost? _sigGenWindowHost;
-  SigGenWindowServer? _sigGenWindowServer;
-  SigGenWindowLauncher? _sigGenWindowLauncher;
   SignalGeneratorShortcut _signalGeneratorShortcut =
       SignalGeneratorShortcut.defaultShortcut;
-  bool _sigGenWindowOpen = false;
+
+  /// Owns the signal generator's OS child window and command bridge.
+  late final SigGenWindowCoordinator _sigGenWindowCoordinator;
 
   // Engineering calculator OS window (configurable, default Ctrl+R).
   CalculatorWindowLauncher? _calculatorWindowLauncher;
@@ -651,6 +648,18 @@ class _OsciHomePageState extends State<OsciHomePage>
       isMacroPlaying: () => _isMacroPlaying,
     );
     _macroDebugController.addListener(_onMacroDebugChanged);
+    _sigGenWindowCoordinator = SigGenWindowCoordinator(
+      readService: () => _sigGenService,
+      canMutate: () => !_bodeIsRunning && !_isMacroPlaying,
+      canOpen: () =>
+          (_signalGenerator == 'jds6600' || _signalGenerator == 'fy6900') &&
+          _sigGenDetected &&
+          !_isMacroPlaying,
+      isBodeRunning: () => _bodeIsRunning,
+      onOpenChanged: (open) {
+        if (mounted) _setState(() {});
+      },
+    );
     _voiceInputService = VoiceInputService();
     _aiChatVoice = VoiceInputBinding(
       ownerId: 'ai_chat',
@@ -706,12 +715,10 @@ class _OsciHomePageState extends State<OsciHomePage>
     // session.
     _macroDebugController.removeListener(_onMacroDebugChanged);
     _macroDebugController.dispose();
-    _disposeSigGenWindowSupport();
+    _sigGenWindowCoordinator.disposeSupport();
     _calculatorWindowLauncher?.dispose();
     _calculatorWindowLauncher = null;
-    final server = _sigGenWindowServer;
-    _sigGenWindowServer = null;
-    if (server != null) unawaited(server.dispose());
+    _sigGenWindowCoordinator.disposeServer();
     _pingTimer?.cancel();
     _refreshTimer?.cancel();
     _autoCaptureTimer?.cancel();
@@ -755,11 +762,7 @@ class _OsciHomePageState extends State<OsciHomePage>
   void onWindowClose() async {
     // Close the signal-generator child window first; otherwise its engine can
     // keep the process alive after the main window is gone.
-    try {
-      await _sigGenWindowLauncher?.close().timeout(const Duration(seconds: 2));
-    } catch (_) {
-      // Continue with the normal shutdown even if the child is unresponsive.
-    }
+    await _sigGenWindowCoordinator.closeWindow();
 
     // If a macro has unsaved changes, prompt the user before closing.
     if (mounted && _isMacroModified) {

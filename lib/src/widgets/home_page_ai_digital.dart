@@ -235,7 +235,7 @@ extension _HomeAiDigital on _OsciHomePageState {
       );
     } finally {
       _sigGenDetector?.setPaused(false);
-      generator.setPanelActive(_sigGenWindowOpen);
+      generator.setPanelActive(_sigGenWindowCoordinator.isOpen);
       if (mounted) _setState(() {});
     }
   }

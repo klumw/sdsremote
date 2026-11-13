@@ -236,7 +236,7 @@ extension _HomeAiAudio on _OsciHomePageState {
       cancelToken?.removeListener(stopSweep);
       _bodeIsRunning = false;
       _sigGenDetector?.setPaused(false);
-      generator.setPanelActive(_sigGenWindowOpen);
+      generator.setPanelActive(_sigGenWindowCoordinator.isOpen);
       // Restore the pre-sweep CH1 parameters here so the agent does not need
       // an extra generator tool call after the sweep. Outputs stay off for
       // safety (the sweep config above uses turnOffOutputsAfterSweep).
@@ -339,7 +339,7 @@ extension _HomeAiAudio on _OsciHomePageState {
       );
     } finally {
       _sigGenDetector?.setPaused(false);
-      generator.setPanelActive(_sigGenWindowOpen);
+      generator.setPanelActive(_sigGenWindowCoordinator.isOpen);
       if (mounted) _setState(() {});
     }
   }
