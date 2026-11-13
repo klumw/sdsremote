@@ -32,9 +32,8 @@ import '../instrument/dart_vxi11.dart';
 import '../instrument/screen_report.dart';
 import '../instrument/scpi_parser.dart';
 import '../instrument/live_screen_controller.dart';
-import '../spectrum/spectrum_analysis.dart';
+import '../spectrum/spectrum_controller.dart';
 import '../spectrum/spectrum_models.dart';
-import '../spectrum/windows.dart';
 import '../waveform/waveform_acquisition.dart';
 import '../waveform/waveform_converter.dart';
 import '../waveform/waveform_processing.dart';
@@ -275,22 +274,12 @@ class _OsciHomePageState extends State<OsciHomePage>
   /// and the PDF report. Invalidated by a new acquisition.
   WaveformRawData? _lastRawData;
 
-  /// Spectrum settings (window, FFT size, unit, peaks). Persisted in the
-  /// application preferences; the spectrum view edits them.
-  SpectrumSettings _spectrumSettings = const SpectrumSettings();
-
-  /// Cached spectrum of [_lastRawData]; invalidated on a new acquisition or
-  /// when the settings change.
-  SpectrumResult? _spectrumResult;
-
   /// Spectrum view state.
   _WaveformViewMode _waveformViewMode = _WaveformViewMode.time;
 
-  String _spectrumChannel = 'ch1';
-  bool _spectrumShowAll = true;
-  bool _spectrumLogFrequency = false;
-  bool _spectrumLoading = false;
-  int _spectrumGeneration = 0;
+  /// Owns the spectrum settings, result, and view state.
+  late final SpectrumController _spectrumController;
+
   final GlobalKey _spectrumKey = GlobalKey();
 
   /// Last four acquisitions for the Waveform AI's history and comparison.
@@ -658,6 +647,21 @@ class _OsciHomePageState extends State<OsciHomePage>
         if (mounted) _setState(() {});
       },
     );
+    _spectrumController = SpectrumController(
+      readRawData: () => _lastRawData,
+      readMeasurements: _acquiredMeasurements,
+      isChannelEnabled: (channel) => switch (channel) {
+        1 => _ch1Enabled,
+        2 => _ch2Enabled,
+        3 => _ch3Enabled,
+        _ => _ch4Enabled,
+      },
+      channelCount: () => _numChannels,
+      onShowError: _showErrorSnackBar,
+      onChanged: () {
+        if (mounted) _setState(() {});
+      },
+    );
     _voiceInputService = VoiceInputService();
     _aiChatVoice = VoiceInputBinding(
       ownerId: 'ai_chat',
@@ -721,6 +725,7 @@ class _OsciHomePageState extends State<OsciHomePage>
     _refreshTimer?.cancel();
     _autoCaptureTimer?.cancel();
     _liveScreenController.dispose();
+    _spectrumController.dispose();
     _closeInstrument();
     _sigGenDetector?.dispose();
     _sigGenDetector = null;

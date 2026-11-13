@@ -115,7 +115,7 @@ extension _HomeAcquisition on _OsciHomePageState {
       _measurementsCh3 = null;
       _measurementsCh4 = null;
       _lastRawData = null;
-      _spectrumResult = null;
+      _spectrumController.clearResultSilently();
       _diffTrace = null;
       _comparison = null;
       _maskBand = null;
@@ -175,11 +175,9 @@ extension _HomeAcquisition on _OsciHomePageState {
         _isOnline = true;
         _waveformAcquired = true;
         _lastRawData = raw;
-        _spectrumResult = null;
-        _spectrumLoading = false;
         // Invalidate an in-flight spectrum computation from the previous
         // acquisition so it cannot publish stale FFT values.
-        _spectrumGeneration++;
+        _spectrumController.invalidateSilently();
         if (_effectiveWaveformViewMode == _WaveformViewMode.spectrum &&
             !_hasEnoughSpectrumData) {
           _waveformViewMode = _WaveformViewMode.time;

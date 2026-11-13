@@ -108,54 +108,7 @@ extension _HomeInitConfig on _OsciHomePageState {
       _sigGenPort = sigGenPort;
       _screenSettings = screenSettings;
     });
-    await _loadSpectrumSettings();
-  }
-
-  /// Loads the persisted spectrum settings.
-  Future<void> _loadSpectrumSettings() async {
-    const defaults = SpectrumSettings();
-    final windowName = await AppPreferences.getString('spectrum_window');
-    final unitName = await AppPreferences.getString('spectrum_unit');
-    final window = windowName == null
-        ? defaults.window
-        : SpectrumWindow.values.firstWhere(
-            (value) => value.name == windowName,
-            orElse: () => defaults.window,
-          );
-    final unit = unitName == null
-        ? defaults.unit
-        : SpectrumUnit.values.firstWhere(
-            (value) => value.name == unitName,
-            orElse: () => defaults.unit,
-          );
-
-    final settings = SpectrumSettings(
-      window: window,
-      fftSize:
-          await AppPreferences.getInt('spectrum_fft_size') ?? defaults.fftSize,
-      maxFftSize:
-          await AppPreferences.getInt('spectrum_max_fft_size') ??
-          defaults.maxFftSize,
-      unit: unit,
-      removeDc:
-          await AppPreferences.getBool('spectrum_remove_dc') ??
-          defaults.removeDc,
-      peakCount:
-          await AppPreferences.getInt('spectrum_peak_count') ??
-          defaults.peakCount,
-      harmonicCount:
-          await AppPreferences.getInt('spectrum_harmonic_count') ??
-          defaults.harmonicCount,
-      leadingSamplesToSkip:
-          await AppPreferences.getInt('spectrum_skip_samples') ??
-          defaults.leadingSamplesToSkip,
-    );
-
-    if (!mounted) return;
-    _setState(() {
-      _spectrumSettings = settings;
-      _spectrumResult = null;
-    });
+    await _spectrumController.loadSettings();
   }
 
   Future<void> _saveConfig() async {
