@@ -1228,9 +1228,9 @@ The waveform display supports cursor measurements, zoom and pan controls, [refer
 ### 8.1 Acquiring Waveforms
 
 1. Ensure the oscilloscope is connected and online.
-2. Enable the channels you want to capture using the channel toggles in the [Control Panel](#9-control-panel) or the [Device Parameters](#83-device-parameters-panel) sidebar (see [8.2 Channel Selection](#82-channel-selection)).
+2. Enable the channels you want to capture using the channel toggles in the [Control Panel](#9-control-panel) or the [Wave Tools](#83-wave-tools-panel) sidebar (see [8.2 Channel Selection](#82-channel-selection)).
 3. Click the **Waveform** button in the top toolbar. A progress indicator is shown during acquisition.
-4. After acquisition completes, the waveform chart is displayed in the main area with the **Device Parameters** panel on the right side.
+4. After acquisition completes, the waveform chart is displayed in the main area with the **Wave Tools** panel on the right side.
 
 > **Note:** At least one channel must be enabled for acquisition to succeed. The oscilloscope must have a valid trigger; otherwise the acquisition may time out.
 
@@ -1250,7 +1250,7 @@ Channel visibility can be toggled in two places:
 
 * **Control Panel** — The CH1 and CH2 buttons in the virtual front panel toggle each channel on or off.  
   On four-channel instruments, CH3 and CH4 buttons appear below CH1 and CH2; the single scale (V <-> mV) and Position knobs then act on the selected channel.
-* **Device Parameters Panel** — The channel status indicators in the sidebar (CH1, CH2 and, on four-channel instruments, CH3 and CH4) also select which channels are acquired.
+* **Wave Tools Panel** — The channel status indicators in the sidebar (CH1, CH2 and, on four-channel instruments, CH3 and CH4) also select which channels are acquired.
 
 Channel colors in the waveform display:
 
@@ -1264,17 +1264,9 @@ Channel colors in the waveform display:
 
 Each active channel also shows a colored triangle in a vertical column directly to the left of the chart, outside the graticule. The triangle is aligned with the channel's vertical offset level; the channel number is inside the triangle, and the offset value with unit is shown beside it. For each active channel, the chart draws a white dashed horizontal line through that channel's 0 V level. A yellow dashed horizontal line marks the original 0 V point without channel offset, and a yellow triangle outside the right edge marks that point.
 
-### 8.3 Device Parameters Panel
+### 8.3 Wave Tools Panel
 
-When a waveform is displayed, a sidebar panel appears on the right side showing the current oscilloscope parameters:
-
-**Global Parameters**
-
-| Parameter | Description |
-|:----------|:------------|
-| Timebase | Horizontal scale in seconds per division |
-| Trigger Delay | Trigger position offset |
-| Sample Rate | Current sampling rate in samples per second |
+When a waveform is displayed, a sidebar panel appears on the right side with the waveform tools.
 
 **Per-Channel Parameters**
 
@@ -1285,7 +1277,7 @@ The per-channel vertical settings (V/div and offset) are shown on each channel c
 * **Cursors X** — Toggle switch to show/hide vertical (time) cursor lines.
 * **Cursors Y** — Toggle switch to show/hide horizontal (voltage) cursor lines.
 * **Zoom** — Slider to zoom the waveform display; see [8.5 Zoom and Pan](#85-zoom-and-pan).
-* **Load Reference** — Opens a file picker to load a previously saved waveform CSV as a reference overlay.
+* **Reference** — **Load Reference**, **Use Current as Reference**, **Reset Offset** and **Difference**; see [8.6 Reference Waveforms](#86-reference-waveforms) and [8.8 Measurements, Difference and Mask](#88-measurements-difference-and-mask).
 
 ### 8.4 Cursor Measurements
 
@@ -1294,7 +1286,7 @@ The cursor system provides precise time and voltage measurements directly on the
 #### X Cursors (Time)
 
 * Displayed as two vertical dashed **cyan** lines.
-* Toggled via the **Cursors X** switch in the Device Parameters panel.
+* Toggled via the **Cursors X** switch in the Wave Tools panel.
 * Measurements shown in the draggable info panel:
   * Cursor 1 time
   * Cursor 2 time
@@ -1304,7 +1296,7 @@ The cursor system provides precise time and voltage measurements directly on the
 #### Y Cursors (Voltage)
 
 * Displayed as two horizontal dashed **orange** lines.
-* Toggled via the **Cursors Y** switch in the Device Parameters panel.
+* Toggled via the **Cursors Y** switch in the Wave Tools panel.
 * Measurements shown in the draggable info panel:
   * Cursor 1 voltage
   * Cursor 2 voltage
@@ -1322,7 +1314,7 @@ The zoom and pan controls allow detailed inspection of specific waveform regions
 
 #### Zoom
 
-Use the **Zoom** slider in the Device Parameters panel (range: 1.0× to 4.0×, in 0.25× steps).  
+Use the **Zoom** slider in the Wave Tools panel (range: 1.0× to 4.0×, in 0.25× steps).  
 When zoom is greater than 1.0×, horizontal and vertical pan sliders appear at the bottom and right edges of the waveform display.
 
 #### Pan
@@ -1338,14 +1330,14 @@ Previously saved waveform data can be loaded as a reference overlay for comparis
 
 #### Loading a Reference
 
-1. Click the **Load Reference** button in the Device Parameters panel.
+1. Click the **Load Reference** button in the Wave Tools panel.
 2. Select a CSV file from the `waveform/csv/` directory.
 3. If the CSV contains more than one channel (CH1–CH4), choose which channel to load.
 4. The reference waveform is displayed as a white dashed line over the live waveform.
 
 #### Managing References
 
-* The reference waveform toggle (**REF**) appears in the channel status area of the Device Parameters panel.
+* The reference waveform toggle (**REF**) appears in the channel status area of the Wave Tools panel.
 * Click the **REF** indicator to show or hide the reference waveform.
 * The reference time axis is automatically aligned to the live waveform for accurate comparison.
 * **Use Current as Reference** copies the displayed waveform of an enabled channel into the reference without saving a CSV first. If more than one channel has data, a dialog asks which one to use.
@@ -1361,7 +1353,7 @@ The PDF is saved to the `waveform/reports/` subdirectory and contains:
 
 * Title, optional report name (from the filename prefix dialog), date/time and device name.
 * An image of the waveform chart as it is currently displayed.
-* The automatic measurements and device parameters described in [8.8 Measurements, Difference and Mask](#88-measurements-difference-and-mask) and [8.3 Device Parameters Panel](#83-device-parameters-panel).
+* The automatic measurements described in [8.8 Measurements, Difference and Mask](#88-measurements-difference-and-mask) and the device parameters (timebase, trigger delay, sample rate) included in the report.
 * The reference comparison and mask-test result when available.
 * Spectrum analysis for each acquired channel; see [8.9 Spectrum Analysis](#89-spectrum-analysis).
 
@@ -1481,7 +1473,7 @@ The wave icon in the **Measurements** header opens the **Ripple & Noise** dialog
 
 A loaded or captured reference can be compared against the live waveform:
 
-* Enable **Difference** in the Reference section of the Device Parameters panel.
+* Enable **Difference** in the Reference section of the Wave Tools panel.
 * The orange trace shows `live − reference`; the loaded reference is shifted by the current manual alignment offset first.
 * The panel shows RMS error, maximum deviation, mean error and coverage (the share of live points covered by the reference). Points outside the reference range are not compared and lower the coverage.
 
@@ -1599,7 +1591,7 @@ The clock icon in the bottom bar of the Control Panel, next to the automatic scr
 
 ### 8.12 AI Assistant (experimental) ⚠️
 
-The **AI Agent** button in the header of the **Device Parameters** panel opens the Waveform AI assistant.&#10;The trash button in the panel header clears the session, **always clear the session** before you start a new conversation.
+The **AI Agent** button in the header of the **Wave Tools** panel opens the Waveform AI assistant.&#10;The trash button in the panel header clears the session, **always clear the session** before you start a new conversation.
 
 #### Questions About the Acquisition
 

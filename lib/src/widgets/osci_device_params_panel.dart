@@ -111,7 +111,6 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
     final refLabel = widget.refLabel;
     final refVisible = widget.refVisible;
     final onRefToggled = widget.onRefToggled;
-    final params = widget.params;
     final cursorsXEnabled = widget.cursorsXEnabled;
     final cursorsYEnabled = widget.cursorsYEnabled;
     final onCursorXToggled = widget.onCursorXToggled;
@@ -140,7 +139,7 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
               children: [
                 const Expanded(
                   child: Text(
-                    "Device Parameters",
+                    "Wave Tools",
                     style: TextStyle(
                       color: Colors.white,
                       fontSize: 18,
@@ -231,10 +230,6 @@ class _DeviceParametersPanelState extends State<DeviceParametersPanel> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  _paramRow("Timebase", _fmtSi(params.timebase, "s/div")),
-                  _paramRow("Trig. Delay", _fmtSi(params.trdl, "s")),
-                  _paramRow("Sample Rate", _fmtSi(params.sampleRate, "Sa/s")),
                   const SizedBox(height: 16),
                   const Divider(color: Color(0xFF475569), height: 24),
                   const Text(
