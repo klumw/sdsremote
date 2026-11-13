@@ -1,7 +1,7 @@
 /// Narrow oscilloscope interface used by the Bode sweep.
 ///
 /// The implementation owns all SCPI details; the service only sees measured
-/// RMS voltages and an optional phase.
+/// AC RMS voltages and an optional phase.
 library;
 
 import 'bode_models.dart';
@@ -19,6 +19,7 @@ class BodeReading {
     this.error,
   });
 
+  /// AC RMS voltages (DC component removed), or null when unavailable.
   final double? vinRms;
   final double? voutRms;
 

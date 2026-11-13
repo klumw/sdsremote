@@ -129,6 +129,21 @@ double amplitudeSweepVdiv(double maxVpp) {
   return 10.0;
 }
 
+/// Smallest vertical scale that can still display an [offsetVolts] DC level.
+///
+/// The SDS1000X-E vertical position control covers ±2 V at scales up to
+/// 100 mV/div, ±20 V up to 1 V/div and ±200 V up to 10 V/div. Auto-ranging a
+/// channel with a DC offset below that limit would move the trace off-screen,
+/// so V/div changes are clamped to this value.
+double minimumVdivForOffset(double offsetVolts) {
+  if (!offsetVolts.isFinite) return 10.0;
+  final offset = offsetVolts.abs();
+  if (offset <= 2.0) return 0.0005;
+  if (offset <= 20.0) return 0.2;
+  if (offset <= 200.0) return 2.0;
+  return 10.0;
+}
+
 /// Removes an additive peak-to-peak noise floor from a measured Vpp value.
 ///
 /// Peak-detect measurements extend both signal peaks by the one-sided noise
@@ -399,6 +414,18 @@ double? parsePavaValue(String raw, int channel, String measurement) {
 /// Extracts the RMS value belonging to [channel] from a PAVA response.
 double? parsePavaRms(String raw, int channel) =>
     parsePavaValue(raw, channel, 'RMS');
+
+/// Extracts the AC RMS value belonging to [channel] from a PAVA response.
+///
+/// The scope's `RMS` parameter includes the DC offset; `STDEV` is the
+/// standard deviation of the signal and therefore its RMS with the DC
+/// component removed.
+double? parsePavaAcRms(String raw, int channel) =>
+    parsePavaValue(raw, channel, 'STDEV');
+
+/// Extracts the DC mean value belonging to [channel] from a PAVA response.
+double? parsePavaMean(String raw, int channel) =>
+    parsePavaValue(raw, channel, 'MEAN');
 
 /// Extracts the phase value from `C1-C2:MEAD? PHA` responses.
 ///

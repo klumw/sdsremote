@@ -403,6 +403,41 @@ void main() {
     expect(parsePavaRms('C1:PAVA RMS,1.234E-01V', 1), closeTo(0.1234, 1e-9));
   });
 
+  test('parses the AC RMS and DC mean PAVA responses', () {
+    expect(
+      parsePavaAcRms('C1:PAVA STDEV,3.536000E-01V', 1),
+      closeTo(0.3536, 1e-9),
+    );
+    expect(parsePavaAcRms('C1:PAVA RMS,1.234E-01V', 1), isNull);
+    expect(parsePavaMean('C2:PAVA MEAN,3.000000E+00V', 2), closeTo(3, 1e-9));
+  });
+
+  group('minimumVdivForOffset', () {
+    test('allows fine scales while the offset fits within 2 V', () {
+      expect(minimumVdivForOffset(0), 0.0005);
+      expect(minimumVdivForOffset(2), 0.0005);
+      expect(minimumVdivForOffset(-2), 0.0005);
+    });
+
+    test('requires at least 200 mV/div above 2 V', () {
+      expect(minimumVdivForOffset(2.1), 0.2);
+      expect(minimumVdivForOffset(-3), 0.2);
+      expect(minimumVdivForOffset(12), 0.2);
+      expect(minimumVdivForOffset(20), 0.2);
+    });
+
+    test('requires coarser scales for very large offsets', () {
+      expect(minimumVdivForOffset(20.1), 2.0);
+      expect(minimumVdivForOffset(200), 2.0);
+      expect(minimumVdivForOffset(200.1), 10.0);
+    });
+
+    test('falls back to the coarsest scale for non-finite values', () {
+      expect(minimumVdivForOffset(double.infinity), 10.0);
+      expect(minimumVdivForOffset(double.nan), 10.0);
+    });
+  });
+
   test('formats frequency labels', () {
     expect(formatFrequencyHz(100), '100 Hz');
     expect(formatFrequencyHz(1000), '1 kHz');

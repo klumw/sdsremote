@@ -34,6 +34,43 @@ void main() {
     });
   });
 
+  group('parsePavaAcRms', () {
+    test('parses the standard deviation of the requested channel', () {
+      expect(
+        parsePavaAcRms('C1:PAVA STDEV,3.424000E-01V', 1),
+        closeTo(0.3424, 1e-12),
+      );
+      expect(
+        parsePavaAcRms('C2:PAVA STDEV 6.210000E-03V', 2),
+        closeTo(0.00621, 1e-12),
+      );
+    });
+
+    test('does not accept the DC-inclusive RMS parameter', () {
+      expect(parsePavaAcRms('C1:PAVA RMS,3.424000E-01V', 1), isNull);
+    });
+
+    test('rejects the other channel and out-of-range values', () {
+      expect(parsePavaAcRms('C2:PAVA STDEV,3.424000E-01V', 1), isNull);
+      expect(parsePavaAcRms('C1:PAVA STDEV,****', 1), isNull);
+    });
+  });
+
+  group('parsePavaMean', () {
+    test('parses positive and negative DC values', () {
+      expect(parsePavaMean('C1:PAVA MEAN,3.000000E+00V', 1), closeTo(3, 1e-12));
+      expect(
+        parsePavaMean('C2:PAVA MEAN,-6.300000E-03V', 2),
+        closeTo(-0.0063, 1e-12),
+      );
+    });
+
+    test('rejects the other channel and out-of-range values', () {
+      expect(parsePavaMean('C2:PAVA MEAN,3.000000E+00V', 1), isNull);
+      expect(parsePavaMean('C1:PAVA MEAN,****', 1), isNull);
+    });
+  });
+
   group('parseMeadPhase', () {
     test('parses degrees and negative values', () {
       expect(

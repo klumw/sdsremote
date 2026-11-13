@@ -131,7 +131,7 @@ class Vxi11BodeScope implements BodeScope {
     if (measureVpp && expectedVoutVpp != null && expectedVoutVpp > 0) {
       await _prepareVoutVdiv(expectedVoutVpp / _attnVout);
     }
-    var reading = await _readOnce(
+    var result = await _readOnce(
       vinChannel: vinChannel,
       voutChannel: voutChannel,
       frequencyHz: frequencyHz,
@@ -146,6 +146,7 @@ class Vxi11BodeScope implements BodeScope {
     // point would be recorded at the wrong level.
     const maxRangeAdjustments = 4;
     for (var attempt = 0; attempt < maxRangeAdjustments; attempt++) {
+      final reading = result.reading;
       var adjusted = false;
       if (measureVpp) {
         // The V/div applies to the scope input, before the probe attenuation.
@@ -155,6 +156,7 @@ class Vxi11BodeScope implements BodeScope {
                 _vinChannel,
                 reading.vinVpp! / _attnVin,
                 _vinVdiv,
+                dcVolts: result.vinMean,
               ) ||
               adjusted;
         }
@@ -164,6 +166,7 @@ class Vxi11BodeScope implements BodeScope {
                 _voutChannel,
                 reading.voutVpp! / _attnVout,
                 _voutVdiv,
+                dcVolts: result.voutMean,
               ) ||
               adjusted;
         }
@@ -171,10 +174,10 @@ class Vxi11BodeScope implements BodeScope {
         final scopeVout = reading.voutRms == null
             ? null
             : reading.voutRms! / _attnVout;
-        adjusted = await _autoRangeVout(scopeVout);
+        adjusted = await _autoRangeVout(scopeVout, dcVolts: result.voutMean);
       }
       if (!adjusted) break;
-      reading = await _readOnce(
+      result = await _readOnce(
         vinChannel: vinChannel,
         voutChannel: voutChannel,
         frequencyHz: frequencyHz,
@@ -183,10 +186,10 @@ class Vxi11BodeScope implements BodeScope {
         expectedVinVpp: expectedVinVpp,
       );
     }
-    return reading;
+    return result.reading;
   }
 
-  Future<BodeReading> _readOnce({
+  Future<_ScopeReading> _readOnce({
     required int vinChannel,
     required int voutChannel,
     required double frequencyHz,
@@ -194,8 +197,15 @@ class Vxi11BodeScope implements BodeScope {
     bool measureVpp = false,
     double? expectedVinVpp,
   }) async {
-    final vinRaw = await _query('C$vinChannel:PAVA? RMS');
-    final voutRaw = await _query('C$voutChannel:PAVA? RMS');
+    // The Bode gain describes the AC transfer function. The scope's RMS
+    // includes the generator's DC offset, which would dominate the ratio and
+    // make the plot follow the DUT's DC transmission; STDEV is the AC RMS
+    // (standard deviation) with the DC component removed. MEAN feeds the
+    // vertical-range guard that keeps an offset trace on screen.
+    final vinRaw = await _query('C$vinChannel:PAVA? STDEV');
+    final voutRaw = await _query('C$voutChannel:PAVA? STDEV');
+    final vinMeanRaw = await _query('C$vinChannel:PAVA? MEAN');
+    final voutMeanRaw = await _query('C$voutChannel:PAVA? MEAN');
     final vinVppRaw = measureVpp
         ? await _query('C$vinChannel:PAVA? PKPK')
         : null;
@@ -210,14 +220,18 @@ class Vxi11BodeScope implements BodeScope {
         _isOutOfRange(voutRaw) ||
         (voutVppRaw != null && _isOutOfRange(voutVppRaw));
     if (vinOutOfRange || voutOutOfRange) {
-      return const BodeReading(
-        outOfRange: true,
-        error: 'Signal outside the oscilloscope measurement range',
+      return const _ScopeReading(
+        BodeReading(
+          outOfRange: true,
+          error: 'Signal outside the oscilloscope measurement range',
+        ),
       );
     }
 
-    final vin = parsePavaRms(vinRaw, vinChannel);
-    final vout = parsePavaRms(voutRaw, voutChannel);
+    final vin = parsePavaAcRms(vinRaw, vinChannel);
+    final vout = parsePavaAcRms(voutRaw, voutChannel);
+    final vinMean = parsePavaMean(vinMeanRaw, vinChannel);
+    final voutMean = parsePavaMean(voutMeanRaw, voutChannel);
     final vinVpp = vinVppRaw == null
         ? null
         : parsePavaValue(vinVppRaw, vinChannel, 'PKPK');
@@ -249,9 +263,11 @@ class Vxi11BodeScope implements BodeScope {
         '($vinVppRaw at VDIV ${_vinVdiv ?? '?'} V/div); '
         'auto-set required',
       );
-      return const BodeReading(
-        outOfRange: true,
-        error: 'Input channel lost after the oscilloscope scale change',
+      return const _ScopeReading(
+        BodeReading(
+          outOfRange: true,
+          error: 'Input channel lost after the oscilloscope scale change',
+        ),
       );
     }
 
@@ -327,7 +343,7 @@ class Vxi11BodeScope implements BodeScope {
     String? error;
     if (vin == null || vout == null) {
       error =
-          'Unexpected RMS response '
+          'Unexpected AC RMS response '
           '(Vin="$vinRaw", Vout="$voutRaw").';
     } else if (measureVpp && (vinVpp == null || voutVpp == null)) {
       error =
@@ -335,15 +351,19 @@ class Vxi11BodeScope implements BodeScope {
           '(Vin="$vinVppRaw", Vout="$voutVppRaw").';
     }
 
-    return BodeReading(
-      vinRms: scaledVin,
-      voutRms: scaledVout,
-      vinVpp: scaledVinVpp,
-      voutVpp: scaledVoutVpp,
-      phaseDeg: phaseDeg,
-      delaySeconds: delaySeconds,
-      phaseSource: phaseSource,
-      error: error,
+    return _ScopeReading(
+      BodeReading(
+        vinRms: scaledVin,
+        voutRms: scaledVout,
+        vinVpp: scaledVinVpp,
+        voutVpp: scaledVoutVpp,
+        phaseDeg: phaseDeg,
+        delaySeconds: delaySeconds,
+        phaseSource: phaseSource,
+        error: error,
+      ),
+      vinMean: vinMean,
+      voutMean: voutMean,
     );
   }
 
@@ -409,14 +429,16 @@ class Vxi11BodeScope implements BodeScope {
     }
   }
 
-  /// Discards the first RMS measurement after ASET.
+  /// Discards the first AC RMS and mean measurements after ASET.
   ///
   /// The scope can return a partial value for the first PAVA query while the
   /// auto-setup is still settling, which produces a bogus first gain point.
   Future<void> _primeMeasurements() async {
     try {
-      await _query('C$_vinChannel:PAVA? RMS');
-      await _query('C$_voutChannel:PAVA? RMS');
+      await _query('C$_vinChannel:PAVA? STDEV');
+      await _query('C$_voutChannel:PAVA? STDEV');
+      await _query('C$_vinChannel:PAVA? MEAN');
+      await _query('C$_voutChannel:PAVA? MEAN');
       if (_measurePhase && _meadConfigured) {
         // The first MEAD query after setup can return the previous/default
         // value (often ±180°); discard it before the first sweep point.
@@ -648,11 +670,16 @@ class Vxi11BodeScope implements BodeScope {
   /// Adjusts [channel] when the measured peak-to-peak value uses less than
   /// one division (noise/quantisation dominate) or more than seven divisions
   /// (near the eight-division screen edge).
+  ///
+  /// [dcVolts] is the channel's DC component at the scope input. The target
+  /// scale is clamped so the vertical position control can still reach it;
+  /// a finer scale would move an offset trace off-screen.
   Future<bool> _autoRangeVppChannel(
     int channel,
     double? scopeVpp,
-    double? current,
-  ) async {
+    double? current, {
+    double? dcVolts,
+  }) async {
     if (scopeVpp == null || scopeVpp <= 0 || _instrument == null) return false;
     if (current == null || current <= 0) return false;
     if (channel == _vinChannel && lockInputScale) return false;
@@ -660,7 +687,9 @@ class Vxi11BodeScope implements BodeScope {
     final divisions = scopeVpp / current;
     if (divisions >= 1.0 && divisions <= 7.0) return false;
 
-    final target = _niceVdiv(scopeVpp / 3.0).clamp(0.0005, 10.0).toDouble();
+    var target = _niceVdiv(scopeVpp / 3.0).clamp(0.0005, 10.0).toDouble();
+    final minimum = minimumVdivForOffset(dcVolts ?? 0);
+    if (target < minimum) target = minimum;
     if ((target - current).abs() / current < 0.2) return false;
 
     if (channel == _vinChannel) {
@@ -691,16 +720,17 @@ class Vxi11BodeScope implements BodeScope {
     }
   }
 
-  /// Adjusts the output channel's V/div from an RMS reading.
+  /// Adjusts the output channel's V/div from its AC RMS reading.
   ///
   /// At 200 mV/div the SDS1202X-E has a ~5.6 mV RMS noise floor; an RC
   /// low-pass output of 5.4 mV at 100 kHz is lost in it. At 20 mV/div the
-  /// floor drops below 1 mV.
-  Future<bool> _autoRangeVout(double? voutRms) async {
+  /// floor drops below 1 mV. [dcVolts] is the channel's DC level at the
+  /// scope input and limits how far the scale may shrink.
+  Future<bool> _autoRangeVout(double? voutRms, {double? dcVolts}) async {
     if (voutRms == null || voutRms <= 0) return false;
     // Sine crest factor; good enough for scale selection with other shapes.
     final vpp = voutRms * 2 * math.sqrt(2);
-    return _autoRangeVppChannel(_voutChannel, vpp, _voutVdiv);
+    return _autoRangeVppChannel(_voutChannel, vpp, _voutVdiv, dcVolts: dcVolts);
   }
 
   /// Measures the input channel's peak-to-peak noise floor at the locked
@@ -780,6 +810,18 @@ class Vxi11BodeScope implements BodeScope {
       return null;
     }
   }
+}
+
+/// One scope reading plus the DC levels used for vertical-range decisions.
+///
+/// The means are the scope-side voltages (before the probe attenuation),
+/// because the vertical position control operates on the scope input level.
+class _ScopeReading {
+  const _ScopeReading(this.reading, {this.vinMean, this.voutMean});
+
+  final BodeReading reading;
+  final double? vinMean;
+  final double? voutMean;
 }
 
 String? _modeFromResponse(String raw) {
