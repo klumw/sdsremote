@@ -121,12 +121,12 @@ extension _HomeConnection on _OsciHomePageState {
 
   /// Sets the window title to the fallback value when the device name
   /// cannot be determined (offline, connection error, etc.).
+  ///
+  /// Only the application name is shown. The configured network address and
+  /// the connection mode describe configuration, not connection state, and
+  /// the status bar already shows both.
   void _setFallbackWindowTitle() {
-    if (_isUsb) {
-      windowManager.setTitle('SDS-Remote — USB');
-    } else {
-      windowManager.setTitle('SDS-Remote — $_ipAddress');
-    }
+    windowManager.setTitle('SDS-Remote');
     // No instrument is reachable, so the AI must stop naming a specific model.
     // It answers knowledge and software questions either way.
     _sdsDeviceContext = _sdsDeviceContext?.withInstrumentModel(null);

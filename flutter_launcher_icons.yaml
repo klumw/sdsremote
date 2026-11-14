@@ -1,5 +1,11 @@
+# flutter_launcher_icons 0.14.x generates only a single-size Windows .ico,
+# which makes the app icon appear too small and blurry at larger display sizes.
+# The Windows icon is therefore maintained as a multi-resolution .ico
+# (16/24/32/48/64/128/256) generated from assets/icons/app_icon.png:
+#   magick assets/icons/app_icon.png \
+#     -define icon:auto-resize=256,128,64,48,32,24,16 \
+#     windows/runner/resources/app_icon.ico
 flutter_launcher_icons:
   windows:
-    generate: true
+    generate: false
     image_path: "assets/icons/app_icon.png"
-    icon_size: 48 # Größe des Windows-Icons (.ico)
