@@ -33,6 +33,17 @@ tests/
 .claude/**
 .dart_skills/
 .agent/
+
+# AI agent tooling files and directories
+CLAUDE.md
+AGENTS.md
+.cursor/
+.cursorrules
+.windsurf/
+.continue/
+.aider*
+.mcp.json
+.github/copilot-instructions.md
 .DS_Store
 .atom/
 .build/
