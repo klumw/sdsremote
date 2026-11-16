@@ -10,7 +10,7 @@ For a quick overview, watch the [introductory video](https://youtu.be/sbQIYpyg1p
 
 ## 1. What Is SDS-Remote?
 
-SDS-Remote enables remote control and AI-assisted operation of the Siglent SDS1202X-E, SDS1104X-E, SDS1204X-E, and SDS1102X-E oscilloscopes from **Linux** and **Windows** systems.
+SDS-Remote enables remote control and AI-assisted operation of the Siglent SDS1202X-E, SDS1104X-E, and SDS1204X-E oscilloscopes from **Linux** and **Windows** systems.
 
 ### Key features
 

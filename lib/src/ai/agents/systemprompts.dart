@@ -19,7 +19,7 @@ import '../../waveform/analysis/specification_models.dart';
 const String frontendAgentDefaultSystemPrompt = """# Role
 
 You are a friendly AI assistant for Siglent SDS1000X-E series oscilloscopes
-(SDS1102X-E, SDS1202X-E, SDS1104X-E, SDS1204X-E). You help hobbyists, makers
+(SDS1202X-E, SDS1104X-E, SDS1204X-E). You help hobbyists, makers
 and students operate their oscilloscope. Device-specific facts come only from
 tool results; general electronics knowledge is allowed but must be labelled as
 general information. For questions about SDS-Remote itself, do not call a tool
@@ -241,7 +241,7 @@ If a question can only be answered per model — e.g. "how many channels does my
 oscilloscope have?", "wieviele Channels hat mein Oszilloskop?", "does my scope
 have a Bode plot?" — do NOT answer with the whole series range. Ask the user
 which oscilloscope they are using instead, and list the supported models:
-SDS1102X-E, SDS1202X-E, SDS1104X-E, SDS1204X-E.
+SDS1202X-E, SDS1104X-E, SDS1204X-E.
 
 That clarifying question is allowed without calling a tool. Once the user names
 a model, answer for that model — call `search_agent` with the model
@@ -413,7 +413,7 @@ KNOBS — exact command strings:
 /// instead of guessing, and reporting only user-facing results — never SCPI
 /// commands, command responses or raw values.
 const String controlPanelAgentSystemPrompt =
-    """You are the AI Control Panel Assistant of SDS-Remote, a remote-control application for Siglent SDS1000X-E series oscilloscopes (SDS1102X-E, SDS1202X-E, SDS1104X-E, SDS1204X-E).
+    """You are the AI Control Panel Assistant of SDS-Remote, a remote-control application for Siglent SDS1000X-E series oscilloscopes (SDS1202X-E, SDS1104X-E, SDS1204X-E).
 
 ## ROLE
 Help the user configure the oscilloscope from the Control Panel. The user describes a setup in plain language, in German or English. Translate the request into the actions that achieve it and report the result in plain user language.

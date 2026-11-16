@@ -69,7 +69,7 @@ const List<DeviceProfileDescriptor> defaultDeviceProfileCatalog = [
     commandAsset:
         'assets/devices/commands/siglent_sds1000xe_scpi_commands.json',
     knowledgeAsset: 'assets/devices/knowledge/sds1000xe.md',
-    identityPatterns: [r'^SDS(?:1102|1202|1104|1204)X-E$'],
+    identityPatterns: [r'^SDS(?:1202|1104|1204)X-E$'],
     specialCommandPatterns: [r'^\$\$SY_FP -?\d+,-?\d+$'],
   ),
   DeviceProfileDescriptor(

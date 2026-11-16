@@ -11,7 +11,6 @@ validation_status: command_support_live_checked_on_sds1104x-e_fw_8.1.6.1.37r17
 
 The SDS1000X-E profile covers the Siglent SDS1000X-E series:
 
-- SDS1102X-E (2 channels)
 - SDS1202X-E (2 channels)
 - SDS1104X-E (4 channels)
 - SDS1204X-E (4 channels)

@@ -34,6 +34,12 @@ description: Development workflow for SDS-Remote (Flutter desktop app for Siglen
   → `build/linux/x64/release/bundle/`
 - Build Windows release: `flutter build windows`
   → `build/windows/x64/runner/Release/`
+- Build Debian package: `./tool/build_deb.sh`
+  → `dist/sdsremote_<version>_amd64.deb` plus `.deb.sha256` (verified).
+  The script wraps `flutter_to_debian` and repairs what the tool gets wrong:
+  control file (`Depends` from `debian/debian.yaml`, `Installed-Size`,
+  `Section`, `Homepage`), the `/usr/local/bin` launcher symlink and the
+  hicolor icon path. Use it instead of running `flutter_to_debian` directly.
 - Debug logging: append `-- --loglevel=DEBUG` to `flutter run`, or build/run
   with `--dart-define=loglevel=DEBUG`. The application log is written to
   `<system temp>/sds/logging/sds.log`.
